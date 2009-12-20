@@ -1,0 +1,87 @@
+############################################################################
+# ANDROID Related makefile for AGG library
+#
+############################################################################
+
+include ../android/Makefile.in.android
+
+# --- Tool specific options ------------------------------------------------
+INCLUDES+= -I../zlib 
+LIBDIRS+= 
+
+ARFLAGS="r"
+
+WARNFLAGS = -W -Wall -Wno-unused-parameter -Wno-extra
+
+ifeq ($(MODE),DEBUG)
+# Memory leak detection using mtrace:
+# Do not forget to set the trace file using the env. variable MALLOC_TRACE,
+# then use the mtrace tool to analyze the output.
+   MODECFLAGS=-g $(WARNFLAGS) -DROADMAP_DEBUG_HEAP -DNOIGNORE    
+   MODELDFLAGS=
+else
+ifeq ($(MODE),PROFILE)
+   MODECFLAGS=-g $(WARNFLAGS) -pg -fprofile-arcs -g
+   MODELDFLAGS=-pg
+else
+   MODECFLAGS=-O2 -ffast-math -fomit-frame-pointer -DNDEBUG=1 $(WARNFLAGS) $(OPTIONS)
+   MODELDFLAGS=
+endif
+endif
+	
+CFLAGS=$(MODECFLAGS) $(ANDRFLAGS) $(INCLUDES) -I$(PWD) $(LIBDIRS)
+CXXFLAGS=$(CFLAGS) 
+LDFLAGS=$(MODELDFLAGS)
+
+LIBS=libpng.a
+
+# --- Sources & targets --------------------------------------------
+#TODO ....
+SRCS= png.c \
+	  	pngerror.c \
+		pnggccrd.c \
+		pngget.c \
+		pngmem.c \
+		pngpread.c \
+		pngread.c \
+		pngrio.c \
+		pngrtran.c \
+		pngrutil.c \
+		pngset.c \
+		pngtrans.c \
+		pngvcrd.c \
+		pngwio.c \
+		pngwrite.c \
+		pngwtran.c \
+		pngwutil.c 
+	
+	 
+OBJS=$(SRCS:.c=.o)
+
+RUNTIME=$(LIBS)
+
+# --- Conventional targets ----------------------------------------
+
+all: everything
+
+runtime: $(RUNTIME) 
+
+strip:
+	strip -s $(RUNTIME)
+
+clean: cleanall
+		
+cleanone: cleanall
+	
+everything: runtime
+
+cleanall:
+	find . -name \*.o -exec rm {} \;
+rebuild: cleanall everything
+
+# --- The real targets --------------------------------------------
+
+libpng.a: $(OBJS)
+	  $(AR) $(ARFLAGS) libpng.a $(OBJS)
+	  $(RANLIB) libpng.a
+

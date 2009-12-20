@@ -1,0 +1,76 @@
+#!/bin/sh
+#
+# rdmgenshpmaps
+#
+# Utility to scan a directory for the Digital Charts of the World
+# shapefiles and process them through buildmap
+#
+# Usage:
+#
+# rdmgenshpmaps [maps=<map-directory-path>] [test] [dryrun] <files>...
+#
+
+maps=/usr/local/share/roadmap
+prov='*'
+
+if [ $# -eq 0 ] ; then
+  echo 'Usage: rdmgendcwmaps [maps=<map-directory-path>] [test] [dryrun] [<files> ...]'
+  exit 1
+fi
+
+verbose=''
+gendir=Y
+
+case $1 in
+  maps=*) maps=`expr $1 : 'maps=\(.*\)'`
+          shift
+          ;;
+esac
+
+case $1 in
+  test) verbose=-v
+        gendir=N
+        shift
+        ;;
+esac
+
+DRYRUN=N
+case $1 in
+  dryrun) DRYRUN=Y
+          shift
+          ;;
+esac
+
+if [ -e ./buildmap ] ; then
+  BUILDMAP=./buildmap
+else
+  BUILDMAP=buildmap
+fi
+
+for i in $*
+do
+  base=`basename $i`
+  FIPS=`expr substr $base 1 5`
+  echo $BUILDMAP -f DCW -m $maps $verbose $FIPS $i
+  if [ $DRYRUN != 'Y' ] ; then
+    $BUILDMAP -f DCW -m $maps $verbose $FIPS $i
+  fi
+done
+
+if [ $gendir = 'Y' ] ; then
+
+  echo "Generating usdir.rdm, please wait.."
+
+  if [ -e buildus ] ; then
+    echo ./buildus -s --maps=$maps
+    if [ $DRYRUN != 'Y' ] ; then
+      ./buildus -s --maps=$maps
+    fi
+  else
+    echo buildus -s --maps=$maps
+    if [ $DRYRUN != 'Y' ] ; then
+      buildus -s --maps=$maps
+    fi
+  fi 
+fi 
+

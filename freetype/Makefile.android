@@ -1,0 +1,114 @@
+############################################################################
+# ANDROID Related makefile for freetype library
+#
+#
+############################################################################
+
+include ../android/Makefile.in.android
+
+# --- Tool specific options ------------------------------------------------
+LIB_INCLUDES = -Isrc/base -Isrc/pcf -Isrc/psaux -Isrc/pshinter -Isrc/psnames \
+		 -Isrc/sfnt -Isrc/truetype -Isrc/type1 -Isrc/winfonts -Iinclude/freetype -Iinclude -Iinclude/freetype/internal
+	
+	     
+ARFLAGS="rf"
+
+ifeq ($(MODE),DEBUG)
+# Memory leak detection using mtrace:
+# Do not forget to set the trace file using the env. variable MALLOC_TRACE,
+# then use the mtrace tool to analyze the output.
+   MODECFLAGS=-g $(WARNFLAGS) -DROADMAP_DEBUG_HEAP -DNOIGNORE    
+   MODELDFLAGS=
+else
+ifeq ($(MODE),PROFILE)
+   MODECFLAGS=-g $(WARNFLAGS) -pg -fprofile-arcs -g
+   MODELDFLAGS=-pg
+else
+   MODECFLAGS=-O2 -ffast-math -fomit-frame-pointer -DNDEBUG=1 $(WARNFLAGS) $(OPTIONS)
+   MODELDFLAGS=
+endif
+endif
+	
+
+CFLAGS=$(CFLAGS_ANDROID) $(LIB_INCLUDES) $(MODECFLAGS)
+CXXFLAGS=$(CFLAGS)
+
+#TODO ....
+FTLIBS=libft.a
+
+LIBS=$(FTLIBS)
+
+# --- RoadMap sources & targets --------------------------------------------
+#TODO ....
+# src/base/ftgasp.c
+FTSRCS1=src/base/ftobjs.c
+FTSRCS= src/autofit/autofit.c				\
+				src/base/ftbase.c			\
+				src/base/ftbbox.c			\
+				src/base/ftbdf.c			\
+				src/base/ftbitmap.c			\
+				src/base/ftglyph.c			\
+				src/base/ftinit.c			\
+				src/base/ftmm.c				\
+				src/base/ftpfr.c			\
+				src/base/ftstroke.c			\
+				src/base/ftsynth.c			\
+				src/base/ftsystem.c			\
+				src/base/fttype1.c			\
+				src/base/ftwinfnt.c			\
+				src/bdf/bdf.c				\
+				src/cache/ftcache.c			\
+				src/cff/cff.c				\
+				src/cid/type1cid.c			\
+				src/gzip/ftgzip.c			\
+				src/lzw/ftlzw.c				\
+				src/pcf/pcf.c				\
+				src/pfr/pfr.c				\
+				src/psaux/psaux.c			\
+				src/pshinter/pshinter.c		\
+				src/psnames/psmodule.c		\
+				src/raster/raster.c			\
+				src/sfnt/sfnt.c				\
+				src/smooth/smooth.c			\
+				src/truetype/truetype.c		\
+				src/type1/type1.c			\
+				src/type42/type42.c			\
+				src/winfonts/winfnt.c	
+
+
+FTOBJS=$(FTSRCS:.c=.o)
+
+RUNTIME=$(FTLIBS)
+
+
+# --- Conventional targets ----------------------------------------
+
+all: everything
+
+
+runtime: $(RUNTIME) 
+
+strip:
+	strip -s $(RUNTIME)
+
+clean: cleanall
+		
+cleanone: cleanall
+	
+everything: runtime
+
+cleanall:
+	find src/ -name \*.o -exec rm {} \;
+	rm -f *.a;
+rebuild: cleanall everything
+
+# --- The real targets --------------------------------------------
+
+libft.a: $(FTOBJS)
+	$(AR) $(ARFLAGS) libft.a $(FTOBJS)
+	$(RANLIB) libft.a
+
+	
+	
+	
+	

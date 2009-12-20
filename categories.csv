@@ -1,0 +1,52 @@
+PARENT,NAME,LABEL,ICON
+
+ROOT,STORE,Stores,store.png
+ROOT,SERVICE,Services,service.png
+ROOT,HOTEL,Hotels,hotel.png
+ROOT,RESTO,Restaurants,restaurant.png
+ROOT,ENTERTAIN,Amusement,amusement.png
+ROOT,GOV,Government,government.png
+
+STORE,FOODSTORE,Food,food.png
+STORE,PHARMACY,Pharmacies,pharmacy.png
+
+SERVICE,BANK,Banks,bank.png
+SERVICE,GAZ,Gas Stations,gas.png
+
+ENTERTAIN,MUSEUM,Museums,museum.png
+ENTERTAIN,LIBRARY,Libraries,library.png
+
+RESTO,ITALIAN,Italian,italy.png
+RESTO,FRENCH,French,france.png
+RESTO,IRISH,Irish,ireland.png
+RESTO,MEXICAN,Mexican,mexico.png
+RESTO,GREEK,Greek,grece.png
+RESTO,CHINESE,Chinese,china.png
+RESTO,JAPANESE,Japanese,japan.png
+
+RESTO,CAFE,Cafe,cafe.png
+CAFE,ST:SBUX,Starbuck,starbuck.png
+
+RESTO,DELI,Deli,deli.png
+DELI,SUBWAY,Subway,subway.png
+
+RESTO,PIZZATOGO,Delivery Pizza,pizza.png
+PIZZATOGO,SAMSPIZZA,Sam's Pizza,samspizza.png
+PIZZATOGO,DOMINOS,Domino's Pizza,dominos.png
+
+RESTO,GRILL,Grills,grill.png
+RESTO,SEAFOOD,Seafood,seafood.png
+RESTO,BAKERY,Bakeries,bakery.png
+
+RESTO,TGIF,TGI Fridays,tgif.png
+
+RESTO,FASTFOOD,Fast Food,fastfood.png
+FASTFOOD,ARBYS,Arby's,arbys.png
+FASTFOOD,ST:WEN,Wendy's,wendys.png
+FASTFOOD,ST:MCD,McDonald,mcdonald.png
+FASTFOOD,TACOBELL,Taco Bell,tacobell.png
+FASTFOOD,CHICKFILA,Chick-fil-a,chickfila.png
+FASTFOOD,PANDAEXPR,Panda Express,panda.png
+
+RESTO,ICECREAM,Ice Cream,icecream.png
+

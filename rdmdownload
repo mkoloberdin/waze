@@ -1,0 +1,53 @@
+#!/bin/sh
+#
+# This script download the most recent version of the complete set of
+# TIGER files from the US Census Bureau's web site.
+#
+# USAGE:
+# ------
+#
+# rdmdownload <destination-path> [format=2000|2002|2004] [<state-symbol> ..]
+#
+#    Example: downloadmap /var/tmp/maps CA
+#
+# PLEASE NOTE THE TIGER FILES ARE HUGE: THIS DOWNLOAD IS LIKELY
+# TO TAKE A VERY LONG TIME TO COMPLETE AND THE TIGER FILES WILL
+# USE A AWFUL LOT OF SPACE ON YOUR LOCAL HARD DRIVE.
+#
+# Now you know...
+
+TIGERDIR=$1
+shift
+
+TIGERURL=http://www2.census.gov/geo/tiger/tiger2004se
+TIGEROPT1="-nd -np -r -N -P $TIGERDIR -A.zip"
+TIGEROPT2="-nd -np -r -N -P $TIGERDIR -A.ZIP"
+
+case $1 in
+   format=2000) TIGERURL=http://www2.census.gov/geo/tiger/tigerua
+                shift
+                ;;
+   format=2002) TIGERURL=http://www2.census.gov/geo/tiger/tiger2002
+                shift
+                ;;
+   format=2004)
+                shift
+                ;;
+esac
+
+if [ $# -gt 0 ] ; then
+
+   for i in $*
+   do
+      wget $TIGEROPT1 $TIGERURL/$i/
+      wget $TIGEROPT2 $TIGERURL/$i/
+   done
+
+else
+
+   wget $TIGEROPT1 $TIGERURL/
+   wget $TIGEROPT2 $TIGERURL/
+fi
+
+rm -f $TIGERDIR/robots.txt
+

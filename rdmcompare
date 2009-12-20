@@ -1,0 +1,49 @@
+#!/bin/sh
+#
+# Compare the RoadMap map directory content with the Tiger directory content
+# to point out counties that have not yet been translated (or for which the
+# translation failed).
+#
+# USAGE:
+# ------
+#
+# rdmcompare <tiger-path> [maps=<map-directory-path>]
+#
+
+MAPSDIR=/usr/local/share/roadmap
+
+STARTDIR=`pwd`
+TIGERDIR=$1
+shift
+
+case $1 in
+   maps=*) MAPSDIR=`expr $1 : 'maps=\(.*\)'`
+           shift
+           ;;
+esac
+
+
+function check_one_county {
+
+   base=`basename $1`
+   fips=`expr substr $base 4 5`
+
+   if [ ! -e $MAPSDIR/usc$fips.rdm ] ; then
+       echo "## usc$fips.rdm was not generated"
+       echo "## usc$fips.rdm was not generated" >> $STARTDIR/buildmap_errors.log
+   fi
+}
+
+
+cd $TIGERDIR
+
+for i in tgr*.zip
+do
+   check_one_county $i
+done
+
+for i in TGR*.ZIP
+do
+   check_one_county $i
+done
+

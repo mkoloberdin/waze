@@ -1,0 +1,119 @@
+#!/bin/sh
+#
+# rdmgenshpmaps
+#
+# Utility to scan a directory for Canadian province shapefiles and
+# process them through buildmap
+#
+# Usage:
+#
+# rdmgenshpmaps <shapefile path> [maps=<map-directory-path>]
+#                                [test]
+#                                [<province-abbrev> ...]
+
+maps=/usr/local/share/roadmap
+prov='*'
+
+if [ $# -eq 0 ] ; then
+    echo 'Usage: rdmgenshpmaps <shapefile path> [maps=<map-directory-path>] [test] [dryrun] [<province-abbrev> ...]'
+    exit 1
+fi
+
+SRCDIR=$1
+shift
+
+verbose=''
+gendir=Y
+
+case $1 in
+    maps=*) maps=`expr $1 : 'maps=\(.*\)'`
+            shift
+            ;;
+esac
+
+case $1 in
+    test) verbose=-v
+          gendir=N
+          shift
+          ;;
+esac
+
+case $1 in
+    dryrun) DRYRUN=Y
+            shift
+            ;;
+esac
+
+if [ -e ./buildmap ] ; then
+    BUILDMAP=./buildmap
+else
+    BUILDMAP=buildmap
+fi
+
+
+# AB BC MB NB NL NS NT NU ON PE QC SK YT
+# 87 88 89 90 91 92 93 94 95 96 97 98 99
+
+function get_fips {
+    case $1 in
+        AB) FIPS=87001 ;;
+        BC) FIPS=88001 ;;
+        MB) FIPS=89001 ;;
+        NB) FIPS=90001 ;;
+        NL) FIPS=91001 ;;
+        NS) FIPS=92001 ;;
+        NT) FIPS=93001 ;;
+        NU) FIPS=94001 ;;
+        ON) FIPS=95001 ;;
+        PE) FIPS=96001 ;;
+        QC) FIPS=97001 ;;
+        SK) FIPS=98001 ;;
+        YT) FIPS=99001 ;;
+        *)  FIPS='' ;;
+    esac
+}
+
+if [ $# -gt 0 ] ; then
+
+    for i in $*
+    do
+        get_fips $i
+        echo $BUILDMAP -f SHAPE -m $maps $verbose  $FIPS $SRCDIR/$i
+        if [ $DRYRUN != 'Y' ] ; then
+            $BUILDMAP -f SHAPE -m $maps $verbose  $FIPS $SRCDIR/$i
+        fi
+    done
+
+else
+
+    for i in $SRCDIR/??rte.shp
+    do
+        if [ -e $i ] ; then
+            base=`basename $i`
+            prov_id=`expr substr $base 1 2`
+            get_fips $prov_id
+            echo $BUILDMAP -f SHAPE -m $maps $verbose  $FIPS $SRCDIR/$prov_id
+            if [ $DRYRUN != 'Y' ] ; then
+                $BUILDMAP -f SHAPE -m $maps $verbose  $FIPS $SRCDIR/$prov_id
+            fi
+        fi
+    done
+
+fi
+
+if [ $gendir = 'Y' ] ; then
+      
+    echo "Generating usdir.rdm, please wait.."
+
+    if [ -e buildus ] ; then
+        echo ./buildus -s --maps=$maps
+        if [ $DRYRUN != 'Y' ] ; then
+            ./buildus -s --maps=$maps
+        fi
+    else
+        echo buildus -s --maps=$maps
+        if [ $DRYRUN != 'Y' ] ; then
+            buildus -s --maps=$maps
+        fi
+    fi 
+fi 

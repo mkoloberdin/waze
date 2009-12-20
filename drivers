@@ -1,0 +1,6 @@
+Ghost1: rdmghost --driver=Ghost1
+Ghost2: rdmghost --driver=Ghost2
+Friends: rdmfriends
+Kismet: rdmkismet
+Trace: rdmtrace
+

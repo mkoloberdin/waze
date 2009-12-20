@@ -1,0 +1,9 @@
+add-symbol-file /home/alex/Projects/freemap_waze_ui/src/android/libandroidroadmap.so 0x802c8d80
+set stop-on-solib-events 1
+target remote localhost:1234
+delete breakpoints
+b 0x800c4b6c
+y
+i shared
+c
+

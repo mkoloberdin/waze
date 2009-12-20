@@ -1,0 +1,81 @@
+############################################################################
+# ANDROID Related makefile for AGG library
+#
+############################################################################
+
+include ../android/Makefile.in.android
+
+# --- Tool specific options ------------------------------------------------
+INCLUDES+=
+LIBDIRS+= 
+
+DEFINES=-DFRIBIDI_EXPORTS -DHAS_FRIBIDI_TAB_CHAR_TYPE_9_I -DHAS_FRIBIDI_TAB_CHAR_TYPE_2_I -DMEM_OPTIMIZED -DFRIBIDI_NO_CHARSETS
+
+ARFLAGS="rf"
+
+WARNFLAGS = -W -Wall -Wno-unused-parameter -Wno-extra
+
+ifeq ($(MODE),DEBUG)
+# Memory leak detection using mtrace:
+# Do not forget to set the trace file using the env. variable MALLOC_TRACE,
+# then use the mtrace tool to analyze the output.
+   MODECFLAGS=-g $(WARNFLAGS) -DROADMAP_DEBUG_HEAP -DNOIGNORE    
+   MODELDFLAGS=
+else
+ifeq ($(MODE),PROFILE)
+   MODECFLAGS=-g $(WARNFLAGS) -pg -fprofile-arcs -g
+   MODELDFLAGS=-pg
+else
+   MODECFLAGS=-O2 -ffast-math -fomit-frame-pointer -DNDEBUG=1 $(WARNFLAGS) $(OPTIONS)
+   MODELDFLAGS=
+endif
+endif
+	
+
+
+CFLAGS=$(DEFINES) $(MODECFLAGS) $(CFLAGS_ANDROID) $(INCLUDES) -I$(PWD) $(LIBDIRS) 
+CXXFLAGS=$(CFLAGS) 
+LDFLAGS=$(MODELDFLAGS)
+
+LIBS=libfribidi.a
+
+# --- Sources & targets --------------------------------------------
+#TODO ....
+SRCS= fribidi.c \
+	fribidi_char_type.c \
+	fribidi_mem.c \
+	fribidi_mirroring.c \
+	fribidi_types.c
+	
+	 
+#OBJS=$(SRCS:.cpp=.o)
+OBJS=$(SRCS:.c=.o)
+
+RUNTIME=$(LIBS)
+
+# --- Conventional targets ----------------------------------------
+
+all: everything
+
+runtime: $(RUNTIME) 
+
+strip:
+	strip -s $(RUNTIME)
+
+clean: cleanall
+		
+cleanone: cleanall
+	
+everything: runtime
+
+cleanall:
+	find . -name \*.o -exec rm {} \;
+	rm -f libfribidi.a
+rebuild: cleanall everything
+
+# --- The real targets --------------------------------------------
+
+libfribidi.a: $(OBJS)
+	  $(AR) $(ARFLAGS) libfribidi.a $(OBJS)
+	  $(RANLIB) libfribidi.a
+

@@ -1,0 +1,10 @@
+//
+// Prefix header for all source files of the 'waze' target in the 'waze' project
+//
+#define TOUCH_SCREEN
+#define IPHONE_NATIVE
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+    #import <UIKit/UIKit.h>
+#endif

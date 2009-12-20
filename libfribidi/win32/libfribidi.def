@@ -1,0 +1,4 @@
+LIBRARY libfribidi
+
+EXPORTS
+  fribidi_log2vis

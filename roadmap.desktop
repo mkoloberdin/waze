@@ -1,0 +1,11 @@
+[Desktop Entry]
+Comment=RoadMap
+Comment=Car Navigation System
+Exec=roadmap
+Icon=roadmap.png
+Type=Application
+Name=RoadMap
+GenericName=Map Viewer
+Categories=Application;Other;VectorGraphics;Graphics;Viewer;GTK;
+FilePattern=*roadmap;*.rdm
+

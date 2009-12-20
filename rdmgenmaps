@@ -1,0 +1,141 @@
+#!/bin/sh
+#
+# Create RoadMap map files from the US Census Bureau ZIP files.
+#
+# The main purpose of this script is to avoid keeping the TIGER
+# files in uncompressed form, waisting large amounts of disk space.
+#
+# USAGE:
+# ------
+#
+# rdmgenmaps <tiger-path> [maps=<map-directory-path>]
+#                         [format=2000|2002|2004]
+#                         [state=<state-id>]
+#                         [test]
+#
+#   or
+#
+# rdmgenmaps <tiger-path> [maps=<map-directory-path>]
+#                         [format=2000|2002|2004]
+#                         [test]
+#                         county-fips ...
+#
+#    Example: rdmgenmaps /var/tmp/maps state=06
+#
+#
+# Default setup: preferred map path is used, latest format, all states.
+
+OPTIONS=""
+TMPDIR=/var/tmp
+state=''
+
+
+# Analyze the command line arguments.
+
+TIGERDIR=$1
+shift
+
+cleanup=Y
+gendir=Y
+verbose=N
+
+case $1 in
+   maps=*) BUILDMAPOPTIONS="--maps=`expr $1 : 'maps=\(.*\)'`"
+           BUILDUSOPTIONS=$BUILDMAPOPTIONS
+           shift
+           ;;
+esac
+
+case $1 in
+   format=2000) BUILDMAPOPTIONS="--format=2000 $OPTIONS"
+                shift
+                ;;
+   format=2002) BUILDMAPOPTIONS="--format=2002 $OPTIONS"
+                shift
+                ;;
+   format=2004) BUILDMAPOPTIONS="--format=2002 $OPTIONS"
+                shift
+                ;;
+esac
+
+case $1 in
+   state=*) state=`expr $1 : 'state=\(.*\)'`
+            shift
+            ;;
+esac
+
+case $1 in
+   test) cleanup=N
+         gendir=N
+         verbose=Y
+         OPTIONS="-v $OPTIONS"
+         shift
+         ;;
+esac
+
+
+if [ -e ./buildmap ] ; then
+   BUILDMAP=./buildmap
+else
+   BUILDMAP=buildmap
+fi
+
+function process_one_county {
+
+   if [ -e $TIGERDIR/TGR$1.ZIP ] ; then
+      unzip $TIGERDIR/TGR$1.ZIP -d $TMPDIR/roadmap > /dev/null
+   elif [ -e $TIGERDIR/tgr$1.zip ] ; then
+      unzip $TIGERDIR/tgr$1.zip -d $TMPDIR/roadmap > /dev/null
+   fi
+   rt1=$TMPDIR/roadmap/TGR$1.RT1
+   if [ -e $rt1 ] ; then
+      if [ $verbose = 'Y' ] ; then
+         echo "$BUILDMAP $BUILDMAPOPTIONS $1 $rt1"
+      fi
+      $BUILDMAP $BUILDMAPOPTIONS $1 $rt1
+   fi
+   if [ $cleanup = 'Y' ] ; then
+      rm -f $TMPDIR/roadmap/*
+   fi
+}
+
+
+rm -rf $TMPDIR/roadmap
+mkdir $TMPDIR/roadmap
+
+if [ $# -gt 0 ] ; then
+
+   for i in $*
+   do
+      process_one_county $i
+   done
+
+else
+
+   for i in $TIGERDIR/[Tt][Gg][Rr]${state}*.[Zz][Ii][Pp]
+   do
+      if [ -e $i ] ; then
+
+         base=`basename $i`
+         county=`expr substr $base 4 5`
+
+         process_one_county $county
+      fi
+   done
+fi
+
+if [ $cleanup = 'Y' ] ; then
+   rmdir $TMPDIR/roadmap
+fi
+
+if [ $gendir = 'Y' ] ; then
+
+   echo "Generating usdir.rdm, please wait.."
+
+   if [ -e buildus ] ; then
+      ./buildus -s $BUILDUSOPTIONS
+   else
+      buildus -s $BUILDUSOPTIONS
+   fi
+fi
+

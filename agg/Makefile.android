@@ -1,0 +1,85 @@
+############################################################################
+# ANDROID Related makefile for AGG library
+#
+############################################################################
+
+include ../android/Makefile.in.android
+
+
+
+# --- Tool specific options ------------------------------------------------
+LIB_INCLUDES= -I./include/ -I../libfribidi -I../freetype/include -I../freetype/include/freetype/internal
+LIB_DEFINES= -DUSE_FRIBIDI 
+ARFLAGS=r
+
+ifeq ($(MODE),DEBUG)
+# Memory leak detection using mtrace:
+# Do not forget to set the trace file using the env. variable MALLOC_TRACE,
+# then use the mtrace tool to analyze the output.
+   MODECFLAGS=-g -DROADMAP_DEBUG_HEAP -DNOIGNORE    
+   MODELDFLAGS=
+else
+ifeq ($(MODE),PROFILE)
+   MODECFLAGS=-g  -pg -fprofile-arcs
+   MODELDFLAGS=-pg
+else
+   MODECFLAGS=-DNDEBUG=1
+   MODELDFLAGS=
+endif
+endif
+	
+CFLAGS=$(CFLAGS_ANDROID) $(MODELDFLAGS) $(LIB_INCLUDES) $(LIB_DEFINES)
+
+CXXFLAGS=$(CFLAGS) $(CXXFLAGS_ANDROID)
+
+######## The target directory 
+TARGET=libagg.a
+
+
+# --- Sources & targets --------------------------------------------
+#TODO ....
+AGGSRCS=src/agg_bezier_arc.cpp				\
+		src/agg_curves.cpp 					\
+		font_freetype/agg_font_freetype.cpp	\
+		src/agg_line_aa_basics.cpp			\
+		src/agg_line_profile_aa.cpp			\
+		src/agg_sqrt_tables.cpp 			\
+		src/agg_trans_affine.cpp			\
+		roadmap_canvas.cpp	
+
+AGGOBJS=$(AGGSRCS:.cpp=.o)
+
+RUNTIME=$(TARGET)
+
+# --- Conventional targets ----------------------------------------
+
+all: everything
+
+runtime: $(RUNTIME) 
+
+strip:
+	strip -s $(RUNTIME)
+
+clean: cleanall
+		
+cleanone: cleanall
+	
+everything: runtime
+
+cleanall:
+	find src/ -name \*.o -exec rm {} \;
+	find font_freetype/ -name \*.o -exec rm {} \;
+	rm -f *.o
+	rm -f *.a;
+rebuild: cleanall everything
+
+# --- The real targets --------------------------------------------
+
+libagg.a: $(AGGOBJS)
+	  $(AR) $(ARFLAGS) libagg.a $(AGGOBJS)
+	  $(RANLIB) libagg.a
+
+	
+	
+	
+	
