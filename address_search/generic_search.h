@@ -29,6 +29,8 @@
 #include "../address_search/address_search_defs.h"
 #include "../websvc_trans/websvc_trans.h"
 
+#define GS_CUSTOM_QUERY_MAX_SIZE 	512
+
 typedef void(*CB_OnAddressResolved)(   void*                context,
                                        address_candidate*   array, 
                                        int                  size, 
@@ -41,7 +43,8 @@ roadmap_result generic_search_resolve_address(
                   const char           *service_name,
                   void*                context,
                   CB_OnAddressResolved cbOnAddressResolved,
-                  const char*          address);
+                  const char*          address,
+				  const char*          custom_query );
 
 void generic_address_add(address_candidate ac);
 const address_candidate* generic_search_results();

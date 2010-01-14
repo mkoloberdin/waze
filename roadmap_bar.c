@@ -675,7 +675,7 @@ void draw_objects(BarObjectTable_s *table){
    			}
    			else{
    				if (table->object[i]->images[state] != NULL){
-   					if (table->object[i]->image_state == IMAGE_STATE_SELECTED){ 
+   					if (table->object[i]->image_state == IMAGE_STATE_SELECTED){
    					    if (table->object[i]->image_selected[state] != NULL){
    					       roadmap_canvas_draw_image (table->object[i]->image_selected[state], &ObjectLocation, 0,IMAGE_NORMAL);
    					    }
@@ -695,12 +695,12 @@ void draw_objects(BarObjectTable_s *table){
    			}
 		}
 		else{
-         if (table->object[i]->image_state == IMAGE_STATE_SELECTED){ 
+         if (table->object[i]->image_state == IMAGE_STATE_SELECTED){
              if (table->object[i]->image_selected[0] != NULL){
                 roadmap_canvas_draw_image (table->object[i]->image_selected[0], &ObjectLocation, 0,IMAGE_NORMAL);
              }
              else{
-                if (TopBarSelectedBg){ 
+                if (TopBarSelectedBg){
                    BgFocusLocation.x = ObjectLocation.x - (roadmap_canvas_image_width(TopBarSelectedBg) -roadmap_canvas_image_width(table->object[i]->images[0]))/2;
                    BgFocusLocation.y = ObjectLocation.y - (roadmap_canvas_image_height(TopBarSelectedBg) -roadmap_canvas_image_height(table->object[i]->images[0]))/4*3;
                    roadmap_canvas_draw_image (TopBarSelectedBg, &BgFocusLocation, 0,IMAGE_NORMAL);
@@ -822,7 +822,7 @@ void roadmap_bar_draw_top_bar (BOOL draw_bg) {
       BarLocation.x = 0;
          roadmap_canvas_draw_image (TopBarFullBg, &BarLocation, 0,IMAGE_NORMAL);
    }
-   
+
 	draw_objects(&TopBarObjectTable);
 }
 
@@ -835,7 +835,7 @@ int roadmap_bar_short_click (RoadMapGuiPoint *point)
 
 	else
 	   return 1;
-	
+
 }
 
 int roadmap_bar_long_click (RoadMapGuiPoint *point) {
@@ -845,7 +845,7 @@ int roadmap_bar_long_click (RoadMapGuiPoint *point) {
 
 	else
 	   return 1;
- 
+
 }
 
 int roadmap_bar_drag_start(RoadMapGuiPoint *point)
@@ -859,10 +859,10 @@ int roadmap_bar_drag_start(RoadMapGuiPoint *point)
 int roadmap_bar_drag_motion (RoadMapGuiPoint *point)
 {
    BarObject *new_bar_object = NULL;
-   
+
    if (SelectedBarObject == NULL)
       return 0;
-   
+
    if ( !gHideTopBar )
         new_bar_object = roadmap_bar_by_pos(point, &TopBarObjectTable);
 
@@ -875,7 +875,7 @@ int roadmap_bar_drag_motion (RoadMapGuiPoint *point)
            return 1;
         }
    }
-   
+
    if (new_bar_object != SelectedBarObject){
         SelectedBarObject->image_state = IMAGE_STATE_NORMAL;
         SelectedBarObject = new_bar_object;
@@ -908,7 +908,7 @@ int roadmap_bar_obj_pressed (RoadMapGuiPoint *point)
    // Save the selected object
    SelectedBarObject = object;
 
-   roadmap_pointer_register_drag_motion 
+   roadmap_pointer_register_drag_motion
       (roadmap_bar_drag_motion, POINTER_HIGHEST);
 
    roadmap_screen_redraw();
@@ -925,7 +925,7 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 	{
        SelectedBarObject->image_state = IMAGE_STATE_NORMAL;
        roadmap_pointer_unregister_drag_motion(roadmap_bar_drag_motion);
-       
+
        if ( !gHideTopBar )
           new_bar_object = roadmap_bar_by_pos(point, &TopBarObjectTable);
 
@@ -975,7 +975,7 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 }
 
 void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
-	
+
 	int image_width, image_height;
 	int screen_width, screen_height;
 
@@ -995,9 +995,9 @@ void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
       BarLocation.y = screen_height - image_height;
       BarLocation.x = 0;
       roadmap_canvas_draw_image (BottomBarFullBg, &BarLocation, 0, IMAGE_NORMAL);
-   }  
-   
-   draw_objects(&BottomBarObjectTable); 
+   }
+
+   draw_objects(&BottomBarObjectTable);
 	draw_objects(&BottomBarObjectTable);
 
 }
@@ -1005,12 +1005,12 @@ void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
 void roadmap_bar_draw(void){
 	if (!bar_initialized)
 		return;
-   if (roadmap_screen_show_top_bar()) 
+   if (roadmap_screen_show_top_bar())
    	   roadmap_top_bar_show();
    else
    	   roadmap_top_bar_hide();
-   
-   
+
+
    roadmap_bar_draw_top_bar(TRUE);
    roadmap_bar_draw_bottom_bar(TRUE);
 }
@@ -1053,13 +1053,13 @@ static RoadMapImage createBGImage (RoadMapImage BarBgImage) {
    if (height > width){
       width = width*2;
    }
-   
+
    image = roadmap_canvas_new_image (width,
                roadmap_canvas_image_height(BarBgImage));
    image_width = roadmap_canvas_image_width(BarBgImage);
-   
+
    num_images = width / image_width ;
-   
+
    for (i = 0; i < num_images; i++){
       RoadMapGuiPoint BarLocation;
       BarLocation.y = 0;
@@ -1103,7 +1103,7 @@ void roadmap_bar_initialize(void){
    TopBarFullBg = createBGImage(TopBarBgImage);
 
    BottomBarFullBg = createBGImage(BottomBarBgImage);
-   
+
    // Load top bar
 	cursor = roadmap_file_map ("skin", "top_bar", NULL, "r", &file);
 	if (cursor == NULL){
@@ -1139,7 +1139,7 @@ void roadmap_bar_initialize(void){
 	roadmap_pointer_register_pressed
  		(roadmap_bar_obj_pressed, POINTER_HIGH);
 
-   roadmap_pointer_register_drag_start 
+   roadmap_pointer_register_drag_start
       (roadmap_bar_drag_start, POINTER_HIGHEST);
 
    roadmap_pointer_register_released
@@ -1175,7 +1175,7 @@ int roadmap_bar_bottom_height(){
 
 void roadmap_bar_switch_skins(void){
 
-// Only in case we want a different bg for day and night 
+// Only in case we want a different bg for day and night
 //   if (TopBarBgImage) roadmap_canvas_free_image(TopBarBgImage);
 //	TopBarBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, TOP_BAR_IMAGE);
 //
@@ -1187,7 +1187,7 @@ void roadmap_bar_switch_skins(void){
 //
 //	if (BottomBarFullBg) roadmap_canvas_free_image(BottomBarFullBg);
 //	BottomBarFullBg = createBGImage(BottomBarBgImage);
-	   
+
 #ifdef IPHONE
    roadmap_main_adjust_skin (roadmap_skin_state());
 #endif //IPHONE
@@ -1217,4 +1217,13 @@ void roadmap_top_bar_show(){
 
 BOOL roadmap_top_bar_shown(){
 	return !gHideTopBar;
+}
+
+int roadmap_bar_top_bar_exit_state ( void )
+{
+	int res = 1;
+#if defined(ANDROID) || defined(IPHONE)
+	res = 0;
+#endif
+	return res;
 }

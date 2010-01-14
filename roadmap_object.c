@@ -344,6 +344,8 @@ void roadmap_object_set_action (RoadMapDynamicString id,
             (roadmap_object_pressed, POINTER_NORMAL);
          roadmap_pointer_register_short_click
             (roadmap_object_short_click, POINTER_NORMAL);
+         roadmap_pointer_register_enter_key_press
+            (roadmap_object_short_click, POINTER_HIGH);   
          initialized = TRUE;
       }
    }

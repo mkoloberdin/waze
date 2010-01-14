@@ -3259,8 +3259,13 @@ FIPS          County     State
 88     001     British Columbia     BC
 89     001     Manitoba     MB
 90     001     New Brunswick     NB
-91     001     Newf¢#AMù£¢lä:u`ÂI}ĞOªİUİ	>Îã|6°}³Æë˜*ìu¬Åè¦ümcÊ­Ö’€aÒ1õ½q&×}¹µ5Ğê(Y
-œ³š“„õBÇb?©
-¬èŒN€€"?3ØX]™°£«Lˆ¼6)¤ûÂ\:L8gNĞ:+ç'T,äñO¼HÇçqjS	qPŸ§Ús¨XÊüów!½Ã²YÇÊ“JP`kÆ€òò¹YEB9¦½ÓB<¡Õï)‹$I>UÍ={$ËãM‰lW+"V¹‡´ª0·5=Šœk¡–p¡Ãøø!—óQÈë|‘uğí5äî6ñsEˆ{”V_`”$ó€j5zÚ¦õŒJ¹T°ì¯†GÜ9¶Áó œbª	
-1ÄB	¼¸
-uTËJŠ
+91     001     Newfoundland and Labrador     NL
+92     001     Nova Scotia     NS
+93     001     Northwest Territories     NT
+94     001     Nunavut     NU
+95     001     Ontario     ON
+96     001     Prince Edward Island     PE
+97     001     Quebec     QC
+98     001     Saskatchewan     SK
+99     001     Yukon Territory     YT
+

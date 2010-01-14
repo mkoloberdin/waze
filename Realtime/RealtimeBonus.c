@@ -78,7 +78,7 @@ void RealtimeBonus_Animate_Pacman (void) {
    static int index = 1;
    static int repeat = 0;
    
-   if ( (index == 5) && (repeat == 8)) {
+   if ( (index == 5) && (repeat == 2)) {
       roadmap_main_remove_periodic (RealtimeBonus_Animate_Pacman);
       editor_screen_set_override_car (NULL);
       index = 1;
@@ -231,7 +231,7 @@ void RealtimeBonus_PopUp (int iID) {
    }
    
    text = ssd_text_new ("PointsTxt", msg, 16, SSD_END_ROW);
-   ssd_text_set_color (text, "#FF0000");
+   ssd_text_set_color (text, "#f6a201");
    ssd_widget_add (popup, text);
    
 #ifdef TOUCH_SCREEN

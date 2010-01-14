@@ -62,7 +62,7 @@ static RoadMapConfigDescriptor RoadMapConfigMapCache =
 RoadMapConfigDescriptor RoadMapConfigGeneralLogLevel =
                         ROADMAP_CONFIG_ITEM("General", "Log level");
 
-static int roadmap_option_verbose = DEFAULT_LOG_LEVEL; //ROADMAP_MESSAGE_DEBUG;
+static int roadmap_option_verbose = DEFAULT_LOG_LEVEL;
 
 static int roadmap_option_no_area = 0;
 static int roadmap_option_square  = 0;

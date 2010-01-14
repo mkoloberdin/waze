@@ -448,7 +448,10 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
 
                               !generic_search_dlg_is_1st(search_address)&&(!b_report_wrong_address),
                               FALSE);
-
+   ssd_contextmenu_show_item( &context_menu,
+							   cm_add_geo_reminder,
+                              !generic_search_dlg_is_1st(search_address)&&(!b_report_wrong_address),
+                              FALSE);
    ssd_contextmenu_show_item( &context_menu,
                               cm_add_geo_reminder,
 
@@ -470,7 +473,8 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
 
    s_menu = TRUE;

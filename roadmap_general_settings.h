@@ -24,6 +24,7 @@
 
 void roadmap_general_settings_show(void);
 void quick_settins_exit( int exit_code, void* context);
+BOOL roadmap_general_settings_is_24_hour_clock();
 SsdWidget create_quick_setting_menu();
 
 #endif // __ROADMAP_GENERAL_SETTINGS_H__

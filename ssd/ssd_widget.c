@@ -671,7 +671,7 @@ SsdWidget ssd_widget_find_by_pos (SsdWidget widget,
 
    while (widget != NULL) {
 
-	   if (!(widget->flags & SSD_WIDGET_HIDE) && ssd_widget_contains_point( widget, point, use_offsets ) ) {
+	   if ( ssd_widget_contains_point( widget, point, use_offsets ) ) {
 
          return widget;
       }
@@ -1118,11 +1118,7 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    if (w->flags & SSD_DIALOG_FLOAT) {
       if ((size->width == SSD_MAX_SIZE) && ((max->width >= roadmap_canvas_width()) || (max->width >= roadmap_canvas_height()))){
          if (roadmap_canvas_width() > roadmap_canvas_height())
-#ifdef IPHONE
-            size->width = 320;
-#else
             size->width = roadmap_canvas_height();
-#endif //IPHONE
          else
             size->width = roadmap_canvas_width();
       }else

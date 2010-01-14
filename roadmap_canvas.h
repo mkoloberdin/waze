@@ -33,7 +33,7 @@
 
 #include "roadmap_gui.h"
 
-#define MAX_CORDING_POINTS 2
+#define MAX_CORDING_POINTS 5
 
 enum { IMAGE_NORMAL,
        IMAGE_SELECTED
@@ -191,8 +191,6 @@ void roadmap_canvas_free_image (RoadMapImage image);
 #ifdef IPHONE
 void roadmap_canvas_get_cording_pt (RoadMapGuiPoint points[MAX_CORDING_POINTS]);
 int roadmap_canvas_is_cording();
-void roadmap_canvas_cancel_touches();
-void roadmap_canvas_should_accept_layout (int bAcceptLayout);
 #endif
 
 #endif // INCLUDE__ROADMAP_CANVAS__H

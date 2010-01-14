@@ -157,8 +157,7 @@ BOOL roadmap_warning_unregister( RoadMapWarningFn warning_fn )
 
 /***********************************************************/
 /*  Name        : roadmap_warning_initialize()
- *  Purpose     : Initialization of the wa
- rnings engine
+ *  Purpose     : Initialization of the warnings engine
  *
  *  Params		:
  *				:

@@ -252,5 +252,4 @@ const char * RTAlerts_Get_Stars_Icon(int starNum);
 void RTAlerts_update_stars(SsdWidget container,  RTAlert *Alert);
 void RTAlerts_Set_Ignore_Max_Distance(BOOL ignore);
 void RTAlerts_show_space_before_desc( SsdWidget containter, RTAlert *pAlert );
-int RTAlertsGetMapProblems (int **outMapProblems, char **outMapProblemsOption[]);
 #endif	//	__REALTIME_ALERT_H__

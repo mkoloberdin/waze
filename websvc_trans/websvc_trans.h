@@ -49,5 +49,13 @@ BOOL        wst_queue_is_empty(     wst_handle  session);
 void        wst_queue_clear(        wst_handle  session);
 BOOL        wst_process_queue_item( wst_handle  session,
                                     BOOL*       transaction_started);
+                                 
+typedef enum tagLastNetConnectRes
+{
+	LastNetConnect_Failure,
+	LastNetConnect_Success
+}	LastNetConnectRes;
+
+LastNetConnectRes websvc_trans_getLastNetConnectRes(void);
 
 #endif   //   __HTTPTRANSACTION_H__

@@ -80,9 +80,9 @@ static RoadMapImage create_title_bar_image (RoadMapImage header_image, RoadMapGu
    image = roadmap_canvas_new_image (width,
                roadmap_canvas_image_height(header_image));
    image_width = roadmap_canvas_image_width(header_image);
-   
+
    num_images = width / image_width;
-   
+
    num_images = (rect->maxx/image_width)+1;
    if (header_image){
       for (i=0;i<=num_images;i++){
@@ -91,7 +91,7 @@ static RoadMapImage create_title_bar_image (RoadMapImage header_image, RoadMapGu
              roadmap_canvas_copy_image (image, &point, NULL, header_image, IMAGE_NORMAL);
        }
     }
-       
+
    return image;
 }
 
@@ -116,7 +116,7 @@ void draw_title_bar(RoadMapGuiRect *rect){
       cached_header_image = create_title_bar_image  (header_image, rect);
       cached_width = roadmap_canvas_width();
    }
-   
+
    point.x = rect->minx;
    point.y = rect->miny;
    roadmap_canvas_draw_image (cached_header_image, &point, 0, IMAGE_NORMAL);
@@ -474,12 +474,11 @@ static int short_click (SsdWidget widget, const RoadMapGuiPoint *point) {
 	widget->force_click = FALSE;
 
    if (widget->callback) {
-#ifndef IPHONE
       RoadMapSoundList list = roadmap_sound_list_create (0);
       if (roadmap_sound_list_add (list, "click") != -1) {
          roadmap_sound_play_list (list);
       }
-#endif //IPHONE
+
       (*widget->callback) (widget, SSD_BUTTON_SHORT_CLICK);
       return 1;
    }
@@ -513,16 +512,20 @@ static void add_title (SsdWidget w, int flags) {
 		lf_soft_key_flag = SSD_END_ROW;
 	}
 
-  
-  if (!((w->flags & SSD_DIALOG_FLOAT) && !(w->flags & SSD_DIALOG_TRANSPARENT))){
 
-#ifdef HI_RES_SCREEN
-     int height = 60;
-#elif defined(TOUCH_SCREEN)
-     int height = 40;
-#else
-     int height = 28;
+  if (!((w->flags & SSD_DIALOG_FLOAT) && !(w->flags & SSD_DIALOG_TRANSPARENT)))
+  {
+	int height = 28;
+    if ( roadmap_screen_is_hd_screen() )
+    {
+    	height = 60;
+    }
+    else
+    {
+#ifdef TOUCH_SCREEN
+    	height = 40;
 #endif
+    }
 
    title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, height, SSD_END_ROW);
    ssd_widget_set_click_offsets_ext( title, 0, 0, 0, 10 );
@@ -533,7 +536,7 @@ static void add_title (SsdWidget w, int flags) {
    title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, 22,
                               SSD_END_ROW);
   }
-  
+
    ssd_widget_set_color (title, "#ffffff", "#ff0000000");
 
    text = ssd_text_new ("title_text", "" , 18, SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);

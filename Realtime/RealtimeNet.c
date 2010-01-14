@@ -106,7 +106,7 @@ static wst_parser general_parser[] =
    { "AddBonus",              AddBonus},
    { "RmBonus",               RmBonus},
    { "CollectBonusRes",       CollectBonusRes},
-
+   { "UpdateConfig",          on_update_config},
 };
 
 extern const char* RT_GetWebServiceAddress();
@@ -889,7 +889,6 @@ BOOL RTNet_ReportAlert( LPRTConnectionInfo   pCI,
    int from_node, to_node;
 
    TripLocation = roadmap_trip_get_gps_position("AlertSelection");
-
    if (TripLocation == NULL)
    {
  		roadmap_messagebox ("Error", "Can't find alert position.");
@@ -1086,7 +1085,9 @@ BOOL RTNet_ReportMapProblem( LPRTConnectionInfo   pCI,
                              const char*          szType,
                              const char*          szDescription,
                              const RoadMapGpsPosition   *MyLocation,
-                             CB_OnWSTCompleted pfnOnCompleted)
+                             ESendMapProblemResult*  SendMapProblemResult,
+                             CB_OnWSTCompleted pfnOnCompleted,
+                             char* packet_only)
 {
    char        PackedString[(RT_ALERT_DESCRIPTION_MAXSIZE*2)+1];
    const char* szPackedString = "";
@@ -1098,6 +1099,7 @@ BOOL RTNet_ReportMapProblem( LPRTConnectionInfo   pCI,
       {
          roadmap_log( ROADMAP_ERROR, "RTNet_ReportAlertAtPosition() - Failed to pack network string");
          roadmap_messagebox ("Error", "Sending Report failed");
+         (*SendMapProblemResult) = SendMapProblemValidityFailure;
          return FALSE;
       }
       szPackedString = PackedString;
@@ -1105,9 +1107,22 @@ BOOL RTNet_ReportMapProblem( LPRTConnectionInfo   pCI,
 
    if (MyLocation == NULL){
          roadmap_log( ROADMAP_ERROR, "RTNet_ReportMapProblem() - Coordinates are null");
+         (*SendMapProblemResult) = SendMapProblemValidityFailure;
          return FALSE;
    }
-
+   (*SendMapProblemResult) = SendMapProblemValidityOK;
+   if (packet_only)
+   {
+      sprintf( packet_only,
+               RTNET_FORMAT_NETPACKET_4ReportMapError, // Custom data for the HTTP request
+               MyLocation->longitude, //x
+               MyLocation->latitude, // y
+               szType,
+               szPackedString );
+      return TRUE;
+   }
+   
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),

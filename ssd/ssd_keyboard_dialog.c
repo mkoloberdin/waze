@@ -34,6 +34,7 @@
 #include "ssd_bitmap.h"
 #include "roadmap_native_keyboard.h"
 #include "roadmap_keyboard.h"
+#include "roadmap_screen.h"
 
 #define SSD_KB_DLG_FIELDS_VSPACE			5
 #define SSD_KB_DLG_FIELDS_HOFFSET			10
@@ -105,8 +106,7 @@ static void on_done( void* context, const char* command);
 
 static void on_dialog_closed( int exit_code, void* context)
 {
-#ifndef IPHONE
-#endif //IPHONE
+
    if( dec_ok != exit_code)
       s_cbOnDone( dec_cancel, s_InitialValue, s_context);
 
@@ -259,7 +259,8 @@ int on_options( SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            kb,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
    s_context_menu_is_active = TRUE;
 
@@ -290,6 +291,7 @@ void ssd_show_keyboard_dialog(const char*       title,
 	ssd_show_keyboard_dialog_ext( title, value, NULL, NULL, cbOnDone, context, 0 );
 }
 
+
 void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top of the dialog */
 								   const char*       value,		/* Value in the edit box */
 								   const char*       label,
@@ -298,7 +300,6 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 								   void*             context,
 								   int kb_dlg_flags )
 {
-#ifndef IPHONE
    SsdWidget edit = NULL;
    SsdWidget ecnt = NULL;
    SsdWidget kb   = NULL;
@@ -315,6 +316,8 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    int entry_width = SSD_MAX_SIZE;
    int entry_height = 40;
    int box_height = SSD_MIN_SIZE;
+   int label_width = SSD_KB_DLG_LABEL_WIDTH;
+
    assert(cbOnDone);
   // assert(!s_cbOnDone);
 
@@ -337,7 +340,17 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    {
 	   box_height = SSD_MAX_SIZE;
    }
-   
+   /* High definition screens adjustments should be defined here */
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   label_width = roadmap_screen_adjust_width( label_width );
+
+	   if ( entry_width > 0 )
+	   {
+		   entry_width = roadmap_screen_adjust_width( entry_width );
+	   }
+   }
+
    roadmap_keyboard_set_typing_lock_enable(  ( kb_dlg_flags & SSD_KB_DLG_TYPING_LOCK_ENABLE ) != 0 );
    if( !s_dialog)
    {
@@ -365,7 +378,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 
       ssd_widget_add( ecnt, edit );
       ssd_widget_add( ecnt, ssd_bitmap_new("cursor", "cursor", SSD_ALIGN_VCENTER ) );
-#ifdef TOUCH_SCREEN  
+#ifdef TOUCH_SCREEN
       ssd_dialog_add_hspace( box, SSD_KB_DLG_FIELDS_HOFFSET-1, 0 );
 #endif
       //// Label for the edit box
@@ -426,9 +439,9 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 	{
 #ifdef TOUCH_SCREEN
 		ssd_widget_show( kb );
-#else	
+#else
 		ssd_widget_hide( kb );
-#endif		
+#endif
 		if ( !( kb_dlg_flags & SSD_KB_DLG_LAST_KB_STATE ) )
 		{
 		  ssd_keyboard_reset_state( kb);
@@ -464,7 +477,8 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    }
 #endif
    /* Label handling for the edit box */
-   set_label_widget( label, entry_width, SSD_KB_DLG_LABEL_WIDTH );
+   set_label_widget( label, entry_width, label_width );
+
    /* Note handling for the edit box */
    set_note_widget( note, entry_width );
 
@@ -478,8 +492,6 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    ssd_dialog_draw ();
 
    ssd_dialog_set_focus( ecnt );
-   
-#endif //IPHONE
 }
 /***********************************************************
  *  Adjusts the widgets according to the note data and

@@ -331,7 +331,7 @@ void roadmap_log (int level, const char *source, int line, const char *format, .
 
       if ((sgLogFile == NULL) && (!open_file_attemped)) {
          open_file_attemped = 1;
-         
+
          sgLogFile = roadmap_file_fopen (roadmap_log_path(),
                                          roadmap_log_filename(),
                                          roadmap_log_access_mode());

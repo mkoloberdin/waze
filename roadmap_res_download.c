@@ -100,13 +100,13 @@ static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks = { download_size_callback,
 //////////////////////////////////////////////////////////////////
 void roadmap_res_download_init (void) {
    
-   roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl, "", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl, "http://waze-client-resources.s3.amazonaws.com/images/", NULL);
 
-   roadmap_config_declare ("preferences", &RoadMapConfigDownloadSoundUrl, "", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadSoundUrl, "http://waze-client-resources.s3.amazonaws.com/sounds/", NULL);
 
-   roadmap_config_declare ("preferences", &RoadMapConfigDownloadConfigUrl, "", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadConfigUrl, "http://waze-client-resources.s3.amazonaws.com/config/", NULL);
    
-   roadmap_config_declare ("preferences", &RoadMapConfigDownloadLangUrl, "", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadLangUrl, "http://waze-client-resources.s3.amazonaws.com/langs/", NULL);
    
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl_Ver, "", NULL);
 
@@ -442,7 +442,7 @@ static void roadmap_download_start (void) {
          strcat (res_file, ".png");
       else if (resData.type == RES_SOUND)
          strcat (res_file, ".mp3");
-      
+         
       url = get_download_url (resData.type, resData.lang, res_file);
       if (!url){
          if (resData.on_loaded_cb)
@@ -581,7 +581,7 @@ static void download_done_callback (void *context_cb, char *last_modified) {
    RoadMapFile file;
    const char *directory;
    
-   roadmap_log (ROADMAP_DEBUG,"Download finished downloading (%s) Writing %d bytes, last_modified = %s" , path, context->data_size ,last_modified);
+   roadmap_log (ROADMAP_DEBUG,"Download finished downloading (%s) Writing %d bytes, last modified = %s" , path, context->data_size, last_modified );
 
    directory = roadmap_path_parent (NULL, path);
    if (!roadmap_file_exists(directory, "")){

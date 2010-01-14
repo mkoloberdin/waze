@@ -42,7 +42,6 @@
 #include "websvc_trans/string_parser.h"
 #include "websvc_trans/web_date_format.h"
 
-
 #define INITIAL_ITEMS_SIZE 50
 #define MAX_LANGUAGES 100
 const char *lang_labels[MAX_LANGUAGES];
@@ -76,7 +75,7 @@ static RoadMapConfigDescriptor RoadMapConfigLangUpdateTime =
 void roadmap_lang_initialize_params(void){
    roadmap_config_declare
          ("user", &RoadMapConfigSystemLanguage, "default", NULL);
-   
+
    roadmap_config_declare
          ("preferences", &RoadMapConfigDefaultLanguage, "eng", NULL);
 
@@ -87,10 +86,10 @@ void roadmap_lang_initialize_params(void){
 //////////////////////////////////////////////////////////////////
 const char *roadmap_lang_get_system_lang(){
    const char *lang = roadmap_config_get (&RoadMapConfigSystemLanguage);
-   
+
    if (!initialized)
       roadmap_lang_initialize_params();
-   
+
    if (!strcmp(lang,"default"))
       return roadmap_lang_get_default_lang();
    else
@@ -100,10 +99,10 @@ const char *roadmap_lang_get_system_lang(){
 //////////////////////////////////////////////////////////////////
 const char *roadmap_lang_get_user_lang(){
    const char *lang = roadmap_config_get (&RoadMapConfigSystemLanguage);
-   
+
    if (!initialized)
       roadmap_lang_initialize_params();
-   
+
    if (!strcmp(lang,"default"))
       return "";
    else
@@ -113,7 +112,7 @@ const char *roadmap_lang_get_user_lang(){
 void roadmap_lang_set_system_lang(const char *lang){
    if (!initialized)
       roadmap_lang_initialize_params();
-   roadmap_lang_download_lang_file(lang, NULL);
+   roadmap_lang_download_lang_file( lang, NULL );
    roadmap_config_set(&RoadMapConfigSystemLanguage, lang);
    roadmap_config_save(TRUE);
 }
@@ -123,7 +122,7 @@ const char *roadmap_lang_get_default_lang(){
 
    if (!initialized)
       roadmap_lang_initialize_params();
-   
+
    return roadmap_config_get (&RoadMapConfigDefaultLanguage);
 }
 
@@ -131,7 +130,7 @@ const char *roadmap_lang_get_default_lang(){
 void roadmap_lang_set_default_lang(const char *lang){
    if (!initialized)
       roadmap_lang_initialize_params();
-   
+
    roadmap_config_set(&RoadMapConfigDefaultLanguage, lang);
    roadmap_config_save(TRUE);
 }
@@ -139,25 +138,25 @@ void roadmap_lang_set_default_lang(const char *lang){
 
 //////////////////////////////////////////////////////////////////
 const char *roadmap_lang_get_lang_file_update_time(const char *lang_value){
-     
+
    RoadMapConfigDescriptor descriptor;
-   
+
    descriptor.category = lang_value;
    descriptor.name = "Update time";
    roadmap_config_declare("session",&descriptor, "", NULL);
-      
+
    return roadmap_config_get (&descriptor);
 }
 
 //////////////////////////////////////////////////////////////////
 void roadmap_lang_set_lang_file_update_time(char *lang_value, char *update_time){
-     
+
    RoadMapConfigDescriptor descriptor;
-   
+
    descriptor.category = lang_value;
    descriptor.name = "Update time";
    roadmap_config_declare("session",&descriptor, "", NULL);
-      
+
    roadmap_config_set (&descriptor, update_time);
    roadmap_config_save(FALSE);
 }
@@ -166,7 +165,7 @@ void roadmap_lang_set_lang_file_update_time(char *lang_value, char *update_time)
 const char *roadmap_lang_get_update_time(void){
    if (!initialized)
       roadmap_lang_initialize_params();
-     
+
    return roadmap_config_get (&RoadMapConfigLangUpdateTime);
 }
 
@@ -221,7 +220,7 @@ static int roadmap_lang_load (const char *path) {
    FILE *file;
    char  line[1024];
    char file_name[20];
-   
+
    char *name;
    char *value;
 
@@ -239,7 +238,7 @@ static int roadmap_lang_load (const char *path) {
         if (p == NULL) continue;
 
         /* Decode the line (name= value). */
-        
+
         name = p;
 
         p = roadmap_config_skip_until (p, '=');
@@ -264,7 +263,7 @@ static int roadmap_lang_load (const char *path) {
 
 void roadmap_lang_reload(void){
    const char *p;
-   
+
    RoadMapLangCount = 0;
    RoadMapLangSize = 0;
    roadmap_hash_free(RoadMapLangHash);
@@ -279,7 +278,7 @@ void roadmap_lang_reload(void){
       p = roadmap_path_downloads();
       RoadMapLangLoaded = roadmap_lang_load (p);
    }
-      
+
    RoadMapLangRTL = (strcasecmp(roadmap_lang_get ("RTL"), "Yes") == 0);
 }
 
@@ -293,9 +292,9 @@ static int roadmap_lang_conf_load (const char *path) {
    char file_name[20];
    char *name;
    char *value;
-  
+
    languages_count = 0;
-   
+
    sprintf(file_name, "lang.conf");
    file = roadmap_file_fopen (path, file_name, "sr");
    if (file == NULL){
@@ -311,7 +310,7 @@ static int roadmap_lang_conf_load (const char *path) {
 
         p = roadmap_config_extract_data (line, sizeof(line));
         if (p == NULL) continue;
-        
+
            name = p;
 
            p = roadmap_config_skip_until (p, ',');
@@ -323,12 +322,12 @@ static int roadmap_lang_conf_load (const char *path) {
 
            p = roadmap_config_skip_until (p, 0);
            *p = 0;
-           
-           lang_labels[languages_count] = strdup (value);  
+
+           lang_labels[languages_count] = strdup (value);
            lang_values[languages_count] = strdup (name);
            languages_count++;
     }
-   
+
     fclose (file);
 
     return 1;
@@ -336,7 +335,7 @@ static int roadmap_lang_conf_load (const char *path) {
 
 void on_lang_file_downloaded (const char* res_name, int success, void *context, char *last_modified){
    RoadMapCallback callback = (RoadMapCallback) context;
-   
+
    char *lang_value = strrchr  (res_name, '.');
    if (!lang_value){
       if (callback)
@@ -354,17 +353,17 @@ void roadmap_lang_download_lang_file(const char *lang, RoadMapCallback callback)
    char file_name[256];
    time_t update_time;
    const char* last_save_time = roadmap_lang_get_lang_file_update_time(lang);
-   
+
    sprintf(file_name, "lang.%s",lang);
-   
-   
+
+
    if (last_save_time[0] == 0){
       update_time = 0;
    }
    else{
       update_time = WDF_TimeFromModifiedSince(last_save_time);
-   }     
-   
+   }
+
    roadmap_res_download (RES_DOWNLOAD_LANG, file_name, "", TRUE, update_time, on_lang_file_downloaded, (void *)callback);
 }
 
@@ -385,13 +384,14 @@ void on_conf_file_downloaded (const char* res_name, int success, void *context, 
       if (callback)
          (*callback)();
       download_lang_files();
+
    }
    else{
       roadmap_lang_conf_load(roadmap_path_downloads());
       if (callback)
          (*callback)();
    }
- 
+
 }
 
 void roadmap_lang_download_conf_file(RoadMapCallback callback){
@@ -399,7 +399,6 @@ void roadmap_lang_download_conf_file(RoadMapCallback callback){
    static BOOL run_once = FALSE;
    const char* last_save_time = roadmap_lang_get_update_time();
 
-   
    if (run_once)
       return;
    run_once = TRUE;
@@ -408,7 +407,7 @@ void roadmap_lang_download_conf_file(RoadMapCallback callback){
       update_time = 0;
    }
    else{
-      update_time = WDF_TimeFromModifiedSince(last_save_time); 
+      update_time = WDF_TimeFromModifiedSince(last_save_time);
    }
    roadmap_res_download (RES_DOWNLOAD_CONFIFG, "lang.conf", "", TRUE, update_time, on_conf_file_downloaded, callback);
 }
@@ -426,23 +425,23 @@ void roadmap_lang_initialize (void) {
 
    const char *p;
    initialized = TRUE;
-   
+
    roadmap_lang_initialize_params();
-   
+
    roadmap_lang_allocate ();
 
-   lang_labels[0] = "English";  
+   lang_labels[0] = "English";
    lang_values[0] = "eng";
-   
+
 #ifndef J2ME
-		p = roadmap_path_user ();
+   p = roadmap_path_user ();
 #else
    p = NULL;
 #endif
-   
+
    LangNextLoginCb = Realtime_NotifyOnLogin (roadmap_lang_login_cb);
-   
-  
+
+
    roadmap_lang_conf_load(roadmap_path_downloads());
 
    RoadMapLangLoaded = roadmap_lang_load (p);
@@ -458,9 +457,9 @@ const char* roadmap_lang_get (const char *name) {
 
    int hash;
    int i;
-   
+
    if (!RoadMapLangLoaded) return name;
-   
+
    hash = roadmap_hash_string (name);
 
    for (i = roadmap_hash_get_first (RoadMapLangHash, hash);
@@ -468,7 +467,7 @@ const char* roadmap_lang_get (const char *name) {
         i = roadmap_hash_get_next (RoadMapLangHash, i)) {
 
       if (!strcmp(name, RoadMapLangItems[i].name)) {
-         
+
          return RoadMapLangItems[i].value;
       }
    }

@@ -448,11 +448,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 
 
    if (width > roadmap_canvas_height())
-#ifdef IPHONE
-      width = 320;
-#else
-   width = roadmap_canvas_height();
-#endif // IPHONE
+     width = roadmap_canvas_height();
    
    user = RTUsers_UserByGUIID(this, id);
    if (!user) {

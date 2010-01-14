@@ -26,6 +26,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #include <time.h>
 #include "Realtime/LMap_Base.h"
+#include "../roadmap_gps.h"
 
 #define  RT_INVALID_LOGINID_VALUE                        (-1)
 #define  RT_MAX_SECONDS_BETWEEN_GOOD_SESSIONS            (3600)   /* One hour */
@@ -251,7 +252,11 @@ typedef enum tagECycleType
 	CT_Full
 }	ECycleType;
 //////////////////////////////////////////////////////////////////////////////////////////////////
-
-
+typedef struct tagEMapProblemInfo
+{
+	char szType[3] ;
+	char* szDescription;
+	RoadMapGpsPosition * MyLocation;
+}	EMapProblemInfo;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #endif   //   __FREEMAP_REALTIMEDEFS_H__

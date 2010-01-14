@@ -1027,11 +1027,5 @@ void roadmap_download_initialize (void) {
    roadmap_config_declare
       ("preferences",
       &RoadMapConfigDestination, default_destination, NULL);
-
-	/* Avi R. - this would cause a crash in roadmap_config_update because the default_destination is not retained. Bypassing this code.
-#ifndef __SYMBIAN32__ //Avi R. - fix memory leak
-	roadmap_path_free(default_destination);
-#endif
-	 */
 }
 

@@ -603,10 +603,13 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
    int row_height;
    int i;
    int next_container_width = 45;
-
-#ifdef HI_RES_SCREEN
+   int icon_container_width = 70;
+   
+   if ( roadmap_screen_is_hd_screen() )
+   {
       next_container_width = 60;
-#endif
+      icon_container_width = 110;
+   }
 
    //ssd_widget_container_size (list_container->parent, &size);
 
@@ -644,7 +647,7 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
 
         ssd_widget_set_callback (row, label_callback);
 
-        image_con = ssd_container_new ("icon_container", NULL, 70,
+        image_con = ssd_container_new ("icon_container", NULL, icon_container_width,
                row_height-6,  SSD_ALIGN_VCENTER);
 
          ssd_widget_set_color (image_con, NULL, NULL);
@@ -782,9 +785,12 @@ void ssd_list_resize (SsdWidget list, int min_height)
 
    if (min_height > 0) data->min_row_height = min_height;
    else data->min_row_height = MIN_ROW_HEIGHT;
-#ifdef HI_RES_SCREEN
-   data->min_row_height *= 1.5;
-#endif
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   data->min_row_height *= 1.6;
+   }
+
    data->list_size.width = -1;
    data->list_size.height = -1;
 }

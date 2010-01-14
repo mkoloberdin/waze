@@ -1,3 +1,4 @@
+
 /* ssd_keyboard_layout_mgr.c
  *
  * LICENSE:
@@ -332,9 +333,11 @@ static void draw_button( button_info* button, int value_index)
       int               text_ascent;
       int               text_descent;
 
-#ifdef HI_RES_SCREEN
-      font_size = (height / 3) + 3;
-#endif
+      if ( roadmap_screen_is_hd_screen() )
+      {
+    	  font_size = (height / 3) + 3;
+      }
+
       if( BUTTON_FLAG_VALUE_IS_LABEL & button->flags)
          label = button->values;
       else if( BUTTON_FLAG_NAME_IS_LABEL & button->flags)
@@ -1002,4 +1005,3 @@ SsdWidget ssd_keyboard_layout_create(
 
    return w;
 }
-

@@ -153,7 +153,6 @@ static void ssd_dialog_disable_key (void) {
 
 static void ssd_dialog_handle_native_kb( SsdDialog dialog )
 {
-#ifndef IPHONE
    if ( roadmap_native_keyboard_enabled() )
    {
 	   if ( dialog )
@@ -172,16 +171,15 @@ static void ssd_dialog_handle_native_kb( SsdDialog dialog )
 		   roadmap_native_keyboard_hide();
 	   }
    }
-#endif //IPHONE
 }
 static int ssd_dialog_pressed (RoadMapGuiPoint *point) {
    SsdWidget container = RoadMapDialogCurrent->container;
 	
-   if ( strstr ( container->name, SSD_CMDLG_DIALOG_NAME)!=NULL )
-           return 1;
            
    if (!ssd_widget_find_by_pos (container, point, TRUE )) {
       LastPointerPoint.x = -1;
+      if ( strstr ( container->name, SSD_CMDLG_DIALOG_NAME)!=NULL )
+              return 1;
       return 0;
    }
    else{
@@ -189,6 +187,8 @@ static int ssd_dialog_pressed (RoadMapGuiPoint *point) {
    }
    if (!RoadMapDialogKeyEnabled) {
       LastPointerPoint.x = -1;
+      if ( strstr ( container->name, SSD_CMDLG_DIALOG_NAME)!=NULL )
+              return 1;
       return 0;
    }
 

@@ -147,13 +147,7 @@ const char *roadmap_path_downloads( void );
 
 const char *roadmap_path_config( void );
 
-#ifdef IPHONE
-const char *roadmap_path_bundle (void);
-#endif //IPHONE
-
-#ifdef ANDROID
 const char *roadmap_path_sdcard (void);
-#endif //ANDROID
 
 const char *roadmap_path_debug( void );
 #endif // INCLUDE__ROADMAP_PATH__H

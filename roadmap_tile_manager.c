@@ -46,9 +46,9 @@
 #include "roadmap_tile.h"
 #include "roadmap_config.h"
 
-#if defined(_WIN32) || defined(__SYMBIAN32__) || defined(J2ME)
+#if defined(__SYMBIAN32__) || defined(J2ME)
 #define	TM_MAX_CONCURRENT		1
-#elif defined(IPHONE) || defined(ANDROID)
+#elif defined(IPHONE) || defined(ANDROID) || defined(_WIN32)
 #define	TM_MAX_CONCURRENT		3
 #else
 #define	TM_MAX_CONCURRENT		1

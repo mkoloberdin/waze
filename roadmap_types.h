@@ -59,6 +59,21 @@ typedef struct {
    int south;
 } RoadMapArea;
 
+/***** Screen types and categories definition *****/
+#define RM_SCREEN_TYPE_CATEGORY_SD 	0x0000FFFF		/* Standard definition */
+#define RM_SCREEN_TYPE_CATEGORY_HD 	0x0001FFFF		/* High definition	   */
+
+#define RM_SCREEN_TYPE_SD_GENERIC 		0x00000000
+#define RM_SCREEN_TYPE_QVGA			 	0x00000001
+#define RM_SCREEN_TYPE_HVGA			 	0x00000002
+#define RM_SCREEN_TYPE_VGA			 	0x00000003
+
+#define RM_SCREEN_TYPE_HD_GENERIC		0x00010000
+#define RM_SCREEN_TYPE_WVGA640		 	0x00010001
+#define RM_SCREEN_TYPE_WVGA800		 	0x00010002
+#define RM_SCREEN_TYPE_WVGA854		 	0x00010003
+/**************************************************/
+
 typedef void (*RoadMapShapeItr) (int shape, RoadMapPosition *position);
 
 /* The cfcc category codes: */
@@ -76,7 +91,7 @@ typedef void (*RoadMapShapeItr) (int shape, RoadMapPosition *position);
 #define ROADMAP_ROAD_STREET      7
 #define ROADMAP_ROAD_PEDESTRIAN  8
 #define ROADMAP_ROAD_4X4         9
-#define ROADMAP_ROAD_TRAIL      10 
+#define ROADMAP_ROAD_TRAIL      10
 #define ROADMAP_ROAD_WALKWAY    11
 
 #define ROADMAP_ROAD_LAST       11

@@ -91,7 +91,6 @@ static RoadMapHash* sgTrafficInfoTileMap;
 static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo, int iNodeNumber);
 static BOOL RTTrafficInfo_DeleteAlert(int iID);
 static void RTTrafficInfo_TileMapClear( void );
-static BOOL RTTrafficInfo_CheckForTiles( RTTrafficInfo *pTrafficInfo );
 static void RTTrafficInfo_TileMapReceivedTileCb( int tile_id );
 static void RTTrafficInfo_TileMapReset( void );
 static BOOL RTTrafficInfo_AddTileToFetchList( RTTrafficInfoContext* pTrafficInfoCtx, int tile_id );
@@ -918,7 +917,6 @@ static void RTTrafficInfo_TileMapReset( void )
 */
 static void RTTrafficInfo_TileMapClear( void )
 {
-	int i;
 	roadmap_hash_free( sgTrafficInfoTileMap );
 }
 

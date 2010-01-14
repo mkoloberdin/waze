@@ -61,8 +61,6 @@ extern void roadmap_login_ssd_on_login_cb( BOOL bDetailsVerified, roadmap_result
 
 void roadmap_login_initialize();
 
-
-
 void roadmap_login_signup_dlg_show( void );
 void roadmap_login_details_dialog_show( void );
 void roadmap_login_details_dialog_show_un_pw(void);
@@ -97,10 +95,8 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value);
 void roadmap_login_set_show_function( RoadmapLoginDlgShowFn callback );
 void roadmap_login_on_signup_skip( void );
 
-#ifdef IPHONE
-void roadmap_welcome_wizard_set_first_time_no (void);
-#endif
-
+const char *roadmap_login_dlg_get_username();
+const char *roadmap_login_dlg_get_password();
 
 #ifdef __cplusplus
 }

@@ -1,0 +1,362 @@
+Microsoft eMbedded Visual Tools Workspace File, Format Version 4.00
+# WARNING: DO NOT EDIT OR DELETE THIS WORKSPACE FILE!
+
+###############################################################################
+
+Project: "ComSplit"=C:\Projects\ComSplit\ComSplit.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "FreeMap"=.\FreeMap\FreeMap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name agg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libft
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libguiroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libwinceguiroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libssd
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name lpngce
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name zlibce
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libfribidi
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "RoadGPS"=.\RoadGPS\RoadGPS.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libguiroadgps
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libwinceguiroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libft
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name agg
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libssd
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name lpngce
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name zlibce
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libfribidi
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "Roadmap"=.\Roadmap\Roadmap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libguiroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libwinceguiroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libdgl
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libft
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name agg
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "agg"=.\agg\agg.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "driver_test"=.\driver_test\driver_test.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "libdgl"=.\libdgl\libdgl.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libfribidi"=.\libfribidi\libfribidi.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libft"=.\libft\libft.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libguiroadgps"=.\libguiroadgps\libguiroadgps.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libguiroadmap"=.\libguiroadmap\libguiroadmap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libosroadmap"=.\libosroadmap\libosroadmap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libroadmap"=.\libroadmap\libroadmap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libssd"=.\libssd\libssd.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "libwinceguiroadmap"=.\libwinceguiroadmap\libwinceguiroadmap.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name agg
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "lpngce"=.\libpng\lpngce.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name zlibce
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "rdmfriends"=.\rdmfriends\rdmfriends.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "rdmghost"=.\rdmghost\rdmghost.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+    Begin Project Dependency
+    Project_Dep_Name libosroadmap
+    End Project Dependency
+    Begin Project Dependency
+    Project_Dep_Name libroadmap
+    End Project Dependency
+}}}
+
+###############################################################################
+
+Project: "setupdll"=.\setupdll\setupdll.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Project: "zlibce"=.\zlib\zlibce.vcp - Package Owner=<4>
+
+Package=<5>
+{{{
+}}}
+
+Package=<4>
+{{{
+}}}
+
+###############################################################################
+
+Global:
+
+Package=<5>
+{{{
+}}}
+
+Package=<3>
+{{{
+}}}
+
+###############################################################################
+

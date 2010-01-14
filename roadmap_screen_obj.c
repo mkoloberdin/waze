@@ -49,8 +49,6 @@
 #include "roadmap_sound.h"
 #include "roadmap_main.h"
 #include "roadmap_softkeys.h"
-#include "roadmap_config.h"
-#include "roadmap_map_settings.h"
 
 #include "roadmap_screen_obj.h"
 
@@ -61,23 +59,33 @@ typedef struct {
 
 
 
+
+
+
+/****** Removed by AGA **********/
+/*
 #ifdef _WIN32
 static ObjectFile RoadMapObjFiles[] = {
+   {"objects", 600},
+   {"objects_wide", 450},
    {"objects", 320},
    {"objects_wide", 210},
    {"objects",      100}
 };
 #else
 static ObjectFile RoadMapObjFiles[] = {
-   {"objects",      370},//changed by AviR to fit iPhone
-   {"objects_wide", 210},//changed by AviR to fit iPhone
+   {"objects", 600},
+   {"objects_wide", 450},
+   {"objects",      400},
+   {"objects_wide", 290},
    {"objects",      100}
 };
 #endif
-static int screen_height;
-static int screen_width;
-static const char *current_object_name=NULL;
+*/
 
+#define OBJ_FILE_PORTRAIT 					"objects"
+#define OBJ_FILE_LANDSCAPE 					"objects_wide"
+#define OBJ_FILE_LANDSCAPE_SK_BOTTOM 		"objects_wide_softkeys_bottom"
 #define MAX_STATES 9
 
 #define OBJ_FLAG_NO_ROTATE 0x1
@@ -109,7 +117,7 @@ struct RoadMapScreenObjDescriptor {
    const RoadMapAction *long_action;
 
    RoadMapStateFn state_fn;
-   
+
    RoadMapStateFn  condition_fn;
    int			   condition_value;
 
@@ -117,6 +125,10 @@ struct RoadMapScreenObjDescriptor {
 
    struct RoadMapScreenObjDescriptor *next;
 };
+
+static int screen_height;
+static int screen_width;
+static const char *current_object_name=NULL;
 
 static RoadMapScreenObj RoadMapObjectList = NULL;
 static RoadMapScreenObj RoadMapScreenObjSelected = NULL;
@@ -330,27 +342,27 @@ static void roadmap_screen_obj_decode_state
 static void roadmap_screen_obj_decode_condition
                         (RoadMapScreenObj object,
                          int argc, const char **argv, int *argl) {
-   
+
    char arg[255];
-   
+
    argc -= 1;
    if (argc != 2) {
       roadmap_log (ROADMAP_ERROR, "screen object:'%s' illegal condition indicator.",
                    object->name);
       return;
    }
-   
+
    roadmap_screen_obj_decode_arg (arg, sizeof(arg), argv[1], argl[1]);
-   
+
    object->condition_fn = roadmap_state_find (arg);
-   
+
    if (!object->condition_fn) {
       roadmap_log (ROADMAP_ERROR,
                    "screen object:'%s' can't find condition indicator.",
                    object->name);
       return;
    }
-   
+
    roadmap_screen_obj_decode_arg (arg, sizeof(arg), argv[2], argl[2]);
    object->condition_value = atoi(arg);
 }
@@ -442,62 +454,62 @@ static void roadmap_screen_obj_load (const char *data, int size) {
          }
 
       }
-      
+
       switch (argv[0][0]) {
-            
+
          case 'O':
-            
+
             roadmap_screen_obj_decode_integer (&object->opacity, argc, argv,
                                                argl);
             break;
-            
+
          case 'A':
-            
+
             roadmap_screen_obj_decode_action (object, argc, argv, argl);
             break;
-            
+
          case 'B':
-            
+
             roadmap_screen_obj_decode_bbox (object, argc, argv, argl);
             break;
-            
+
          case 'P':
-            
+
             roadmap_screen_obj_decode_position (object, argc, argv, argl);
             break;
-            
+
          case 'I':
-            
+
             roadmap_screen_obj_decode_icon (object, argc, argv, argl);
             break;
-            
+
          case 'E':
-            
+
             roadmap_screen_obj_decode_sprite (object, argc, argv, argl);
             break;
-            
+
          case 'S':
-            
+
             roadmap_screen_obj_decode_state (object, argc, argv, argl);
             break;
-            
+
          case 'C':
-            
+
             roadmap_screen_obj_decode_condition (object, argc, argv, argl);
             break;
-            
+
          case 'R':
-            
+
             object->flags |= OBJ_FLAG_NO_ROTATE;
             break;
-            
+
          case 'T':
-            
+
             object->flags |= OBJ_FLAG_REPEAT;
             break;
-            
+
          case 'N':
-            
+
             object = roadmap_screen_obj_new (argc, argv, argl);
             break;
       }
@@ -523,7 +535,7 @@ static void road_screen_objects_delete(){
    RoadMapScreenObj cursor;
    for (cursor = RoadMapObjectList; cursor != NULL; cursor = cursor->next) {
       free(cursor);
-      
+
       RoadMapObjectList=NULL;
    }
 }
@@ -544,11 +556,6 @@ static void roadmap_screen_obj_pos (RoadMapScreenObj object,
       pos->y += roadmap_canvas_height ();
    } else {
       pos->y += OffsetY;
-#ifdef IPHONE
-      /* Apply top bar height offset */
-      if (roadmap_map_settings_isShowTopBarOnTap())
-         pos->y += 40;
-#endif //IPHONE
    }
 
    /* Apply local offsets */
@@ -565,13 +572,13 @@ static int obj_is_active (RoadMapScreenObj object) {
       if ((state < 0) || (state >= MAX_STATES))
          return 0;
    }
-   
+
    if (object->condition_fn) {
       condition = (*object->condition_fn) ();
       if (condition != object->condition_value)
          return 0;
    }
-   
+
    return 1;
 }
 
@@ -589,7 +596,7 @@ static RoadMapScreenObj roadmap_screen_obj_by_pos (RoadMapGuiPoint *point) {
           (point->x <= (pos.x + cursor->bbox.maxx)) &&
           (point->y >= (pos.y + cursor->bbox.miny)) &&
           (point->y <= (pos.y + cursor->bbox.maxy))) {
-         
+
          if (obj_is_active(cursor))
             return cursor;
       }
@@ -624,10 +631,10 @@ static int roadmap_screen_obj_pressed (RoadMapGuiPoint *point) {
 
    if (!obj_is_active(RoadMapScreenObjSelected))
        return 1;
-   
+
    if (RoadMapScreenObjSelected->state_fn)
       state = (*RoadMapScreenObjSelected->state_fn) ();
-       
+
 
    if (RoadMapScreenObjSelected->images[state]) {
       RoadMapGuiPoint pos;
@@ -749,22 +756,23 @@ static void roadmap_screen_obj_reload (void) {
    unsigned int i;
    int height = roadmap_canvas_height ();
    int width = roadmap_canvas_width();
-   const char *object_name = NULL;
+   const char *object_name = OBJ_FILE_PORTRAIT;		/* Portrait is the default */
 
    RoadMapObjectList = NULL;
 
    screen_height = height;
    screen_width = width;
-   for (i=0; i<sizeof(RoadMapObjFiles)/sizeof(RoadMapObjFiles[0]); i++) {
 
-      if (height >= RoadMapObjFiles[i].min_screen_height) {
-         if (!strcmp(RoadMapObjFiles[i].name,"objects_wide") && (roadmap_softkeys_orientation() == SOFT_KEYS_ON_BOTTOM) )
-        	 object_name = "objects_wide_softkeys_buttom";
-         else
-        	 object_name = RoadMapObjFiles[i].name;
-         break;
-      }
-   }
+  if ( height < width )		/* Landscape */
+  {
+	 if ( roadmap_softkeys_orientation() == SOFT_KEYS_ON_BOTTOM )
+		 object_name = OBJ_FILE_LANDSCAPE_SK_BOTTOM;
+	 else
+		 object_name = OBJ_FILE_LANDSCAPE;
+  }
+
+  /* AGA reduce debug level */
+  roadmap_log( ROADMAP_DEBUG, "Current object file: %s", object_name );
 
    if (!object_name) {
       roadmap_log
@@ -845,6 +853,11 @@ void roadmap_screen_obj_initialize (void) {
       (roadmap_screen_obj_released, POINTER_HIGH);
    roadmap_pointer_register_short_click
       (roadmap_screen_obj_short_click, POINTER_HIGH);
+
+   // pressing enter on client will emulate a short click on objects
+   roadmap_pointer_register_enter_key_press
+       (roadmap_screen_obj_short_click, POINTER_HIGH);
+
    roadmap_pointer_register_long_click
       (roadmap_screen_obj_long_click, POINTER_HIGH);
 

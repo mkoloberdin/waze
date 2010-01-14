@@ -46,4 +46,5 @@ void roadmap_lang_download_conf_file(RoadMapCallback callback);
 void download_lang_files(void);
 const char *roadmap_lang_get_user_lang();
 void roadmap_lang_set_update_time(const char *update_time);
+void roadmap_lang_reload(void);
 #endif // __ROADMAP_LANG__H

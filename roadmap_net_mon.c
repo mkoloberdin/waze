@@ -37,6 +37,7 @@
 #include "roadmap_start.h"
 #include "roadmap_screen.h"
 
+#include "roadmap_config.h"
 #include "roadmap_net_mon.h"
 
 #define ACTIVITY_TIMEOUT_SEC  3
@@ -47,7 +48,7 @@ static int NumConnections;
 static time_t LastActivityTime = 0;
 static const char *LastErrorText = "";
 static ROADMAP_NET_MON_STATE CurrentState = NET_MON_DISABLED;
-
+extern RoadMapConfigDescriptor RoadMapConfigNetMonitorActivated;
 static void periodic_callack (void) {
 
    if(
@@ -63,6 +64,10 @@ static void periodic_callack (void) {
    }
 }
 
+// returns true iff we want to show monitor messages to the user
+static BOOL show_net_mon(){
+	return  roadmap_config_match(&RoadMapConfigNetMonitorActivated, "yes");
+}
 
 static void update_activity (void) {
    if (!LastActivityTime) roadmap_main_set_periodic (1000, periodic_callack);
@@ -78,7 +83,8 @@ static void update_activity (void) {
 void roadmap_net_mon_start (void) {
    assert (CurrentState == NET_MON_DISABLED || CurrentState == NET_MON_OFFLINE);
    CurrentState = NET_MON_START;
-   roadmap_message_set('!', roadmap_lang_get("Accessing network..."));
+   if(show_net_mon())
+   		roadmap_message_set('!', roadmap_lang_get("Accessing network..."));
    roadmap_screen_mark_redraw ();
    update_activity();
 }
@@ -100,7 +106,8 @@ void roadmap_net_mon_connect (void) {
    if ( CurrentState == NET_MON_OFFLINE ) { return; } //  connect means nothing in this case
    CurrentState = NET_MON_CONNECT;
    NumConnections++;
-   roadmap_message_set('!', roadmap_lang_get("Connecting..."));
+   if(show_net_mon())
+  		 roadmap_message_set('!', roadmap_lang_get("Connecting..."));
    update_activity();
 }
 
@@ -122,7 +129,8 @@ void roadmap_net_mon_send (size_t size) {
    assert (CurrentState != NET_MON_DISABLED);
    CurrentState = NET_MON_DATA;
    SendBytesCount += size;
-   roadmap_message_set('!', "%d KB", roadmap_net_mon_get_count() / 1024);
+   if(show_net_mon())
+   		roadmap_message_set('!', "%d KB", roadmap_net_mon_get_count() / 1024);
    update_activity();
 }
 
@@ -137,7 +145,8 @@ void roadmap_net_mon_recv (size_t size) {
 
    CurrentState = NET_MON_DATA;
    RecvBytesCount += size;
-   roadmap_message_set('!', "%d KB", roadmap_net_mon_get_count() / 1024);
+   if(show_net_mon())
+   		roadmap_message_set('!', "%d KB", roadmap_net_mon_get_count() / 1024);
    update_activity();
 }
 
@@ -147,7 +156,8 @@ void roadmap_net_mon_recv (size_t size) {
 void roadmap_net_mon_error (const char *text) {
    LastErrorText = text;
    CurrentState = NET_MON_ERROR;
-   roadmap_message_set('!', text);
+   if(show_net_mon())
+  		 roadmap_message_set('!', text);
    update_activity();
 }
 
@@ -177,7 +187,10 @@ size_t roadmap_net_mon_get_count (void) {
  */
 void roadmap_net_mon_offline (void) {
    CurrentState = NET_MON_OFFLINE;
-   roadmap_message_set('!', roadmap_lang_get("Offline"));
+   if(show_net_mon())
+   		roadmap_message_set('!', roadmap_lang_get("Offline"));
    roadmap_start_exit ();
 }
+
+
 

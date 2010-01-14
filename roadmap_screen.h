@@ -27,7 +27,7 @@
 
 #include "roadmap_types.h"
 #include "roadmap_canvas.h"
-
+#include "roadmap.h"
 enum { VIEW_MODE_2D = 0,
        VIEW_MODE_3D
 };
@@ -35,6 +35,13 @@ enum { VIEW_MODE_2D = 0,
 enum { ORIENTATION_DYNAMIC = 0,
        ORIENTATION_FIXED
 };
+
+
+/* The base height for which all the absolute values for height values are adjusted */
+#define RM_SCREEN_BASE_HEIGHT 	480
+/* The base width for which all the absolute values for width values are adjusted */
+#define RM_SCREEN_BASE_WIDTH 	320
+
 
 void roadmap_screen_initialize (void);
 void roadmap_screen_shutdown   (void);
@@ -63,7 +70,6 @@ void roadmap_screen_set_orientation_dynamic (void);
 void roadmap_screen_increase_horizon (void);
 void roadmap_screen_decrease_horizon (void);
 int roadmap_screen_get_orientation_mode (void);
-int roadmap_screen_get_view_mode (void);
 
 void roadmap_screen_rotate (int delta);
 
@@ -108,7 +114,7 @@ void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          int last_shape,
                                          RoadMapShapeItr shape_itr,
                                          int width,
-                                         int direction, 
+                                         int direction,
                                          const char *color);
 
 int roadmap_screen_fast_refresh (void);
@@ -126,6 +132,14 @@ int roadmap_screen_not_touched_state(void);
 
 void roadmap_screen_touched(void);
 void roadmap_screen_touched_off(void);
+
+
+int roadmap_screen_is_hd_screen( void );
+void roadmap_screen_set_screen_type( int screen_type );
+int roadmap_screen_get_screen_type( void );
+int roadmap_screen_adjust_height( int orig_height );
+int roadmap_screen_adjust_width( int orig_width );
+
 
 void roadmap_screen_mark_redraw (void);
 int roadmap_screen_show_icons_only_when_touched(void);
@@ -160,4 +174,6 @@ void dbg_time_end(int type);
 int dbg_time_print();
 void roadmap_screen_draw_flush(void);
 int roadmap_screen_show_top_bar(void);
+void roadmap_screen_set_Xicon_state(BOOL state);
+BOOL roadmap_screen_is_xicon_open();
 #endif // INCLUDE__ROADMAP_SCREEN__H

@@ -70,7 +70,7 @@
 #include "roadmap_messagebox.h"
 #include "Realtime/Realtime.h"
 #include "roadmap_config.h"
-#include "navigate/navigate_instr.h"
+#include <navigate/navigate_instr.h>
 #include "Realtime/RealtimeDefs.h"
 #include "editor_track_main.h"
 
@@ -854,9 +854,6 @@ const struct GPSFilter *editor_track_get_gps_filter (void) {
 
 
 void editor_track_toggle_new_roads (void) {
-#ifdef IPHONE
-	roadmap_main_show_root(0);
-#endif //IPHONE
    if ( Realtime_is_random_user() && (!roadmap_config_match(&RoadMapConfigStartWithRoadRoller, "Always"))){
       roadmap_messagebox ("Error", "Sorry, only registered users can record new roads. Go to Settings > Profile to register.");
       return;

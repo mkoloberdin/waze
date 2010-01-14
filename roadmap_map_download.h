@@ -23,9 +23,9 @@
 
 #ifndef INCLUDE__ROADMAP_MAP_DOWNLOAD__H
 #define INCLUDE__ROADMAP_MAP_DOWNLOAD__H
-
+#include "ssd/ssd_widget.h"
 void roadmap_map_download_region (const char *region_code, int fips);
-void roadmap_map_download(void);
+void roadmap_map_download(SsdWidget widget, const char *new_value);
 BOOL roamdmap_map_download_enabled(void);
 
 #endif // INCLUDE__ROADMAP_MAP_DOWNLOAD__H

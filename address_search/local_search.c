@@ -49,11 +49,19 @@ static RoadMapConfigDescriptor   s_web_service_name   =
                LSR_WEBSVC_CFG_TAB,
                LSR_WEBSVC_ADDRESS);
 
+static RoadMapConfigDescriptor   s_web_service_ls_provider =
+									ROADMAP_CONFIG_ITEM( LSR_WEBSVC_CFG_TAB,
+														     LSR_WEBSVC_PROVIDER );
+
+static RoadMapConfigDescriptor   s_web_service_ls_provider_label =
+									ROADMAP_CONFIG_ITEM( LSR_WEBSVC_CFG_TAB,
+														     LSR_WEBSVC_PROVIDER_LABEL );
+
 static wst_parser data_parser[] =
 {
    { "RC",                 VerifyStatus},
    { "AddressCandidate",   on_local_option}
-}; 
+};
 
 static void add_distance_to_address_string( address_candidate* this ){
 	int distance = -1;
@@ -187,13 +195,11 @@ BOOL local_candidate_build_address_string( address_candidate* this)
       }
    }
 
-#ifndef IPHONE   
    if (has_phone)
        snprintf( this->address + strlen(this->address), ADSR_ADDRESS_MAX_SIZE-strlen(this->address), "\n%s", this->phone);
-#endif //IPHONE
-
    add_distance_to_address_string(this);
-   
+
+
    return TRUE;
 }
 
@@ -215,6 +221,19 @@ BOOL local_search_init()
                               &s_web_service_name,
                               LSR_WEBSVC_DEFAULT_ADDRESS,
                               NULL);
+      // Local search provider
+      roadmap_config_declare( LSR_WEBSVC_CFG_FILE,
+                              &s_web_service_ls_provider,
+                              LSR_WEBSVC_DEFAULT_PROVIDER,
+                              NULL );
+
+      // Local search provider label
+      roadmap_config_declare( LSR_WEBSVC_CFG_FILE,
+                              &s_web_service_ls_provider_label,
+                              LSR_WEBSVC_DEFAULT_PROVIDER_LABEL,
+                              NULL );
+
+
       s_initialized_once = TRUE;
    }
 
@@ -245,7 +264,60 @@ void local_search_term()
 }
 
 
+const char* local_search_get_provider( void )
+{
+	// const char * provider = roadmap_config_get( &s_web_service_ls_provider );
+	const char * provider = "location_world";
+    return provider;
+}
 
+const char* local_search_get_provider_label( void )
+{
+	const char * provider_lbl = roadmap_config_get( &s_web_service_ls_provider_label );
+    return provider_lbl;
+}
+
+/*
+ * Returns the corresponding icon name matching the current provider
+ */
+const char* local_search_get_icon_name( void )
+{
+	static char icon_name[ADSR_ICON_NAME_MAX_SIZE];
+	const char* icon_suffix = local_search_get_provider();
+	/*
+	 * AGA NOTE: Temporary solution !!!!!
+	 * If not google - return generic
+	 */
+	 if ( strcmp( icon_suffix, "google") != 0 )
+	 {
+		 icon_suffix = LSR_GENERIC_PROVIDER_NAME;
+	 }
+
+	 snprintf( icon_name,  ADSR_ICON_NAME_MAX_SIZE, "search_local_%s", icon_suffix );
+
+	return icon_name;
+}
+
+/*
+ * Returns the corresponding logo name matching the current provider
+ */
+const char* local_search_get_logo_name( void )
+{
+	static char logo_name[ADSR_ICON_NAME_MAX_SIZE];
+	const char* logo_suffix = local_search_get_provider();
+	/*
+	 * AGA NOTE: Temporary solution !!!!!
+	 * If not google - return generic
+	 */
+	 if ( strcmp( logo_suffix, "google") != 0 )
+	 {
+		 logo_suffix = LSR_GENERIC_PROVIDER_NAME;
+	 }
+
+	 snprintf( logo_name,  ADSR_ICON_NAME_MAX_SIZE, "ls_logo_%s", logo_suffix );
+
+	return logo_name;
+}
 
 // q=beit a&mobile=true&max_results=10&longtitude=10.943983489&latitude=23.984398
 roadmap_result local_search_resolve_address(
@@ -253,9 +325,19 @@ roadmap_result local_search_resolve_address(
                   CB_OnAddressResolved cbOnAddressResolved,
                   const char*          address)
 {
-   
-   return generic_search_resolve_address(s_websvc, data_parser,sizeof(data_parser)/sizeof(wst_parser), "external_search",context, cbOnAddressResolved, address );
-} 
+   char custom_query[GS_CUSTOM_QUERY_MAX_SIZE];
+
+   snprintf( custom_query, GS_CUSTOM_QUERY_MAX_SIZE, "provider=%s", local_search_get_provider() );
+
+   return generic_search_resolve_address( s_websvc, data_parser,sizeof(data_parser)/sizeof(wst_parser), "external_search",
+		   context, cbOnAddressResolved, address, custom_query );
+}
+
+
+const char* local_search()
+{
+
+}
 
 // Callback:   on_local_option
 //

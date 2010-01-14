@@ -135,6 +135,6 @@ void navigate_main_on_suggest_reroute (int reroute_segment, int time_before, int
 void navigate_main_on_segment_ver_mismatch (void);
 void navigate_main_set_outline(RoadMapPosition *outline_points, int num_outline_points, int alt_id);
 
-
+int navigate_main_reload_data (void);
 #endif /* INCLUDE__NAVIGATE_MAIN__H */
 

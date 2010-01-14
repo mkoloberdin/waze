@@ -17,7 +17,7 @@
  *   along with RoadMap; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- 
+
 #ifndef  __ADDRESS_SEARCH_DEFS_H__
 #define  __ADDRESS_SEARCH_DEFS_H__
 
@@ -26,10 +26,16 @@
 #define  ADSR_WEBSVC_ADDRESS           ("Web-Service Address")
 #define  ADSR_WEBSVC_DEFAULT_ADDRESS   ("")
 
-#define  LSR_WEBSVC_CFG_FILE          ("preferences")
-#define  LSR_WEBSVC_CFG_TAB           ("Local Search")
-#define  LSR_WEBSVC_ADDRESS           ("Web-Service Address")
-#define  LSR_WEBSVC_DEFAULT_ADDRESS   ("")
+#define  LSR_WEBSVC_CFG_FILE          			("preferences")
+#define  LSR_WEBSVC_CFG_TAB           			("Local Search")
+#define  LSR_WEBSVC_ADDRESS           			("Web-Service Address")
+#define  LSR_WEBSVC_PROVIDER          			("Provider")
+#define  LSR_WEBSVC_PROVIDER_LABEL    			("Provider Label")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER_LABEL      ("")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER            ("google")
+#define  LSR_WEBSVC_DEFAULT_ADDRESS   			("")
+
+#define  LSR_GENERIC_PROVIDER_NAME    ("generic")
 
 #define  ADSR_CITY_STRING_MAX_SIZE        (63)
 #define  ADSR_STREET_STRING_MAX_SIZE      (128)
@@ -38,6 +44,7 @@
 #define  ADSR_COUNTY_STRING_MAX_SIZE      (32)
 #define  ADSR_PHONE_STRING_MAX_SIZE       (32)
 #define  ADSR_URL_STRING_MAX_SIZE         (250)
+#define  ADSR_ICON_NAME_MAX_SIZE          (64)
 
 #define  ADSR_ADDRESS_MAX_SIZE         (  ADSR_CITY_STRING_MAX_SIZE  +  \
                                           ADSR_STREET_STRING_MAX_SIZE+  \
@@ -54,6 +61,8 @@
 #define  ADDRESS_HISTORY_STATE            ("IL")
 #define  ADDRESS_STREET_NAME_MAX_SIZE     (112)
 
+#define  LSR_MENU_NAME_SUFFIX             ("local search")
+
 // Definitions for 'roadmap_history.h' API
 typedef enum tag_search_type
 {
@@ -69,7 +78,7 @@ typedef struct tag_address_info
    const char* city;
    const char* street;
    const char* house;
-   
+
 }  address_info, *address_info_ptr;
 
 
@@ -83,7 +92,7 @@ typedef enum tag_address_history_item
    ahi_name,
    ahi_latitude,
    ahi_longtitude,
-   
+
    ahi__count,
    ahi__invalid
 
@@ -97,13 +106,13 @@ typedef struct tag_address_candidate
    char     county[ADSR_COUNTY_STRING_MAX_SIZE  + 1];
    char     city  [ADSR_CITY_STRING_MAX_SIZE    + 1];
    char     street[ADSR_STREET_STRING_MAX_SIZE  + 1];
-   int      house;   
+   int      house;
    char     name[ADSR_NAME_STRING_MAX_SIZE  + 1];
    char     phone[ADSR_PHONE_STRING_MAX_SIZE  + 1];
    char     url[ADSR_URL_STRING_MAX_SIZE+1];
    // Full string:
    char     address[ADSR_ADDRESS_MAX_SIZE  + 1];
-   
+
 }     address_candidate;
 void  address_candidate_init( address_candidate* this);
 BOOL  address_candidate_build_address_string( address_candidate* this);

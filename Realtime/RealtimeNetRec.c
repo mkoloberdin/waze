@@ -21,7 +21,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "../roadmap_messagebox.h"
-#include "RealtimeNet.h"
+#include "RealtimeNet.h" 
 #include "RealtimeAlerts.h"
 #include "RealtimeBonus.h"
 #include "RealtimeTrafficInfo.h"
@@ -33,6 +33,7 @@
 #include "roadmap_login.h"
 #include "../roadmap_ticker.h"
 #include "../roadmap_twitter.h"
+#include "../roadmap_foursquare.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1272,10 +1273,10 @@ const char* BridgeToRes( /* IN  */   const char*       pNext,
 
    else if (!strcmp(serviceName,"UPDATEMAP")){
       if (status != 200){
-         roadmap_messagebox("Error", "Sending map update failed");
+       	 roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::BridgeToRes() - UPDATEMAP - got error from server about UPDATEMAP request");
       }
       else{
-         roadmap_messagebox_timeout("Thanks for reporting", "Map problems are fixed by wazers like you. you can edit the map too on www.waze.com",10);
+         roadmap_log( ROADMAP_DEBUG, "RTNet::OnGeneralResponse::BridgeToRes() - UPDATEMAP - got good response from server regarding UPDATEMAP request");
       }
    }
    else if (!strcmp(serviceName,"TRIPSERVER")){

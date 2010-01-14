@@ -79,11 +79,11 @@ BOOL  imageset_info_load(  imageset_info*       this,
 
 typedef struct tag_icon_ctx
 {
-   //union
-   //{
+   union
+   {
       wimageset_info wimages[MAX_ICONS_COUNT];
        imageset_info  images[MAX_ICONS_COUNT];
-   //};
+   };
    
    int   image_count;
    BOOL  wide_image;

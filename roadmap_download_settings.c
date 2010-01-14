@@ -32,10 +32,6 @@
 #include "roadmap_map_settings.h"
 #include "roadmap_map_download.h"
 #include <string.h>
-
-#ifdef IPHONE
-#include "iphone/roadmap_download_settings_dialog.h"
-#endif //IPHONE
 static const char* title = "Data Usage";
 static const char *yesno_label[2];
 static const char *yesno[2];
@@ -131,9 +127,6 @@ void roadmap_download_settings_show(void){
       roadmap_download_settings_init();
    }
     
-#ifdef IPHONE
-   roadmap_download_settings_dialog_show();
-#else
     if (!ssd_dialog_activate (title, NULL)) {
       SsdWidget dialog;
       SsdWidget box;
@@ -176,7 +169,7 @@ void roadmap_download_settings_show(void){
                         roadmap_map_download));
 	  box->callback = roadmap_map_download;
       
-    
+     
 	  ssd_widget_add (box,space_container );
 	  ssd_widget_add (box,
          ssd_text_new ("Download map text", roadmap_lang_get("Download map of my area"), 16, SSD_ALIGN_VCENTER));	  
@@ -368,7 +361,6 @@ void roadmap_download_settings_show(void){
      }
      
 	 ssd_dialog_draw ();
-#endif //IPHONE
 }
 
 
@@ -443,12 +435,4 @@ BOOL roadmap_download_settings_isDownloadTraffic(){
 	return roadmap_download_settings_isEnabled(RoadMapConfigDownloadTraffic);
 }
 
-void roadmap_download_settings_setDownloadTraffic(BOOL is_enabled){
-   int i = (is_enabled ? 0 : 1);
-   
-   if (!(is_enabled && roadmap_download_settings_isDownloadTraffic())){ // descriptor changed
-      roadmap_config_set (&RoadMapConfigDownloadTraffic,yesno[i]);
-      roadmap_config_save(TRUE);
-      OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
-	}
-}
+

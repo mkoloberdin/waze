@@ -56,21 +56,23 @@ typedef struct tag_cm_context
    SsdWidget            open_popup;
    void*                context;
    int                  last_height;
-
+   BOOL 				close_on_selection; //specifies if the context menu will close after a selection
 }     cm_context, *cm_context_ptr;
 void  cm_context_reset     ( cm_context_ptr this);
 BOOL  cm_context_is_active ( cm_context_ptr this);
 
 static   int         s_text_height        = 0;
 static   cm_context  s_ctx                = {NULL/*CB*/,   NULL/*MENU*/,NULL/*DRAW*/,
-                                             FALSE/*CALC*/,NULL/*PUP*/, NULL/*CTX*/, -1};
+                                             FALSE/*CALC*/,NULL/*PUP*/, NULL/*CTX*/, -1, TRUE};
 static   BOOL        s_open_to_the_right  = TRUE;
 static   BOOL        s_registered         = FALSE;
 static   SsdSize     s_canvas_size        = {0,0};
 static   SsdWidget   s_dialog             = NULL;
 static   int         s_requested_size     = -1;
 static   char        s_dialog_name[112];
-
+static int on_softkey_right(SsdWidget widget, const char *new_value, void *context);
+static int on_softkey_left(SsdWidget widget, const char *new_value, void *context);
+static BOOL close_popup_menu( SsdWidget container);
 
 void cm_context_reset( cm_context_ptr this)
 {
@@ -208,7 +210,7 @@ void ssd_contextmenu_delete( ssd_contextmenu_ptr this, BOOL delete_labels)
    free(this);
 }
 
-static void close_all_popup_menus( ssd_contextmenu_ptr menu)
+void close_all_popup_menus( ssd_contextmenu_ptr menu)
 {
    int i;
 
@@ -229,10 +231,14 @@ static void exit_context_menu( BOOL made_selection, ssd_cm_item_ptr item)
    ssd_contextmenu_ptr  menu     = s_ctx.menu;
    SsdOnContextMenu     on_menu  = s_ctx.callback;
    void*                context  = s_ctx.context;
-
-   ssd_dialog_hide( s_dialog_name, dec_ok);   // Will call 'on_dialog_closed()' below...
-
-   close_all_popup_menus( menu);
+   /* exit menu if 
+   * 1. no selection was made - this is a normal exit command
+   * 2. a selection was made, but a no-close on selection flag exists
+   */
+   if( !made_selection ||(made_selection&& s_ctx.close_on_selection)){
+  		 ssd_dialog_hide( s_dialog_name, dec_ok);   // Will call 'on_dialog_closed()' below...
+  		 close_all_popup_menus( menu);
+   }
    on_menu( made_selection, item, context);
 }
 
@@ -250,11 +256,21 @@ static void on_dialog_closed( int exit_code, void* context)
 }
 
 
-// LeftSoftKey and RightSoftKey handlers:
-static int on_softkey( SsdWidget widget, const char *new_value, void *context)
+// LeftSoftKey  handlers:
+static int on_softkey_left( SsdWidget widget, const char *new_value, void *context)
 {
    // Exit context menu with no selection (CANCEL):
    exit_context_menu( FALSE, NULL);
+   return 0;
+}
+
+//and RightSoftKey handler:
+static int on_softkey_right(SsdWidget widget, const char *new_value, void *context)
+{
+   if (s_ctx.open_popup)
+   		close_popup_menu((s_ctx.open_popup));
+   else
+   		exit_context_menu( FALSE, NULL);
    return 0;
 }
 
@@ -930,11 +946,17 @@ static void initialize_rows(  SsdWidget            menu_cnt,
          if( SSD_CONTEXTMENU_SIMPLE_LIST & flags)
             ssd_widget_set_size  ( item->row, text_width, s_text_height);
          else
-            #ifdef __SYMBIAN32__
+         {
+            if ( roadmap_screen_is_hd_screen() )
+            {
                ssd_widget_set_size  ( item->row, text_width+40, 60);
-            #else
+            }
+            else
+            {
                ssd_widget_set_size  ( item->row, text_width+10, 40);
-         #endif
+            }
+         }
+
 #else
          ssd_widget_set_size  ( item->row, text_width , s_text_height);
 #endif
@@ -964,12 +986,15 @@ static void initialize_rows(  SsdWidget            menu_cnt,
    {
 #ifdef TOUCH_SCREEN
       container_width   = 220;
-      #ifdef __SYMBIAN32__
+      if ( roadmap_screen_is_hd_screen() )
+      {
          container_width   = 320;
          container_height  = (used_rows_count) * 62;
-      #else
+      }
+      else
+      {
          container_height  = (used_rows_count) * 42;
-      #endif
+      }
 #else
       container_width   = 8 + text_width;
       if (menu_cnt->flags & SSD_POINTER_MENU)
@@ -1069,10 +1094,29 @@ static void on_device_event( device_event event, void* context)
    }
 }
 
+
+// returns the widget that should be focused - If there are open pop-ups,
+// it will first search in them for focused items, and if none are open,
+// will return the selected item in the main context menu
+static void setNewFocus(){
+	SsdWidget focusedWidget = ssd_dialog_get_focus();
+	if ( !focusedWidget ){
+		if ( s_ctx.open_popup )
+			close_popup_menu(s_ctx.open_popup);
+		if ( s_ctx.menu)
+   			set_focus_on_first_item(s_ctx.menu);
+	}
+
+}
+
+
 static void draw(SsdWidget widget, RoadMapGuiRect *rect, int flags)
 {
    s_ctx.recalc_pos = TRUE;
-
+   //if ( ssd_dialog_get_focus()!=s_ctx.menu->item[s_ctx.menu->item_selected].row)
+   		//ssd_dialog_set_focus(s_ctx.menu->item[s_ctx.menu->item_selected].row);
+   setNewFocus();
+  
    if( s_ctx.recalc_pos)
    {
 
@@ -1100,7 +1144,8 @@ void ssd_context_menu_show(int                  x,
                            SsdOnContextMenu     on_menu_closed,
                            void*                context,
                            menu_open_direction  dir,
-                           unsigned short       flags)
+                           unsigned short       flags,
+                           BOOL 				close_on_selection)
 {
    int style;
 
@@ -1117,8 +1162,7 @@ void ssd_context_menu_show(int                  x,
 
    if( cm_context_is_active( &s_ctx))
    {
-      assert(0);
-      return;   //   Disable recursive instances
+      exit_context_menu(FALSE,NULL); // we only support one context menu open at a time.
    }
 
    s_dialog = menu->container;
@@ -1152,7 +1196,7 @@ void ssd_context_menu_show(int                  x,
    s_ctx.menu     = menu;
    s_ctx.callback = on_menu_closed;
    s_ctx.context  = context;
-
+   s_ctx.close_on_selection  = close_on_selection;
    if( !s_dialog)
    {
       int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL;
@@ -1176,8 +1220,8 @@ void ssd_context_menu_show(int                  x,
 
    populate( s_dialog, menu, flags);
 
-   ssd_widget_set_right_softkey_callback( s_dialog, on_softkey);
-   ssd_widget_set_left_softkey_callback ( s_dialog, on_softkey);
+   ssd_widget_set_right_softkey_callback( s_dialog, on_softkey_right);
+   ssd_widget_set_left_softkey_callback ( s_dialog, on_softkey_left);
 
    set_menu_offsets( x, y, flags, TRUE /* Input is valid! */);
 
@@ -1190,6 +1234,6 @@ void ssd_context_menu_show(int                  x,
       roadmap_device_events_register( on_device_event, NULL);
       s_registered = TRUE;
    }
-
+   close_all_popup_menus(menu); // when we show a menu, we never want to start showing it with popups - D.F.
    ssd_dialog_draw ();
 }

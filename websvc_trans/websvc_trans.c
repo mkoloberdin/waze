@@ -39,7 +39,7 @@ static   transaction_result
                OnHTTPHeader         ( cyclic_buffer_ptr CB, http_parsing_state* parser_state);
 static   transaction_result
                OnCustomResponse     ( wst_context_ptr session);
-
+static LastNetConnectRes ELastNetConnectRes = LastNetConnect_Success;
 void wst_context_init( wst_context_ptr this)
 {
   memset( this, 0, sizeof(wst_context));
@@ -427,11 +427,12 @@ BOOL wst_start_trans__int(
                                        on_socket_connected,
                                        session))
    {
+      ELastNetConnectRes = LastNetConnect_Failure;
       roadmap_log( ROADMAP_ERROR, "wst_start_trans() - 'roadmap_net_connect_async' had failed (Invalid params or queue is full?)");
       wst_context_reset( session);
       return FALSE;
    }
-
+   ELastNetConnectRes = LastNetConnect_Success;
    // Mark starting time:
    session->starting_time = time(NULL);
 
@@ -1068,3 +1069,6 @@ transaction_result http_response_status_load(
    return trans_succeeded;
 }
 
+LastNetConnectRes websvc_trans_getLastNetConnectRes(void){
+	return ELastNetConnectRes;
+}

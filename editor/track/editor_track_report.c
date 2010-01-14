@@ -72,6 +72,14 @@ void editor_track_report_init (void) {
 }
 
 
+void editor_track_report_reset (void) {
+	
+	LastReportedNode = -1;
+	PendingLastNode = -1;
+	LastOrdinal = 0;
+	PendingOrdinal = 0;
+}
+
 static int editor_track_report_prepare_export (int offline, int *num_nodes, int *num_points, int *num_toggles, BOOL *has_user_points) {
 
 	int i;

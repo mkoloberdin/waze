@@ -434,13 +434,9 @@ int editor_db_open (int map_id) {
    int do_read = 0;
 
    editor_log_push ("editor_db_open");
-	
-#ifndef IPHONE
+
    map_path = roadmap_db_map_path();
-#else
-	map_path = roadmap_path_preferred("maps");
-#endif //IPHONE
-	
+
 	if (!map_path) {
       editor_log (ROADMAP_ERROR, "Can't find editor path");
       editor_log_pop ();

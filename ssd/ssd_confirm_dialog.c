@@ -41,15 +41,6 @@
 static int g_seconds;
 static SsdWidget s_gMsgBoxDlg;
 
-#ifndef IPHONE
- #define TEXT_SIZE 18
- #define TITLE_TEXT_SIZE 22
-#else
- #define TEXT_SIZE 14
- #define TITLE_TEXT_SIZE 18
-#endif //IPHONE
-
-
 typedef struct {
 	void *context;
 	ConfirmDialogCallback callback;
@@ -120,7 +111,6 @@ void ssd_confirm_dialog_update (void)
    if (!roadmap_screen_refresh())
        roadmap_screen_redraw();
 }
-
 void ssd_confirm_dialog_close (void)
 {
    char *dlg_name;
@@ -141,7 +131,7 @@ void ssd_confirm_dialog_close (void)
       kill_messagebox_timer();
       return;
    }
-   
+
    dialog = ssd_dialog_context();
    data = (confirm_dialog_context *) ssd_dialog_context();
    if (data){
@@ -151,7 +141,7 @@ void ssd_confirm_dialog_close (void)
       else
          exit_code = dec_no;
    }
-   
+
    kill_messagebox_timer ();
    ssd_dialog_hide ("confirm_dialog", dec_ok);
    
@@ -170,8 +160,6 @@ static int yes_button_callback (SsdWidget widget, const char *new_value) {
 	SsdWidget dialog;
 	ConfirmDialogCallback callback;
 	confirm_dialog_context *data;
-   
-   kill_messagebox_timer ();
 
 	dialog = widget->parent;
 	data = (confirm_dialog_context *)dialog->context;
@@ -196,8 +184,6 @@ static int no_button_callback (SsdWidget widget, const char *new_value) {
     SsdWidget dialog;
     ConfirmDialogCallback callback;
 	 confirm_dialog_context *data;
-   
-   kill_messagebox_timer();
 
     dialog = widget->parent;
     data = (confirm_dialog_context  *)dialog->context;
@@ -271,16 +257,16 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
 
    // Text box
-   text =  ssd_text_new ("text", "", TEXT_SIZE, SSD_END_ROW|SSD_WIDGET_SPACE);
-
+   text =  ssd_text_new ("text", "", 16, SSD_END_ROW|SSD_WIDGET_SPACE);
    ssd_text_set_color(text,"#ffffff");
+   
    ssd_widget_add (text_con,text);
 
   ssd_widget_add(dialog, text_con);
 
   widget_title = ssd_widget_get( dialog, "title_text" );
-   ssd_text_set_color(widget_title,"#ffffff");
-  ssd_text_set_font_size( widget_title, TITLE_TEXT_SIZE );
+  ssd_text_set_color(widget_title,"#ffffff");
+  ssd_text_set_font_size( widget_title, 20 );
 
 #ifdef TOUCH_SCREEN
 
@@ -337,9 +323,8 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
 #endif
   }
    
-   data->callback = callback;
-   data->context = context;
-   data->default_yes = default_yes;
+  data->callback = callback;
+  data->context = context;
 
   dialog->set_value (dialog, title);
   ssd_widget_set_value (dialog, "text", text);

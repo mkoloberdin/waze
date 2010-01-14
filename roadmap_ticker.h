@@ -1,4 +1,4 @@
-/* roadmap_ticker.h 
+/* roadmap_ticker.h
  *
  * LICENSE:
  *
@@ -21,7 +21,7 @@
  *
  *
  */
- 
+
 #ifndef INCLUDE__ROADMAP_TICKER__H
 #define INCLUDE__ROADMAP_TICKER__H
 
@@ -34,12 +34,12 @@
 
 void roadmap_ticker_initialize(void);
 void roadmap_ticker_display();
- 
+
 void roadmap_ticker_hide(void);
 void roadmap_ticker_show(void);
 int roadmap_ticker_height();
 int roadmap_ticker_state(void);
-
+int roadmap_ticker_top_bar_offset(void);
 typedef enum
 {
 	default_event,

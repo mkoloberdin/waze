@@ -80,9 +80,9 @@ static int auto_hide_dlg_callback (SsdWidget widget, const char *new_value) {
 
 static int on_pointer_down( SsdWidget this, const RoadMapGuiPoint *point)
 {
-   
+
    ssd_widget_pointer_down_force_click(this, point );
-   
+
    if( !this->tab_stop)
       return 0;
 
@@ -101,14 +101,16 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
    SsdWidget box;
    int height = 45;
 
-#ifdef HI_RES_SCREEN
-   height = 65;
-#endif
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   height = 65;
+   }
+
    dialog = ssd_dialog_new (AH_DIALOG_NAME, AH_DIALOG_TITLE, cbOnClosed,
          SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
          SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
-   
+
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
 
    space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
@@ -124,7 +126,7 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
 
    container = ssd_container_new(AH_CONT_NAME, NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,0);
    ssd_widget_set_color(container, NULL, NULL);
-   
+
    box = ssd_container_new ("Resume", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
    ssd_widget_set_color(box, NULL, NULL);
    text = ssd_text_new ("ResumeTxt", roadmap_lang_get("Resume manually"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);

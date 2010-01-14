@@ -272,6 +272,7 @@ static int roadmap_nmea_gga (int argc, char *argv[]) {
 
    switch (*argv[6]) {
 
+      case 0:
       case '0':
          RoadMapNmeaReceived.gga.quality = ROADMAP_NMEA_QUALITY_INVALID;
          break;

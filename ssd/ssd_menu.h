@@ -24,7 +24,7 @@
 
 #ifndef __SSD_MENU_H_
 #define __SSD_MENU_H_
-  
+
 #include "roadmap_factory.h"
 #include "ssd_dialog.h"
 
@@ -42,9 +42,17 @@ void ssd_list_menu_activate (const char      *name,
                         PFN_ON_DIALOG_CLOSED on_dialog_closed,
                         const RoadMapAction  *actions,
                         int                   flags);
-                        
+
+SsdWidget ssd_menu_new (const char           *name,
+							   SsdWidget        	 addition_conatiner,
+                               const char           *items_file,
+                               const char           *items[],
+                               const RoadMapAction  *actions,
+                               int                   flags);
+
 void ssd_menu_hide (const char *name);
 void ssd_menu_load_images(const char   *items_file, const RoadMapAction  *actions);
 void ssd_menu_set_right_text(char *name, char *item, char *text);
 void ssd_menu_set_label_long_text(char *name, char *item, const char *text);
+void ssd_menu_set_item_icon( SsdWidget menu, const char* item_name, const char* icon_name );
 #endif // __SSD_MENU_H_

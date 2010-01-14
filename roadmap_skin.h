@@ -37,6 +37,6 @@ void roadmap_skin_auto_night_mode(void);
 void roadmap_skin_auto_night_mode_kill_timer(void);
 BOOL roadmap_skin_auto_night_feature_enabled (void) ;
 void roadmap_skin_set_scheme(const char *new_scheme);
-const int roadmap_skin_get_scheme(void);
+int roadmap_skin_get_scheme(void);
 #endif // INCLUDE__ROADMAP_SKIN__H
 

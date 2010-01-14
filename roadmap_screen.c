@@ -51,7 +51,7 @@
 #include "roadmap_lang.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_line_route.h"
-#include "roadmap_map_settings.h" 
+#include "roadmap_map_settings.h"
 #include "roadmap_sprite.h"
 #include "roadmap_object.h"
 #include "roadmap_trip.h"
@@ -116,6 +116,11 @@ static RoadMapConfigDescriptor RoadMapConfigMapOrientation =
 static RoadMapConfigDescriptor RoadMapConfigShowScreenIconsOnTap =
                         ROADMAP_CONFIG_ITEM("Map Icons", "Show on screen on tap");
 
+RoadMapConfigDescriptor RoadMapConfigNetMonitorActivated =
+                        ROADMAP_CONFIG_ITEM("Net monitor", "Activated");
+
+static BOOL RoadMapHighResScreen = FALSE;
+static BOOL isXIconOpen = FALSE;
 static int RoadMapScreenInitialized = 0;
 static int RoadMapScreenFrozen = 0;
 
@@ -188,7 +193,7 @@ static int screen_touched_off = 0;
 #define SCREEN_FAST_DRAG  0x1
 #define SCREEN_FAST_OTHER 0x2
 #define SCREEN_FAST_NO_REDRAW 0x4
-
+static void roadmap_screen_draw_Xicon();
 static struct {
 
    int *cursor;
@@ -218,6 +223,13 @@ static RoadMapPen RoadMapPenEdges = NULL;
 static int RoadMapScreenRefreshFlowControl = 0;
 static int RoadMapScreenFastRefresh = 0;
 static int RoadMapScreenPrevFast = 0;
+
+#ifdef HI_RES_SCREEN
+static int RoadMapScreenType = RM_SCREEN_TYPE_HD_GENERIC;	/* High definition by default */
+#else
+static int RoadMapScreenType = RM_SCREEN_TYPE_SD_GENERIC;	/* Standard definition by default */
+#endif
+
 static void roadmap_screen_repaint_now (void);
 
 #if !defined(INLINE_DEC)
@@ -2016,7 +2028,7 @@ static void draw_real_time_traffic_speed_signs(void){
    if (!(roadmap_map_settings_color_roads())) // see if user chose not to display color on map
    	 return;
    NumReports = RTTrafficInfo_Count();
-	
+
    for (i=0; i< NumReports; i++){
       RoadMapPosition pos;
       RoadMapGuiPoint screen_point;
@@ -2057,24 +2069,31 @@ static void draw_real_time_traffic_speed_signs(void){
          roadmap_canvas_draw_image (images[TrafficRecord->iType], &icon_screen_point,  225, IMAGE_NORMAL);
          sprintf(text,"%d",(int)roadmap_math_meters_p_second_to_speed_unit((float)TrafficRecord->fSpeed));
 
-         #ifdef HI_RES_SCREEN
+         if ( roadmap_screen_is_hd_screen() )
+         {
             icon_screen_point.x = screen_point.x +10 ;
             icon_screen_point.y = screen_point.y - roadmap_canvas_image_height (images[TrafficRecord->iType]) + 20;
-         #else
+         }
+         else
+         {
             icon_screen_point.x = screen_point.x +10 ;
             icon_screen_point.y = screen_point.y - roadmap_canvas_image_height (images[TrafficRecord->iType]) + 14;
-         #endif
+         }
+
          roadmap_canvas_create_pen("Speed");
          roadmap_canvas_set_foreground("#000000");
          roadmap_canvas_draw_string_size(&icon_screen_point, ROADMAP_CANVAS_BOTTOMRIGHT, 14, text);
 
-         #ifdef HI_RES_SCREEN
+         if ( roadmap_screen_is_hd_screen() )
+         {
             icon_screen_point.x = screen_point.x +22 ;
             icon_screen_point.y = screen_point.y - 24;
-         #else
+         }
+         else
+         {
             icon_screen_point.x = screen_point.x +14 ;
             icon_screen_point.y = screen_point.y - 18;
-         #endif
+         }
          roadmap_canvas_create_pen("Speed");
          roadmap_canvas_set_foreground("#000000");
          roadmap_canvas_draw_string_size(&icon_screen_point, ROADMAP_CANVAS_BOTTOMRIGHT, 10, roadmap_lang_get(roadmap_math_speed_unit()));
@@ -2186,9 +2205,9 @@ static void roadmap_screen_repaint_now (void) {
 #ifdef SSD
     if (RoadMapScreenFrozen) {
        ssd_dialog_draw_prev ();
-#ifndef TOUCH_SCREEN       
+#ifndef TOUCH_SCREEN
        roadmap_bar_draw_top_bar(TRUE);
-#endif       
+#endif
        ssd_dialog_draw();
        return;
     }
@@ -2441,9 +2460,13 @@ static void roadmap_screen_repaint_now (void) {
    roadmap_ticker_display();
 
    roadmap_bar_draw();
-   
+
    roadmap_display_signs ();
 
+#ifndef TOUCH_SCREEN
+   if(roadmap_screen_is_xicon_open())
+ 		roadmap_screen_draw_Xicon(); // draw the x icon in the middle of the screen for non-touch screen clicks
+#endif
 
 #ifdef SSD
     ssd_dialog_draw ();
@@ -2710,16 +2733,16 @@ static int roadmap_screen_drag_start (RoadMapGuiPoint *point) {
       for (i = 0; i < MAX_CORDING_POINTS; ++i) {
          roadmap_math_to_position(CordingGuiPoints+i, CordingAnchors+i, 1);
       }
-      
+
       //save initial angle
       //CordingAngle = roadmap_math_azymuth (&CordingAnchors[0], &CordingAnchors[1]);
       CordingAngle = 0;
-      
+
       point->x = (CordingGuiPoints[1].x + CordingGuiPoints[0].x) /2;
       point->y = (CordingGuiPoints[1].y + CordingGuiPoints[0].y) /2;
-      
+
       RoadMapScreenPointerLocation = *point;
-      
+
    } else
 #endif
    RoadMapScreenPointerLocation = *point;
@@ -2756,52 +2779,52 @@ static int roadmap_screen_drag_motion (RoadMapGuiPoint *point) {
    RoadMapGuiPoint CordingPt[MAX_CORDING_POINTS];
    RoadMapPosition CordingPos[MAX_CORDING_POINTS];
    int i;
-   
+
    if (roadmap_canvas_is_cording() && CordingEvent) {
       roadmap_canvas_get_cording_pt (CordingPt);
-      
+
       for (i = 0; i < MAX_CORDING_POINTS; ++i) {
          roadmap_math_to_position(CordingPt+i, CordingPos+i, 1);
       }
       //printf ("Pt0: (%d, %d) ; Pos0: (%d, %d) ; Anch0: (%d, %d)\n", CordingPt[0].x, CordingPt[0].y, CordingPos[0].latitude, CordingPos[0].longitude, CordingAnchors[0].latitude, CordingAnchors[0].longitude);
-      
-      
+
+
       //Calculate point position
-      
+
       point->x = (CordingPt[1].x + CordingPt[0].x) /2;
       point->y = (CordingPt[1].y + CordingPt[0].y) /2;
 
       roadmap_screen_record_move
                (RoadMapScreenPointerLocation.x - point->x,
                 RoadMapScreenPointerLocation.y - point->y);
-      
+
       RoadMapScreenPointerLocation = *point;
 
 
       // Calculate zoom change
-      
+
       int dist_new = roadmap_math_distance (&CordingPos[0], &CordingPos[1]);
       int dist_old = roadmap_math_distance (&CordingAnchors[0], &CordingAnchors[1]);
-      
+
       float scale = (float)dist_old / (float)dist_new;
-      
+
       roadmap_math_zoom_set (ceil(roadmap_math_get_zoom() * scale));
       roadmap_layer_adjust ();
 
-      
-      
+
+
       // Calculate rotation
       int angle_new = roadmap_math_azymuth (&CordingPos[0], &CordingPos[1]);
       int angle_old =  roadmap_math_azymuth (&CordingAnchors[0], &CordingAnchors[1]);
       CordingAngle = angle_new - angle_old;
 
       roadmap_screen_rotate (CordingAngle);
-      
-           
+
+
       for (i = 0; i < MAX_CORDING_POINTS; ++i) {
          roadmap_math_to_position(CordingPt+i, CordingAnchors+i, 1);
       }
-      
+
    } else
 #endif
    {
@@ -2845,7 +2868,7 @@ static int roadmap_screen_get_view_mode_screen_touched (void) {
 
 int roadmap_screen_get_orientation_mode (void) {
 
-   
+
    return RoadMapScreenOrientationMode;
 }
 
@@ -3039,6 +3062,7 @@ void show_me_on_map(void){
     roadmap_screen_hold ();
     RoadMapScreenOrientationMode = ORIENTATION_DYNAMIC;
     roadmap_trip_set_focus ("GPS");
+    roadmap_screen_set_Xicon_state(FALSE);
     roadmap_softkeys_remove_right_soft_key("Me on map");
     roadmap_state_refresh ();
 
@@ -3192,7 +3216,7 @@ void roadmap_screen_decrease_horizon (void) {
    roadmap_screen_repaint ();
 }
 
-#define FRACMOVE 4
+#define FRACMOVE 15
 
 void roadmap_screen_move (int dx, int dy) {
 
@@ -3320,6 +3344,8 @@ void roadmap_screen_initialize (void) {
    roadmap_config_declare_enumeration
       ("user", &RoadMapConfigShowScreenIconsOnTap, NULL, "no", "yes", NULL);
 
+   roadmap_config_declare_enumeration
+      ("preferences", &RoadMapConfigNetMonitorActivated, NULL, "yes", "no", NULL);
 
 
    roadmap_pointer_register_short_click
@@ -3714,4 +3740,78 @@ int roadmap_screen_not_touched_state(void){
       return -1;
    else
       return 0;
+}
+
+
+/**
+ * Draws an icon in the middle of the screen that will enable non-touch users to click things on the screen
+ */
+static void roadmap_screen_draw_Xicon(){
+	if(!strcmp(roadmap_trip_get_focus_name(),"Hold")){
+	   RoadMapImage cross_hair_image;
+	   RoadMapGuiPoint screen_point;
+	   roadmap_screen_set_Xicon_state(TRUE);
+	   cross_hair_image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "CrossHair");
+
+		screen_point.x = roadmap_canvas_width()/2;
+	    screen_point.y = roadmap_canvas_height()/2;
+		if (cross_hair_image) {
+	        //center based on image size
+	        screen_point.x -= roadmap_canvas_image_width(cross_hair_image)/2;
+	        screen_point.y -= roadmap_canvas_image_height(cross_hair_image)/2;
+	        roadmap_canvas_draw_image (cross_hair_image, &screen_point,  0, IMAGE_NORMAL);
+	    }
+	}else{
+		roadmap_screen_set_Xicon_state(FALSE); // we are not on hold focus, thus disable the XIcon
+	}
+}
+
+/*
+ * Sets the current screen type (see roadmap_types.h for definitions )
+ */
+void roadmap_screen_set_screen_type( int screen_type )
+{
+	RoadMapScreenType = screen_type;
+}
+
+/*
+ * Returns the current screen type (see roadmap_types.h for definitions )
+ */
+int roadmap_screen_get_screen_type( void )
+{
+	return RoadMapScreenType;
+}
+
+/*
+ * Checks if the screen is high definition
+ */
+int roadmap_screen_is_hd_screen( void )
+{
+	return ( ( RoadMapScreenType & RM_SCREEN_TYPE_CATEGORY_HD ) > 0 );
+}
+
+
+
+/*
+ * Adjust the width value according to the base width
+ */
+int roadmap_screen_adjust_width( int orig_width )
+{
+	return ( ( orig_width * roadmap_canvas_width() ) / RM_SCREEN_BASE_WIDTH );
+}
+
+/*
+ * Adjust the height value according to the base height
+ */
+int roadmap_screen_adjust_height( int orig_height )
+{
+	return ( ( orig_height * roadmap_canvas_height() ) / RM_SCREEN_BASE_HEIGHT );
+}
+
+BOOL roadmap_screen_is_xicon_open(){
+	return isXIconOpen;
+}
+
+void roadmap_screen_set_Xicon_state(BOOL state){
+	isXIconOpen= state;
 }

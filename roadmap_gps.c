@@ -68,6 +68,10 @@
 
 #ifdef ANDROID
 #include "roadmap_androidgps.h"
+#endif
+
+#ifdef ANDROID
+#include "roadmap_androidgps.h"
 #define FILTER_SPEED_DROPS 1
 #else
 #define FILTER_SPEED_DROPS 0
@@ -123,6 +127,7 @@ static time_t RoadMapGpsConnectedSince = -1;
 static int RoadMapGpsShowRawGps;
 static BOOL RoadMapGpsCsvTrackerEnabled = FALSE;
 static BOOL RoadMapGpsWarningInit = TRUE;
+static BOOL RoadMapGpsCellMode = FALSE;
 
 
 #define ROADMAP_GPS_CLIENTS 16
@@ -138,7 +143,6 @@ static roadmap_gps_logger   RoadMapGpsLoggers[ROADMAP_GPS_CLIENTS] = {NULL};
 #define ROADMAP_GPS_SYMBIAN  5
 #define ROADMAP_GPS_CSV      6
 #define ROADMAP_GPS_ANDROID  7
-#define ROADMAP_GPS_IPHONE   8
 
 #define RM_GPS_WARNING_TIMEOUT	 30000 /* Timeout before the GPS data becomes reliable (msec) */
 
@@ -206,6 +210,10 @@ static roadmap_gps_link_control RoadMapGpsLinkRemove =
 
 int roadmap_gps_reception_state (void) {
 
+#ifdef __SYMBIAN32__
+   if (RoadMapGpsReception == GPS_RECEPTION_POOR)
+      RoadMapGpsReception = GPS_RECEPTION_GOOD;
+#endif
    return RoadMapGpsReception;
 }
 
@@ -260,27 +268,27 @@ static int roadmap_gps_validate (int gmt_time,
                                  int altitude,
                                  int *speed,
                                  int steering) {
-   
-   
+
+
 	static int last_valid_speed = 0;
 	static int last_valid_time = 0;
 	static RoadMapPosition last_valid_pos = {0, 0};
 	static RoadMapPosition last_pos = {0, 0};
 	int ok = 1;
 	RoadMapPosition position;
-   
+
 	position.longitude = longitude;
 	position.latitude = latitude;
-   
+
 	if (gmt_time < last_valid_time) {
-      
+
 		roadmap_log (ROADMAP_WARNING, "Ignoring GPS jump back in time.. from %d to %d", last_valid_time, gmt_time);
 		ok = 0;
 	}
-   
+
 	last_valid_time = gmt_time;
-   
-   
+
+
 	if (*speed == 0) {
 		int distance;
 
@@ -303,20 +311,20 @@ static int roadmap_gps_validate (int gmt_time,
 			}
 		}
 	}
-   
+
 	if (*speed >= 128) {
 		roadmap_log (ROADMAP_WARNING, "Ignoring GPS speed of %d knots, using previous speed of %d knots instead",
-                   *speed, last_valid_speed);
+							*speed, last_valid_speed);
 		*speed = last_valid_speed;
 	} else {
 		last_valid_speed = *speed;
 	}
-   
+
 	last_pos = position;
 	if (ok) {
 		last_valid_pos = position;
 	}
-   
+
    return ok;
 }
 
@@ -336,9 +344,9 @@ static void roadmap_gps_process_position (void) {
 	if (RoadMapGpsCsvTrackerEnabled) {
 		roadmap_gps_csv_tracker(RoadMapGpsReceivedTime,
             						&RoadMapGpsQuality,
-            						&RoadMapGpsReceivedPosition);			
+            						&RoadMapGpsReceivedPosition);
 	}
-	
+
 	if (!roadmap_gps_validate (RoadMapGpsReceivedTime,
 										RoadMapGpsReceivedPosition.latitude,
 										RoadMapGpsReceivedPosition.longitude,
@@ -626,7 +634,7 @@ static void roadmap_gps_gsv
 
    if( fields->gsv.index < 1)
    {
-      roadmap_log( ROADMAP_ERROR,"roadmap_gps_gsv() - (fields->gsv.index == %d)", fields->gsv.index);
+      //roadmap_log( ROADMAP_ERROR,"roadmap_gps_gsv() - (fields->gsv.index == %d)", fields->gsv.index);
       return;
    }
 
@@ -926,13 +934,8 @@ void roadmap_gps_initialize (void) {
       }
 
 #elif defined(IPHONE)
-#ifndef CSV_GPS
       roadmap_config_declare
          ("preferences", &RoadMapConfigGPSSource, "tty://dev/tty.iap:38400", NULL);
-#else
-      roadmap_config_declare
-         ("preferences", &RoadMapConfigGPSSource, "csv://test.csv", NULL);
-#endif //CSV_GPS
 #elif defined(J2ME)
       roadmap_config_declare
          ("preferences", &RoadMapConfigGPSSource, "", NULL);
@@ -1048,11 +1051,13 @@ void roadmap_gps_open (void) {
 #ifdef ANDROID
    RoadMapGpsProtocol = ROADMAP_GPS_ANDROID;
    RoadMapGpsLink.subsystem = ROADMAP_IO_NULL;
-#else
-   
-#if defined(IPHONE) && !defined(CSV_GPS)
-   RoadMapGpsProtocol = ROADMAP_GPS_IPHONE;
-   RoadMapGpsLink.subsystem = ROADMAP_IO_NULL;
+   if (strncasecmp (url, "csv://", 6) == 0)
+   {
+        if (roadmap_gps_csv_connect (url+6) == 0) {
+              RoadMapGpsLink.subsystem = ROADMAP_IO_NULL;
+              RoadMapGpsProtocol = ROADMAP_GPS_CSV;
+        }
+   }
 #else
 
 #ifdef __SYMBIAN32__
@@ -1203,9 +1208,7 @@ void roadmap_gps_open (void) {
 
 #endif
 #endif // __SYMBIAN32__
-#endif // IPHONE
 #endif // ANDROID
-	
    if (RoadMapGpsLink.subsystem == ROADMAP_IO_INVALID) {
       if (! RoadMapGpsRetryPending) {
          roadmap_log (ROADMAP_WARNING, "cannot access GPS source %s", url);
@@ -1238,7 +1241,7 @@ void roadmap_gps_open (void) {
          roadmap_gps_nmea();
          break;
 
-#if !defined (J2ME) && !defined (__SYMBIAN32__) && !defined (ANDROID) && !(defined(IPHONE) && !defined(CSV_GPS))
+#if !defined (J2ME) && !defined (__SYMBIAN32__)
       case ROADMAP_GPS_GPSD2:
 
          roadmap_gpsd2_subscribe_to_navigation (roadmap_gps_navigation);
@@ -1254,6 +1257,15 @@ void roadmap_gps_open (void) {
          roadmap_gps_csv_subscribe_to_dilution   (roadmap_gps_dilution);
          break;
 #endif
+#ifdef ANDROID
+      case ROADMAP_GPS_ANDROID:
+
+         roadmap_gpsandroid_subscribe_to_navigation( roadmap_gps_navigation );
+         roadmap_gpsandroid_subscribe_to_satellites (roadmap_gps_satellites);
+         roadmap_gpsandroid_subscribe_to_dilution (roadmap_gps_dilution);
+
+         break;
+#endif
 #elif defined (J2ME)
       case ROADMAP_GPS_J2ME:
 
@@ -1267,22 +1279,6 @@ void roadmap_gps_open (void) {
          roadmap_gpssymbian_subscribe_to_navigation (roadmap_gps_navigation);
 
          break;
-#elif defined (IPHONE)
-      case ROADMAP_GPS_IPHONE:
-         
-         roadmap_location_subscribe_to_navigation (roadmap_gps_navigation);
-         roadmap_location_subscribe_to_satellites (roadmap_gps_satellites);
-         roadmap_location_subscribe_to_dilution   (roadmap_gps_dilution);
-         
-         break;
-#elif defined (ANDROID)
-      case ROADMAP_GPS_ANDROID:
-
-         roadmap_gpsandroid_subscribe_to_navigation( roadmap_gps_navigation );
-         roadmap_gpsandroid_subscribe_to_satellites (roadmap_gps_satellites);
-         roadmap_gpsandroid_subscribe_to_dilution (roadmap_gps_dilution);
-
-         break;
 #endif
 
       case ROADMAP_GPS_OBJECT:
@@ -1293,7 +1289,14 @@ void roadmap_gps_open (void) {
          roadmap_log (ROADMAP_FATAL, "internal error (unsupported protocol)");
    }
 
+#ifdef IPHONE
+   if (roadmap_main_get_platform() == ROADMAP_MAIN_PLATFORM_IPHONE3G) {
 
+      roadmap_location_subscribe_to_navigation (roadmap_gps_navigation);
+      roadmap_location_subscribe_to_satellites (roadmap_gps_satellites);
+      roadmap_location_subscribe_to_dilution   (roadmap_gps_dilution);
+   }
+#endif //IPHONE
 }
 
 
@@ -1406,10 +1409,6 @@ BOOL roadmap_gps_have_reception(void){
 	gps_state = roadmap_gps_reception_state();
     gps_active = (gps_state != GPS_RECEPTION_NA) && (gps_state != GPS_RECEPTION_NONE);
 
-#ifdef DEMO
-   gps_active = TRUE;
-#endif //DEMO
-   
    return gps_active;
 }
 

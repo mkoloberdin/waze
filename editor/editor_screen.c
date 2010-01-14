@@ -913,6 +913,10 @@ void editor_screen_set (int status) {
             (editor_screen_short_click, POINTER_NORMAL);
       roadmap_pointer_register_long_click
             (editor_screen_long_click, POINTER_NORMAL);
+      roadmap_pointer_register_enter_key_press
+            (editor_screen_short_click, POINTER_HIGH);                
+      roadmap_pointer_register_enter_key_press
+            (editor_screen_long_click, POINTER_NORMAL);      
 
       roadmap_layer_adjust();
    } else {

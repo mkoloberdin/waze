@@ -33,19 +33,12 @@
 #include "roadmap_types.h"
 #include "roadmap_config.h"
 #include "roadmap_internet.h"
-#include "ssd/ssd_contextmenu.h"
-#include "roadmap_factory.h"
+
 #include "roadmap_path.h"
 #include "roadmap_file.h"
 #include "roadmap_spawn.h"
 
 #include "roadmap_help.h"
-
-#ifdef IPHONE
-#include "roadmap_list_menu.h"
-#include "roadmap_introduction.h"
-#include "roadmap_image_viewer.h"
-#endif //IPHONE
 
 #define RDM_URLHEAD "file://"
 #define RDM_MANUAL "manual.html"
@@ -54,34 +47,11 @@
 #define ROADMAP_BROWSER "dillo"
 #endif
 
-#define CFG_HELP_GUIDED_TOUR_URL_DEFAULT "http://d2bhe1se45kh4t.cloudfront.net/guided_tour_en.mp4"
-#define CFG_HELP_WHAT_TO_EXPECT_URL_DEFAULT "http://d2bhe1se45kh4t.cloudfront.net/guided_tour_en.mp4"
-
-extern ssd_contextmenu_ptr    s_main_menu;
-extern const char*            grid_menu_labels[];
-extern RoadMapAction          RoadMapStartActions[];
-extern BOOL get_menu_item_names(  const char*          menu_name,
-                                ssd_contextmenu_ptr  parent,
-                                const char*          items[],
-                                int*                 count);
-
 static RoadMapConfigDescriptor RoadMapConfigBrowser =
                         ROADMAP_CONFIG_ITEM("Help", "Browser");
 
 static RoadMapConfigDescriptor RoadMapConfigBrowserOptions =
                         ROADMAP_CONFIG_ITEM("Help", "Arguments");
-
-static RoadMapConfigDescriptor RoadMapConfigHelpGuidedTour =
-                        ROADMAP_CONFIG_ITEM("Help", "Guided tour url");
-
-static RoadMapConfigDescriptor RoadMapConfigHelpWhatToExpectUrl =
-                        ROADMAP_CONFIG_ITEM("Help", "What to expect url");
-
-static RoadMapConfigDescriptor RoadMapConfigHelpShowWhatToExpect =
-                        ROADMAP_CONFIG_ITEM("Help", "Show what to expect");
-
-static RoadMapConfigDescriptor RoadMapConfigHelpRollerNutshell =
-                        ROADMAP_CONFIG_ITEM("Help", "Roller nutshell");
 
 static char *RoadMapHelpManual = NULL;
 
@@ -233,82 +203,6 @@ int roadmap_help_next_topic (const char **label,
    return roadmap_help_get_topic(label, callback);
 }
 
-void roadmap_help_menu(void){
-#ifdef IPHONE
-   int                  count = 0;
-   const char           *help_menu[10];
-   
-   if (roadmap_introduction_is_available()){
-      help_menu[count++] = "nutshell";
-      help_menu[count++] = "guided_tour";
-      if (!strcmp(roadmap_config_get(&RoadMapConfigHelpShowWhatToExpect), "yes")) {
-         help_menu[count++] = "what_to_expect";
-      }
-      help_menu[count++] = "geoinfo";
-   }
-   
-   help_menu[count++] = "submit_debug_logs";
-   help_menu[count++] = "about";
-   help_menu[count++] = NULL;
-   
-	roadmap_list_menu_simple ("Help menu", 
-                             NULL, 
-                             help_menu,
-                             NULL,
-                             NULL,
-                             RoadMapStartActions,
-                             0);
-#endif //IPHONE
-}
-
-#ifdef IPHONE
-void roadmap_help_guided_tour () {
-   roadmap_main_play_movie (roadmap_config_get(&RoadMapConfigHelpGuidedTour));
-}
-
-void roadmap_help_what_to_expect () {
-   roadmap_main_play_movie (roadmap_config_get(&RoadMapConfigHelpWhatToExpectUrl));
-}
-
-static const char *nutshell_images[] = {
-
-   "nutshell_01",
-   "nutshell_02",
-   "nutshell_03",
-   "nutshell_04",
-   "nutshell_05",
-   "nutshell_06",
-   "nutshell_07",
-   NULL
-};
-
-static const char *nutshell_int_images[] = {
-
-   "nutshell_int_01",
-   "nutshell_int_02",
-   "nutshell_int_03",
-   "nutshell_int_04",
-   "nutshell_int_05",
-   "nutshell_int_06",
-   "nutshell_int_07",
-   "nutshell_int_08",
-   NULL
-};
-
-void roadmap_help_nutshell () {
-   int count;
-   
-   if (strcmp(roadmap_config_get(&RoadMapConfigHelpRollerNutshell), "yes")) {
-       for (count = 0; nutshell_images[count] != NULL; ++count) {}
-       roadmap_image_viewer_show(nutshell_images, count);
-   } else {
-      for (count = 0; nutshell_int_images[count] != NULL; ++count) {}
-      roadmap_image_viewer_show(nutshell_int_images, count);
-   }
-       
-   
-}
-#endif //IPHONE
 
 void roadmap_open_help(void){
 #if defined (_WIN32) || defined (__SYMBIAN32__)
@@ -323,18 +217,5 @@ void roadmap_help_initialize (void) {
 
    roadmap_config_declare
       ("preferences", &RoadMapConfigBrowser, ROADMAP_BROWSER, NULL);
-   
-   roadmap_config_declare
-      ("preferences", &RoadMapConfigHelpGuidedTour, CFG_HELP_GUIDED_TOUR_URL_DEFAULT, NULL);
-
-   roadmap_config_declare
-      ("preferences", &RoadMapConfigHelpWhatToExpectUrl, CFG_HELP_WHAT_TO_EXPECT_URL_DEFAULT, NULL);
-
-   roadmap_config_declare_enumeration
-      ("preferences", &RoadMapConfigHelpShowWhatToExpect, NULL, "no", "yes", NULL);
-
-   
-   roadmap_config_declare_enumeration 
-      ("preferences", &RoadMapConfigHelpRollerNutshell, NULL, "no", "yes", NULL);
 }
 

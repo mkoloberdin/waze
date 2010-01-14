@@ -169,14 +169,8 @@ const char*   grid_menu_labels[256];
 #include "roadmap_input_type.h"
 #include "address_search/address_search.h"
 #include "address_search/local_search.h"
-#include "roadmap_geo_location_info.h"
 #ifdef IPHONE
 #include "iphone/roadmap_location.h"
-#include "iphone/roadmap_settings.h"
-#include "iphone/roadmap_list_menu.h"
-#include "iphone/roadmap_introduction.h"
-#include "iphone/roadmap_urlscheme.h"
-#include "iphone/roadmap_media_player.h"
 #endif //IPHONE
 
 static const char *RoadMapMainTitle = "Waze";
@@ -236,6 +230,7 @@ void mark_location(void);
 void save_location(void);
 void gps_network_status(void);
 void roadmap_start_continue(void);
+static void viewMyPoints();
 static void roadmap_start_console (void) {
 
    const char *url = roadmap_gps_source();
@@ -328,11 +323,7 @@ static void about_dialog(char *about){
 
 	roadmap_screen_redraw();
 }
-
 static void roadmap_start_about (void) {
-#ifdef IPHONE
-	roadmap_main_show_root(0);
-#endif //IPHONE
 
    char about[500];
 
@@ -526,11 +517,6 @@ static void roadmap_start_sync_data (void) {
 
 static void roadmap_start_quick_menu (void);
 
-
-#ifdef IPHONE
-void start_home  (void);
-void start_help_support  (void);
-#endif
 
 #ifdef   TESTING_MENU
 void do_nothing(void)
@@ -753,30 +739,10 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
 
    {"addvoicenote", "Add a voice note", NULL, NULL,
       "Add a voice note", editor_notes_add_voice},
-
-   {"geoinfo", "Waze support in your area", NULL,  NULL,
-      "waze support in your area", roadmap_geo_location_info_show},
-
 #ifdef IPHONE
-   {"home", "Home", NULL, NULL,
-      "Home / about button", start_home},
-
-   {"guided_tour", "Watch the guided tour", NULL,  NULL,
-      "Watch the guided tour", roadmap_help_guided_tour},
-
-   {"what_to_expect", "What to expect", NULL,  NULL,
-      "What to expect", roadmap_help_what_to_expect},
-
-   {"nutshell", "Waze in a nutshell", NULL,  NULL,
-      "waze in a nutshell", roadmap_help_nutshell},
-
-   {"introduction", "Learn more about waze", NULL,  NULL,
-      "Learn more about waze", roadmap_introduction_show},
-
-   {"media_player", "Go to my music player", NULL,  NULL,
-      "Go to my music player", roadmap_media_player},
+   {"toggle_location", "Toggle location mode", NULL, NULL,
+      "Enable/Disable location services", roadmap_location_toggle},
 #endif
-
    {"minimize", "Minimize application", NULL, NULL,
       "Close app window and keep in background", roadmap_main_minimize},
 
@@ -805,7 +771,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
       "Report road construction", add_real_time_alert_for_construction},
 
    {"reportparking", "Available parking", NULL,  NULL,
-		"Report parking", add_real_time_alert_for_parking},
+         "Report parking", add_real_time_alert_for_parking},
 
    {"real_time_alerts_list", "Real Time Alerts", NULL,  NULL,
       "Real Time Alerts",RealtimeAlertsList},
@@ -833,7 +799,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
 
    {"navigation_guidance_off", "Mute", NULL,  NULL,
                      "Mute", navigation_guidance_off},
-         
+
    {"settingsmenu", "Settings menu", NULL, NULL,
             "Settings menu", start_settings_quick_menu},
 
@@ -879,7 +845,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
    {"stop_navigate", "Stop navigation", NULL,  NULL,
                         "Stop navigation", navigate_main_stop_navigation_menu},
 
-   {"nav_menu", "Nav navigation", NULL,  NULL, 
+   {"nav_menu", "Nav navigation", NULL,  NULL,
                          "Nav menu", navigate_menu},
 #ifdef SSD
    {"login_details", "Login details", NULL, NULL,
@@ -895,20 +861,16 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
    {"search_address", "New address", "New address", NULL,
       "New address", search_menu_search_address},
 
-   {"search_local", "Google local search", "Google local search ", NULL,
-         "Google local search", search_menu_search_local},
-#ifdef IPHONE
-   {"search_ab", "Contacts", "Contacts", NULL,
-         "Contacts", roamdmap_search_address_book},
-#endif //IPHONE
+   {"search_local", "Local search", "Local search ", NULL,
+         "Local search", search_menu_search_local},
 
    {"search_marked_locations", "Saved locations", "Saved locations", NULL,
          "Saved locations", search_menu_my_saved_places},
 
-         
+
    {"geo_reminders", "Geo-Reminders", "Geo-Reminders", NULL,
                "Geo-Reminders", search_menu_geo_reminders},
-               
+
    {"show_me", "Me on map", "Me on map", NULL,
    	"Me on map", show_me_on_map},
 
@@ -918,9 +880,12 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
    {"recommend_waze", "Recommend Waze to a friend", NULL, NULL,
    		"Recommend Waze to a friend", RecommentToFriend},
 
+   {"view_points", "View my points", NULL, NULL,
+   		"View my points", viewMyPoints},
+
    {"help_menu", "Help/Support", NULL, NULL,
    		"Help/Support", roadmap_help_menu},
-   		
+
    {"map_settings", "Map", NULL, NULL,
    		"Map", roadmap_map_settings_show},
 
@@ -965,7 +930,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
          "Map error", RTAlerts_report_map_problem},
 
 
-  {"submit_debug_logs", "Send logs", NULL,  NULL,
+  {"submit_logs", "Send logs", NULL,  NULL,
           "Send logs", roadmap_debug_info_submit},
 
   {"show_ticker", "Show ticker", NULL,  NULL,
@@ -982,7 +947,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
   {"foursquare_checkin", "Check-in with Foursquare", NULL, NULL,
                   "Check-in with Foursquare", roadmap_foursquare_checkin },
 
-                  
+
                   #ifdef   TESTING_MENU
    {"dummy_entry", "Dummy popup", "", NULL,
       "Dummy popup...", do_nothing},
@@ -1373,6 +1338,11 @@ BOOL get_menu_item_names(  const char*          menu_name,
    if( count)
       (*count) = 0;
 
+   if( !parent)
+   {
+      assert(0);
+      return FALSE;
+   }
 
    if( menu_name && (*menu_name))
    {
@@ -1415,6 +1385,61 @@ BOOL get_menu_item_names(  const char*          menu_name,
    return TRUE;
 }
 
+ssd_cm_item_ptr roadmap_start_get_menu_item( const char*          menu_name,
+											 const char*          item_name,
+											 ssd_contextmenu_ptr  parent )
+{
+   int                  i;
+   ssd_contextmenu_ptr  menu  = NULL;
+   RoadMapAction*       action= NULL;
+   ssd_cm_item_ptr 		item;
+
+   if( !parent)
+   {
+      return FALSE;
+   }
+
+   if( menu_name && (*menu_name))
+   {
+	   // Find the pop menu
+      for( i=0; i<parent->item_count; i++)
+      {
+         if( CONTEXT_MENU_FLAG_POPUP & parent->item[i].flags)
+         {
+            action = (RoadMapAction*)parent->item[i].action;
+            if( action && !strcmp( menu_name, action->name))
+            {
+               menu = parent->item[i].popup;
+               break;
+            }
+
+            if(  (item = roadmap_start_get_menu_item( menu_name, item_name, parent->item[i].popup ) ) )
+               return item;
+         }
+      }
+   }
+   else
+      menu = parent;
+
+   if( !menu)
+      return FALSE;
+
+   // Pass through the items and set the icon
+   for( i=0; i < menu->item_count; i++ )
+   {
+	  item = &menu->item[i];
+      action = (RoadMapAction*) item->action;
+      if ( action->name && !strcmp( action->name, item_name ) )
+      {
+    	  return item;
+      }
+   }
+
+   return NULL;
+}
+
+
+
 #ifndef  TOUCH_SCREEN
 void  on_contextmenu_closed(  BOOL              made_selection,
                               ssd_cm_item_ptr   item,
@@ -1447,6 +1472,9 @@ static void roadmap_start_quick_menu (void) {
       }
    }
 
+   // Dynamically set the local search attributes before menu activation
+   search_menu_set_local_search_attrs();
+
 #ifndef  TOUCH_SCREEN
    if  (ssd_widget_rtl (NULL))
 	   menu_x = SSD_X_SCREEN_RIGHT;
@@ -1461,7 +1489,8 @@ static void roadmap_start_quick_menu (void) {
                            on_contextmenu_closed,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           FALSE);
 
 #else
    // TOUCH SCREEN:
@@ -1509,26 +1538,22 @@ static void  updateRecordRoadsLabel(){
 	const char * label = roadmap_lang_get(editor_track_main_getRecordRoadsLabel());
 	RoadMapAction * recordRoadsAction = roadmap_start_find_action_un_const("togglenewroads");
 	recordRoadsAction->label_long = label;
-#ifdef TOUCH_SCREEN	
+#ifdef TOUCH_SCREEN
 	ssd_menu_set_label_long_text("Update map", "togglenewroads", label);
 #else
 	ssd_menu_set_label_long_text("map_updates", "togglenewroads", label);
-#endif	
+#endif
 }
 
 
 void start_map_updates_menu(void){
-   updateRecordRoadsLabel();
-#ifdef IPHONE
-	roadmap_list_menu_simple ("Update map", "map_updates", RoadMapAlertMenu, NULL, NULL,
-							RoadMapStartActions,
-							SSD_DIALOG_FLOAT|SSD_DIALOG_TRANSPARENT|SSD_DIALOG_VERTICAL);
-#elif defined(TOUCH_SCREEN)
+	    updateRecordRoadsLabel();
+#ifdef TOUCH_SCREEN
 		ssd_menu_activate ("Update map", "map_updates", RoadMapAlertMenu, NULL, NULL,
    		  				    RoadMapStartActions,
     							 SSD_CONTAINER_TITLE);
 #else
-	ssd_list_menu_activate ("map_updates", "map_updates", RoadMapAlertMenu, NULL,
+		ssd_list_menu_activate ("map_updates", "map_updates", RoadMapAlertMenu, NULL,
    		  				        RoadMapStartActions,
     							SSD_DIALOG_FLOAT|SSD_DIALOG_VERTICAL );
 #endif
@@ -1577,7 +1602,7 @@ void gps_network_status(void){
          SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
          SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
-   
+
    ssd_widget_add (dialog,
       ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
 
@@ -1608,11 +1633,11 @@ void gps_network_status(void){
       ssd_widget_add (container,bitmap);
       ssd_dialog_add_hspace(container,5,0);
       msg[0] = 0;
-#ifndef IPHONE      
+#if !IPHONE
       sprintf(msg, "%s (%d %s)", roadmap_lang_get("Poor GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
 #else
       sprintf(msg, "%s", roadmap_lang_get("Poor GPS reception"));
-#endif      
+#endif
       text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
       ssd_text_set_color(text,"#ffffff");
       ssd_widget_add (container,text);
@@ -1632,15 +1657,15 @@ void gps_network_status(void){
       ssd_widget_add (container,bitmap);
       ssd_dialog_add_hspace(container,5,0);
 
-#ifndef IPHONE      
+#if (!defined(IPHONE) && !defined(__SYMBIAN32__))
       sprintf(msg, "%s (%d %s)", roadmap_lang_get("Good GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
 #else
       sprintf(msg, "%s", roadmap_lang_get("Good GPS reception"));
-#endif      
+#endif
       text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
       ssd_text_set_color(text,"#ffffff");
       ssd_widget_add (container,text);
-     
+
       ssd_widget_add (dialog, container);
    }
 
@@ -1828,7 +1853,7 @@ void start_alerts_menu(void){
     int menu_file;
     BOOL has_position = FALSE;
 
-  if (ssd_dialog_is_currently_active()) {
+    if (ssd_dialog_is_currently_active()) {
 		if ((!strcmp(ssd_dialog_currently_active_name(),menu[0] )) || (!strcmp(ssd_dialog_currently_active_name(),menu[1])) ){
 			on_closed_alerts_quick_menu(dec_close, NULL);
 			ssd_dialog_hide_current(dec_close);
@@ -1846,7 +1871,7 @@ void start_alerts_menu(void){
 	roadmap_check_allocated(CurrentGpsPoint);
 	if (roadmap_navigate_get_current
         (CurrentGpsPoint, &line, &direction) == -1) {
-      BOOL has_reception = roadmap_gps_have_reception();
+		 BOOL has_reception = (roadmap_gps_reception_state() != GPS_RECEPTION_NONE) && (roadmap_gps_reception_state() != GPS_RECEPTION_NA);
 		 GpsPosition = roadmap_trip_get_position ("GPS");
 	    if ( (GpsPosition != NULL) && (has_reception)){
                      CurrentGpsPoint->latitude = GpsPosition->latitude;
@@ -1897,18 +1922,11 @@ void start_alerts_menu(void){
     	free(CurrentGpsPoint);
 		roadmap_screen_refresh();
     }
+    else{
 
+    }
     RTAlerts_Resert_Minimized();
-#ifdef IPHONE
-   const char* additional_item;
-   if (roadmap_foursquare_is_enabled())
-      additional_item = "foursquare_checkin";
-   else
-      additional_item = "";
-      
-	roadmap_list_menu_simple (menu[menu_file], menu[menu_file], RoadMapAlertMenu, additional_item, on_closed_alerts_quick_menu,
-							RoadMapStartActions, SSD_DIALOG_ADDITION_BELOW);
-#elif defined(TOUCH_SCREEN)
+#ifdef TOUCH_SCREEN
 		ssd_menu_activate (menu[menu_file], menu[menu_file], RoadMapAlertMenu,  roadmap_foursquare_create_alert_menu(),on_closed_alerts_quick_menu,
    		  	   	           RoadMapStartActions,SSD_CONTAINER_TITLE|SSD_DIALOG_ADDITION_BELOW);
 
@@ -1951,7 +1969,7 @@ static void start_more_menu (void) {
                      RoadMapStartActions,
                      SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_ROUNDED_CORNERS|SSD_POINTER_MENU);
 }
-/*
+
 void roadmap_help_menu(void){
 #ifdef TOUCH_SCREEN
 #ifdef SSD
@@ -2009,15 +2027,9 @@ void roadmap_help_menu(void){
 #endif   // TOUCH_SCREEN
 
 }
- */
 
 
 void start_settings_quick_menu (void) {
-
-#ifdef IPHONE
-	roadmap_settings();
-	return;
-#endif //IPHONE
 
 #ifdef TOUCH_SCREEN
 #ifdef SSD
@@ -2041,7 +2053,6 @@ void start_settings_quick_menu (void) {
       assert(0);
       return;
    }
-
 
 #ifdef TOUCH_SCREEN
    ssd_menu_activate("Settings menu",
@@ -2077,15 +2088,6 @@ void start_settings_quick_menu (void) {
 #endif   // TOUCH_SCREEN
 }
 
-#ifdef IPHONE
-void start_home (void) {
-	if (roadmap_main_is_root()) {
-		roadmap_start_about();
-	} else {
-		roadmap_main_show_root(1);
-	}
-}
-#endif //IPHONE
 
 void start_side_menu (const char           			 *name,
 				      const char           			 *items[],
@@ -2355,7 +2357,7 @@ static int roadmap_start_long_click (RoadMapGuiPoint *point) {
 
 
 static void roadmap_start_splash (void) {
-#if	!defined(ANDROID) && !defined(IPHONE)
+#ifndef ANDROID
    int height, width;
    RoadMapImage image;
    RoadMapGuiPoint pos;
@@ -2381,8 +2383,6 @@ static void roadmap_start_splash (void) {
 
 static void roadmap_start_realtime (void) {
 #ifdef __SYMBIAN32__
-//#if (defined(__SYMBIAN32__) || defined(IPHONE))
-   roadmap_main_set_cursor(ROADMAP_CURSOR_NORMAL);
    roadmap_main_remove_periodic(roadmap_start_realtime);
 #endif
    if(!Realtime_Initialize())
@@ -2390,12 +2390,7 @@ static void roadmap_start_realtime (void) {
 
    /* Disabled now. There is no delayed wizard on start */
    /* roadmap_welcome_wizard(); */
-   
-   /*
-#ifdef IPHONE
-   roadmap_welcome_wizard();
-#endif
-*/
+
 }
 
 void load_resources_on_init(){
@@ -2550,7 +2545,7 @@ int roadmap_start_get_first_time_use(){
 
 static void roadmap_start_upload (void){
    editor_sync_upload();
-   
+
    if (StartNextLoginCb) {
       StartNextLoginCb ();
       StartNextLoginCb = NULL;
@@ -2570,7 +2565,7 @@ void roadmap_start_login_cb (void){
                               FALSE, roadmap_confirmed_send_log_callback, NULL,
                               roadmap_lang_get("Send"), roadmap_lang_get("Cancel"),5);
    else
-      roadmap_start_upload ();		                                 
+      roadmap_start_upload ();
 }
 
 static int roadmap_start_closed_properly () {
@@ -2587,10 +2582,7 @@ extern int do_alloc_trace;
 void roadmap_start_after_intro_screen(void){
    // Start 'realtime':
 #ifdef __SYMBIAN32__
-//#if (defined(__SYMBIAN32__) || defined(IPHONE))
-   roadmap_main_set_cursor(ROADMAP_CURSOR_WAIT);
    roadmap_main_set_periodic(4000, roadmap_start_realtime);
-   //roadmap_main_set_periodic(10000, roadmap_start_realtime);
 #else
    roadmap_start_realtime();
 #endif
@@ -2623,9 +2615,6 @@ void roadmap_start (int argc, char **argv) {
 
    roadmap_config_declare
       ("user", &RoadMapConfigFirstTimeUse, "-1", NULL);
-   
-   roadmap_config_declare_enumeration
-      ("session", &RoadMapConfigClosedProperly, NULL, "yes", "no", NULL);
 
    roadmap_config_declare_enumeration
       ("session", &RoadMapConfigClosedProperly, NULL, "yes", "no", NULL);
@@ -2742,11 +2731,9 @@ void roadmap_start (int argc, char **argv) {
     roadmap_state_add ("ticker_state", roadmap_ticker_state);
     roadmap_state_add ("user_addon_state", Realtime_AddonState);
     roadmap_state_add ("wazer_nearby_state", Realtime_WazerNearbyState);
-#ifdef IPHONE
-    roadmap_state_add ("media_player_state", roadmap_media_player_state);
-#endif //IPHONE
-    
     roadmap_state_add ("editor_shortcut", editor_track_shortcut);
+    roadmap_state_add ("top_bar_exit_state", roadmap_bar_top_bar_exit_state );
+
     roadmap_start_set_left_softkey("Menu","Menu", roadmap_start_quick_menu );
 
     roadmap_trip_restore_focus ();
@@ -2761,13 +2748,13 @@ void roadmap_start (int argc, char **argv) {
 
 
 void roadmap_start_continue(void)   {
-     
-   
-   
+
+
+
    if (! roadmap_trip_load (roadmap_trip_current(), 1)) {
       roadmap_start_create_trip ();
    }
-   roadmap_prompts_init        ();  
+   roadmap_prompts_init        ();
    roadmap_voice_initialize    (); //AFTER GEO
    roadmap_download_initialize (); //AFTER GEO
    roadmap_lang_initialize     (); //AFTER GEO
@@ -2798,7 +2785,6 @@ void roadmap_start_continue(void)   {
    roadmap_term_of_use(roadmap_start_after_intro_screen);
 
    roadmap_screen_restore_view();
-
 #ifdef J2ME
    roadmap_factory ("roadmap",
                     RoadMapStartActions,
@@ -3031,21 +3017,25 @@ static BOOL on_key_pressed( const char* utf8char, uint32_t flags)
          case VK_Arrow_up:
             roadmap_screen_hold ();
             roadmap_screen_move_up();
+            roadmap_screen_set_Xicon_state(TRUE);
             break;
 
          case VK_Arrow_down:
             roadmap_screen_hold ();
             roadmap_screen_move_down();
+            roadmap_screen_set_Xicon_state(TRUE);
             break;
 
          case VK_Arrow_left:
             roadmap_screen_hold ();
             roadmap_screen_move_left();
+            roadmap_screen_set_Xicon_state(TRUE);
             break;
 
          case VK_Arrow_right:
             roadmap_screen_hold ();
             roadmap_screen_move_right();
+            roadmap_screen_set_Xicon_state(TRUE);
             break;
 
          case VK_Softkey_left:
@@ -3072,7 +3062,14 @@ static BOOL on_key_pressed( const char* utf8char, uint32_t flags)
          switch( *utf8char)
          {
             case ENTER_KEY:
-               mark_location();
+               if(!strcmp(roadmap_trip_get_focus_name(),"GPS")){ // we are focused on car
+              	  mark_location();
+               }else{
+               	  if(roadmap_screen_is_xicon_open()){
+	               	  RoadMapGuiPoint position = {roadmap_canvas_width()/2,roadmap_canvas_height()/2};
+	               	  roadmap_pointer_force_click(KEY_BOARD_PRESS,&position);
+               	  }
+               }
                break;
 
             case SPACE_KEY:
@@ -3230,3 +3227,13 @@ void roadmap_start_reset_debug_mode()
 	roadmap_config_set_integer( &RoadMapConfigGeneralLogLevel, roadmap_verbosity() );
 	roadmap_messagebox( "DEBUG MODE", msg_text );
 }
+
+
+static void viewMyPoints(){
+#ifdef SSD
+	ssd_dialog_hide_current(dec_close);
+#endif
+	editor_points_ViewMyPoints();
+}
+
+

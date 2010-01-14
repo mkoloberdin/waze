@@ -156,7 +156,7 @@ static int RealtimeAlertsListCallBackTabs(SsdWidget widget, const char *new_valu
 {
 
     int alertId;
-
+    roadmap_screen_set_Xicon_state(FALSE);
     if (!new_value[0] || !strcmp(new_value,
             roadmap_lang_get("Scroll through alerts on the map")))
     {
@@ -170,7 +170,7 @@ static int RealtimeAlertsListCallBackTabs(SsdWidget widget, const char *new_valu
     if (RTAlerts_Get_Number_of_Comments(alertId) == 0)
     {
         ssd_generic_list_dialog_hide_all();
-        RTAlerts_Popup_By_Id(alertId);
+        RTAlerts_Popup_By_Id(alertId);   
     }
     else
     {
@@ -398,10 +398,12 @@ static void populate_list(){
         gAlertListTable.values[iCount] = strdup( str );
         gAlertListTable.icons[iCount] = strdup(RTAlerts_Get_Icon(alert->iID));
 
-#ifdef HI_RES_SCREEN
-        image_container_width = 90;
-        offset_y = 10;
-#endif
+        if ( roadmap_screen_is_hd_screen() )
+        {
+			image_container_width = 110;
+			offset_y = 10;
+        }
+
         icon_container = ssd_container_new ("alert_icon_container", NULL, image_container_width,  SSD_MAX_SIZE,  SSD_ALIGN_VCENTER);
         ssd_widget_set_color(icon_container, NULL, NULL);
         button[0] = strdup(RTAlerts_Get_Icon(alert->iID));
@@ -692,7 +694,7 @@ static char *count_tab(int tab, int num, int types,...){
    va_list ap;
    int type;
    static char str[5];
-   
+
    for ( i=0; i< gAlertListTable.iCount; i++){
       int j;
       va_start(ap, types);
@@ -719,7 +721,7 @@ void RealtimeAlertsList(){
    if (ssd_dialog_is_currently_active()) {
       if (!strcmp(ssd_dialog_currently_active_name(),ALERTS_LIST_TITLE )){
          ssd_dialog_hide_current(dec_close);
-         roadmap_screen_refresh (); 
+         roadmap_screen_refresh ();
          return;
       }
    }
@@ -908,7 +910,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
          has_comments = TRUE;
 
       add_image_view = RTAlerts_Has_Image( alertId );
-      
+
       if (RTAlerts_Get_Type_By_Id(alertId) == RT_ALERT_TYPE_TRAFFIC_INFO)
          is_auto_jam = TRUE;
 
@@ -944,7 +946,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
                               rtl_cm_sort_proximity,
                               (g_list_sorted == sort_recency) && !is_empty ,
                               FALSE);
-                              
+
    ssd_contextmenu_show_item( &context_menu,
                               rtl_cm_sort_recency,
                               (g_list_sorted == sort_proximity && !is_empty),
@@ -966,7 +968,8 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
    g_context_menu_is_active = TRUE;
 

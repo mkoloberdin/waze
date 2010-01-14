@@ -66,12 +66,15 @@ static int list_left_softkey_callback (SsdWidget widget, const char *new_value, 
       return 0;
 }
 
+static SsdWidget GenericList = NULL;
+
 static void on_dialog_closed( int type, void *context)
 {
+	ssd_widget_set_left_softkey_callback(GenericList,NULL);
 }
 
 
-static SsdWidget GenericList = NULL;
+
 
 void ssd_generic_list_dialog_show(const char*            title,
                                   int                    count,

@@ -48,6 +48,10 @@
 #include "editor/editor_screen.h"
 #include "navigate/navigate_main.h"
 #include "roadmap_prompts.h"
+#include "roadmap_messagebox.h"
+
+#define CLOCK_SETTINGS_12_HOUR "12 hr."
+#define CLOCK_SETTINGS_24_HOUR "24 hr."
 
 static const char*   title = "General settings";
 static int DialogShowsShown = 0;
@@ -67,6 +71,9 @@ static RoadMapConfigDescriptor RoadMapConfigShowTicker =
 RoadMapConfigDescriptor RoadMapConfigUseNativeKeyboard =
                         ROADMAP_CONFIG_ITEM("Keyboard", "Use native");
 
+RoadMapConfigDescriptor RoadMapConfigClockFormat = 
+						ROADMAP_CONFIG_ITEM("Clock","Format");
+
 extern RoadMapConfigDescriptor NavigateConfigAutoZoom;
 extern RoadMapConfigDescriptor NavigateConfigNavigationGuidance;
 
@@ -80,15 +87,15 @@ static void lang_changed_delayed_message(void){
    roadmap_messagebox_timeout("","Language changed, Please restart waze",5);
 }
 static int on_ok( SsdWidget this, const char *new_value) {
-   
+
    const char *current_lang = roadmap_lang_get_system_lang();
    const char *new_lang = ssd_dialog_get_data("lang");
-   const char *prompts = ssd_dialog_get_data("Prompts"); 
-   
-   
+   const char *prompts = ssd_dialog_get_data("Prompts");
+
+
    if (prompts)
       roadmap_prompts_set_name(prompts);
-   
+
 #ifdef __SYMBIAN32__
    roadmap_config_set(&RoadMapConfigConnectionAuto, ( const char* ) ssd_dialog_get_data("AutoConnect"));
 #endif
@@ -127,6 +134,12 @@ static int on_ok( SsdWidget this, const char *new_value) {
 	  roadmap_config_set (&RoadMapConfigGeneralUnit,"imperial");
 	  roadmap_math_use_imperial();
    }
+   
+   if(!strcasecmp( ( const char* ) ssd_dialog_get_data("ClockFormatChk"), yesno[0] ))
+   	  roadmap_config_set (&RoadMapConfigClockFormat,CLOCK_SETTINGS_12_HOUR);
+   else
+	 roadmap_config_set (&RoadMapConfigClockFormat,CLOCK_SETTINGS_24_HOUR);
+   
 
    roadmap_config_save(TRUE);
    DialogShowsShown = 0;
@@ -186,28 +199,9 @@ void quick_settins_exit(int exit_code, void* context){
 
    roadmap_config_set (&NavigateConfigNavigationGuidance,
                         (const char *)ssd_dialog_get_data ("navigationguidance"));
-                        
+
    roadmap_config_save(TRUE);
 }
-
-static void on_mood_changed(void){
-
-   char *icon[2];
-   char mood_txt[100];
-   icon[0] = (char *)roadmap_mood_get();
-   icon[1] = NULL;
-
-   ssd_dialog_change_button(roadmap_lang_get ("Mood"), (const char **)&icon[0], 1);
-   sprintf(mood_txt,"Mood");
-   ssd_dialog_change_text("Mood Text", mood_txt);
-   free(icon[0]);
-}
-
-static int on_mood_select( SsdWidget this, const char *new_value){
-   roadmap_mood_dialog(on_mood_changed);
-   return 0;
-}
-
 
 int callback (SsdWidget widget, const char *new_value){
    yesno[0] = "Yes";
@@ -246,38 +240,32 @@ SsdWidget create_quick_setting_menu(){
 #endif
     BOOL checked = FALSE;
     SsdWidget box;
-    SsdWidget quick_container, container, button;
+    SsdWidget quick_container;
 	 int height = 45;
-	 char *icon[2];
-	 const char *buttons[2];
-	 char mood_txt[100];
 	 int width;
-	 const char *edit_button[] = {"edit_right", "edit_left"};
     int s_height = roadmap_canvas_height();
     int s_width = roadmap_canvas_width();
-     
+
      if (s_height < s_width)
         width = s_height;
      else
         width = s_width;
-     
-     width -= 10; 
-     
-#ifdef HI_RES_SCREEN
-	 height = 65;
-#endif
-		
-	
-	   
-	   
-	     //Quick Setting Container
-        quick_container = ssd_container_new ("__quick_settings", NULL, width, SSD_MIN_SIZE,
-                       SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+
+     width -= 10;
+
+     if ( roadmap_screen_is_hd_screen() )
+     {
+    	 height = 65;
+     }
+
+	 //Quick Setting Container
+	quick_container = ssd_container_new ("__quick_settings", NULL, width, SSD_MIN_SIZE,
+				   SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
 
    	  	// add title
       // ssd_widget_add (container, ssd_text_new ("Quick_actions_title_text_cont",
            // roadmap_lang_get ("Quick actions"), 16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE|tab_flag));
-   	  
+
    	  //Mute
    	  box = ssd_container_new ("Mute group", NULL, SSD_MAX_SIZE, height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
@@ -334,50 +322,9 @@ SsdWidget create_quick_setting_menu(){
       	   ssd_checkbox_new ("light", (roadmap_skin_state() == 0),  SSD_ALIGN_RIGHT, callback ,"button_day","button_night",CHECKBOX_STYLE_ON_OFF));
 
    	  ssd_widget_add(box, space(1));
-       
-      ssd_widget_add (quick_container, box);
-		
-	   // commented out - the user can change the mood from 
-	   // main map screen, no need for this
-	   /* 
-       //Mood
-       ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM)); 
-   	   box = ssd_container_new ("Mood group", NULL,
-   	                  SSD_MAX_SIZE,height,
-   	              SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-   	   ssd_widget_set_color (box, NULL, NULL);
-   	   box->callback = on_mood_select;
-   	   icon[0] = (char *)roadmap_mood_get();
-   	   icon[1] = NULL;
-   	   container =  ssd_container_new ("space", NULL, 47, SSD_MIN_SIZE,SSD_ALIGN_VCENTER);
-   	   free(icon[0]);
-   	   ssd_widget_set_color(container, NULL, NULL);
 
-   	   ssd_widget_add (container,
-   	         ssd_button_new (roadmap_lang_get ("Mood"), roadmap_lang_get(roadmap_mood_get()), (const char **)&icon[0], 1,
-   	                        SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER,
-   	                        on_mood_select));
-   	   ssd_widget_add(box, container);
-   	   
-   	   sprintf(mood_txt,"%s: %s", roadmap_lang_get("My mood"), roadmap_lang_get(roadmap_mood_get_name()));
-   	   ssd_widget_add (box,
-   	         ssd_text_new ("Mood Text", mood_txt, -1,
-   	                        SSD_ALIGN_VCENTER));
-        
-#ifdef TOUCH_SCREEN
-   	   if (!ssd_widget_rtl(NULL)){
-   	         buttons[0] = edit_button[0];
-   	         buttons[1] = edit_button[0];
-   	   }else{
-   	         buttons[0] = edit_button[1];
-   	         buttons[1] = edit_button[1];
-   	   }
-   	   button = ssd_button_new ("edit_button", "", &buttons[0], 2,
-   	                          SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_mood_select);
-   	   ssd_widget_add(box, button);
-#endif
-   	   ssd_widget_add (quick_container, box);
-   	   */
+      ssd_widget_add (quick_container, box);
+
 	  return quick_container;
 }
 
@@ -386,7 +333,7 @@ void roadmap_general_settings_show(void) {
 
    static int initialized = 0;
    int height = 45;
-   
+
    const char *pVal;
 #ifdef TOUCH_SCREEN
 	int tab_flag = SSD_WS_TABSTOP;
@@ -394,9 +341,11 @@ void roadmap_general_settings_show(void) {
    	int tab_flag = SSD_WS_TABSTOP;
 #endif
 
-#ifdef HI_RES_SCREEN
-   height = 65;
-#endif
+   	if ( roadmap_screen_is_hd_screen() )
+   	{
+   		height = 65;
+   	}
+
    if (!initialized) {
       initialized = 1;
 
@@ -411,7 +360,10 @@ void roadmap_general_settings_show(void) {
 
       roadmap_config_declare_enumeration
       	("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
-
+     
+     
+      roadmap_config_declare_enumeration
+      	("user", &RoadMapConfigClockFormat, NULL, CLOCK_SETTINGS_12_HOUR, CLOCK_SETTINGS_24_HOUR, NULL);
       // Define the labels and values
 	 yesno_label[0] = roadmap_lang_get ("Yes");
 	 yesno_label[1] = roadmap_lang_get ("No");
@@ -424,15 +376,15 @@ void roadmap_general_settings_show(void) {
       SsdWidget dialog;
       SsdWidget box, box2;
       SsdWidget container;
-      
+
       const void ** lang_values = roadmap_lang_get_available_langs_values();
       const char ** lang_labels = roadmap_lang_get_available_langs_labels();
       int lang_count = roadmap_lang_get_available_langs_count();
-      
+
       const void ** prompts_values = roadmap_prompts_get_values();
       const char ** prompts_labels = roadmap_prompts_get_labels();
       int prompts_count = roadmap_prompts_get_count();
-      
+
       dialog = ssd_dialog_new (title, roadmap_lang_get(title), on_close_dialog,
                                SSD_CONTAINER_TITLE);
 
@@ -452,7 +404,7 @@ void roadmap_general_settings_show(void) {
          box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/3, height,
                                     SSD_ALIGN_VCENTER);
          ssd_widget_set_color (box2, NULL, NULL);
-        
+
          ssd_widget_add (box2,
                         ssd_text_new ("lang_label",
                         roadmap_lang_get ("Language"),
@@ -477,7 +429,7 @@ void roadmap_general_settings_show(void) {
          box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/3, height,
                                     SSD_ALIGN_VCENTER);
          ssd_widget_set_color (box2, NULL, NULL);
-        
+
          ssd_widget_add (box2,
                         ssd_text_new ("prompts_label",
                                        roadmap_lang_get ("Prompts"),
@@ -494,7 +446,7 @@ void roadmap_general_settings_show(void) {
          ssd_widget_add (container, box);
       }
 #ifdef __SYMBIAN32__
-      
+
 
       //////////// Automatic connection selection box /////////////
       // TODO :: Move to another settings directory
@@ -652,10 +604,22 @@ void roadmap_general_settings_show(void) {
          ssd_checkbox_new ("use_metric", TRUE,  SSD_ALIGN_RIGHT, NULL,"button_meters", "button_miles", CHECKBOX_STYLE_ON_OFF));
 
    ssd_widget_add(box, space(1));
-
+   ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_add (container, box);
+  
+   // clock settings group
 
-
+   
+   box = ssd_container_new("ClockFormat group",NULL,SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_add(box,
+   		ssd_text_new("ClockFormat_label",
+   			roadmap_lang_get("24 hour clock"),
+   				    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   ssd_widget_add (box,
+         ssd_checkbox_new ("ClockFormatChk", TRUE,  SSD_ALIGN_RIGHT, NULL,"checkbox_off", "checkbox_on", CHECKBOX_STYLE_ON_OFF));
+   
+   ssd_widget_add(container,box);
    ssd_widget_add(dialog, container);
 
 #ifndef TOUCH_SCREEN
@@ -693,6 +657,10 @@ void roadmap_general_settings_show(void) {
    	else pVal = yesno[1];
    	ssd_dialog_set_data ("use_metric", (void *) pVal);
 
+	if (roadmap_config_match(&RoadMapConfigClockFormat, CLOCK_SETTINGS_12_HOUR)) pVal = yesno[0];
+   	else pVal = yesno[1];
+   	ssd_dialog_set_data ("ClockFormatChk", (void *) pVal);
+
 	if (roadmap_config_match(&RoadMapConfigShowTicker, "yes")) pVal = yesno[0];
 	else pVal = yesno[1];
 	ssd_dialog_set_data ("show_ticker", (void *) pVal);
@@ -711,4 +679,8 @@ void roadmap_general_settings_show(void) {
 
    DialogShowsShown = 1;
    ssd_dialog_draw ();
+}
+
+BOOL roadmap_general_settings_is_24_hour_clock(){
+	return roadmap_config_match(&RoadMapConfigClockFormat, CLOCK_SETTINGS_24_HOUR);
 }

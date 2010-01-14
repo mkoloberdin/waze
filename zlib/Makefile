@@ -22,10 +22,10 @@ ifeq ($(IPHONE_TOOLS_DIR),)
 IPHONE_TOOLS_DIR=/usr
 endif
 
-#CC=$(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-gcc -I/var/include
-#AR=$(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-ar r
-#RANLIB = $(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-ranlib
-#ARFLAGS =
+CC=$(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-gcc -I/var/include
+AR=$(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-ar r
+RANLIB = $(IPHONE_TOOLS_DIR)/bin/arm-apple-darwin9-ranlib
+ARFLAGS =
 
 else
 

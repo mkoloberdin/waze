@@ -40,16 +40,11 @@
 #include "../Realtime/Realtime.h"
 #include "../ssd/ssd_keyboard_dialog.h"
 
-#ifdef IPHONE
-#include "roadmap_editbox.h"
-#endif //IPHONE
-
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 extern void navigate_main_stop_navigation();
 extern int main_navigator( const RoadMapPosition *point,
                            address_info_ptr       ai);
-extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 
 static CB_OnAddressResolved      s_cbOnAddressResolved= NULL;
@@ -122,19 +117,27 @@ static void address_append_current_location( char* buffer)
 void generic_address_add(address_candidate ac){
    s_results[s_results_count++] = ac;
 }
-static const char* address__prepare_query( const char* address)
+static const char* address__prepare_query( const char* address, const char* custom_query )
 {
    static char s_current_location[1024];
 
+   /* Main attributes */
    sprintf( s_current_location,
-            "q=%s&mobile=true&max_results=%d&server_cookie=%s&version=%s",
-             address, ADSR_MAX_RESULTS,Realtime_GetServerCookie(), roadmap_start_version());
+            "q=%s&mobile=true&max_results=%d&server_cookie=%s&version=%s&lang=%s",
+             address, ADSR_MAX_RESULTS,Realtime_GetServerCookie(), roadmap_start_version(),
+             roadmap_lang_get_system_lang() );
+   /* Append custom query */
+   if ( custom_query )
+   {
+	   sprintf ( s_current_location + strlen(s_current_location), "&%s", custom_query );
+   }
+   /* Append current location */
    address_append_current_location( s_current_location + strlen(s_current_location));
 
    return s_current_location;
 }
 
- 
+
 static void on_completed( void* ctx, roadmap_result res)
 {
    if(s_cbOnAddressResolved)
@@ -152,7 +155,7 @@ roadmap_result generic_search_resolve_address(
                   const char           *service_name,
                   void*                context,
                   CB_OnAddressResolved cbOnAddressResolved,
-                  const char*          address)
+                  const char*          address, const char* custom_query )
 {
    transaction_state tstate;
    const char*       query = NULL;
@@ -186,8 +189,7 @@ roadmap_result generic_search_resolve_address(
    s_cbOnAddressResolved = cbOnAddressResolved;
    s_context             = context;
 
-   query = address__prepare_query( address);
-
+   query = address__prepare_query( address, custom_query );
    s_results_count = 0;
 
    // Perform WebService Transaction:
@@ -242,9 +244,7 @@ BOOL on_favorites_name( int         exit_code,
       {
          favorites_address_info[ ahi_name] = strdup( name);
          roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);
-#ifdef IPHONE
-         roadmap_main_show_root(0);
-#endif //IPHONE
+
          ssd_dialog_hide_all( dec_close);
 
          if( !roadmap_screen_refresh())
@@ -261,7 +261,7 @@ BOOL on_favorites_name( int         exit_code,
 void generic_search_add_to_favorites()
 {
 
-#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
    ShowEditbox(roadmap_lang_get("Name"), "",
             on_favorites_name, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
 #else
@@ -293,7 +293,7 @@ void generic_search_add_address_to_history( int               category,
    else
       address[ahi_name]   = "";
 
-   
+
    sprintf(latitude, "%d", position->latitude);
    sprintf(longtitude, "%d", position->longitude);
    address[ahi_latitude]   = latitude;
@@ -322,7 +322,7 @@ BOOL navigate_with_coordinates( BOOL take_me_there, search_types type, int   sel
    const address_candidate*   selection         = generic_search_result( selected_list_item);
    RoadMapPosition            position;
    const char* name = NULL;
-   
+
    if( !selection)
    {
       assert(0);
@@ -362,7 +362,7 @@ BOOL navigate_with_coordinates( BOOL take_me_there, search_types type, int   sel
    {
       int square = roadmap_tile_get_id_from_position (0, &position);
       roadmap_tile_request (square, ROADMAP_TILE_STATUS_PRIORITY_ON_SCREEN, 1, NULL);
-      
+
       roadmap_trip_set_focus ("Address");
 
       roadmap_square_force_next_update ();

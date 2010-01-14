@@ -169,12 +169,14 @@ void roadmap_canvas_get_text_extents
       *ascent = (int)m_feng.ascender() + 1;
       fman = &m_fman;
    } else {
-#ifdef HI_RES_SCREEN
-      size = int (size * 1.5);
-#endif  
+	   if ( roadmap_screen_is_hd_screen() )
+	   {
+		   size = int (size * 1.5);
+	   }
+
       m_image_feng.height(size);
       m_image_feng.width(size);
-      
+
       *descent = abs((int)m_image_feng.descender()) + 1;
       *ascent = (int)m_image_feng.ascender() + 1;
       fman = &m_image_fman;
@@ -647,7 +649,7 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
                                        const char *text)
 {
 
-   
+
    if (RoadMapCanvasFontLoaded != 1) return;
 
    dbg_time_start(DBG_TIME_TEXT_FULL);
@@ -674,9 +676,11 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
 
       if (size < 0) size = 15;
 
-#ifdef HI_RES_SCREEN
-      size = (int)(size * 1.5);
-#endif  
+      if ( roadmap_screen_is_hd_screen() )
+      {
+    	  size = (int)(size * 1.5);
+      }
+
       /* Use faster drawing for text with no angle */
       x  = position->x;
       y  = position->y;
@@ -772,6 +776,20 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
    dbg_time_end(DBG_TIME_TEXT_FULL);
 }
 
+static int roadmap_canvas_agg_get_screen_type( int width, int height )
+{
+	int screen_type = RM_SCREEN_TYPE_SD_GENERIC;
+	/*
+	 * Temporary just simple classification
+	 */
+	if ( width >= 640 || height >= 640 )
+	{
+		screen_type = RM_SCREEN_TYPE_HD_GENERIC;
+	}
+
+	return screen_type;
+}
+
 void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, int stride) {
 
    agg_rbuf.attach(buf, width, height, stride);
@@ -789,7 +807,8 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
    char *font_file = roadmap_path_join(roadmap_path_user(),
 		   roadmap_config_get (&RoadMapConfigFont));
 
-
+   if ((width) && (height))
+	roadmap_screen_set_screen_type( roadmap_canvas_agg_get_screen_type( width, height ) );
 
    if (!RoadMapCanvasFontLoaded) {
 
@@ -797,15 +816,18 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
             m_image_feng.load_font(font_file, 0, image_gren)) {
 
          m_feng.hinting(true);
-#ifdef HI_RES_SCREEN
-         m_feng.height(22);
-         m_feng.width(22);
-#else   
-         m_feng.height(15);
-         m_feng.width(15);
-#endif  
-         m_feng.height(15);
-         m_feng.width(15);
+
+         if ( roadmap_screen_is_hd_screen() )
+         {
+			 m_feng.height(22);
+			 m_feng.width(22);
+         }
+         else
+         {
+			 m_feng.height(15);
+			 m_feng.width(15);
+         }
+
          m_feng.flip_y(true);
 
          m_image_feng.hinting(true);
@@ -937,7 +959,9 @@ void roadmap_canvas_copy_image (RoadMapImage dst_image,
 RoadMapImage roadmap_canvas_new_image (int width, int height) {
    RoadMapImage image =  new roadmap_canvas_image();
    unsigned char *buf = (unsigned char *)malloc (width*height*4);
-   memset(buf, 0, (width*height*4) );
+
+   memset(buf, 0, (width*height*4));
+
    image->rbuf.attach (buf,
                        width, height,
                        width * 4);
@@ -979,8 +1003,18 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
    const wchar_t* p = wstr;
 #endif
 
+   if ( roadmap_screen_is_hd_screen() )
+   {
+      size = int (size * 1.5);
+   }
+
    double x  = position->x;
    double y  = position->y + size - 7;
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+      y -= 3;
+   }
 
    agg::renderer_base<agg::pixfmt_rgba32> renb(image->pixfmt);
    agg::renderer_scanline_aa_solid< agg::renderer_base<agg::pixfmt_rgba32> > ren_solid (renb);

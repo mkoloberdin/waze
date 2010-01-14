@@ -50,21 +50,13 @@
 #include "roadmap_login.h"
 #include "roadmap_device_events.h"
 
-#ifdef IPHONE
-#include "roadmap_introduction.h"
-#endif //IPHONE
-
 //======== Local Types ========
 
 //======== Defines ========
 
 //======== Globals ========
 
-static RoadmapLoginDlgShowFn  sgLoginDlgShowFn = NULL;
-
-#ifdef IPHONE
-static int                    sgIsCreateAccount = 0;
-#endif //IPHONE
+static RoadmapLoginDlgShowFn sgLoginDlgShowFn = NULL;
 
 //   User name
 RoadMapConfigDescriptor RT_CFG_PRM_NAME_Var =
@@ -101,14 +93,6 @@ void roadmap_login_initialize()
     roadmap_config_declare ("user", &RT_CFG_PRM_NAME_Var, "", NULL);
     roadmap_config_declare_password ("user", &RT_CFG_PRM_PASSWORD_Var, "");
     roadmap_config_declare ("user", &RT_CFG_PRM_NKNM_Var, "", NULL);
-   
-#ifdef IPHONE
-   if (roadmap_welcome_wizard_is_first_time()){
-      roadmap_config_set( &RT_CFG_PRM_NAME_Var, "" );
-      roadmap_config_set( &RT_CFG_PRM_PASSWORD_Var, "" );
-      roadmap_config_save(TRUE);
-   }
-#endif //IPHONE
 }
 
 void roadmap_login_set_show_function (RoadmapLoginDlgShowFn callback) {
@@ -122,7 +106,7 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
    ssd_progress_msg_dialog_hide();
 
 #ifdef IPHONE
-   //roadmap_main_show_root(0);
+   roadmap_main_show_root(0);
 #else
    roadmap_login_ssd_on_login_cb( bDetailsVerified, rc );
 #endif //IPHONE
@@ -132,11 +116,7 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 	 */
    if( bDetailsVerified )
    {
-#ifdef IPHONE
-      roadmap_welcome_wizard_set_first_time_no();
-#endif //IPHONE
 	   Realtime_set_random_user(0);
-      roadmap_main_show_root(0);
    }
    else
    {
@@ -174,19 +154,8 @@ void roadmap_login_update_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 
    if( bDetailsVerified)
    {
-      //AR - why set random user 0? seems that we get here after it set already
-#ifndef IPHONE
       Realtime_set_random_user(0);
       welcome_wizard_twitter_dialog();
-#else
-      Realtime_set_random_user(0);
-      if (sgIsCreateAccount) {
-         welcome_wizard_twitter_dialog(1);
-         sgIsCreateAccount = 0;
-      } else {
-         welcome_wizard_twitter_dialog(0);
-      }
-#endif //IPHONE
    }
    else
    {
@@ -296,12 +265,11 @@ void roadmap_login_on_signup_skip( void )
 	if ( !Realtime_IsLoggedIn() )
 	{
 	   Realtime_RandomUserRegister();
+	}
+
 #ifdef IPHONE
-      roadmap_introduction_show_auto();
-	} else
-      roadmap_main_show_root(0);
+   roadmap_main_show_root(0);
 #else
-   }
    roadmap_login_ssd_on_signup_skip();
 #endif //IPHONE
 
@@ -319,10 +287,7 @@ void roadmap_login_on_signup_skip( void )
  */
 int roadmap_login_on_create( const char *username, const char* password, const char* email, BOOL send_updates )
 {
-#ifdef IPHONE
-   sgIsCreateAccount = 1;
-#endif //IPHONE
-   
+
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating new account . . . " ) );
 
    if ( !Realtime_CreateAccount( username, password, email, send_updates ) )

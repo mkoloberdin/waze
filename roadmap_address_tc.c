@@ -1040,7 +1040,7 @@ static void add_to_favorites(int exit_code, void *data){
 	if( dec_yes != exit_code)
       return;
 
-   #if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE)
+   #if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
     	ShowEditbox(roadmap_lang_get("Name"), "",
             keyboard_callback, (void *)data, EEditBoxStandard | EEditBoxAlphaNumeric );
 	#else
@@ -1201,7 +1201,8 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
    s_context_menu_is_active = TRUE;
 

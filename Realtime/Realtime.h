@@ -143,6 +143,11 @@ BOOL Realtime_GetGeoConfig(const RoadMapPosition *pGPSPosition, wst_handle websv
 char* Realtime_GetServerCookie(void);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+typedef enum tagEnumSendMapProblemResult
+{
+	SendMapProblemValidityFailure=0,
+	SendMapProblemValidityOK,
+}	ESendMapProblemResult;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #endif   //   __FREEMAP_REALTIME_H__

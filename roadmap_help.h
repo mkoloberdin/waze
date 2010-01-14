@@ -44,11 +44,5 @@ void roadmap_help_initialize (void);
 void roadmap_help_menu(void);
 void roadmap_open_help(void);
 
-#ifdef IPHONE
-void roadmap_help_guided_tour (void);
-void roadmap_help_what_to_expect (void);
-void roadmap_help_nutshell (void);
-#endif //IPHONE
-
 #endif // INCLUDE__ROADMAP_HELP__H
 

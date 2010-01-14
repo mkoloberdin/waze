@@ -40,7 +40,7 @@
 #include "roadmap_gps.h"
 #include "roadmap_res.h"
 #include "db/editor_override.h"
-
+#define SECONDS_TO_POPUP_POINTS 5
 static int gTotalNewPoints;
 static int gOldPoints;
 static int gNewMunchingPoints;
@@ -230,4 +230,17 @@ int editor_points_reset_munching (void) {
   
   return munching_points;
 
+}
+
+void editor_points_ViewMyPoints(void){
+   roadmap_ticker_set_last_event(default_event);
+   roadmap_message_set('X', "%d", 0);
+   if (TimerCallback){
+      roadmap_main_remove_periodic (timer_cb);
+      TimerCallback = NULL;
+   }
+   if (!roadmap_screen_refresh())
+     roadmap_screen_redraw();
+   roadmap_main_set_periodic (SECONDS_TO_POPUP_POINTS * 1000, timer_cb);
+   TimerCallback = timer_cb;
 }

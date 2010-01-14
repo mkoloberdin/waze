@@ -41,8 +41,10 @@ void ssd_context_menu_show(int                  x,
                            SsdOnContextMenu     on_menu_closed,
                            void*                context,
                            menu_open_direction  dir,
-                           unsigned short       flags);
+                           unsigned short       flags,
+                           BOOL 				close_on_selection);
 
 void ssd_context_menu_set_size( int size);
+void close_all_popup_menus( ssd_contextmenu_ptr menu);
 #define  SSD_CMDLG_DIALOG_NAME                  ("contextmenu_dialog")
 #endif // __SSD_CONTEXT_MENU_H__

@@ -64,7 +64,7 @@ static   BOOL                 s_searching = FALSE;
 static   SsdWidget            s_result_container = NULL;
 
 #define  LSD_DIALOG_NAME            "Local-search-dialog"
-#define  LSD_DIALOG_TITLE           "Google local search"
+#define  LSD_DIALOG_TITLE           "Local search"
 
 #define  LSD_RESULTS_CONT_NAME      "local-search-dialog.results-container"
 #define  LSD_RC_LIST_NAME           "local-search-dialog.results-container.list"
@@ -121,6 +121,7 @@ static void on_address_resolved( void*                context,
 
    SsdWidget list_cont = (SsdWidget)context;
    SsdWidget list;
+   SsdWidget bmp_logo = NULL;
    int       i;
 
    s_searching = FALSE;
@@ -174,13 +175,20 @@ static void on_address_resolved( void*                context,
    {
       results[i] = array[i].address;
       indexes[i] = (void*)i;
-      icons[i] = "search_local";
+      icons[i] = local_search_get_icon_name();
    }
 
    if ( roadmap_native_keyboard_enabled() )
    {
 	   roadmap_native_keyboard_hide();
    }
+   /*
+    * Update the results container logo
+    * dynamically according to the current provider
+    */
+   bmp_logo = ssd_widget_get( s_result_container, "local search icon" );
+   ssd_bitmap_update( bmp_logo, local_search_get_logo_name() );
+
    ssd_list_populate(list,
                      size,
                      results,
@@ -202,17 +210,17 @@ static void on_search(void)
    const char*    text;
    roadmap_result rc;
    SsdWidget dlg = generic_search_dlg_get_search_dlg(search_local);
-   
-   
+
+
    if (!RealTimeLoginState()){
       roadmap_messagebox( roadmap_lang_get( "Search location"),
                           roadmap_lang_get( "Search requires internet connection."
                                             "Please make sure you are connected."));
       return;
    }
-  
+
    edit = generic_search_dlg_get_search_edit_box(search_local);
-   
+
    s_searching = TRUE;
 
    roadmap_main_set_periodic( 100, search_progress_message_delayed );
@@ -244,7 +252,7 @@ static int get_selected_list_item()
 {
    SsdWidget list;
    SsdWidget dlg;
-   
+
    if( generic_search_dlg_is_1st(search_local))
       return -1;
 
@@ -257,7 +265,7 @@ static int get_selected_list_item()
 
 
 static BOOL navigate( BOOL take_me_there)
-{ 
+{
    return navigate_with_coordinates( take_me_there, search_local, get_selected_list_item());
 }
 
@@ -370,7 +378,8 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
 
    s_menu = TRUE;
@@ -403,7 +412,7 @@ static SsdWidget create_results_container()
                    SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
 
    ssd_dialog_add_vspace(title, 5, 0);
-   bitmap = ssd_bitmap_new("local search icon", "google_logo", SSD_ALIGN_VCENTER);
+   bitmap = ssd_bitmap_new("local search icon", "ls_logo_google", SSD_ALIGN_VCENTER);
    ssd_dialog_add_hspace(title, 5, 0);
    ssd_widget_add(title, bitmap);
    ssd_dialog_add_hspace(title, 5, 0);
@@ -431,6 +440,7 @@ static SsdWidget get_result_container()
    {
       s_result_container = create_results_container();
    }
+
    return s_result_container;
 }
 

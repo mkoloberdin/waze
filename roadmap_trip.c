@@ -1096,7 +1096,7 @@ void roadmap_trip_display (void) {
                 	if (car_name == NULL){
                 	    car_name = roadmap_path_join("cars", config_car);
                        image =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, car_name);
-                       roadmap_path_free(car_name);
+                       free(car_name);
                 	}
                 	else
                      image =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, car_name);

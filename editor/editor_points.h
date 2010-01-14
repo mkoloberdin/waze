@@ -33,6 +33,7 @@ void editor_points_add_new_points(int points);
 void editor_points_hide (void);
 void editor_points_display(int road_length);
 void editor_points_add(int road_length);
+void editor_points_ViewMyPoints(void);
 int editor_points_get(void);
 
 int editor_points_get_old_points(void);

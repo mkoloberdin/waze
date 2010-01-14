@@ -38,13 +38,11 @@ void roadmap_bar_draw_objects(void);
 int roadmap_bar_short_click (RoadMapGuiPoint *point);
 void roadmap_bottom_bar_hide();
 void roadmap_bottom_bar_show();
-
-
-
 void roadmap_top_bar_hide();
 void roadmap_top_bar_show();
 BOOL roadmap_bottom_bar_shown();
 BOOL roadmap_top_bar_shown();
 void roadmap_top_bar_set_clickable( BOOL val );
+int roadmap_bar_top_bar_exit_state ( void );
 
 #endif /*ROADMAP_BAR_H_*/

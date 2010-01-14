@@ -64,6 +64,7 @@
 #include "roadmap_tile_status.h"
 #include "roadmap_twitter.h"
 #include "roadmap_prompts.h"
+#include "roadmap_general_settings.h"
 #if defined(IPHONE) || defined(unix) && !defined(J2ME)
 #include <sys/timeb.h>
 #endif
@@ -96,12 +97,6 @@
 #include "navigate_zoom.h"
 #include "navigate_route_trans.h"
 #include "navigate_main.h"
-
-#ifdef IPHONE
-#include "roadmap_main.h"
-#include "roadmap_list_menu.h"
-#include "roadmap_urlscheme.h"
-#endif
 
 #define ROUTE_PEN_WIDTH 5
 //#define TEST_ROUTE_CALC 1
@@ -280,7 +275,7 @@ BOOL navigate_main_ETA_enabled(){
 }
 
 BOOL navgiate_main_voice_guidance_enabled(){
-   
+
    if (roadmap_config_match(&NavigateConfigNavigationGuidanceEnabled, "yes"))
       return TRUE;
    else
@@ -711,7 +706,7 @@ static void navigate_main_format_messages (void) {
 
    }
    roadmap_message_set ('D', "%s %s", str, unit_str);
-   
+
    if (!showETA){
 	   sprintf (str, "%d:%02d", ETA / 3600, (ETA % 3600) / 60);
 	   roadmap_message_set ('T', str); // 1:25
@@ -728,11 +723,13 @@ static void navigate_main_format_messages (void) {
 	   timeToDest.minutes =  (ETA % 3600) / 60;
 	   timeToDest.seconds = ETA % 60;
 	   ETA_struct = calculateETA(curTime,timeToDest);
-	   //convert to 12-hour clock
-	   ETA_struct.hours = ETA_struct.hours%12;
-	   if (ETA_struct.hours==0)
-	   		ETA_struct.hours = 12;
-   	   sprintf (str, "%s %d:%02d", roadmap_lang_get("ETA"), ETA_struct.hours, ETA_struct.minutes);
+	   //convert to 12-hour clock if needed
+	   if (!roadmap_general_settings_is_24_hour_clock()){
+		   ETA_struct.hours = ETA_struct.hours%12;
+		   if (ETA_struct.hours==0)
+		   		ETA_struct.hours = 12;
+	   }
+   	   sprintf (str, "%s %d:%02d",roadmap_lang_get("ETA"), ETA_struct.hours, ETA_struct.minutes);
    }
    roadmap_message_set ('@', str); // 1 hr. 25 min.
    roadmap_navigate_get_current (&pos, NULL, NULL);
@@ -740,7 +737,7 @@ static void navigate_main_format_messages (void) {
          roadmap_math_to_speed_unit(pos.speed),
          roadmap_lang_get(roadmap_math_speed_unit()));
 
-}
+} 
 
 
 static void navigate_copy_points (void) {
@@ -1689,10 +1686,6 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 
 void navigate_main_stop_navigation(void)
 {
-#ifdef IPHONE
-   roadmap_main_show_root(0);
-#endif
-	
    if( !NavigateTrackEnabled)
       return;
    roadmap_message_unset('D');
@@ -2043,10 +2036,7 @@ void navigate_main_shutdown (void) {
           roadmap_config_set_integer (&NavigateConfigNavigating, 0);
        }
        else
-#ifdef IPHONE
-          if (!roadmap_main_will_suspend())
-#endif //IPHONE
-             set_last_nav_time();
+           set_last_nav_time();
     }
 }
 
@@ -2076,6 +2066,7 @@ int navigation_guidance_state(){
 		else
 			return 0;
 }
+
 
 
 void navigate_resume_navigation (int exit_code, void *context){
@@ -2121,6 +2112,7 @@ static BOOL short_time_since_last_nav () {
       return TRUE;
    else
       return FALSE;
+
 }
 
 static void set_last_nav_time () {
@@ -2903,6 +2895,7 @@ static void display_pop_up(navigate_list_value *list_value){
 	char *icons[3];
    int allign = 0;
 	roadmap_screen_hold ();
+	roadmap_screen_set_Xicon_state(FALSE);
 
    popup = ssd_popup_new("Direction", "", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,&list_value->position, SSD_POINTER_LOCATION|SSD_ROUNDED_BLACK);
     /* Makes it possible to click in the bottom vicinity of the buttons  */
@@ -2971,11 +2964,6 @@ static void display_pop_up(navigate_list_value *list_value){
 //////////////////////////////////////////////////
 static int navigate_main_list_call_back (SsdWidget widget, const char *new_value, const void *value, void *context) {
 	navigate_list_value *list_value = (navigate_list_value *)value;
-
-#ifdef IPHONE
-   roadmap_main_show_root(0);
-#endif //IPHONE
-   
 	current_displayed_value = list_value;
 	display_pop_up(list_value);
 	return 0;
@@ -3177,11 +3165,10 @@ void navigate_main_list(void){
 	}
 	navigate_list_count = count;
 
-#ifdef HI_RES_SCREEN
-	height = 90;
-#endif
-   
-#ifndef IPHONE
+	if ( roadmap_screen_is_hd_screen() )
+	{
+		height = 90;
+	}
 	ssd_generic_icon_list_dialog_show (roadmap_lang_get ("Navigation list"),
                   count,
                   (const char **)navigate_list_labels,
@@ -3196,25 +3183,9 @@ void navigate_main_list(void){
                   height,
                   0,
                   FALSE);
-#else
-   roadmap_list_menu_generic (roadmap_lang_get ("Navigation list"),
-                              count,
-                              (const char **)navigate_list_labels,
-                              (const void **)navigate_list_values,
-                              (const char **)navigate_list_icons,
-                              NULL,
-                              NULL,
-                              navigate_main_list_call_back,
-                              NULL,
-                              NULL,
-                              NULL,
-                              NULL,
-                              height,
-                              0,
-                              FALSE);
-#endif //IPHONE
-	
-	
+
+
+
 
 }
 
@@ -3260,7 +3231,7 @@ static void switchETAtoTime(void){
 // calculates the added time of the two time objects ( alongwith mod calculations of hours and days )
 static timeStruct calculateETA(timeStruct cur, timeStruct timeToDest){
 	timeStruct ETA;
-	int secondsInDay = 24*60*60; // hours * minutes * seconds 
+	int secondsInDay = 24*60*60; // hours * minutes * seconds
 	int secondsFromMidnightCur = cur.hours*3600+cur.minutes*60+cur.seconds;
 	int secondsFromMidnight2Dest = timeToDest.hours*3600+timeToDest.minutes*60+timeToDest.seconds;
 	int secondsFromMidnightETA = (secondsFromMidnightCur + secondsFromMidnight2Dest) % secondsInDay;

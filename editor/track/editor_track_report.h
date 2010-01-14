@@ -78,6 +78,7 @@ typedef struct
 
 
 void editor_track_report_init (void);
+void editor_track_report_reset (void);
 RTPathInfo *editor_track_report_begin_export (int offline);
 void editor_track_report_conclude_export (int success);
 int editor_track_report_get_current_position (RoadMapGpsPosition*  GPS_position, 

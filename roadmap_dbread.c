@@ -68,9 +68,6 @@
 #include "roadmap_tile_storage.h"
 #include "roadmap_dbread.h"
 
-#ifdef IPHONE
-#include "roadmap_main.h"
-#endif //IPHONE
 
 typedef struct roadmap_db_context_s {
 
@@ -570,10 +567,6 @@ const char *roadmap_db_map_path (void) {
 		map_path = roadmap_path_join (roadmap_path_user(), "maps");
 		strncpy_safe (map_path_static, map_path, sizeof (map_path_static));
 		roadmap_path_free (map_path);
-	#elif IPHONE
-	   map_path = roadmap_path_join (roadmap_main_bundle(), "maps");
-	   strncpy_safe (map_path_static, map_path, sizeof (map_path_static));
-	   roadmap_path_free (map_path);
 	#else
 	   map_path = roadmap_path_first ("maps");
 	   while (map_path && !roadmap_file_exists (map_path,"")) {

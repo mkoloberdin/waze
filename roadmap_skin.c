@@ -92,23 +92,34 @@ void roadmap_skin_register (RoadMapCallback listener) {
 
 void roadmap_skin_set_subskin (const char *sub_skin) {
    const char *base_path = roadmap_path_preferred ("skin");
-   char path[512]; //Avi R - was 256 - not enough for iPhone
+   char path[1024];
    char *skin_path;
    char *subskin_path;
+   const char *cursor;
    CurrentSubSkin = sub_skin;
 
    skin_path = roadmap_path_join (base_path, CurrentSkin);
    subskin_path = roadmap_path_join (skin_path, CurrentSubSkin);
-   
    if (!strcmp(CurrentSubSkin,"day")){
       char *subskin_path2;
       subskin_path2 = roadmap_path_join (subskin_path, get_map_schema());
-      snprintf (path, sizeof(path), "%s,%s,%s", subskin_path2, skin_path, roadmap_path_downloads());
+      snprintf (path, sizeof(path), "%s", subskin_path2);
       roadmap_path_free (subskin_path2);
    }
    else{
-      snprintf (path, sizeof(path), "%s,%s,%s", subskin_path, skin_path, roadmap_path_downloads());
+      snprintf (path, sizeof(path), "%s",subskin_path);
    }
+
+   
+   for (cursor = roadmap_path_first ("skin");
+               cursor != NULL;
+               cursor = roadmap_path_next ("skin", cursor)) {
+      if ( !((strstr(cursor,"day") || strstr(cursor,"night")))){
+         strcat(path, ",");
+         strcat(path, cursor);
+      }
+   }
+   
    roadmap_path_set ("skin", path);
 
    roadmap_path_free (subskin_path);
@@ -135,10 +146,10 @@ void roadmap_skin_toggle (void) {
 int roadmap_skin_state_screen_touched(void){
 
   if (roadmap_screen_touched_state() == -1)
-  		return -1;
+      return -1;
 
    if (!strcmp (CurrentSubSkin, "day")) {
-	   return 0;
+      return 0;
    } else {
       return 1;
    }
@@ -148,7 +159,7 @@ int roadmap_skin_state_screen_touched(void){
 int roadmap_skin_state(void){
 
    if (!strcmp (CurrentSubSkin, "day")) {
-	   return 0;
+      return 0;
    } else {
       return 1;
    }
@@ -265,7 +276,7 @@ void roadmap_skin_set_scheme(const char *new_scheme){
    roadmap_skin_set_subskin (CurrentSubSkin);
 }
 
-const int roadmap_skin_get_scheme(void){
+int roadmap_skin_get_scheme(void){
    return roadmap_config_get_integer(&RoadMapConfigMapScheme);
 }
 

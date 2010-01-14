@@ -40,10 +40,6 @@
 #include "ssd/ssd_progress.h"
 #include "ssd/ssd_button.h"
 #include "ssd/ssd_text.h"
-#ifdef IPHONE
-#include "roadmap_welcome_wizard.h"
-#include "roadmap_messagebox.h"
-#endif //IPHONE
 
 static RoadMapConfigDescriptor GEO_LOCATION_DISPLAYED_Var = 
                            ROADMAP_CONFIG_ITEM( 
@@ -68,9 +64,7 @@ typedef struct tag_geo_location_info
 }  geo_location_info, *geo_location_info_ptr;
 
 
-static geo_location_info g_geo_info;
-
-static int initialized = 0;
+static geo_location_info g_geo_info; 
 
 /////////////////////////////////////////////////////////////////////
 static BOOL is_geo_location_enabled(void){
@@ -288,34 +282,13 @@ static void roadmap_geo_location_dialog(void){
    ssd_dialog_activate ("geo_location_info", NULL);
 }
 
-#ifdef IPHONE
-/////////////////////////////////////////////////////////////////////
-void roadmap_geo_location_info_show(void){
-   if (initialized) {
-      roadmap_geo_location_iphone(g_geo_info.metroplolitan,
-                                  g_geo_info.state,
-                                  g_geo_info.map_score,
-                                  g_geo_info.traffic_score,
-                                  g_geo_info.usage_score,
-                                  g_geo_info.overall_score);
-      //set_geo_location_displayed();
-   } else {
-      roadmap_messagebox("", "Area support information not available, try again later");
-   }
-}
-#endif //IPHONE
-
 /////////////////////////////////////////////////////////////////////
 void roadmap_geo_location_info(void){
-#ifndef IPHONE
-	if (!is_geo_location_enabled())
+   if (!is_geo_location_enabled())
        return;
     
   if (geo_location_displayed())
       return;
-	
+   
   roadmap_geo_location_dialog();
-#else
-   initialized = 1;
-#endif
 }

@@ -41,6 +41,11 @@ const char *on_server_config      (/* IN  */   const char*       data,
                                   /* OUT */   BOOL*             more_data_needed,
                                   /* OUT */   roadmap_result*   rc);
 
+const char *on_update_config      (/* IN  */   const char*       data,
+                                  /* IN  */   void*             context,
+                                  /* OUT */   BOOL*             more_data_needed,
+                                  /* OUT */   roadmap_result*   rc);
+
 void roadmap_geo_config_il(RoadMapCallback callback);
 void roadmap_geo_config_usa(RoadMapCallback callback);
 void roadmap_geo_config_other(RoadMapCallback callback);

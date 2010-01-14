@@ -340,8 +340,7 @@ void roadmap_voice_announce (const char *title) {
 void roadmap_voice_mute (void) {
 
     RoadMapVoiceMuted = 1;
-    
-   
+    roadmap_config_set (&RoadMapVoiceMute, "yes");
 
     roadmap_spawn_check ();
 }

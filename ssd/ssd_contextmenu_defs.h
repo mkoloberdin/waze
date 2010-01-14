@@ -59,11 +59,11 @@ typedef struct tag_ssd_cm_item
    SsdWidget            row;     // Internal use
    const RoadMapAction* action;
    
-   //union
-   //{
+   union
+   {
       int                  id;
       ssd_contextmenu_ptr  popup;   // (flags & CONTEXT_MENU_FLAG_POPUP)
-   //};
+   };
 
 }     ssd_cm_item, *ssd_cm_item_ptr;
 void  ssd_cm_item_show( ssd_cm_item_ptr item);
@@ -94,7 +94,7 @@ void  ssd_contextmenu_show_item__by_action_name(
 
 #define  SSD_CM_INIT_ITEM(_label_,_id_)                                          \
             /* Label, Icon, Flags                  , Row , Action, ID      */    \
-            {_label_, NULL, CONTEXT_MENU_FLAG_NORMAL,NULL, NULL,   _id_}
+            {_label_, NULL, CONTEXT_MENU_FLAG_NORMAL,NULL, NULL,   {_id_}}
             
 #define  SSD_CM_INIT_POPUP(_label_,_popup_)                                      \
             /* Label, Icon, Flags                  , Row , Action, Popup   */    \

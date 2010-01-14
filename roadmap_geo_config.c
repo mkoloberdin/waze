@@ -150,6 +150,22 @@ static void clean_up (void) {
    init_context ();
 }
 
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+static void parse_string ( char* str ) {
+
+	char spacer = '#';
+	char *p = str;
+	/* Parse for spaces */
+	while( ( p = strchr( p, spacer ) ) )
+	{
+		*p = ' ';
+		p++;
+	}
+}
+
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
@@ -168,6 +184,7 @@ void GeoConfigTimer (void) {
       (*GeoConfigContext.callback)();
 
 }
+
 
 
 ////////////////////////////////////////////////////////////////////
@@ -192,12 +209,12 @@ void roadmap_geo_config_transaction_failed(void){
 //
 ///////////////////////////////////////////////////////////////////
 static void on_lang_conf_downloaded(void){
-   
+
    ssd_progress_msg_dialog_hide();
    clean_up();
 
    lang_dlg();
-  
+
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -206,11 +223,11 @@ static void on_lang_conf_downloaded(void){
 static void on_recieved_completed (void) {
    char updateText[] = "We've made a few infrastructural changes that require re-start. Please exit and re-start waze.";
    const char *user_lang = roadmap_lang_get_user_lang();
-   
+
    // compare the old and new server id's - if different, user needs to restart
    int oldServerId = roadmap_config_get_integer(&RoadMapConfigSystemServerId);
    int newServerId = GeoConfigContext.id;
-   
+
    // Save the RT server ID.
    roadmap_config_set_integer (&RoadMapConfigSystemServerId,
             GeoConfigContext.id);
@@ -218,7 +235,7 @@ static void on_recieved_completed (void) {
    //save default language
    roadmap_lang_set_default_lang (GeoConfigContext.lang);
 
-   
+
    // Save version
    roadmap_config_set_integer (&RoadMapConfigGeoConfigVersion,
             GeoConfigContext.version);
@@ -236,7 +253,7 @@ static void on_recieved_completed (void) {
       return;
    }
    roadmap_lang_download_lang_file(GeoConfigContext.lang, NULL);
-   
+
    ssd_progress_msg_dialog_hide();
 
    clean_up();
@@ -397,6 +414,7 @@ const char *on_server_config (/* IN  */const char* data,
    GeoConfigContext.params[GeoConfigContext.num_received].category = strdup(category);
    GeoConfigContext.params[GeoConfigContext.num_received].name = strdup(key);
    roadmap_config_declare("preferences",&GeoConfigContext.params[GeoConfigContext.num_received], "", NULL);
+   parse_string( value );
    roadmap_config_set(&GeoConfigContext.params[GeoConfigContext.num_received],value);
 
    if (GeoConfigContext.num_received == GeoConfigContext.num_results) {
@@ -407,6 +425,75 @@ const char *on_server_config (/* IN  */const char* data,
    (*rc) = succeeded;
    return data;
 }
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+const char *on_update_config (/* IN  */const char* data,
+								/* IN  */void* context,
+								/* OUT */BOOL* more_data_needed,
+								/* OUT */roadmap_result* rc) {
+
+   int serial;
+   int size;
+   char file[256];
+   char category[256];
+   char key[256];
+   char value[256];
+   // Default error for early exit:
+   (*rc) = err_parser_unexpected_data;
+
+   // Expected data:
+   // <file>, <category>, <key>, <value>
+
+
+   // File
+   size = sizeof ( file );
+   data = ExtractString( data, file, &size, ",", 1 );
+   if (!data)
+   {
+      roadmap_log (ROADMAP_ERROR, "on_update_config() - Failed to read 'file'" );
+      return NULL;
+   }
+
+   // Category
+   size = sizeof ( category );
+   data = ExtractString( data, category, &size, ",", 1 );
+   if ( !data ) {
+      roadmap_log (ROADMAP_ERROR, "on_update_config() - Failed to read 'category'");
+      return NULL;
+   }
+
+   // Key
+   size = sizeof ( key );
+   data = ExtractString ( data, key, &size, ",", 1 );
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_update_config() - Failed to read 'key' " );
+      return NULL;
+   }
+
+   // Value
+   size = sizeof (value);
+   data = ExtractString ( data, value, &size, ",\r\n", TRIM_ALL_CHARS );
+   if (!data)
+   {
+      roadmap_log (ROADMAP_ERROR, "on_update_config() - Failed to read 'value' " );
+      return NULL;
+   }
+
+   (*rc) = succeeded;
+   roadmap_log (ROADMAP_INFO, "Successfully got UpdateConfig message - file %s, category=%s, key=%s, value=%s", file, category, key, value );
+
+   /* Set the configuration value */
+   {
+	   RoadMapConfigDescriptor cfgDesc = ROADMAP_CONFIG_ITEM( category, key );
+	   roadmap_config_declare( file, &cfgDesc, "", NULL );
+	   parse_string( value );
+	   roadmap_config_set( &cfgDesc, value );
+   }
+   return data;
+}
+
 
 ////////////////////////////////////////////////////////////////////
 //
@@ -474,10 +561,12 @@ static void retreis_exhausted(void){
    SsdWidget box;
    SsdWidget text;
    int       height = 45;
-   
-#ifdef HI_RES_SCREEN
-   height = 90;
-#endif   
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   height = 90;
+   }
+
    roadmap_log (ROADMAP_ERROR,"RoadmapGeoConfig - Retries exhausted." );
    roadmap_main_remove_periodic(retry);
 
@@ -535,7 +624,7 @@ static void retreis_exhausted(void){
     ssd_widget_set_pointer_force_click( box );
     box->pointer_down = on_pointer_down;
     ssd_widget_add(container, box);
-    
+
     ssd_widget_add(dialog, container);
     ssd_dialog_activate("Select Country Dialog", NULL);
     if ( !roadmap_screen_refresh() )
@@ -544,7 +633,7 @@ static void retreis_exhausted(void){
 
 static void lang_loaded (void) {
    ssd_dialog_hide ("Select Language Dialog", dec_ok);
-   
+
    roadmap_screen_refresh();
 
    if (GeoConfigContext.callback)
@@ -562,11 +651,11 @@ static int lang_callback (SsdWidget widget, const char *new_value) {
    if (!value)
       return 0;
    ssd_dialog_hide ("Select Language Dialog", dec_ok);
-   
+
    roadmap_lang_set_system_lang(value);
    roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
    return 1;
-   
+
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -579,9 +668,11 @@ static void lang_dlg(void){
    const void ** lang_values = roadmap_lang_get_available_langs_values();
    const char ** lang_labels = roadmap_lang_get_available_langs_labels();
    int lang_count = roadmap_lang_get_available_langs_count();
-#ifdef HI_RES_SCREEN
-   height = 90;
-#endif   
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   height = 90;
+   }
 
    if (lang_count <= 1){
       roadmap_screen_refresh();
@@ -596,7 +687,7 @@ static void lang_dlg(void){
             SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
             SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
-   
+
    space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
    ssd_widget_set_color(space, NULL, NULL);
    ssd_widget_add (dialog, space);
@@ -620,13 +711,13 @@ static void lang_dlg(void){
       box->context = (void *)lang_values[i];
       ssd_widget_set_pointer_force_click( box );
       box->pointer_down = on_pointer_down;
-      ssd_widget_add(container, box);      
+      ssd_widget_add(container, box);
    }
    ssd_widget_add(dialog, container);
    ssd_dialog_activate("Select Language Dialog", NULL);
     if ( !roadmap_screen_refresh() )
       roadmap_screen_redraw();
-   
+
 }
 ////////////////////////////////////////////////////////////////////
 //
@@ -649,21 +740,21 @@ static BOOL request_geo_config (void) {
       return FALSE;
    }
 #endif //IPHONE
-   
+
    Location = get_session_position();
    if (Location == NULL){
       if (has_reception)
          Location = roadmap_trip_get_position ("GPS");
       else
          Location = roadmap_trip_get_position( "Location" );
-      
+
       if ( (Location == NULL) || IS_DEFAULT_LOCATION( Location ) ){
          retries++;
          if (retries == MAX_LOCATION_RETIES){
             retreis_exhausted();
             return FALSE;
          }
-         
+
          roadmap_log (ROADMAP_ERROR,"RoadmapGeoConfig - Location not found. Going to retry num %d in %d seconds.", retries, (int)(RETRY_TIMEOUT/1000) );
          if (retries == 1)
             roadmap_main_set_periodic(RETRY_TIMEOUT, retry);
@@ -673,13 +764,13 @@ static BOOL request_geo_config (void) {
    else{
       roadmap_log (ROADMAP_INFO,"RoadmapGeoConfig - Using location from session! (lat=%d, lon=%d)", Location->latitude, Location->longitude);
    }
-   
+
    if (retries > 0) {
       roadmap_main_remove_periodic(retry);
       retries = 0;
    }
 
-   
+
    if(!Realtime_GetGeoConfig(Location, s_websvc)){
       net_retries++;
       if (net_retries == MAX_NET_RETRIES) {
@@ -689,7 +780,7 @@ static BOOL request_geo_config (void) {
          roadmap_main_remove_periodic (GeoConfigTimer);
          if (GeoConfigContext.callback)
             (*GeoConfigContext.callback)();
-         
+
          return FALSE;
       } else {
          roadmap_log (ROADMAP_ERROR,"RoadmapGeoConfig - Network connection problem. Going to retry num %d in %d seconds.", net_retries, (int)(RETRY_TIMEOUT/1000) );
@@ -703,7 +794,7 @@ static BOOL request_geo_config (void) {
          roadmap_main_remove_periodic(retry);
       return TRUE;
    }
-   
+
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -793,7 +884,7 @@ void roadmap_geo_config (RoadMapCallback callback) {
    if (need_to_ask_server () && *force_location){
       roadmap_lang_set_update_time("");
       roadmap_prompts_set_update_time ("");
-      
+
       roadmap_screen_redraw ();
       if (!strcmp(force_location, "il")){
          roadmap_log(ROADMAP_INFO, "roadmap_geo_config - force location set to il");

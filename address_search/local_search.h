@@ -28,6 +28,11 @@
 BOOL  local_search_init();
 void  local_search_term();
 
+const char* local_search_get_provider( void );
+const char* local_search_get_provider_label( void );
+const char* local_search_get_logo_name( void );
+const char* local_search_get_icon_name( void );
+
 roadmap_result local_search_resolve_address(
                   void*                context,
                   CB_OnAddressResolved cbOnAddressResolved,

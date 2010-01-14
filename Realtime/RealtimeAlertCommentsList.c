@@ -157,7 +157,8 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
    g_context_menu_is_active = TRUE;
 
@@ -219,7 +220,9 @@ int RealtimeAlertCommentsList(int iAlertId)
    char unit_str[20];
    char DistanceStr[250];
    const char *myUserName;
-
+   int height = 90;
+   int width  = 50;
+   
    static RoadMapRealTimeAlertListCommentsDialog context =
    { "Real Time Alert Comments", -1 };
 
@@ -233,8 +236,14 @@ int RealtimeAlertCommentsList(int iAlertId)
    ssd_widget_set_left_softkey_text(dialog, roadmap_lang_get("Options"));
    ssd_widget_set_left_softkey_callback(dialog, on_options);
 #endif
+
+   if ( roadmap_screen_is_hd_screen() ){
+	   height = 150;
+	   width = 75;
+   }
+
    group = ssd_container_new ("alert_comments.container", NULL,
-                               SSD_MAX_SIZE,90,SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_WIDGET_SPACE|SSD_CONTAINER_BORDER|SSD_WS_TABSTOP);
+                               SSD_MAX_SIZE,height,SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_WIDGET_SPACE|SSD_CONTAINER_BORDER|SSD_WS_TABSTOP);
     
 
 
@@ -349,7 +358,8 @@ int RealtimeAlertCommentsList(int iAlertId)
 
    }
 
-   image_con = ssd_container_new ("icon_container", NULL, 50,
+	   
+   image_con = ssd_container_new ("icon_container", NULL, width,
           SSD_MIN_SIZE,  SSD_ALIGN_VCENTER);
    ssd_widget_set_color(image_con, NULL, NULL);
    bitmap = ssd_bitmap_new("AlertIcon", RTAlerts_Get_Icon(alert->iID), SSD_ALIGN_CENTER);

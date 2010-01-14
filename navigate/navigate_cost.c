@@ -53,10 +53,6 @@
 #include "Realtime/RealtimeAlerts.h"
 #include "Realtime/RealtimeTrafficInfo.h"
 
-#ifdef IPHONE
-#include "iphone/cost_preferences.h"
-#endif //IPHONE
-
 #define PENALTY_NONE  0
 #define PENALTY_SMALL 1
 #define PENALTY_AVOID 2
@@ -437,9 +433,6 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
       ("user", &CostAvoidTollRoadsCfg, NULL, "no", "yes", NULL);
-   
-   roadmap_config_declare_enumeration
-      ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
 
    roadmap_config_declare_enumeration
       ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
@@ -721,7 +714,7 @@ static void create_ssd_dialog (void) {
 }
 
 void cost_preferences (void) {
-#ifndef IPHONE
+
    const char *value;
    int avoid_trails;
 
@@ -765,9 +758,6 @@ void cost_preferences (void) {
    else if (avoid_trails == AVOID_ALL_DIRT_ROADS) value = trails_value[1];
    else value = trails_value[2];
    ssd_dialog_set_data ("avoidtrails", (void *) value);
-#else
-	cost_preferences_show();
-#endif //IPHONE
 
 
 }
@@ -845,7 +835,8 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
                            on_option_selected,
                            NULL,
                            dir_default,
-                           0);
+                           0,
+                           TRUE);
 
    g_context_menu_is_active = TRUE;
 

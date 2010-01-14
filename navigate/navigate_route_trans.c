@@ -424,7 +424,7 @@ static void instrument_segments_cb (int tile_id)
 
 	if ( *roadmap_tile_status_get( tile_id ) & ROADMAP_TILE_STATUS_FLAG_ROUTE )
 	{
-		instrument_segments	 (0);
+		instrument_segments (0);
 	}
 	if (TileCbNext) {
 		TileCbNext (tile_id);

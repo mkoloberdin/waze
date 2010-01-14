@@ -45,10 +45,6 @@
 #include "ssd/ssd_generic_list_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 
-#ifdef IPHONE
-#include "roadmap_list_menu.h"
-#endif //IPHONE
-
 #include "Realtime/Realtime.h"
 #include "Realtime/RealtimeDefs.h"
 
@@ -221,11 +217,7 @@ void roadmap_foursquare_login (const char *user_name, const char *password) {
    BOOL success;
 
    gsRequestType = ROADMAP_FOURSQUARE_LOGIN;
-#ifdef IPHONE
-   delayed_show_progress();
-#else
    roadmap_main_set_periodic(100, delayed_show_progress);
-#endif //IPHONE
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
 
    success = Realtime_FoursquareConnect(user_name, password);
@@ -388,7 +380,7 @@ static void create_login_dialog(void) {
    int tab_flag = SSD_WS_TABSTOP;
 
    width = roadmap_canvas_width()/2;
-   
+
    dialog = ssd_dialog_new(FOURSQUARE_LOGIN_DIALOG_NAME,
          roadmap_lang_get(FOURSQUARE_TITLE), on_login_dlg_close, SSD_CONTAINER_TITLE);
 
@@ -458,14 +450,14 @@ static void create_login_dialog(void) {
    ssd_widget_add (box, ssd_text_new ("comment footer",
         roadmap_lang_get ("Don't have an account? Sign up on:"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
    ssd_widget_add (box, ssd_text_new ("comment footer",
-           roadmap_lang_get ("www.foursquare.com"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
+           roadmap_lang_get ("www.foursquare.com"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE|SSD_WS_TABSTOP));
 
 
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (dialog, box);
 
 
-#ifndef TOUCH_SCREEN      
+#ifndef TOUCH_SCREEN
    ssd_widget_set_left_softkey_text ( dialog, roadmap_lang_get("Ok"));
    ssd_widget_set_left_softkey_callback ( dialog, on_ok_softkey);
 #endif
@@ -479,18 +471,11 @@ static void create_address (FoursquareVenue*   venue, FoursquareCheckin* checkin
 static int on_venue_item_selected(SsdWidget widget, const char* selection,const void *value, void* context)
 {
    int index = (int)value;
-#ifdef IPHONE_NATIVE
-   index -= 10;
-#endif //IPHONE_NATIVE
 
    gsRequestType = ROADMAP_FOURSQUARE_CHECKIN;
 
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
-#ifdef IPHONE
-   delayed_show_progress();
-#else
    roadmap_main_set_periodic(100, delayed_show_progress);
-#endif //IPHONE
 
    create_address (&gsVenuesList[index], &gsCheckInInfo);
 
@@ -511,17 +496,13 @@ void roadmap_foursquare_venues_list (void) {
 
    for (i = 0; i < gsVenuesCount; i++) {
       results[i] = gsVenuesList[i].sDescription;
-#ifdef IPHONE_NATIVE
-      indexes[i] = (void*)(i+10);
-#else
       indexes[i] = (void*)i;
-#endif
       icons[i] = "foursquare_checkin";
    }
 
 #ifdef IPHONE_NATIVE
-   roadmap_list_menu_generic(roadmap_lang_get(FOURSQUARE_TITLE),
-                             gsVenuesCount,
+   roadmap_list_menu_generic(roadmap_lang_get(FOURSQUARE_VENUES_TITLE),
+                             venuesCount,
                              results,
                              (const void **)indexes,
                              icons,
@@ -665,9 +646,6 @@ static const char* parse_search_results(roadmap_result* rc, int NumParams, const
    if (!(*pData) || count == 0) {
       roadmap_log(ROADMAP_DEBUG, "Foursquare - received empty venues list");
       ssd_dialog_hide_all(dec_close);
-#ifdef IPHONE_NATIVE
-      roadmap_main_show_root(1);
-#endif //IPHONE_NATIVE
       roadmap_messagebox_timeout("Foursquare", "We can't find anything nearby.", 5);
       return pData;
    }
@@ -982,11 +960,7 @@ void roadmap_foursquare_checkin(void) {
    gsVenuesCount = 0;
 
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
-#ifdef IPHONE
-   delayed_show_progress();
-#else
    roadmap_main_set_periodic(100, delayed_show_progress);
-#endif //IPHONE
    coordinates = roadmap_trip_get_position( "Location" );
    Realtime_FoursquareSearch((RoadMapPosition *)coordinates);
 }
@@ -1006,9 +980,10 @@ SsdWidget roadmap_foursquare_create_alert_menu(void) {
    int s_height = roadmap_canvas_height();
    int s_width = roadmap_canvas_width();
 
-#ifdef HI_RES_SCREEN
-   height = 90;
-#endif
+   if ( roadmap_screen_is_hd_screen() )
+   {
+	   height = 90;
+   }
 
    if (s_height < s_width)
      width = s_height;

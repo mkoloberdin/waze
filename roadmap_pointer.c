@@ -42,7 +42,10 @@
 #define	DRAG_MOVEMENT_THR	8	// Android
 #define LONG_CLICK_TIMEOUT 400
 #elif (defined(__SYMBIAN32__))
-#define  DRAG_MOVEMENT_THR 10 // Sym touch
+#define  DRAG_MOVEMENT_THR 8 // Sym touch
+#define LONG_CLICK_TIMEOUT 400
+#elif (defined(_WIN32_))
+#define  DRAG_MOVEMENT_THR 8 // Win
 #define LONG_CLICK_TIMEOUT 400
 #else
 #define	DRAG_MOVEMENT_THR	3	// Default value
@@ -62,7 +65,7 @@ static int is_long_click_expired = 0;
 
 static RoadMapGuiPoint last_pointer_point;
 
-enum POINTER_EVENT {SHORT_CLICK = 0, LONG_CLICK, PRESSED, RELEASED, DRAG_START, DRAG_MOTION, DRAG_END, MAX_EVENTS};
+
 
 #define MAX_CALLBACKS 10
 
@@ -87,6 +90,9 @@ static int exec_callbacks (int event, RoadMapGuiPoint *point) {
    return res;
 }
 
+int roadmap_pointer_force_click(int event,RoadMapGuiPoint *point){
+  return(exec_callbacks(event,point)); // delegate to the registered callbacks
+}
 
 static void roadmap_pointer_button_timeout(void)
 {
@@ -156,6 +162,12 @@ static void roadmap_pointer_button_released (RoadMapGuiPoint *point) {
    cancel_dragging = 0;
 }
 
+static int get_drag_movement_thr(void){
+   if ( roadmap_screen_is_hd_screen() )
+      return DRAG_MOVEMENT_THR * 2;
+   return DRAG_MOVEMENT_THR;
+}
+
 static void roadmap_pointer_moved (RoadMapGuiPoint *point) {
 
    if (cancel_dragging || (!is_button_down && !is_dragging)) return;
@@ -163,8 +175,8 @@ static void roadmap_pointer_moved (RoadMapGuiPoint *point) {
    if (!is_dragging) {
 
       /* Less sensitive, since a car is not a quiet environment... */
-      if ((abs(point->x - last_pointer_point.x) <= DRAG_MOVEMENT_THR) &&
-          (abs(point->y - last_pointer_point.y) <= DRAG_MOVEMENT_THR)) return;
+      if ((abs(point->x - last_pointer_point.x) <= get_drag_movement_thr()) &&
+          (abs(point->y - last_pointer_point.y) <= get_drag_movement_thr())) return;
 
       // roadmap_main_remove_periodic(roadmap_pointer_button_timeout);
 
@@ -256,6 +268,10 @@ void roadmap_pointer_register_long_click (RoadMapPointerHandler handler,
    queue_callback (LONG_CLICK, handler, priority);
 }
 
+void roadmap_pointer_register_enter_key_press    (RoadMapPointerHandler handler,
+                                                  int priority){
+   queue_callback (KEY_BOARD_PRESS, handler, priority);                                           	
+}
 
 void roadmap_pointer_register_pressed (RoadMapPointerHandler handler,
                                        int priority) {
@@ -348,4 +364,3 @@ BOOL roadmap_pointer_is_down( void )
 {
 	return is_button_down;
 }
-

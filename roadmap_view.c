@@ -82,10 +82,6 @@ void roadmap_view_refresh (void) {
       return;
    }
 
-	if (!navigate_is_auto_zoom()) {
-		return;
-	}
-	
    if (navigate_offtrack()) return;
 
    if (!navigate_is_auto_zoom()) {

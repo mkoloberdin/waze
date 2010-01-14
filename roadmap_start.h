@@ -87,6 +87,9 @@ void roadmap_start_reset_debug_mode();
 
 int roadmap_start_get_first_time_use();
 void start_settings_quick_menu(void);
+ssd_cm_item_ptr roadmap_start_get_menu_item( const char*          menu_name,
+											 const char*          item_name,
+											 ssd_contextmenu_ptr  parent );
 
 #endif /* INCLUDE__ROADMAP_START__H */
 

@@ -46,10 +46,6 @@
 #include "ssd/ssd_generic_list_dialog.h"
 #include "Realtime/Realtime.h"
 
-#ifdef IPHONE
-#include "roadmap_bar.h"
-#endif //IPHONE
-
 
 #define MAX_MOOD_ENTRIES 30
 static int gState = -1;
@@ -236,7 +232,6 @@ static int roadmap_mood_call_back (SsdWidget widget, const char *new_value, cons
    return 1;
 }
 
-#ifndef IPHONE
 static int cstring_cmp(const void *a, const void *b)
 {
     const char **ia = (const char **)a;
@@ -314,4 +309,4 @@ void roadmap_mood(void){
 
 	roadmap_mood_dialog(NULL);
 }
-#endif //IPHONE
+

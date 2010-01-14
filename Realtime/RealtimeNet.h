@@ -28,6 +28,7 @@
 #include "../editor/track/editor_track_report.h"
 #include "../address_search/address_search.h"
 #include "roadmap_gps.h"
+#include "Realtime/Realtime.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -301,7 +302,9 @@ BOOL RTNet_ReportMapProblem(
                   const char*          szType,
                   const char*          szDescription,
                   const RoadMapGpsPosition   *MyLocation,
-                  CB_OnWSTCompleted pfnOnCompleted);
+                  ESendMapProblemResult * SendMapProblemResult,
+                  CB_OnWSTCompleted pfnOnCompleted,
+                   char* packet_only);
 
 BOOL RTNet_GetGeoConfig(
                   LPRTConnectionInfo         pCI,

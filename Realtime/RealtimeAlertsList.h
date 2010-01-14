@@ -53,9 +53,6 @@ typedef enum real_time_list_context_menu_items
 // Tabs
 typedef enum tabs_real_time_list
 {
-#ifdef STREAM_TEST
-   tab_stream,
-#endif //STREAM_TEST
    tab_all,
    tab_police,
    tab_traffic_jam,
@@ -67,7 +64,6 @@ typedef enum tabs_real_time_list
 
 }  real_time_tabs;
 
-#ifndef IPHONE
 typedef struct AlertList_s{
     char *labels[MAX_ALERTS_ENTRIES];
     char *values[MAX_ALERTS_ENTRIES];
@@ -78,7 +74,6 @@ typedef struct AlertList_s{
 	int iDistnace[MAX_ALERTS_ENTRIES];
 	int iCount;
 }AlertList;
-#endif //IPHONE
 
 
 void RealtimeAlertsList (void);

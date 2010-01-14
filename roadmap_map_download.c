@@ -42,10 +42,6 @@
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 
-#ifdef IPHONE
-#include "roadmap_main.h"
-#endif //IPHONE
-
 static RoadMapConfigDescriptor DlMapSourceConf =
                     ROADMAP_CONFIG_ITEM("Download", "Source");
 
@@ -214,10 +210,7 @@ BOOL roamdmap_map_download_enabled(void){
 
 }
 
-void roadmap_map_download(void){
-#ifdef IPHONE
-   roadmap_main_show_root(NO);
-#endif //IPHONE
+void roadmap_map_download(SsdWidget widget, const char *new_value){
    ssd_confirm_dialog ("Warning", "Download requires large amount of data, continue?", TRUE, DlMapConfirmCallback , NULL);
 }
 
@@ -233,13 +226,8 @@ void roadmap_map_download_region (const char *region_code, int fips) {
 	
 	DlFips = fips;
 	snprintf (DlMapFileName, sizeof (DlMapFileName), "map%05d.wzm", fips);
-#ifndef IPHONE
 	roadmap_path_format (DlMapFileFullName, sizeof (DlMapFileFullName), 
 								roadmap_db_map_path (), DlMapFileName);
-#else
-   roadmap_path_format (DlMapFileFullName, sizeof (DlMapFileFullName), 
-								roadmap_path_preferred("maps"), DlMapFileName);
-#endif //IPHONE
 	snprintf (DlMapTempFullName, sizeof (DlMapTempFullName), "%s_", DlMapFileFullName);
 	
 	snprintf (url, sizeof(url), "%s/%s/%s", 

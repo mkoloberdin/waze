@@ -37,9 +37,6 @@
 
 #include "ssd_entry.h"
 
-#ifdef IPHONE
-#include "roadmap_editbox.h"
-#endif //IPHONE
 typedef struct
 {
 	const char* 	  mb_text;			/* Message box text for the confirmed entry */
@@ -92,7 +89,7 @@ static int edit_callback (SsdWidget widget, const char *new_value) {
 
    value = widget->get_value (widget);
 
-#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
    {
 	   SsdWidget text = ssd_widget_get(widget->children, "Text");
 

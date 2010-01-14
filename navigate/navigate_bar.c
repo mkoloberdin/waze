@@ -53,6 +53,13 @@ static RoadMapConfigDescriptor RMConfigNavBarStreetNormalFont =
 static RoadMapConfigDescriptor RMConfigNavBarStreetSmalllFont =
                         ROADMAP_CONFIG_ITEM("Navigation Bar", "Street Small Font");
 
+typedef enum
+{
+	_nav_panel_disp_mode_portrait = 0,
+	_nav_panel_disp_mode_landscape,
+	_nav_panel_disp_mode_all
+} NavPanelDisplayMode;
+
 typedef struct {
    const char     *image_file;
    int             min_screen_width;
@@ -78,7 +85,7 @@ typedef struct {
    RoadMapGuiRect  time_to_destination_rect;
    RoadMapGuiPoint time_to_destination_pos;
 
-
+   NavPanelDisplayMode 		display_mode;		// TRUE - portrait, FALSE - landscape
 } NavigateBarPanel;
 
 
@@ -94,30 +101,34 @@ typedef struct {
 static NavigateBarPanel NavigateBarDefaultPanels[] = {
 
 #ifndef TOUCH_SCREEN
-   {"nav_panel_wide", 320,0, {0, 19}, {25, 33}, {45, 17, 97, 55}, {47, 23}, {47, 46}, 39,-1, 106, 200, {270, 0, 320, 37}, {276, 8}, {277, 32}, {400, 0, 400, 30}, {400, 400}, {400, 400}, {400, 0, 400, 22}, {400,400} },
+   {"nav_panel_wide", 320,0, {0, 19}, {25, 33}, {45, 17, 97, 55}, {47, 23}, {47, 46}, 39,-1, 106, 200, {270, 0, 320, 37}, {276, 8}, {277, 32}, {400, 0, 400, 30}, {400, 400}, {400, 400}, {400, 0, 400, 22}, {400,400}, _nav_panel_disp_mode_landscape },
 
-   {"nav_panel", 240, 21, {6, 23}, {31, 37}, {0, 54, 78, 89}, {32, 61}, {10, 70}, 48, -1, 78, 161, {190, 8, 240, 41}, {196, 12}, {195, 36}, {172, 66, 240, 83}, {200, 72}, {175, 72}, {80, 66, 165, 83}, {82, 72} },
-#elif defined(IPHONE)
-   {"nav_panel_wide", 400,0, {5, 10}, {41, 30}, {0, 55, 87, 110}, {38, 63}, {14, 73}, 66,-1, 95, 290, {430, 8, 480, 44}, {427, 13}, {436, 37}, {395, 57, 480, 78}, {445, 63}, {415, 63}, {390, 78 , 480, 90}, {396,78} },
-   {"nav_panel", 320, 0, {5, 40}, {40, 60}, {0, 86, 87, 142}, {41, 94}, {14, 105}, 73, 89, 95, 220, {257, 3, 317, 45}, {261, 14}, {269, 39}, {148, 104, 270, 135}, {230, 110}, {200, 110}, {92, 104, 190, 135}, {96, 110} },
+   {"nav_panel", 240, 21, {6, 23}, {31, 37}, {0, 54, 78, 89}, {32, 61}, {10, 70}, 48, -1, 78, 161, {190, 8, 240, 41}, {196, 12}, {195, 36}, {172, 66, 240, 83}, {200, 72}, {175, 72}, {80, 66, 165, 83}, {82, 72}, _nav_panel_disp_mode_portrait },
 #else
-   {"nav_panel_wide_640", 640,64, {15, 18}, {66, 60}, {0, 95, 123, 170}, {58, 105}, {24, 118}, 106,-1, 95, 410, {560, 8, 640, 70}, {567, 23}, {572, 57}, {544, 90, 640, 150}, {595, 103}, {550, 103}, {530, 118 , 640, 150}, {540,128} },
+   {"nav_panel_wide_854", 850, 64, {5, 28}, {57, 70}, {0, 100, 123, 170}, {58, 110}, {24, 123}, 88, 110, 135, 715, {775, 1, 860, 65}, {780, 22}, {790, 55}, {255, 130, 365, 180}, {315, 133}, {275, 133}, {135, 130, 242, 180}, {137, 133}, _nav_panel_disp_mode_landscape },
 
+   {"nav_panel_wide_640", 640,64, {15, 18}, {66, 60}, {0, 95, 123, 170}, {58, 105}, {24, 118}, 106,-1, 95, 410, {560, 8, 640, 70}, {567, 23}, {572, 57}, {544, 90, 640, 150}, {595, 100}, {550, 100}, {525, 118 , 640, 150}, {535,126}, _nav_panel_disp_mode_landscape },
+
+   {"nav_panel_480", 480, 64, {5, 28}, {57, 70}, {0, 100, 123, 170}, {58, 110}, {24, 123}, 88, 110, 135, 340, {400, 1, 485, 65}, {405, 22}, {415, 63}, {255, 130, 365, 180}, {315, 136}, {275, 136}, {135, 130, 247, 180}, {137, 136}, _nav_panel_disp_mode_portrait },
+   
 #ifdef _WIN32
-   {"nav_panel_wide", 400,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 302, {350, 8, 400, 44}, {347, 13}, {352, 37}, {480, 57, 480, 78}, {445, 63}, {415, 63}, {480, 78 , 480, 90}, {480,78} },
+   {"nav_panel_wide", 400,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 302, {350, 8, 400, 44}, {347, 13}, {352, 37}, {480, 57, 480, 78}, {445, 63}, {415, 63}, {480, 78 , 480, 90}, {480,78}, _nav_panel_disp_mode_landscape },
 
-   {"nav_panel_wide_320", 320,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 222, {270, 8, 320, 44}, {267, 13}, {272, 37}, {480, 57, 480, 78}, {445, 63}, {415, 63}, {480, 78 , 480, 90}, {480,78} },
+   {"nav_panel_wide_320", 320,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 222, {270, 8, 320, 44}, {267, 13}, {272, 37}, {480, 57, 480, 78}, {445, 63}, {415, 63}, {480, 78 , 480, 90}, {480,78}, _nav_panel_disp_mode_landscape },
 
-   {"nav_panel_small", 240, 50, {5, 28}, {41, 50}, {0, 70, 82, 130}, {38, 80}, {14, 93}, 62, 77, 95, 140, {185, 1, 240, 40}, {191, 12}, {195, 37}, {176, 94, 240, 120}, {212, 98}, {186, 98}, {94, 94, 180, 120}, {98, 98} },
+   {"nav_panel_small", 240, 50, {5, 28}, {41, 50}, {0, 70, 82, 130}, {38, 80}, {14, 93}, 62, 77, 95, 140, {185, 1, 240, 40}, {191, 12}, {195, 37}, {176, 94, 240, 120}, {212, 98}, {186, 98}, {94, 94, 180, 120}, {98, 98}, _nav_panel_disp_mode_all },
 #else
-   {"nav_panel_wide", 400,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 290, {430, 8, 480, 44}, {427, 13}, {432, 37}, {395, 57, 480, 78}, {445, 63}, {415, 63}, {390, 78 , 480, 90}, {396,78} },
+   {"nav_panel_wide", 400,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 290, {430, 8, 480, 44}, {427, 13}, {432, 37}, {395, 57, 480, 78}, {445, 63}, {415, 63}, {390, 78 , 480, 90}, {396,78}, _nav_panel_disp_mode_landscape },
 
-   {"nav_panel_360", 360, 64, {5, 28}, {57, 70}, {0, 100, 123, 170}, {58, 110}, {24, 123}, 88, 115, 135, 215, {280, 1, 365, 50}, {281, 22}, {285, 57}, {250, 130, 360, 180}, {310, 138}, {270, 138}, {130, 130, 242, 180}, {132, 138} },
+   {"nav_panel_360", 360, 64, {5, 28}, {57, 70}, {0, 100, 123, 170}, {58, 110}, {24, 123}, 88, 115, 135, 215, {280, 1, 365, 50}, {281, 22}, {285, 57}, {250, 130, 360, 180}, {310, 136}, {270, 136}, {130, 130, 242, 180}, {132, 136}, _nav_panel_disp_mode_portrait },
 
-   {"nav_panel", 320, 50, {5, 40}, {40, 60}, {0, 82, 87, 142}, {41, 94}, {14, 105}, 70, 88, 95, 220, {257, 3, 317, 42}, {262, 14}, {272, 39}, {148, 105, 280, 135}, {230, 110}, {200, 110}, {92, 101, 157, 135}, {96, 110} },
+   {"nav_panel", 320, 50, {5, 40}, {40, 60}, {0, 82, 87, 142}, {41, 94}, {14, 105}, 70, 88, 95, 220, {257, 3, 317, 42}, {262, 14}, {272, 39}, {148, 105, 280, 135}, {230, 110}, {200, 110}, {92, 101, 157, 135}, {96, 110}, _nav_panel_disp_mode_all },
 
-   {"nav_panel_small", 240, 50, {5, 28}, {41, 50}, {0, 70, 82, 130}, {38, 80}, {14, 93}, 62, 77, 95, 140, {185, 1, 240, 40}, {191, 12}, {195, 37}, {176, 94, 240, 120}, {212, 98}, {186, 98}, {94, 94, 180, 120}, {98, 98} },
+   {"nav_panel_small", 240, 50, {5, 28}, {41, 50}, {0, 70, 82, 130}, {38, 80}, {14, 93}, 62, 77, 95, 140, {185, 1, 240, 40}, {191, 12}, {195, 37}, {176, 94, 240, 120}, {212, 98}, {186, 98}, {94, 94, 180, 120}, {98, 98}, _nav_panel_disp_mode_all },
+
+
 #endif
+   
 
 #endif
 };
@@ -229,20 +240,40 @@ static int navigate_bar_align_text (char *text, char **line1, char **line2,
 void navigate_bar_resize(void){
    int i;
    int width;
+   int panels_num = sizeof(NavigateBarDefaultPanels)/sizeof(NavigateBarDefaultPanels[0]);
+   NavPanelDisplayMode display_mode;
+   NavPanelDisplayMode cur_display_mode;
 
    width = roadmap_canvas_width ();
 	height = roadmap_canvas_height();
 
-   for (i=0;
-       (unsigned)i<
-        sizeof(NavigateBarDefaultPanels)/sizeof(NavigateBarDefaultPanels[0]);
-       i++) {
+	cur_display_mode = ( width <= height ) ? _nav_panel_disp_mode_portrait : _nav_panel_disp_mode_landscape;
 
-      if (width >= NavigateBarDefaultPanels[i].min_screen_width) {
-         NavigatePanel = NavigateBarDefaultPanels + i;
-         break;
+   for ( i=0; i < panels_num; i++ )
+   {
+	   display_mode = NavigateBarDefaultPanels[i].display_mode;
+      if ( width >= NavigateBarDefaultPanels[i].min_screen_width && display_mode == cur_display_mode )
+      {
+    		  NavigatePanel = NavigateBarDefaultPanels + i;
+    		  break;
       }
    }
+   /* Cannot find the match for the current display mode.
+    * Try to find the generic panels
+    */
+   if ( i == panels_num )
+   {
+	   for ( i=0; i < panels_num; i++ )
+	   {
+	      display_mode = NavigateBarDefaultPanels[i].display_mode;
+		  if ( width >= NavigateBarDefaultPanels[i].min_screen_width && display_mode == _nav_panel_disp_mode_all )
+		  {
+				  NavigatePanel = NavigateBarDefaultPanels + i;
+				  break;
+		  }
+	   }
+   }
+
 
    if (!NavigatePanel) {
       roadmap_log (ROADMAP_ERROR, "Can't find nav panel for screen width: %d",
@@ -299,10 +330,12 @@ void navigate_bar_initialize (void) {
 
    int i;
    int width;
+   int panels_num = sizeof(NavigateBarDefaultPanels)/sizeof(NavigateBarDefaultPanels[0]);
+   NavPanelDisplayMode display_mode;
+   NavPanelDisplayMode cur_display_mode;
 
    if (NavigateBarInitialized) return;
 
-#ifndef IPHONE
    roadmap_config_declare
       ("preferences", &RMConfigNavBarDestDistanceFont, "14", NULL);
    roadmap_config_declare
@@ -310,30 +343,39 @@ void navigate_bar_initialize (void) {
    roadmap_config_declare
       ("preferences", &RMConfigNavBarStreetNormalFont, "20", NULL);
    roadmap_config_declare
-   ("preferences", &RMConfigNavBarStreetSmalllFont, "17", NULL);
-#else
-	roadmap_config_declare
-	("preferences", &RMConfigNavBarDestDistanceFont, "13", NULL);
-	roadmap_config_declare
-	("preferences", &RMConfigNavBarDestTimeFont, "13", NULL);
-	roadmap_config_declare
-	("preferences", &RMConfigNavBarStreetNormalFont, "18", NULL);
-   roadmap_config_declare
-   ("preferences", &RMConfigNavBarStreetSmalllFont, "15", NULL);
-#endif //IPHONE
+      ("preferences", &RMConfigNavBarStreetSmalllFont, "17", NULL);
 
    width = roadmap_canvas_width ();
 	height = roadmap_canvas_height();
 
-   for (i=0;
-       (unsigned)i<
-        sizeof(NavigateBarDefaultPanels)/sizeof(NavigateBarDefaultPanels[0]);
-       i++) {
 
-      if (width >= NavigateBarDefaultPanels[i].min_screen_width) {
-         NavigatePanel = NavigateBarDefaultPanels + i;
-         break;
+
+	cur_display_mode = ( roadmap_canvas_width() <= roadmap_canvas_height() ) ?
+							   _nav_panel_disp_mode_portrait : _nav_panel_disp_mode_landscape;
+
+   for ( i=0; i < panels_num; i++ )
+   {
+	   display_mode = NavigateBarDefaultPanels[i].display_mode;
+      if ( width >= NavigateBarDefaultPanels[i].min_screen_width && display_mode == cur_display_mode )
+      {
+    		  NavigatePanel = NavigateBarDefaultPanels + i;
+    		  break;
       }
+   }
+   /* Cannot find the match for the current display mode.
+    * Try to find the generic panels
+    */
+   if ( i == panels_num )
+   {
+	   for ( i=0; i < panels_num; i++ )
+	   {
+	      display_mode = NavigateBarDefaultPanels[i].display_mode;
+		  if ( width >= NavigateBarDefaultPanels[i].min_screen_width && display_mode == _nav_panel_disp_mode_all )
+		  {
+				  NavigatePanel = NavigateBarDefaultPanels + i;
+				  break;
+		  }
+	   }
    }
 
    if (!NavigatePanel) {
@@ -422,7 +464,7 @@ void navigate_bar_set_distance (int distance) {
    RoadMapGuiPoint position = {0, 0};
    RoadMapPen nav_bar_pen;
    int font_size = 24;
-
+   int font_size_units = 12;
    #ifdef IPHONE
    	font_size = 18;
    #endif
@@ -479,7 +521,7 @@ void navigate_bar_set_distance (int distance) {
 
   	   position = NavigatePanel->distance_unit_pos;
   	   roadmap_canvas_draw_image_text
-         (NavigateBarImage, &position, 12, unit_str);
+         (NavigateBarImage, &position, font_size_units, unit_str);
   	}
   	else{
       position.y = NavigatePanel->distance_value_pos.y;
@@ -490,7 +532,7 @@ void navigate_bar_set_distance (int distance) {
       position.y = NavigatePanel->distance_unit_pos.y;
       position.x =NavigatePanel->distance_value_pos.x+24; // changed from 30 pixels to 24, by Dan.
       roadmap_canvas_draw_image_text
-         (NavigateBarImage, &position, 12, unit_str);
+         (NavigateBarImage, &position, font_size_units, unit_str);
 
   	}
 }
@@ -512,7 +554,7 @@ void navigate_bar_set_street (const char *street) {
    int font_size_small = roadmap_config_get_integer( &RMConfigNavBarStreetSmalllFont );
    RoadMapPen nav_bar_pen;
 
-   //street = "רחוב המלך הגדולי הגדול לגמרי 18";
+   //street = " ???? ???? ?????? ????? ????? 18";
    if (NavigateBarInitialized != 1) return;
 
    if (street == NULL)
@@ -535,8 +577,13 @@ void navigate_bar_set_street (const char *street) {
 
 #ifdef IPHONE
    if (num_lines > 1)
-      size -= 4;
+      size -= 2;
 #endif
+
+   if ( roadmap_screen_is_hd_screen() && (num_lines > 1) )
+   {
+   	   size = ( 7 * font_size_normal ) / 10;
+   }
 
    if ((num_lines < 0) || ((num_lines > 1) && (NavigatePanel->street_line2_pos == -1)))
       text = strdup(street);
@@ -580,6 +627,7 @@ void navigate_bar_set_street (const char *street) {
       	roadmap_canvas_get_text_extents
          	(line, size, &width, &ascent, &descent, NULL);
 
+
       	if (ssd_widget_rtl(NULL))
       	   position.x = NavigatePanel->street_width - width + NavigatePanel->street_start;
       	else
@@ -619,7 +667,6 @@ void navigate_bar_set_time_to_destination () {
    RoadMapPen nav_bar_pen;
    int font_size = roadmap_config_get_integer( &RMConfigNavBarDestTimeFont );
 
-
    if (NavigateBarInitialized != 1) return;
 
    if (!navigate_main_ETA_enabled())
@@ -657,6 +704,7 @@ void navigate_bar_set_distance_to_destination () {
    int units_offset = 0;
    int font_size = roadmap_config_get_integer( &RMConfigNavBarDestDistanceFont );
 
+
    if (NavigateBarInitialized != 1) return;
 
 	if (!roadmap_message_format (distance, sizeof(distance), "%D (%W)|%D"))
@@ -688,11 +736,13 @@ void navigate_bar_set_distance_to_destination () {
 
   	    // We must separate the cases of the km and meters units representation on the bar
 		if ( utf8_strlen( text ) < 3 ){
-#ifdef HI_RES_SCREEN
-		   units_offset = 28;
-#else
-			units_offset = 14;
-#endif
+
+			units_offset = 10;
+
+			if ( roadmap_screen_is_hd_screen() )
+			{
+				units_offset = 20;
+			}
 		}
 		position = NavigatePanel->distance_to_destination_unit_pos;
 		position.x += units_offset;
@@ -723,21 +773,20 @@ void navigate_bar_set_speed () {
    RoadMapPen nav_bar_pen;
    int speed;
    int font_size = 24;
-
+   int font_size_units = 10;
    #ifdef IPHONE
    	font_size = 20;
    #endif
+
 
    if (NavigateBarInitialized != 1) return;
 
   roadmap_navigate_get_current (&pos, NULL, NULL);
   speed = pos.speed;
-	
-	//speed = 100;
 
   if (speed == -1) return;
 
-   /* erase the old speed */
+   /* erase the old distance */
    roadmap_canvas_copy_image (NavigateBarImage, &position,
                               &NavigatePanel->speed_rect,
                               NavigateBarBG,
@@ -754,7 +803,7 @@ void navigate_bar_set_speed () {
    snprintf (unit_str, sizeof(unit_str), "%s",  roadmap_lang_get(roadmap_math_speed_unit()));
 
    roadmap_canvas_draw_image_text
-      (NavigateBarImage, &NavigatePanel->speed_unit_pos, 10, unit_str);
+      (NavigateBarImage, &NavigatePanel->speed_unit_pos, font_size_units, unit_str);
 
 }
 

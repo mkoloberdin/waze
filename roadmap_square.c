@@ -132,6 +132,8 @@ static int RoadMapSquareNextAvailableSlot = ROADMAP_SQUARE_CACHE_SIZE-1;
 
 static int RoadMapSquareForceUpdateMode = 0;
 
+static void roadmap_square_unload_all (void);
+
 static void *roadmap_square_map (const roadmap_db_data_file *file) {
 
    RoadMapSquareContext *context;
@@ -302,7 +304,7 @@ static void roadmap_square_promote (int slot) {
 }
 
 
-void roadmap_square_unload_all (void) {
+static void roadmap_square_unload_all (void) {
 
 	int i;
 

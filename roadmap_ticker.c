@@ -70,11 +70,9 @@ static RoadMapGuiRect OpenIconRct;
 
 static RoadMapConfigDescriptor ShowTickerCfg =
                         ROADMAP_CONFIG_ITEM("User", "Show points ticker");
-#ifdef HI_RES_SCREEN
-#define TICKER_TOP_BAR_OFFSET -5
-#else
-#define TICKER_TOP_BAR_OFFSET 0
-#endif
+
+static int gTickerTopBarOffset = 0;
+
 #define TICKER_TOP_BAR_DIVIDER_OFFSET 25
 #define TICKER_TOP_BAR_TEXT_OFFSET 25
 ////////////////////////////////////////////////////////////////////////////////
@@ -106,12 +104,15 @@ void roadmap_ticker_display() {
    int new_pnts_start_x = 50;
 
    const char * point_text = NULL;
-#ifdef HI_RES_SCREEN
-	text_offset_y = 22;
-	point_start_x = 200;
-	rank_start_x = 280;
-    new_pnts_start_x = 65;
-#endif
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+		text_offset_y = 22;
+		point_start_x = 200;
+		rank_start_x = 280;
+		new_pnts_start_x = 65;
+   }
+
    width = roadmap_canvas_width();
 
 
@@ -152,7 +153,7 @@ void roadmap_ticker_display() {
 
    while (start < end){
 		position.x = start;
-		position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET;
+		position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset();
 		roadmap_canvas_draw_image (gMiddleImage, &position, 0, IMAGE_NORMAL);
 		start += roadmap_canvas_image_width(gMiddleImage);
     }
@@ -167,13 +168,13 @@ void roadmap_ticker_display() {
 	   allign = ROADMAP_CANVAS_LEFT;
 	   text_position.x = 4;
 	}
-   text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + 2;
+   text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2;
 	roadmap_canvas_draw_string_size (&text_position,
 	                                 allign |ROADMAP_CANVAS_TOP,
 	                                 14,roadmap_lang_get("Your Points (updated once a day)"));
 
    text_position.x = 4;
-	text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
+	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
 
 	switch( gLastUpdateEvent ) {
     case default_event:
@@ -214,13 +215,13 @@ void roadmap_ticker_display() {
    roadmap_canvas_draw_image (gImageDivider, &position, 0, IMAGE_NORMAL);
 
 	text_position.x =  (width/3) + (width/3)/4 + 30;
-	text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + 2 + TICKER_TOP_BAR_TEXT_OFFSET;
+	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 + TICKER_TOP_BAR_TEXT_OFFSET;
   	roadmap_canvas_draw_string_size (&text_position,
        	    	                     ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
            	    	                 14,roadmap_lang_get("Total"));
 
    text_position.x = (width/3) + (width/3)/4+ 30;
-	text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
+	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
 	iMyTotalPoints = editor_points_get_total_points();
 	if (iMyTotalPoints != -1){
 		if (iMyTotalPoints < 10000){
@@ -238,7 +239,7 @@ void roadmap_ticker_display() {
            	    	                 14,points);
 
 	text_position.x = width - (width/3) + (width/3)/4+ 15;
-	text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
+	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
 	iMyRanking = RealTime_GetMyRanking();
 	if (iMyRanking == -1)
 		strcpy(rank,"");
@@ -249,21 +250,21 @@ void roadmap_ticker_display() {
            	    	                 14,roadmap_lang_get("Rank"));
 
    text_position.x = width - (width/3) + (width/3)/4+ 12;
-   text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
+   text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
   	roadmap_canvas_draw_string_size (&text_position,
        	    	                     ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
            	    	                 14,rank);
 
   	if (strcmp(text,"0")){
   	   text_position.x = new_pnts_start_x - start_x + 30;
-  	   text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
+  	   text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
   	   roadmap_canvas_draw_string_size (&text_position,
                      ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
                      14,"+");
 
 
   	   text_position.x = new_pnts_start_x - start_x + 40;
-  	   text_position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
+  	   text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + text_offset_y +TICKER_TOP_BAR_TEXT_OFFSET;
   	   roadmap_canvas_draw_string_size (&text_position,
   	            ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
                      14,text);
@@ -326,6 +327,11 @@ static int roadmap_ticker_key_pressed (RoadMapGuiPoint *point) {
 void roadmap_ticker_initialize(void){
 	gInitialized = FALSE;
 
+	if ( roadmap_screen_is_hd_screen() )
+	{
+		gTickerTopBarOffset = -5;
+	}
+
 	roadmap_config_declare_enumeration ("user", &ShowTickerCfg, NULL, "yes", "no", NULL);
 
    gMiddleImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_MIDDLE_IMAGE);
@@ -339,8 +345,8 @@ void roadmap_ticker_initialize(void){
 		roadmap_log (ROADMAP_ERROR, "roadmap_ticker - cannot load %s image ", TICKER_DIVIDER);
 	}
 
-	OpenIconRct.miny = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET;
-	OpenIconRct.maxy = roadmap_bar_top_height() + TICKER_TOP_BAR_OFFSET + roadmap_canvas_image_height(gMiddleImage);
+	OpenIconRct.miny = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset();
+	OpenIconRct.maxy = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + roadmap_canvas_image_height(gMiddleImage);
 
 	RoadMapTickerPen = roadmap_canvas_create_pen ("Ticker_pen");
    roadmap_canvas_set_foreground (TICKER_FOREGROUND);
@@ -357,7 +363,7 @@ int roadmap_ticker_height(){
     if (!gTickerOn)
     	 return 0;
     else
-    	return roadmap_canvas_image_height(gMiddleImage) + TICKER_TOP_BAR_OFFSET;
+    	return roadmap_canvas_image_height(gMiddleImage) + roadmap_ticker_top_bar_offset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -398,4 +404,11 @@ void roadmap_ticker_show(void){
 
 void roadmap_ticker_set_last_event(int event){
 	gLastUpdateEvent = event;
+}
+
+
+int roadmap_ticker_top_bar_offset(void)
+{
+	return gTickerTopBarOffset;
+
 }

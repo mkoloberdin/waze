@@ -143,11 +143,7 @@ const char *editor_sync_get_export_path (void) {
 	static int initialized = 0; 
 	
 	if (!initialized) {
-#ifdef IPHONE
-      roadmap_path_format (path, sizeof (path), roadmap_path_preferred("maps"), "queue");
-#else
 		roadmap_path_format (path, sizeof (path), roadmap_db_map_path (), "queue");
-#endif //IPHONE
 	   roadmap_path_create (path);
 	   initialized = 1;
 	}

@@ -31,6 +31,7 @@
 #include "../ssd/ssd_list.h"
 #include "../ssd/ssd_contextmenu.h"
 #include "../ssd/ssd_bitmap.h"
+#include "../ssd/ssd_keyboard.h"
 #include "../ssd/ssd_keyboard_dialog.h"
 #include "../ssd/ssd_progress_msg_dialog.h"
 #include "../roadmap_input_type.h"
@@ -291,7 +292,7 @@ SsdWidget create_input_container()
 
 #ifndef TOUCH_SCREEN
    ssd_widget_add( icnt, btn);
-#endif   
+#endif
    return icnt;
 }
 

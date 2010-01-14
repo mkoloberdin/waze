@@ -474,7 +474,7 @@ static void create_dialog(void) {
    group = ssd_container_new("Send_Reports group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
          SSD_START_NEW_ROW | SSD_WIDGET_SPACE | SSD_END_ROW
                               | SSD_ROUNDED_CORNERS | SSD_ROUNDED_WHITE
-                              | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+                              | SSD_POINTER_NONE | SSD_CONTAINER_BORDER| tab_flag);
    ssd_widget_set_color(group, "#000000", "#ffffff");
 
    ssd_widget_add(group, ssd_text_new("Send_reports_label", roadmap_lang_get(
@@ -482,7 +482,7 @@ static void create_dialog(void) {
          | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
 
    ssd_widget_add(group, ssd_checkbox_new("TwitterSendTwitts", TRUE,
-         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER, NULL, NULL, NULL,
+         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
          CHECKBOX_STYLE_ON_OFF));
    ssd_widget_add(dialog, group);
 
@@ -514,7 +514,7 @@ static void create_dialog(void) {
    ssd_widget_add (destination, box);
    //Disabled
    box = ssd_container_new ("Destination disabled Group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW);
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
    if (roadmap_twitter_destination_mode() == ROADMAP_TWITTER_DESTINATION_MODE_DISABLED)
       checked = TRUE;
    else
@@ -540,7 +540,7 @@ static void create_dialog(void) {
 
    // State and City
    box = ssd_container_new ("Destination city Group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW);
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
    if (roadmap_twitter_destination_mode() == ROADMAP_TWITTER_DESTINATION_MODE_CITY)
       checked = TRUE;
    else
@@ -565,7 +565,7 @@ static void create_dialog(void) {
 
    // Street, State and City (future option)
    box = ssd_container_new ("Destination street Group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW);
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
    if (roadmap_twitter_destination_mode() == ROADMAP_TWITTER_DESTINATION_MODE_STREET)
       checked = TRUE;
    else
@@ -593,7 +593,7 @@ static void create_dialog(void) {
 
    // Full address
    box = ssd_container_new ("Destination full Group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW);
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
    if (roadmap_twitter_destination_mode() == ROADMAP_TWITTER_DESTINATION_MODE_FULL)
       checked = TRUE;
    else
@@ -634,7 +634,7 @@ static void create_dialog(void) {
       group = ssd_container_new("Send_Munch group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
             SSD_START_NEW_ROW | SSD_WIDGET_SPACE | SSD_END_ROW
                                  | SSD_ROUNDED_CORNERS | SSD_ROUNDED_WHITE
-                                 | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+                                 | SSD_POINTER_NONE | SSD_CONTAINER_BORDER| tab_flag);
       ssd_widget_set_color(group, "#000000", "#ffffff");
 
       ssd_widget_add(group, ssd_text_new("Send_munch_label", roadmap_lang_get(
@@ -651,7 +651,7 @@ static void create_dialog(void) {
          SSD_WIDGET_SPACE | SSD_END_ROW);
       text = ssd_text_new ("munch_example_text_cont",
          roadmap_lang_get ("e.g:  Just munched a 'waze road goodie' worth 200 points on Geary St. SF driving with @waze social GPS"),
-                              14, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE);
+                              14, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE| tab_flag);
       ssd_text_set_color(text,notesColor);
       ssd_widget_add (box,text );
       ssd_widget_set_color (box, NULL, NULL);

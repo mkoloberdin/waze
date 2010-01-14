@@ -47,10 +47,6 @@
 #include "ssd/ssd_bitmap.h"
 #include "ssd/ssd_separator.h"
 
-#ifdef IPHONE
-#include "iphone/privacy_settings.h"
-#endif //IPHONE
-
 #ifndef TOUCH_SCREEN
 static BOOL g_context_menu_is_active= FALSE;
 #endif
@@ -176,7 +172,8 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
             on_option_selected,
             NULL,
             dir_default,
-            0);
+            0,
+            TRUE);
 
    g_context_menu_is_active = TRUE;
 
@@ -447,6 +444,12 @@ static void create_dialog (void) {
 #endif
 }
 
+int RealtimePrivacyState () {
+   
+   if (!RealTimeLoginState ()) return 0;
+   
+   return gState;
+}
 
 static void set_state () {
    gState = ERTVisabilityGroup_from_string (roadmap_config_get (
@@ -477,18 +480,6 @@ void update_checked () {
    }
 }
 
-int RealtimePrivacyState () {
-	
-	if (!RealTimeLoginState ()) return 0;
-	
-#ifdef IPHONE
-	set_state();
-#endif //IPHONE	
-	
-	return gState;
-}
-
-
 void RealtimePrivacyInit () {
    
    set_state ();
@@ -496,8 +487,6 @@ void RealtimePrivacyInit () {
 }
 
 void RealtimePrivacySettings () {
-#ifndef IPHONE
-	
    set_state ();
    
    if (!ssd_dialog_activate (PRIVACY_DIALOG, NULL)) {
@@ -506,10 +495,4 @@ void RealtimePrivacySettings () {
       ssd_dialog_activate (PRIVACY_DIALOG, NULL);
    }
    update_checked ();
-	
-#else
-	
-	privacy_settings_show();
-	
-#endif //IPHONE
 }

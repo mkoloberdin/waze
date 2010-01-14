@@ -31,7 +31,4 @@ BOOL roadmap_map_settings_isShowTopBarOnTap(void);
 BOOL roadmap_map_settings_show_report(int iType);
 BOOL roadmap_map_settings_color_roads();
 BOOL roadmap_map_settings_isShowSpeedCams();
-
-int roadmap_map_settings_allowed_alerts(int outAlertsUserCanToggle[]);
-void roadmap_map_settings_alert_string(char *outAlertString[]);
 #endif /*ROADMAP_MAP_SETTINGS_H_*/

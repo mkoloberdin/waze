@@ -62,6 +62,7 @@
 #include "roadmap_geo_config.h"
 #include "../roadmap_download_settings.h"
 #include "../websvc_trans/string_parser.h"
+#include "../websvc_trans/websvc_trans.h"
 #include "Realtime.h"
 
 #ifdef _WIN32
@@ -115,6 +116,14 @@ static RoadMapScreenSubscriber realtime_prev_after_refresh = NULL;
 static void Realtime_SessionDetailsInit( void );
 static void Realtime_SessionDetailsSave( void );
 static void Realtime_SessionDetailsClear( void );
+
+#define MaxMapProblemsQueue 20 // we will only save at maximum 20 map problems in cache
+// This array will hold cached map problems - Will be filled up
+// when users try to send map problems, but do not have network connection. 
+// These problems will be flushed out with the SendAllMessage Together message
+static EMapProblemInfo *CachedMapProblems[20];
+static int sCachedMapProblemsCount=0;
+
 
 static void Realtime_FullReset( BOOL bRedraw)
 {
@@ -205,6 +214,7 @@ static BOOL     Login( CB_OnWSTCompleted callback /* Callback on login transacti
 
 static void OnTransactionCompleted_TestLoginDetails_Login( void* ctx, roadmap_result rc );
 static BOOL TestLoginMain();
+static void freeUpdteaMapCache();
 static void RealTime_WarningInit( void );
 void     Realtime_DumpOffline (void);
 
@@ -540,6 +550,7 @@ BOOL Realtime_Initialize()
 
    // dump data from previous run to offline file
    Realtime_DumpOffline ();
+   editor_track_report_reset (); // [SRUL]this ensures that following GPS points will not be ignored
 
    //   If needed - start service:
    OnSettingsChanged_EnableDisable();
@@ -1066,6 +1077,9 @@ void OnAsyncOperationCompleted_CreateAccount( void* ctx, roadmap_result rc)
 BOOL HaveNodePathToSend()
 { return (1 <= gs_pPI->num_nodes);}
 
+BOOL HaveCachedMapProblemsToSend()
+{ return (1 <= sCachedMapProblemsCount);}
+
 BOOL SendMessage_NodePath( char* packet_only)
 {
    BOOL  bRes;
@@ -1531,6 +1545,38 @@ BOOL SendMessage_UserPoints( char* packet_only)
    return FALSE;
 }
 
+
+/**
+ * This function sends the cached map problems - Problems that the user
+ * tried to send while he didn't have network connection - So we will try 
+ * to send them again using this function when we have Network connection again.  
+ */
+BOOL SendMessage_CachedMapProblems(char* packet_only, char * Packet){
+	int         i;
+	BOOL        bRes = TRUE;
+   ESendMapProblemResult SendMapProblemResult;
+   EMapProblemInfo * LPMapProblemInfo;
+	for (i=sCachedMapProblemsCount-1;i>=0;i--){
+		if(!CachedMapProblems[i]){
+			roadmap_log( ROADMAP_ERROR, "SendMessage_CachedMapProblems() - Unexpected Null Pointer in  %d",i);
+			return FALSE;
+      }
+		LPMapProblemInfo = CachedMapProblems[i];
+		if(RTNet_ReportMapProblem(&gs_CI, LPMapProblemInfo->szType, LPMapProblemInfo->szDescription, LPMapProblemInfo->MyLocation, &SendMapProblemResult,NULL,packet_only)){
+     		packet_only = Packet + strlen(Packet);
+			roadmap_log( ROADMAP_DEBUG, "SendMessage_CachedMapProblems() - Packed Map Problem in position %d",i) ;
+			
+		}
+   		else{
+   			roadmap_log( ROADMAP_ERROR, "SendMessage_CachedMapProblems() - Packed Map  Problem in position %d",i);
+   			bRes = FALSE;
+      		return bRes;
+   		}
+	}
+	return bRes;
+}
+
+
 void OnAsyncOperationCompleted_MapDisplayed__only( void* ctx, roadmap_result rc)
 {
    if( succeeded == rc)
@@ -1788,7 +1834,6 @@ BOOL SendAllMessagesTogether_SendPart2( BOOL bFirstCycle)
       p = Packet + strlen(Packet);
    }
    
-   
    if( 0 < strlen( Packet)) {
       bRes = RTNet_GeneralPacket( &gs_CI,
                                   Packet,
@@ -1826,6 +1871,18 @@ BOOL SendAllMessagesTogether_BuildPacket( BOOL bSummaryOnly, char* Packet)
 	   }
 	   p = Packet + strlen(Packet);
 	}
+   
+   
+    // Cached Map Problems
+    if(HaveCachedMapProblemsToSend()){
+	   if(!SendMessage_CachedMapProblems(p, Packet))
+	   {
+	         roadmap_log( ROADMAP_ERROR, "SendAllMessagesTogether_BuildPacket(PRE) - 'SendMessage_CachedMapProblems()' had failed");
+	         return FALSE;
+	   }
+	   p = Packet + strlen(Packet);
+    }
+   
    
    // User points
    if( SendMessage_UserPoints( p))
@@ -1886,6 +1943,8 @@ BOOL SendAllMessagesTogether_BuildPacket( BOOL bSummaryOnly, char* Packet)
    }
 
 
+ 
+
    if( 0 < strlen( Packet))
       return TRUE;
 
@@ -1937,7 +1996,9 @@ BOOL SendAllMessagesTogether( BOOL bSummaryOnly, BOOL bCalledAfterLogin)
 
    if (!bTransactionStarted)
       editor_track_report_conclude_export (0);
-
+	
+   if (bTransactionStarted)
+      freeUpdteaMapCache();
    ebuffer_free( &Packet);
 
    return bTransactionStarted;
@@ -2619,13 +2680,21 @@ BOOL Realtime_Alert_ReportAtLocation(int iAlertType, const char * szDescription,
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL Realtime_ReportMapProblem(const char*  szType, const char* szDescription, const RoadMapGpsPosition *MyLocation){
-   BOOL success = RTNet_ReportMapProblem(&gs_CI, szType, szDescription, MyLocation, OnAsyncOperationCompleted_ReportMapProblem);
-
+   ESendMapProblemResult SendMapProblemResult;
+   BOOL success = RTNet_ReportMapProblem(&gs_CI, szType, szDescription, MyLocation,&SendMapProblemResult, OnAsyncOperationCompleted_ReportMapProblem,NULL);
    if (!success)
    {
+   	  if(SendMapProblemResult==SendMapProblemValidityOK){ 
+	      EMapProblemInfo * LPmapProblemInfo = (EMapProblemInfo *)malloc(sizeof(EMapProblemInfo));
+	      LPmapProblemInfo->szDescription = strdup(szDescription);
+	      strncpy( LPmapProblemInfo->szType,szType,3);
+	      LPmapProblemInfo->MyLocation    = (RoadMapGpsPosition *)malloc(sizeof(RoadMapGpsPosition));
+	      (*LPmapProblemInfo->MyLocation) = (*MyLocation);
+	      CachedMapProblems[sCachedMapProblemsCount] = LPmapProblemInfo;
+	   	  sCachedMapProblemsCount++;
+   	  }
       roadmap_messagebox_timeout("Error", "Sending report failed",5);
    }
-
    return success;
 
 }
@@ -2982,7 +3051,8 @@ void OnDeviceEvent( device_event event, void* context)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealTimeLoginState(void){
-   if (gs_CI.bLoggedIn && (!is_network_error(gs_CI.LastError)) && (!is_realtime_error(gs_CI.LastError)))
+   if (gs_CI.bLoggedIn && (!is_network_error(gs_CI.LastError)) && (!is_realtime_error(gs_CI.LastError))&&
+      (websvc_trans_getLastNetConnectRes()==LastNetConnect_Success))
       return 1;
    else
       return 0;
@@ -3613,3 +3683,20 @@ char* Realtime_GetServerCookie(void)
 int  Realtime_AddonState(void) {
    return gs_CI.iMyAddon;
 }
+
+static void freeUpdteaMapCache(){
+	int i;
+	roadmap_log(ROADMAP_DEBUG,"in freeUpdteaMapCache - there are %d problems in cache",sCachedMapProblemsCount);
+	if (sCachedMapProblemsCount<=0)
+		return; // no resources to free. 
+	for (i = sCachedMapProblemsCount-1; i>=0; i--){
+		sCachedMapProblemsCount--;
+		// free resources
+		free(CachedMapProblems[i]->MyLocation);
+		free(CachedMapProblems[i]->szDescription);
+		free(CachedMapProblems[i]);
+		CachedMapProblems[i] = NULL;
+	}
+}
+
+

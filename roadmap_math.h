@@ -248,7 +248,7 @@ void roadmap_math_unproject   (RoadMapGuiPoint *point);
 void roadmap_math_rotate_coordinates (int count, RoadMapGuiPoint *points);
 void roadmap_math_counter_rotate_coordinate (RoadMapGuiPoint *point);
 
-void roadmap_math_rotate_point (RoadMapGuiPoint *point,
+void roadmap_math_rotate_point (RoadMapGuiPoint *points,
                                 RoadMapGuiPoint *center, int angle);
 
 void roadmap_math_rotate_object
@@ -323,6 +323,10 @@ int  roadmap_math_get_zoom (void);
 
 BOOL roadmap_math_is_metric(void);
 
+#ifdef IPHONE
+float roadmap_math_get_angle (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1);
+float roadmap_math_get_diagonal (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1);
+#endif
 
 #endif // INCLUDED__ROADMAP_MATH__H
 

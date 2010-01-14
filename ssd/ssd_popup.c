@@ -47,17 +47,10 @@ struct ssd_popup_data {
 static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags){
 	struct ssd_popup_data *data = (struct ssd_popup_data *)widget->data;
 	widget->parent->context = (void *)&data->position;
-	
+
 	data->draw(widget,rect,flags);
 }
 
-#ifdef TOUCH_SCREEN
-static int close_button_callback (SsdWidget widget, const char *new_value) {
-
-   ssd_dialog_hide_current (dec_close);
-   return 0;
-}
-#endif
 
 SsdWidget ssd_popup_new (const char *name,
 								 const char *title,
@@ -67,7 +60,7 @@ SsdWidget ssd_popup_new (const char *name,
 								 const RoadMapPosition *position,
                          int flags) {
 
-   SsdWidget dialog, popup, container, header, text, btn_close;
+   SsdWidget dialog, popup, header, text;
    int text_size = 20;
    int header_size = 30;
 
@@ -91,15 +84,18 @@ SsdWidget ssd_popup_new (const char *name,
    popup->bg_color = NULL;
 
    if (title && *title){
-#ifdef HI_RES_SCREEN
-    header_size = 45;
-#endif
-      header = ssd_container_new ("header_conatiner", "", SSD_MIN_SIZE, header_size, SSD_END_ROW);
-      ssd_widget_set_color(header, NULL, NULL);
-      ssd_widget_set_click_offsets( header, &sgPopUpCloseOffsets );
-      
+
+	if ( roadmap_screen_is_hd_screen() )
+	{
+		header_size = 45;
+	}
+
+    header = ssd_container_new ("header_conatiner", "", SSD_MIN_SIZE, header_size, SSD_END_ROW);
+    ssd_widget_set_color(header, NULL, NULL);
+    ssd_widget_set_click_offsets( header, &sgPopUpCloseOffsets );
+
 #ifdef IPHONE
-      text_size = 18;
+    text_size = 18;
 #endif
 	text = ssd_text_new("popuup_text", title, text_size, SSD_END_ROW|SSD_ALIGN_VCENTER);
 	ssd_widget_set_color(text,"#f6a201", NULL);
@@ -108,12 +104,12 @@ SsdWidget ssd_popup_new (const char *name,
 
    ssd_widget_add(header, text);
 #else
-      ssd_widget_add(header, text);
+   ssd_widget_add(header, text);
 #endif
 
 
    ssd_widget_add(popup, header);
-   
+
    }
    ssd_widget_add(dialog, popup);
    return popup;
