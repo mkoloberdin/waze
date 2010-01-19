@@ -271,7 +271,19 @@ static void http_cb_done (void *context,char *last_modified) {
    	TileCallback (tile_index);
    }
 
-   roadmap_screen_refresh();
+   if (roadmap_square_at_current_scale(tile_index)) {
+      RoadMapArea screen_edges;
+      RoadMapArea tile_edges;
+
+      roadmap_math_screen_edges (&screen_edges);
+
+      roadmap_tile_edges (tile_index, &tile_edges.west, &tile_edges.east,
+                          &tile_edges.south, &tile_edges.north);
+
+      if (roadmap_math_area_contains(&screen_edges, &tile_edges)) {
+         roadmap_screen_redraw();
+      }
+   }
 }
 
 static void init_url (void) {

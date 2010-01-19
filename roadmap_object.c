@@ -320,17 +320,6 @@ static int roadmap_object_short_click (RoadMapGuiPoint *point) {
    return 1;
 }
 
-static int roadmap_object_pressed (RoadMapGuiPoint *point) {
-   
-   RoadMapObject *object = roadmap_object_by_pos (point, TRUE);
-   
-   if (!object) {
-      return 0;
-   }
-   roadmap_pointer_cancel_dragging();
-   return 1;
-}
-
 void roadmap_object_set_action (RoadMapDynamicString id,
                                 RoadMapObjectAction action) {
    RoadMapObject *object = roadmap_object_search (id);
@@ -340,8 +329,6 @@ void roadmap_object_set_action (RoadMapDynamicString id,
    if (action) {
       object->action = action;
       if (!initialized) {
-         roadmap_pointer_register_pressed
-            (roadmap_object_pressed, POINTER_NORMAL);
          roadmap_pointer_register_short_click
             (roadmap_object_short_click, POINTER_NORMAL);
          roadmap_pointer_register_enter_key_press

@@ -159,19 +159,6 @@ static void timer_cb(void){
    roadmap_ticker_set_last_event(default_event);
 }
 
-//////////////////////////////////////////////////////////////////////
-void editor_points_display_new_points_timed(int points, int seconds, int event){
-   roadmap_message_set('X', "%d", points);
-   if (TimerCallback){
-      roadmap_main_remove_periodic (timer_cb);
-      TimerCallback = NULL;
-   }
-   roadmap_ticker_set_last_event(event);
-   if (!roadmap_screen_refresh())
-     roadmap_screen_redraw();
-   roadmap_main_set_periodic (seconds * 1000, timer_cb);
-   TimerCallback = timer_cb;
-}
 
 //////////////////////////////////////////////////////////////////////
 void editor_points_add_new_points(int points){
@@ -196,7 +183,6 @@ int editor_points_get_new_points(void){
 
 //////////////////////////////////////////////////////////////////////
 void editor_points_set_old_points(int points, int timeStamp){
-   gOldPoints = points;
 	if (editor_points_get_saved_old_points() != points){
 	   if (get_last_points_update_time() < timeStamp){
 	        set_server_time_stamp(timeStamp);
@@ -232,15 +218,25 @@ int editor_points_reset_munching (void) {
 
 }
 
-void editor_points_ViewMyPoints(void){
-   roadmap_ticker_set_last_event(default_event);
-   roadmap_message_set('X', "%d", 0);
+void editor_points_display_new_points_timed(int points, int seconds, int event){
+   if(points!=-1)
+	   roadmap_message_set('X', "%d", points);
    if (TimerCallback){
       roadmap_main_remove_periodic (timer_cb);
       TimerCallback = NULL;
    }
+   roadmap_ticker_set_last_event(event);
    if (!roadmap_screen_refresh())
      roadmap_screen_redraw();
-   roadmap_main_set_periodic (SECONDS_TO_POPUP_POINTS * 1000, timer_cb);
+   roadmap_main_set_periodic (seconds * 1000, timer_cb);
    TimerCallback = timer_cb;
 }
+
+void editor_points_ViewMyPoints(void){
+   roadmap_ticker_set_suppress_hide(TRUE);
+   editor_points_display_new_points_timed(-1,SECONDS_TO_POPUP_POINTS*1000,default_event);
+   roadmap_main_set_periodic(SECONDS_TO_POPUP_POINTS*1000,roadmap_ticker_supress_hide);
+}
+
+
+

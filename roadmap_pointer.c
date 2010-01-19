@@ -113,7 +113,7 @@ static void roadmap_pointer_button_timeout(void)
  */
 static void roadmap_pointer_drag_flow_control(void) {
 
-   roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
+   //roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
 
    exec_callbacks (DRAG_MOTION, &last_pointer_point);
    is_drag_flow_control_on = 0;
@@ -142,7 +142,7 @@ static void roadmap_pointer_button_released (RoadMapGuiPoint *point) {
 
    if (is_dragging) {
       if (is_drag_flow_control_on) {
-         roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
+         //roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
          is_drag_flow_control_on = 0;
       }
 
@@ -184,16 +184,18 @@ static void roadmap_pointer_moved (RoadMapGuiPoint *point) {
 
       last_pointer_point = *point;
       is_drag_flow_control_on = 1;
-      roadmap_main_set_periodic
-         (DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
+      //roadmap_main_set_periodic
+         //(DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
       is_dragging = 1;
+      roadmap_pointer_drag_flow_control();
    } else {
       /* the flow control timer will execute the handler */
       last_pointer_point = *point;
       if (!is_drag_flow_control_on) {
          is_drag_flow_control_on = 1;
-         roadmap_main_set_periodic
-            (DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
+         //roadmap_main_set_periodic
+            //(DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
+         roadmap_pointer_drag_flow_control();
       }
    }
 }

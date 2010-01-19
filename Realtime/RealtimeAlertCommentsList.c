@@ -222,6 +222,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    const char *myUserName;
    int height = 90;
    int width  = 50;
+   int mood_size = 40;
    
    static RoadMapRealTimeAlertListCommentsDialog context =
    { "Real Time Alert Comments", -1 };
@@ -240,6 +241,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    if ( roadmap_screen_is_hd_screen() ){
 	   height = 150;
 	   width = 75;
+	   mood_size = 60;
    }
 
    group = ssd_container_new ("alert_comments.container", NULL,
@@ -394,7 +396,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    if (alert->iMood != 0){
     SsdWidget mood_con, mood;
 
-    mood_con = ssd_container_new("mood_Cont", NULL, 40,40,SSD_ALIGN_RIGHT|SSD_ALIGN_BOTTOM);
+    mood_con = ssd_container_new("mood_Cont", NULL, mood_size,mood_size,SSD_ALIGN_RIGHT|SSD_ALIGN_BOTTOM);
     ssd_widget_set_color(mood_con, NULL, NULL);
     mood = ssd_bitmap_new("mood",(void *)roadmap_mood_to_string(alert->iMood),SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
     ssd_widget_add(mood_con, mood);
@@ -426,11 +428,18 @@ int RealtimeAlertCommentsList(int iAlertId)
        else
           bitmap = ssd_bitmap_new("CommentSent", "response_bubble1",SSD_ALIGN_RIGHT);
 
-       if (CommentEntry->comment.bCommentByMe)
+	   if (CommentEntry->comment.bCommentByMe){
+		if ( roadmap_screen_is_hd_screen() )
+          text_container = ssd_container_new("text_con", NULL, 250, 100, 0 );
+		else
           text_container = ssd_container_new("text_con", NULL, 188, 68, 0 );
-       else
-          text_container = ssd_container_new("text_con", NULL, 212, 55, 0 );
 
+	   }else{
+		if ( roadmap_screen_is_hd_screen() )
+		  text_container = ssd_container_new("text_con", NULL, 300, 100, 0 );
+		else
+          text_container = ssd_container_new("text_con", NULL, 212, 55, 0 );
+	   }
        ssd_widget_set_color(text_container, NULL, NULL);
        if (ssd_widget_rtl(NULL)){
           if (CommentEntry->comment.bCommentByMe)

@@ -1998,8 +1998,8 @@ static void roadmap_screen_draw_real_time_alerts (void) {
          } else {
             icon = RTAlerts_Get_Map_Icon(RTAlerts_Get_Id(i));
             if (icon != NULL){
-               if (small_marker_image == NULL)
-                  small_marker_image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "alert_marker_small");
+
+               small_marker_image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "alert_marker_small");
 
                if (small_marker_image) {
                   icon_screen_point.x = screen_point.x - roadmap_canvas_image_width(small_marker_image)/2 +6;
@@ -2042,9 +2042,7 @@ static void draw_real_time_traffic_speed_signs(void){
 
       TrafficRecord = RTTrafficInfo_Get(i);
 
-	  if (images[TrafficRecord->iType] == NULL){
-		  images[TrafficRecord->iType] =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN,sign_name[TrafficRecord->iType]);
-	  }
+	  images[TrafficRecord->iType] =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN,sign_name[TrafficRecord->iType]);
 
       for (j= 0; j <TrafficRecord->iNumNodes; j++){
          pos.latitude = TrafficRecord->sNodes[j].Position.latitude;
@@ -2176,6 +2174,45 @@ INLINE_DEC int roadmap_screen_repaint_square (int square, int pen_type,
 
    return drawn;
 }
+
+void roadmap_screen_draw_sky(void){
+   RoadMapImage SkyImage = NULL;
+   static RoadMapImage SkyImageDay = NULL;
+   static RoadMapImage SkyImageNight = NULL;
+   
+   RoadMapGuiPoint screen_point;
+   int image_width;
+   if (RoadMapScreenViewMode != VIEW_MODE_3D)
+      return;
+
+   if (roadmap_skin_state() == 0){
+      if (!SkyImageDay){
+         SkyImageDay = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "3D-Sky");
+      }
+      SkyImage = SkyImageDay;
+   }
+   else{
+      if (!SkyImageNight){
+         SkyImageNight = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "3D-SkyNight");
+      }
+      SkyImage = SkyImageNight;
+   }
+   
+   screen_point.x = 0;
+   screen_point.y = roadmap_bar_top_height();
+   if (SkyImage) {
+      int num_images;
+      int i;
+      image_width = roadmap_canvas_image_width(SkyImage);
+      num_images = roadmap_canvas_width()/image_width + 1;
+      for (i = 0; i < num_images; i++){
+         screen_point.x = i * image_width; 
+         roadmap_canvas_draw_image (SkyImage, &screen_point,  0, IMAGE_NORMAL);
+      }
+   }
+   
+}
+
 
 #ifndef IPHONE
 extern inline int roadmap_main_time_interval( int aCallIndex, int aPrintFlag );
@@ -2453,14 +2490,16 @@ static void roadmap_screen_repaint_now (void) {
 
    RoadMapScreenAfterRefresh();
 
-   roadmap_screen_obj_draw ();
+   roadmap_bar_draw();
 
+   roadmap_screen_draw_sky();
+
+   roadmap_screen_obj_draw ();
+   
    roadmap_alerter_display();
 
    roadmap_ticker_display();
-
-   roadmap_bar_draw();
-
+   
    roadmap_display_signs ();
 
 #ifndef TOUCH_SCREEN

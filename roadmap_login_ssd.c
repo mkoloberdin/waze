@@ -139,7 +139,7 @@ void roadmap_login_update_dlg_show( void )
       s_event_registered = TRUE;
       roadmap_device_events_register( OnDeviceEvent, NULL );
    }
-   if ( !sgSignUpDlg )
+   if ( !ssd_dialog_exists( RM_SIGNUP_DLG_NAME ) )
 	   create_dialog();
 
    ssd_dialog_activate( RM_SIGNUP_DLG_NAME, NULL );
@@ -174,7 +174,16 @@ void on_signup_dlg_close( int exit_code, void* context )
 #ifndef TOUCH_SCREEN
 static int on_register_softkey( SsdWidget this, const char *new_value, void *context )
 {
-   return on_update( NULL, NULL );
+   const char* username = NULL;
+   if ( username && *username && Realtime_IsLoggedIn() )
+   {  // Update user
+      return on_update( NULL, NULL );
+
+   }
+   else
+   {  // Create user
+      return on_create( NULL, NULL );
+   }
 }
 
 static int on_skip_softkey( SsdWidget this, const char *new_value, void *context )
@@ -422,7 +431,7 @@ void roadmap_login_new_existing_dlg(){
    if ( sgNewExistingInProcess )
 	   return;
 
-   if ( !sNewExistingDlg )
+   if ( !ssd_dialog_exists( RM_NEW_EXISTING_NAME ) )
    {
 	   dialog = ssd_dialog_new ( RM_NEW_EXISTING_NAME,
 								roadmap_lang_get ("Welcome"),
@@ -616,16 +625,8 @@ void roadmap_login_details_dialog_show_un_pw (void) {
    roadmap_login_set_show_function( roadmap_login_details_dialog_show_un_pw );
 
    width = roadmap_canvas_width () / 2;
-   if ( !sUnPwDlg ) {
 
-      // Define the labels and values
-      yesno_label[0] = roadmap_lang_get ("Yes");
-      yesno_label[1] = roadmap_lang_get ("No");
-      yesno[0] = "Yes";
-      yesno[1] = "No";
-   }
-
-   if (!sUnPwDlg ) {
+   if ( !ssd_dialog_exists( sDlgName ) ) {
 
       SsdWidget dialog;
       SsdWidget group;
@@ -634,6 +635,11 @@ void roadmap_login_details_dialog_show_un_pw (void) {
       SsdWidget username, pwd;
       SsdWidget space;
 
+      // Define the labels and values
+      yesno_label[0] = roadmap_lang_get ("Yes");
+      yesno_label[1] = roadmap_lang_get ("No");
+      yesno[0] = "Yes";
+      yesno[1] = "No";
 
       dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get ( sDlgName ),
                NULL, SSD_CONTAINER_TITLE );
@@ -739,31 +745,26 @@ void roadmap_login_profile_dialog_show( void )
    roadmap_login_set_show_function( (RoadmapLoginDlgShowFn) roadmap_login_profile_dialog_show );
 
    width = roadmap_canvas_width()/2;
-   if ( !sProfileDlg ) {
 
-      roadmap_config_declare
-    	("user", &RoadMapConfigCarName, "car_blue", NULL);
-
-      // Define the labels and values
-	 yesno_label[0] = roadmap_lang_get ("Yes");
-	 yesno_label[1] = roadmap_lang_get ("No");
-	 yesno[0] = "Yes";
-	 yesno[1] = "No";
-   }
-
-   if ( !sProfileDlg ) {
+   if ( !ssd_dialog_exists( sDlgName ) ) {
 
      SsdWidget dialog;
-     SsdWidget group;
+     SsdWidget group, group2;
 	  SsdWidget box;
 	  SsdWidget button;
 	  SsdWidget container;
 	  SsdWidget username, pwd;
 	  SsdWidget space;
+	  int height = 45;
 	  const char *edit_button[] = {"edit_right", "edit_left"};
 	  const char *buttons[2];
 
-      dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get(sDlgName), on_close_dialog,
+	  if ( roadmap_screen_is_hd_screen() )
+	  {
+	    height = 65;
+	  }
+
+	  dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get(sDlgName), on_close_dialog,
                                SSD_CONTAINER_TITLE);
 
 #ifdef TOUCH_SCREEN
@@ -817,6 +818,7 @@ void roadmap_login_profile_dialog_show( void )
          ssd_entry_new ("Nickname", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, 0,width, SSD_MIN_SIZE ,roadmap_lang_get("Nickname")));
       ssd_widget_add (box, group);
 
+
       ssd_widget_add (dialog, box);
       group = ssd_container_new ("Car group", NULL,
                   SSD_MAX_SIZE,SSD_MIN_SIZE,
@@ -849,7 +851,23 @@ void roadmap_login_profile_dialog_show( void )
 	  group->callback = on_car_select;
 
 
-   	  ssd_widget_add (dialog, group);
+  	  ssd_widget_add (dialog, group);
+
+     group = ssd_container_new("AllowPing group",NULL,SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+     ssd_widget_set_color (group, NULL, NULL);
+     group2 = ssd_container_new ("group2", NULL, 2*roadmap_canvas_width()/3, height,
+                                  SSD_ALIGN_VCENTER);
+     ssd_widget_set_color (group2, NULL, NULL);
+     ssd_widget_add(group2,
+                    ssd_text_new("Allow Pinvg TXT",
+                    roadmap_lang_get("I agree to be pinged"),
+                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+     ssd_widget_add(group,group2);
+     ssd_widget_add (group,
+                     ssd_checkbox_new ("AllowPing", TRUE,  SSD_ALIGN_RIGHT|SSD_ALIGN_VCENTER, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
+
+     ssd_widget_add(dialog,group);
+
 #ifndef TOUCH_SCREEN
 	group = ssd_container_new ("Car group", NULL,
                   SSD_MAX_SIZE,SSD_MIN_SIZE,
@@ -947,14 +965,20 @@ void roadmap_login_profile_dialog_show( void )
 #endif
 
 	   sProfileDlg = dialog;
+	   free(car_name);
    }
 
-   // AGA TODO :: Check if SsdLoginShown is necessary
-   if ( 1 || !SsdLoginShown) {
-   	  // Case insensitive comparison
+   if ( !SsdLoginShown) {
+      const char *pVal;
+      yesno[0] = "Yes";
+      yesno[1] = "No";
+   	// Case insensitive comparison
       ssd_widget_set_value( sProfileDlg, "Username", roadmap_config_get( &RT_CFG_PRM_NAME_Var));
       ssd_widget_set_value( sProfileDlg, "Password", roadmap_config_get( &RT_CFG_PRM_PASSWORD_Var));
       ssd_widget_set_value( sProfileDlg, "Nickname", roadmap_config_get( &RT_CFG_PRM_NKNM_Var));
+      if (Realtime_AllowPing()) pVal = yesno[0];
+          else pVal = yesno[1];
+      ssd_widget_set_data (sProfileDlg, "AllowPing", (void *) pVal);
    }
 
    SsdLoginShown = 1;
@@ -1097,6 +1121,17 @@ const char* roadmap_login_dlg_get_username()
 	return ssd_widget_get_value( sgLastLoginDlg, "Username" );
 }
 
+/***********************************************************
+ *  Name        : roadmap_login_dlg_get_allowPing()
+ *  Purpose     : Returns Username taken from the last !!!login dialog!!!
+ *  Params      : [in]
+ *              : [out]
+ *  Notes       :
+ */
+const char* roadmap_login_dlg_get_allowPing()
+{
+   return ssd_widget_get_data( sgLastLoginDlg, "AllowPing" );
+}
 /***********************************************************
  *  Name        : roadmap_login_dlg_get_password()
  *  Purpose     : Returns Username taken from the last !!!login dialog!!!

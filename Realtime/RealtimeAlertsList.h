@@ -57,6 +57,7 @@ typedef enum tabs_real_time_list
    tab_police,
    tab_traffic_jam,
    tab_accidents,
+   tab_chit_chat,
    tab_others,
 
    tab__count,

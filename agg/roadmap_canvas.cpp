@@ -70,6 +70,9 @@ extern "C" {
 }
 #include "../roadmap_canvas_agg.h"
 
+EXTERN_C unsigned char *read_png_file(const char* file_name, int *width, int *height,
+        int *stride );
+
 #define MAX_THICKNESS 50
 
 //#define RGB565
@@ -173,7 +176,11 @@ void roadmap_canvas_get_text_extents
 	   {
 		   size = int (size * 1.5);
 	   }
-
+      else{
+#ifdef _WIN32
+         size = int (size * 0.8);
+#endif
+	   }
       m_image_feng.height(size);
       m_image_feng.width(size);
 
@@ -680,6 +687,11 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
       {
     	  size = (int)(size * 1.5);
       }
+      else{
+#ifdef _WIN32
+         size = int (size * 0.8);
+#endif
+      }
 
       /* Use faster drawing for text with no angle */
       x  = position->x;
@@ -824,8 +836,13 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
          }
          else
          {
-			 m_feng.height(15);
-			 m_feng.width(15);
+#ifdef _WIN32
+          m_feng.height(12);
+          m_feng.width(12);
+#else
+          m_feng.height(15);
+          m_feng.width(15);
+#endif
          }
 
          m_feng.flip_y(true);
@@ -859,35 +876,175 @@ static BOOL check_file_suffix( const char* file_name, const char* suffix )
 }
 
 /*************************************************************************************************
+ * roadmap_canvas_load_bmp_buffer()
+ * Loads and returns the buffer of the bmp image
+ */
+static unsigned char * roadmap_canvas_load_bmp_buffer( const char *full_path, int *width, int *height, int *stride  )
+{
+
+	roadmap_log( ROADMAP_ERROR, "Bmp image loading is not supported!" );
+	return NULL;
+}
+
+/*************************************************************************************************
+ * roadmap_canvas_load_png_buffer()
+ * Loads and returns the buffer of the png image ( RGBA 32 )
+ */
+static unsigned char* roadmap_canvas_load_png_buffer( const char *full_path, int *width, int *height, int *stride )
+{
+
+   unsigned char *buf = read_png_file( full_path, width, height, stride );
+
+   if ( !buf ) return NULL;
+
+   return buf;
+}
+
+/*************************************************************************************************
+ * roadmap_canvas_load_buffer()
+ * Loads and returns the buffer of the bmp image ( RGBA 32 )
+ */
+static unsigned char * roadmap_canvas_load_buffer( const char *full_path, int *width, int *height, int *stride  )
+{
+
+   unsigned char* buf;
+
+   if ( check_file_suffix( full_path, ".bmp" ) )
+   {
+      buf = roadmap_canvas_load_bmp_buffer( full_path, width, height, stride );
+   }
+   else
+   {
+	  buf = roadmap_canvas_load_png_buffer( full_path, width, height, stride );
+   }
+
+   if ( !buf )
+   {
+	   roadmap_log( ROADMAP_ERROR, "Failed to load image file: %s", full_path );
+   }
+
+   return buf;
+}
+
+
+
+RoadMapImage roadmap_canvas_load_bmp (const char *full_path) {
+
+   RoadMapImage image = NULL;
+   int width, height, stride;
+
+   unsigned char *buf = roadmap_canvas_load_bmp_buffer( full_path, &width, &height, &stride );
+
+   if ( buf )
+   {
+	   image =  new roadmap_canvas_image();
+	   image->rbuf.attach ( buf, width, height, stride );
+   }
+
+   return image;
+}
+
+
+RoadMapImage roadmap_canvas_load_png ( const char *full_path )
+{
+   RoadMapImage image = NULL;
+   int width, height, stride;
+   unsigned char *buf = roadmap_canvas_load_png_buffer( full_path, &width, &height, &stride );
+
+   if ( buf )
+   {
+	   image =  new roadmap_canvas_image();
+	   image->rbuf.attach ( buf, width, height, stride );
+   }
+
+   return image;
+}
+
+
+
+
+/*************************************************************************************************
  * roadmap_canvas_agg_load_image()
  *
  */
-RoadMapImage roadmap_canvas_load_image (const char *path, const char *file_name)
+RoadMapImage roadmap_canvas_load_image ( const char *path, const char *file_name )
 {
 
-   char *full_name = roadmap_path_join( path, file_name );
+   char *full_path = roadmap_path_join( path, file_name );
 
-   RoadMapImage image;
+   RoadMapImage image = NULL;
 
    roadmap_log( ROADMAP_INFO, "Loading image : %s\n", file_name );
 
    if ( check_file_suffix( file_name, ".bmp" ) )
    {
-      image = roadmap_canvas_agg_load_bmp( full_name );
+      image = roadmap_canvas_load_bmp( full_path );
    }
    else
    {
-	  image = roadmap_canvas_agg_load_png( full_name );
+	  image = roadmap_canvas_load_png( full_path );
    }
 
-   free( full_name );
+   if ( image )
+   {
+	   image->full_path = full_path;
+	   image->isCached = 1;
+   }
+   else
+   {
+	   free( full_path );
+   }
 
    return image;
 }
 
+inline static void roadmap_canvas_free_image_buffer( RoadMapImage image ) {
+
+   if ( image->isCached )
+   {
+	   free( image->rbuf.buf() );
+	   image->isCached = 0;
+   }
+}
+
 void roadmap_canvas_free_image (RoadMapImage image) {
 
-   roadmap_canvas_agg_free_image (image);
+   roadmap_canvas_free_image_buffer( image );
+
+   if ( image->full_path )
+   {
+	   free( (void*) image->full_path );
+   }
+
+   delete image;
+}
+
+
+inline static BOOL roadmap_canvas_check_cached( RoadMapImage image )
+{
+	int width, height, stride;
+   /*
+	* Image is not available in memory - try to load from FS
+	*/
+   if ( !image->isCached )
+   {
+	   if ( image->full_path )
+	   {
+
+		   unsigned char* buf = roadmap_canvas_load_buffer( image->full_path, &width, &height, &stride );
+
+		   if ( buf )
+		   {
+			   image->rbuf.attach ( buf, width, height, stride );
+			   image->isCached = 1;
+		   }
+		   else	// Failed to load the buffer
+		   {
+			  // roadmap_log( ROADMAP_ERROR, "Failed to load the image from the FS %s", image->full_path );
+		   }
+	   }
+   }
+   return image->isCached;
 }
 
 
@@ -897,6 +1054,12 @@ void roadmap_canvas_draw_image (RoadMapImage image, const RoadMapGuiPoint *pos,
    if (!image){
    	assert(1);
    	return;
+   }
+
+
+   if ( !roadmap_canvas_check_cached( image ) )
+   {
+	   return;
    }
 
    if ((mode == IMAGE_SELECTED) || (opacity <= 0) || (opacity >= 255)) {
@@ -926,6 +1089,13 @@ void roadmap_canvas_draw_image (RoadMapImage image, const RoadMapGuiPoint *pos,
       roadmap_canvas_draw_multiple_lines (1, &num_points, points, 0);
       roadmap_canvas_select_pen (current);
    }
+
+   // AGA DEBUG
+   if ( image->full_path )
+   {
+	   // roadmap_canvas_free_image_buffer( image );
+   }
+
 }
 
 
@@ -938,6 +1108,11 @@ void roadmap_canvas_copy_image (RoadMapImage dst_image,
 
    agg::rect_i agg_rect;
    agg::rect_i *agg_rect_p = NULL;
+
+   if ( !roadmap_canvas_check_cached( src_image ) ||
+		   !roadmap_canvas_check_cached( dst_image ) )
+	   return;
+
 
    if (rect) {
       agg_rect.x1 = rect->minx;
@@ -965,6 +1140,8 @@ RoadMapImage roadmap_canvas_new_image (int width, int height) {
    image->rbuf.attach (buf,
                        width, height,
                        width * 4);
+
+   image->isCached = 1;
 
    return image;
 }
@@ -1003,9 +1180,20 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
    const wchar_t* p = wstr;
 #endif
 
+   if ( !roadmap_canvas_check_cached( image ) )
+   {
+	   return;
+   }
+
+
    if ( roadmap_screen_is_hd_screen() )
    {
       size = int (size * 1.5);
+   }
+   else{
+#ifdef _WIN32
+      size = int (size * 0.8);
+#endif
    }
 
    double x  = position->x;

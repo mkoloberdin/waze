@@ -96,9 +96,9 @@ BOOL  Realtime_StartSendingTrafficInfo(void);
 BOOL  Realtime_SendTrafficInfo(int mode);
 BOOL  Realtime_SendSMS(const char * szPhoneNumber);
 BOOL  Realtime_TwitterConnect(const char * userName, const char *passWord);
-BOOL  Realtime_FoursquareConnect(const char * userName, const char *passWord);
+BOOL  Realtime_FoursquareConnect(const char * userName, const char *passWord, BOOL bTweetLogin);
 BOOL  Realtime_FoursquareSearch(RoadMapPosition* coordinates);
-BOOL  Realtime_FoursquareCheckin(const char* vid);
+BOOL  Realtime_FoursquareCheckin(const char* vid, BOOL bTweetBadge);
 BOOL  Realtime_Editor_ExportMarkers(PFN_LOGINTESTRES editor_cb);
 BOOL  Realtime_Editor_ExportSegments(PFN_LOGINTESTRES editor_cb);
 
@@ -138,9 +138,12 @@ int RealTime_GetMyRanking();
 
 void RealTime_SetMapDisplayed(BOOL should_send);
 
-BOOL Realtime_GetGeoConfig(const RoadMapPosition *pGPSPosition, wst_handle websvc);
+BOOL Realtime_GetGeoConfig(const RoadMapPosition *pGPSPosition, const char *name, wst_handle websvc);
 
 char* Realtime_GetServerCookie(void);
+BOOL Realtime_PinqWazer(const RoadMapGpsPosition *pPosition, int from_node, int to_node, int iUserId, int iAlertType, const char * szDescription, const char* szImageId, BOOL bForwardToTwitter );
+BOOL Realtime_AllowPing(void);
+void Realtime_Set_AllowPing (BOOL AllowPing);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

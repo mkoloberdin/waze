@@ -116,7 +116,7 @@
 #include "roadmap_map_download.h"
 #include "roadmap_ticker.h"
 #include "roadmap_reminder.h"
-
+#include "roadmap_splash.h"
 #ifdef SSD
 #include "ssd/ssd_widget.h"
 #include "ssd/ssd_menu.h"
@@ -292,36 +292,39 @@ static void about_dialog(char *about){
    SsdWidget text;
    SsdWidget bitmap;
 
-   dialog = ssd_dialog_new ("about", "", NULL,
-         SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
-         SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+   if ( !ssd_dialog_exists( "about" ) )
+   {
+	   dialog = ssd_dialog_new ( "about", "", NULL,
+			 SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
+			 SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
-   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
+	   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
+	   ssd_widget_add (dialog,
+		  ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
 
-   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
-   ssd_widget_add (dialog,bitmap);
+	   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
+	   ssd_widget_add (dialog,bitmap);
 
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
+	   ssd_widget_add (dialog,
+		  ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
 
-   text =  ssd_text_new ("text", about, 13, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text,"#ffffff");
-   ssd_widget_add (dialog,text);
+	   text =  ssd_text_new ("text", about, 13, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add (dialog,text);
 
-   /* Spacer */
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW));
+	   /* Spacer */
+	   ssd_widget_add (dialog,
+		  ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW));
 
-   ssd_widget_add (dialog,
-      ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
-                        SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
-                        SSD_WS_TABSTOP,
-                        about_callbak));
+	   ssd_widget_add (dialog,
+		  ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
+							SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
+							SSD_WS_TABSTOP,
+							about_callbak));
+   }
+
    ssd_dialog_activate("about", NULL);
-
-	roadmap_screen_redraw();
+   roadmap_screen_redraw();
 }
 static void roadmap_start_about (void) {
 
@@ -1598,124 +1601,127 @@ void gps_network_status(void){
    int gps_state = roadmap_gps_reception_state();
    int net_state = RealTimeLoginState();
 
-   dialog = ssd_dialog_new ("gsp_net_status", "", NULL,
-         SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
-         SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+   if ( !ssd_dialog_exists( "gsp_net_status" ) )
+   {
+	   dialog = ssd_dialog_new ("gsp_net_status", "", NULL,
+			 SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
+			 SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
 
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
+	   ssd_widget_add (dialog,
+		  ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
 
-   message[0] = 0;
-   if ((gps_state == GPS_RECEPTION_NONE) || (gps_state == GPS_RECEPTION_NA)){
-      ssd_dialog_add_hspace(dialog,5,0);
-      container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, 0);
-      ssd_widget_set_color(container, NULL, NULL);
-      bitmap = ssd_bitmap_new("top_satellite_off", "TS_top_satellite_off", SSD_ALIGN_VCENTER);
-      ssd_widget_add (container,bitmap);
-      ssd_dialog_add_hspace(container,5,0);
-      text =  ssd_text_new ("text", roadmap_lang_get("No GPS reception"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (container,text);
-      ssd_widget_add (dialog, container);
-      ssd_dialog_add_vspace(dialog,5,SSD_END_ROW);
+	   message[0] = 0;
+	   if ((gps_state == GPS_RECEPTION_NONE) || (gps_state == GPS_RECEPTION_NA)){
+		  ssd_dialog_add_hspace(dialog,5,0);
+		  container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, 0);
+		  ssd_widget_set_color(container, NULL, NULL);
+		  bitmap = ssd_bitmap_new("top_satellite_off", "TS_top_satellite_off", SSD_ALIGN_VCENTER);
+		  ssd_widget_add (container,bitmap);
+		  ssd_dialog_add_hspace(container,5,0);
+		  text =  ssd_text_new ("text", roadmap_lang_get("No GPS reception"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (container,text);
+		  ssd_widget_add (dialog, container);
+		  ssd_dialog_add_vspace(dialog,5,SSD_END_ROW);
 
-      text =  ssd_text_new ("text", roadmap_lang_get("Make sure you are outdoors. Currently showing approximate location using cell ID."), 14, SSD_END_ROW);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (dialog,text);
+		  text =  ssd_text_new ("text", roadmap_lang_get("Make sure you are outdoors. Currently showing approximate location using cell ID."), 14, SSD_END_ROW);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (dialog,text);
+	   }
+	   else if (gps_state == GPS_RECEPTION_POOR){
+		  char msg[150];
+		  ssd_dialog_add_hspace(dialog,5,0);
+		  container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
+		  ssd_widget_set_color(container, NULL, NULL);
+		  bitmap = ssd_bitmap_new("TS_top_satellite_poor", "TS_top_satellite_poor", SSD_ALIGN_VCENTER);
+		  ssd_widget_add (container,bitmap);
+		  ssd_dialog_add_hspace(container,5,0);
+		  msg[0] = 0;
+	#if !IPHONE
+		  sprintf(msg, "%s (%d %s)", roadmap_lang_get("Poor GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
+	#else
+		  sprintf(msg, "%s", roadmap_lang_get("Poor GPS reception"));
+	#endif
+		  text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (container,text);
+		  ssd_widget_add (dialog, container);
+		  ssd_dialog_add_vspace(dialog,5,0);
+
+		  text =  ssd_text_new ("text", roadmap_lang_get("Make sure you are outdoors."), 14, SSD_END_ROW);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (dialog,text);
+	   }
+	   else if (gps_state == GPS_RECEPTION_GOOD){
+		  char msg[150];
+		  ssd_dialog_add_hspace(dialog,5,0);
+		  container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
+		  ssd_widget_set_color(container, NULL, NULL);
+		  bitmap = ssd_bitmap_new("TS_top_satellite_on", "TS_top_satellite_on", SSD_ALIGN_VCENTER);
+		  ssd_widget_add (container,bitmap);
+		  ssd_dialog_add_hspace(container,5,0);
+
+	#if (!defined(IPHONE) && !defined(__SYMBIAN32__))
+		  sprintf(msg, "%s (%d %s)", roadmap_lang_get("Good GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
+	#else
+		  sprintf(msg, "%s", roadmap_lang_get("Good GPS reception"));
+	#endif
+		  text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (container,text);
+
+		  ssd_widget_add (dialog, container);
+	   }
+
+	   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
+	   ssd_widget_add(dialog, ssd_separator_new("sep", SSD_END_ROW));
+	   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
+
+	   if (net_state == 0){
+		  ssd_dialog_add_hspace(dialog,5,0);
+		  container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
+		  ssd_widget_set_color(container, NULL, NULL);
+		  bitmap = ssd_bitmap_new("TS_top_not_connected", "TS_top_not_connected", SSD_ALIGN_VCENTER);
+		  ssd_widget_add (container,bitmap);
+		  ssd_dialog_add_hspace(container,5,0);
+
+		  text =  ssd_text_new ("text", roadmap_lang_get("No network connection"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (container,text);
+		  ssd_widget_add (dialog, container);
+		  ssd_dialog_add_vspace(dialog,5,0);
+
+		  text =  ssd_text_new ("text", roadmap_lang_get("Functionality and navigation may be impaired."), 14, SSD_END_ROW);
+		  ssd_text_set_color(text,"#ffffff");
+		  ssd_widget_add (dialog,text);
+
+	   }
+	   else{
+		   ssd_dialog_add_hspace(dialog,5,0);
+		   container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
+		   ssd_widget_set_color(container, NULL, NULL);
+		   bitmap = ssd_bitmap_new("TS_top_connected", "TS_top_connected", SSD_ALIGN_VCENTER);
+		   ssd_widget_add (container,bitmap);
+		   ssd_dialog_add_hspace(container,5,0);
+
+		   text =  ssd_text_new ("text", roadmap_lang_get("Connected to network"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
+		   ssd_text_set_color(text,"#ffffff");
+		   ssd_widget_add (container,text);
+		   ssd_widget_add (dialog, container);
+		   ssd_dialog_add_vspace(dialog,5,0);
+
+		   text =  ssd_text_new ("text", roadmap_lang_get("You are connected to waze."), 14, SSD_END_ROW);
+		   ssd_text_set_color(text,"#ffffff");
+		   ssd_widget_add (dialog,text);
+	   }
+	   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
+	   ssd_widget_add (dialog,
+		  ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
+							SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
+							SSD_WS_TABSTOP,
+							network_status_callbak));
    }
-   else if (gps_state == GPS_RECEPTION_POOR){
-      char msg[150];
-      ssd_dialog_add_hspace(dialog,5,0);
-      container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
-      ssd_widget_set_color(container, NULL, NULL);
-      bitmap = ssd_bitmap_new("TS_top_satellite_poor", "TS_top_satellite_poor", SSD_ALIGN_VCENTER);
-      ssd_widget_add (container,bitmap);
-      ssd_dialog_add_hspace(container,5,0);
-      msg[0] = 0;
-#if !IPHONE
-      sprintf(msg, "%s (%d %s)", roadmap_lang_get("Poor GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
-#else
-      sprintf(msg, "%s", roadmap_lang_get("Poor GPS reception"));
-#endif
-      text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (container,text);
-      ssd_widget_add (dialog, container);
-      ssd_dialog_add_vspace(dialog,5,0);
-
-      text =  ssd_text_new ("text", roadmap_lang_get("Make sure you are outdoors."), 14, SSD_END_ROW);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (dialog,text);
-   }
-   else if (gps_state == GPS_RECEPTION_GOOD){
-      char msg[150];
-      ssd_dialog_add_hspace(dialog,5,0);
-      container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
-      ssd_widget_set_color(container, NULL, NULL);
-      bitmap = ssd_bitmap_new("TS_top_satellite_on", "TS_top_satellite_on", SSD_ALIGN_VCENTER);
-      ssd_widget_add (container,bitmap);
-      ssd_dialog_add_hspace(container,5,0);
-
-#if (!defined(IPHONE) && !defined(__SYMBIAN32__))
-      sprintf(msg, "%s (%d %s)", roadmap_lang_get("Good GPS reception"), roadmap_gps_satelite_count(), roadmap_lang_get("satellites"));
-#else
-      sprintf(msg, "%s", roadmap_lang_get("Good GPS reception"));
-#endif
-      text =  ssd_text_new ("text", msg, 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (container,text);
-
-      ssd_widget_add (dialog, container);
-   }
-
-   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
-   ssd_widget_add(dialog, ssd_separator_new("sep", SSD_END_ROW));
-   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
-
-   if (net_state == 0){
-      ssd_dialog_add_hspace(dialog,5,0);
-      container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
-      ssd_widget_set_color(container, NULL, NULL);
-      bitmap = ssd_bitmap_new("TS_top_not_connected", "TS_top_not_connected", SSD_ALIGN_VCENTER);
-      ssd_widget_add (container,bitmap);
-      ssd_dialog_add_hspace(container,5,0);
-
-      text =  ssd_text_new ("text", roadmap_lang_get("No network connection"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (container,text);
-      ssd_widget_add (dialog, container);
-      ssd_dialog_add_vspace(dialog,5,0);
-
-      text =  ssd_text_new ("text", roadmap_lang_get("Functionality and navigation may be impaired."), 14, SSD_END_ROW);
-      ssd_text_set_color(text,"#ffffff");
-      ssd_widget_add (dialog,text);
-
-   }
-   else{
-       ssd_dialog_add_hspace(dialog,5,0);
-       container = ssd_container_new ("title", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW);
-       ssd_widget_set_color(container, NULL, NULL);
-       bitmap = ssd_bitmap_new("TS_top_connected", "TS_top_connected", SSD_ALIGN_VCENTER);
-       ssd_widget_add (container,bitmap);
-       ssd_dialog_add_hspace(container,5,0);
-
-       text =  ssd_text_new ("text", roadmap_lang_get("Connected to network"), 16, SSD_END_ROW|SSD_ALIGN_VCENTER);
-       ssd_text_set_color(text,"#ffffff");
-       ssd_widget_add (container,text);
-       ssd_widget_add (dialog, container);
-       ssd_dialog_add_vspace(dialog,5,0);
-
-       text =  ssd_text_new ("text", roadmap_lang_get("You are connected to waze."), 14, SSD_END_ROW);
-       ssd_text_set_color(text,"#ffffff");
-       ssd_widget_add (dialog,text);
-   }
-   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
-   ssd_widget_add (dialog,
-      ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
-                        SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
-                        SSD_WS_TABSTOP,
-                        network_status_callbak));
    ssd_dialog_activate("gsp_net_status", NULL);
 
    roadmap_screen_redraw();
@@ -2356,31 +2362,6 @@ static int roadmap_start_long_click (RoadMapGuiPoint *point) {
 }
 
 
-static void roadmap_start_splash (void) {
-#ifndef ANDROID
-   int height, width;
-   RoadMapImage image;
-   RoadMapGuiPoint pos;
-
-   height = roadmap_canvas_height ();
-   width = roadmap_canvas_width ();
-
-
-   if (height > width)
-		image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "welcome");
-   else
-		image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "welcome_wide");
-   if( !image)
-      return;
-
-   pos.x = (width - roadmap_canvas_image_width(image)) / 2;
-   pos.y = (height - roadmap_canvas_image_height(image)) / 2;
-   roadmap_canvas_draw_image (image, &pos, 0, IMAGE_NORMAL);
-   roadmap_canvas_free_image (image);
-   roadmap_canvas_refresh ();
-#endif
-}
-
 static void roadmap_start_realtime (void) {
 #ifdef __SYMBIAN32__
    roadmap_main_remove_periodic(roadmap_start_realtime);
@@ -2391,11 +2372,6 @@ static void roadmap_start_realtime (void) {
    /* Disabled now. There is no delayed wizard on start */
    /* roadmap_welcome_wizard(); */
 
-}
-
-void load_resources_on_init(){
-		ssd_menu_load_images("alerts", RoadMapStartActions);
-		roadmap_border_load_images();
 }
 
 static void roadmap_start_window (void) {
@@ -2422,7 +2398,8 @@ static void roadmap_start_window (void) {
    roadmap_main_add_canvas ();
 
    roadmap_main_show ();
-   roadmap_start_splash ();
+   
+   roadmap_splash_display ();
 
    roadmap_gps_register_link_control
       (roadmap_start_add_gps, roadmap_start_remove_gps);
@@ -2659,6 +2636,7 @@ void roadmap_start (int argc, char **argv) {
    roadmap_login_initialize	   ();
    roadmap_map_settings_init   ();
    roadmap_download_settings_init ();
+   roadmap_border_initialize();
 #ifdef IPHONE
    roadmap_location_initialize ();
 #endif //IPHONE
@@ -2754,6 +2732,7 @@ void roadmap_start_continue(void)   {
    if (! roadmap_trip_load (roadmap_trip_current(), 1)) {
       roadmap_start_create_trip ();
    }
+   roadmap_splash_download_init();
    roadmap_prompts_init        ();
    roadmap_voice_initialize    (); //AFTER GEO
    roadmap_download_initialize (); //AFTER GEO
@@ -2798,7 +2777,7 @@ void roadmap_start_continue(void)   {
    // Register for keyboard callback:
    roadmap_keyboard_register_to_event__key_pressed( on_key_pressed);
 
-   roadmap_main_set_periodic (200, roadmap_start_periodic);
+   roadmap_main_set_periodic (500, roadmap_start_periodic);
 
    if (!roadmap_start_closed_properly ()) {
       roadmap_log (ROADMAP_ERROR, "Waze did not close properly");
@@ -2848,6 +2827,7 @@ void roadmap_start_exit (void) {
     roadmap_device_events_term();
     roadmap_phone_keyboard_term();
     roadmap_camera_image_shutdown();
+    roadmap_border_shutdown();
 #ifndef J2ME
     roadmap_main_set_cursor (ROADMAP_CURSOR_NORMAL);
 #endif
@@ -3234,6 +3214,8 @@ static void viewMyPoints(){
 	ssd_dialog_hide_current(dec_close);
 #endif
 	editor_points_ViewMyPoints();
+	//roadmap_ticker_set_last_event(default_event);
+	//roadmap_ticker_show();
 }
 
 

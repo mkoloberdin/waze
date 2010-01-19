@@ -364,7 +364,7 @@ void roadmap_lang_download_lang_file(const char *lang, RoadMapCallback callback)
       update_time = WDF_TimeFromModifiedSince(last_save_time);
    }
 
-   roadmap_res_download (RES_DOWNLOAD_LANG, file_name, "", TRUE, update_time, on_lang_file_downloaded, (void *)callback);
+   roadmap_res_download (RES_DOWNLOAD_LANG, file_name, NULL, "", TRUE, update_time, on_lang_file_downloaded, (void *)callback);
 }
 
 void download_lang_files(void){
@@ -409,7 +409,7 @@ void roadmap_lang_download_conf_file(RoadMapCallback callback){
    else{
       update_time = WDF_TimeFromModifiedSince(last_save_time);
    }
-   roadmap_res_download (RES_DOWNLOAD_CONFIFG, "lang.conf", "", TRUE, update_time, on_conf_file_downloaded, callback);
+   roadmap_res_download (RES_DOWNLOAD_CONFIFG, "lang.conf", NULL, "", TRUE, update_time, on_conf_file_downloaded, callback);
 }
 
 void roadmap_lang_login_cb(void){

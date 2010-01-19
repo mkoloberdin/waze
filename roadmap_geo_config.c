@@ -35,6 +35,7 @@
 #include "roadmap_geo_config.h"
 #include "roadmap_trip.h"
 #include "roadmap_prompts.h"
+#include "roadmap_splash.h"
 #include "Realtime/Realtime.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 #include "ssd/ssd_dialog.h"
@@ -80,7 +81,7 @@ static BOOL initialized = FALSE;
 
 static void lang_dlg(void);
 static BOOL request_geo_config (void);
-void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, RoadMapCallback callback);
+void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char *name, RoadMapCallback callback);
 
 
 #define MAX_PARAMS 80
@@ -265,6 +266,10 @@ static void on_recieved_completed (void) {
 
    GeoConfigContext.callback = NULL;
    if ((oldServerId!=newServerId)&&(oldServerId!=-1)){
+      roadmap_lang_set_update_time("");
+      roadmap_prompts_set_update_time ("");
+      roadmap_splash_set_update_time ("");
+      roadmap_config_save(FALSE);
    	roadmap_messagebox(roadmap_lang_get("Please restart Waze"), roadmap_lang_get(updateText));
    }
 }
@@ -439,7 +444,7 @@ const char *on_update_config (/* IN  */const char* data,
    char file[256];
    char category[256];
    char key[256];
-   char value[256];
+   char value[512];
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;
 
@@ -486,11 +491,14 @@ const char *on_update_config (/* IN  */const char* data,
 
    /* Set the configuration value */
    {
-	   RoadMapConfigDescriptor cfgDesc = ROADMAP_CONFIG_ITEM( category, key );
+	   RoadMapConfigDescriptor cfgDesc ;
+	   cfgDesc.category = strdup( category);
+	   cfgDesc.name  = strdup( key );
 	   roadmap_config_declare( file, &cfgDesc, "", NULL );
 	   parse_string( value );
 	   roadmap_config_set( &cfgDesc, value );
    }
+   roadmap_config_save(0);
    return data;
 }
 
@@ -632,8 +640,7 @@ static void retreis_exhausted(void){
 }
 
 static void lang_loaded (void) {
-   ssd_dialog_hide ("Select Language Dialog", dec_ok);
-
+   ssd_progress_msg_dialog_hide();
    roadmap_screen_refresh();
 
    if (GeoConfigContext.callback)
@@ -651,7 +658,7 @@ static int lang_callback (SsdWidget widget, const char *new_value) {
    if (!value)
       return 0;
    ssd_dialog_hide ("Select Language Dialog", dec_ok);
-
+   ssd_progress_msg_dialog_show("Downloading language");
    roadmap_lang_set_system_lang(value);
    roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
    return 1;
@@ -771,7 +778,7 @@ static BOOL request_geo_config (void) {
    }
 
 
-   if(!Realtime_GetGeoConfig(Location, s_websvc)){
+   if(!Realtime_GetGeoConfig(Location,"", s_websvc)){
       net_retries++;
       if (net_retries == MAX_NET_RETRIES) {
          roadmap_main_remove_periodic(retry);
@@ -928,11 +935,11 @@ static void completed(void){
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
-void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, RoadMapCallback callback){
+void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char *name, RoadMapCallback callback){
    roadmap_geo_config_init ();
    GeoConfigContext.callback = callback;
-   roadmap_log (ROADMAP_INFO,"Requesting Geo Configuration" );
-   if(!Realtime_GetGeoConfig(gpsPosition, s_websvc)){
+   roadmap_log (ROADMAP_INFO,"Requesting Geo Configuration name=%s",name );
+   if(!Realtime_GetGeoConfig(gpsPosition,name, s_websvc)){
       roadmap_log (ROADMAP_ERROR,"Failed to sent GetGeoConfig request" );
       roadmap_messagebox("Error","Failed to initialize. No network connection");
       ssd_progress_msg_dialog_hide();
@@ -952,7 +959,7 @@ void roadmap_geo_config_il(RoadMapCallback callback){
    gpsPosition.longitude = 35011466;
    if (callback == NULL)
       callback = completed;
-   roadmap_geo_config_fixed_location(&gpsPosition, callback);
+   roadmap_geo_config_fixed_location(&gpsPosition, "israel", callback);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -966,7 +973,21 @@ void roadmap_geo_config_usa(RoadMapCallback callback){
     gpsPosition.longitude = -122088173;
     if (callback == NULL)
        callback = completed;
-    roadmap_geo_config_fixed_location(&gpsPosition, callback);
+    roadmap_geo_config_fixed_location(&gpsPosition, "usa", callback);
+}
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+void roadmap_geo_config_stg(RoadMapCallback callback){
+    RoadMapPosition gpsPosition;
+    ssd_dialog_hide_all(dec_close);
+    ssd_progress_msg_dialog_show("Initializing, please wait..");
+    gpsPosition.latitude = 0;
+    gpsPosition.longitude = 0;
+    if (callback == NULL)
+       callback = completed;
+    roadmap_geo_config_fixed_location(&gpsPosition, "stg", callback);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -980,7 +1001,7 @@ void roadmap_geo_config_other(RoadMapCallback callback){
     gpsPosition.longitude = 0;
     if (callback == NULL)
        callback = completed;
-    roadmap_geo_config_fixed_location(&gpsPosition, callback);
+    roadmap_geo_config_fixed_location(&gpsPosition, "world", callback);
 }
 
 ////////////////////////////////////////////////////////////////////

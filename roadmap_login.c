@@ -38,6 +38,7 @@
 #include "Realtime/Realtime.h"
 #include "Realtime/RealtimeDefs.h"
 #include "ssd/ssd_checkbox.h"
+#include "ssd/ssd_dialog.h"
 #include "roadmap_device.h"
 #include "roadmap_sound.h"
 #include "roadmap_car.h"
@@ -201,7 +202,9 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    const char *username = NULL;
    const char *password = NULL;
    const char *nickname = NULL;
-
+   const char *allowPing = NULL;
+   
+   allowPing = roadmap_login_dlg_get_allowPing();
    username = roadmap_login_dlg_get_username();
    password = roadmap_login_dlg_get_password();
    nickname = roadmap_login_dlg_get_nickname();
@@ -218,6 +221,13 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
          roadmap_config_save(TRUE);
          Realtime_Relogin();
       }
+   }
+   
+   if (allowPing){
+      if(!strcasecmp( allowPing, "Yes" ))
+         Realtime_Set_AllowPing(TRUE);
+      else
+         Realtime_Set_AllowPing(FALSE);
    }
    return 0;
 }

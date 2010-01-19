@@ -82,6 +82,16 @@ RoadMapConfigDescriptor FOURSQUARE_CFG_PRM_PASSWORD_Var = ROADMAP_CONFIG_ITEM(
       FOURSQUARE_CONFIG_TAB,
       FOURSQUARE_CFG_PRM_PASSWORD_Name);
 
+//   Enable / Disable Tweeting Foursquare login
+RoadMapConfigDescriptor FOURSQUARE_CFG_PRM_TWEET_LOGIN_Var = ROADMAP_CONFIG_ITEM(
+      FOURSQUARE_CONFIG_TAB,
+      FOURSQUARE_CFG_PRM_TWEET_LOGIN_Name);
+
+//   Enable / Disable Tweeting Foursquare badge unlock
+RoadMapConfigDescriptor FOURSQUARE_CFG_PRM_TWEET_BADGE_Var = ROADMAP_CONFIG_ITEM(
+      FOURSQUARE_CONFIG_TAB,
+      FOURSQUARE_CFG_PRM_TWEET_BADGE_Name);
+
 //   Feature activated
 RoadMapConfigDescriptor FOURSQUARE_CFG_PRM_ACTIVATED_Var = ROADMAP_CONFIG_ITEM(
       FOURSQUARE_CONFIG_TAB,
@@ -102,6 +112,16 @@ BOOL roadmap_foursquare_initialize(void) {
    // Password
    roadmap_config_declare_password(FOURSQUARE_CONFIG_TYPE,
          &FOURSQUARE_CFG_PRM_PASSWORD_Var, FOURSQUARE_CFG_PRM_PASSWORD_Default);
+
+   // Tweet login
+   roadmap_config_declare_enumeration(FOURSQUARE_CONFIG_TYPE,
+         &FOURSQUARE_CFG_PRM_TWEET_LOGIN_Var, NULL,
+         FOURSQUARE_CFG_PRM_TWEET_LOGIN_Enabled, FOURSQUARE_CFG_PRM_TWEET_LOGIN_Disabled, NULL);
+
+   // Tweet badge unlock
+   roadmap_config_declare_enumeration(FOURSQUARE_CONFIG_TYPE,
+         &FOURSQUARE_CFG_PRM_TWEET_BADGE_Var, NULL,
+         FOURSQUARE_CFG_PRM_TWEET_BADGE_Enabled, FOURSQUARE_CFG_PRM_TWEET_BADGE_Disabled, NULL);
 
    // Feature activated
    roadmap_config_declare_enumeration(FOURSQUARE_CONFIG_PREF_TYPE,
@@ -189,6 +209,50 @@ BOOL roadmap_foursquare_is_enabled(void) {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
+BOOL roadmap_foursquare_is_tweet_login_enabled(void) {
+   if (0 == strcmp(roadmap_config_get(&FOURSQUARE_CFG_PRM_TWEET_LOGIN_Var),
+         FOURSQUARE_CFG_PRM_TWEET_LOGIN_Enabled))
+      return TRUE;
+   return FALSE;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_foursquare_enable_tweet_login() {
+   roadmap_config_set(&FOURSQUARE_CFG_PRM_TWEET_LOGIN_Var,
+         FOURSQUARE_CFG_PRM_TWEET_LOGIN_Enabled);
+   roadmap_config_save(TRUE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_foursquare_disable_tweet_login() {
+   roadmap_config_set(&FOURSQUARE_CFG_PRM_TWEET_LOGIN_Var,
+         FOURSQUARE_CFG_PRM_TWEET_LOGIN_Disabled);
+   roadmap_config_save(TRUE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+BOOL roadmap_foursquare_is_tweet_badge_enabled(void) {
+   if (0 == strcmp(roadmap_config_get(&FOURSQUARE_CFG_PRM_TWEET_BADGE_Var),
+            FOURSQUARE_CFG_PRM_TWEET_BADGE_Enabled))
+         return TRUE;
+      return FALSE;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_foursquare_enable_tweet_badge() {
+   roadmap_config_set(&FOURSQUARE_CFG_PRM_TWEET_BADGE_Var,
+         FOURSQUARE_CFG_PRM_TWEET_BADGE_Enabled);
+   roadmap_config_save(TRUE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_foursquare_disable_tweet_badge() {
+   roadmap_config_set(&FOURSQUARE_CFG_PRM_TWEET_BADGE_Var,
+         FOURSQUARE_CFG_PRM_TWEET_BADGE_Disabled);
+   roadmap_config_save(TRUE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
 static void foursquare_un_empty(void){
    roadmap_main_remove_periodic (foursquare_un_empty);
    roadmap_messagebox("Error", "Foursquare user name is empty. You are not logged in");
@@ -220,7 +284,7 @@ void roadmap_foursquare_login (const char *user_name, const char *password) {
    roadmap_main_set_periodic(100, delayed_show_progress);
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
 
-   success = Realtime_FoursquareConnect(user_name, password);
+   success = Realtime_FoursquareConnect(user_name, password, roadmap_foursquare_is_tweet_login_enabled());
    if (!success) {
       roadmap_main_remove_periodic(request_time_out);
       ssd_progress_msg_dialog_hide();
@@ -237,6 +301,18 @@ static int on_login_ok() {
    const char * password = ssd_dialog_get_value("FoursquarePassword");
 
    logged_in = roadmap_foursquare_logged_in();
+
+   if (!strcasecmp((const char*) ssd_dialog_get_data("FoursquareSendLogin"),
+        yesno[0]))
+      roadmap_foursquare_enable_tweet_login();
+   else
+      roadmap_foursquare_disable_tweet_login();
+
+   if (!strcasecmp((const char*) ssd_dialog_get_data("FoursquareSendBadgeUnlock"),
+        yesno[0]))
+      roadmap_foursquare_enable_tweet_badge();
+   else
+      roadmap_foursquare_disable_tweet_badge();
 
 
    if (user_name[0] != 0 && password[0] != 0) {
@@ -414,7 +490,7 @@ static void create_login_dialog(void) {
    group = ssd_container_new("Foursquare Name group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
          SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color(group, "#000000", "#ffffff");
-   ssd_widget_add(group, ssd_text_new("Label", roadmap_lang_get("User name"),
+   ssd_widget_add(group, ssd_text_new("Label", roadmap_lang_get("Email/phone"),
          -1, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
    ssd_widget_add(group, ssd_entry_new("FoursquareUserName", "", SSD_ALIGN_VCENTER
          | SSD_ALIGN_RIGHT | tab_flag, 0, width, SSD_MIN_SIZE,
@@ -431,6 +507,50 @@ static void create_login_dialog(void) {
    ssd_widget_add(group, ssd_entry_new("FoursquarePassword", "", SSD_ALIGN_VCENTER
          | SSD_ALIGN_RIGHT | tab_flag, SSD_TEXT_PASSWORD, width, SSD_MIN_SIZE,
          roadmap_lang_get("Password")));
+   ssd_widget_add(box, group);
+
+   ssd_widget_add(dialog, box);
+
+
+   //tweet settings header
+   ssd_widget_add(dialog, space(5));
+   box = ssd_container_new ("Foursquare auto settings header group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
+            SSD_WIDGET_SPACE | SSD_END_ROW);
+
+   ssd_widget_add (box, ssd_text_new ("foursquare_auto_settings_header",
+         roadmap_lang_get ("Automatically tweet to my followers that I:"), 16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   ssd_widget_set_color (box, NULL, NULL);
+   ssd_widget_add (dialog, box);
+   ssd_widget_add(dialog, space(5));
+
+   //Tweets
+   box = ssd_container_new("Tweet toggles group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+            SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS
+                  | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+   group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
+   ssd_widget_set_color(group, "#000000", "#ffffff");
+
+   ssd_widget_add(group, ssd_text_new("Send_login_label", roadmap_lang_get(
+         "Am checking out this integration"), -1, SSD_TEXT_LABEL
+         | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+
+   ssd_widget_add(group, ssd_checkbox_new("FoursquareSendLogin", TRUE,
+         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
+         CHECKBOX_STYLE_ON_OFF));
+
+   ssd_widget_add(box, group);
+
+   group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
+   ssd_widget_add(group, ssd_text_new("Send_waze_badge_label", roadmap_lang_get(
+         "Have unlocked the Roadwarrior Badge"), -1, SSD_TEXT_LABEL
+         | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+
+   ssd_widget_add(group, ssd_checkbox_new("FoursquareSendBadgeUnlock", TRUE,
+         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
+         CHECKBOX_STYLE_ON_OFF));
+
    ssd_widget_add(box, group);
 
    ssd_widget_add(dialog, box);
@@ -479,9 +599,11 @@ static int on_venue_item_selected(SsdWidget widget, const char* selection,const 
 
    create_address (&gsVenuesList[index], &gsCheckInInfo);
 
-   Realtime_FoursquareCheckin(gsVenuesList[index].sId);
+   ssd_dialog_hide_all(dec_close);
 
-   return 0;
+   Realtime_FoursquareCheckin(gsVenuesList[index].sId, roadmap_foursquare_is_tweet_badge_enabled());
+
+   return 1;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -925,6 +1047,8 @@ void roadmap_foursquare_checkedin_dialog(void) {
 }
 /////////////////////////////////////////////////////////////////////////////////////
 void roadmap_foursquare_login_dialog(void) {
+   const char *pVal;
+
    if (!ssd_dialog_activate(FOURSQUARE_LOGIN_DIALOG_NAME, NULL)) {
       create_login_dialog();
       ssd_dialog_activate(FOURSQUARE_LOGIN_DIALOG_NAME, NULL);
@@ -937,6 +1061,18 @@ void roadmap_foursquare_login_dialog(void) {
 
    ssd_dialog_set_value("FoursquareUserName", roadmap_foursquare_get_username());
    ssd_dialog_set_value("FoursquarePassword", roadmap_foursquare_get_password());
+
+   if (roadmap_foursquare_is_tweet_login_enabled())
+      pVal = yesno[0];
+   else
+      pVal = yesno[1];
+   ssd_dialog_set_data("FoursquareSendLogin", (void *) pVal);
+
+   if (roadmap_foursquare_is_tweet_badge_enabled())
+      pVal = yesno[0];
+   else
+      pVal = yesno[1];
+   ssd_dialog_set_data("FoursquareSendBadgeUnlock", (void *) pVal);
 }
 #endif //IPHONE_NATIVE
 

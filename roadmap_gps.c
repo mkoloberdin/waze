@@ -68,10 +68,6 @@
 
 #ifdef ANDROID
 #include "roadmap_androidgps.h"
-#endif
-
-#ifdef ANDROID
-#include "roadmap_androidgps.h"
 #define FILTER_SPEED_DROPS 1
 #else
 #define FILTER_SPEED_DROPS 0

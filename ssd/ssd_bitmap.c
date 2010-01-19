@@ -38,9 +38,10 @@
 #include "roadmap_main.h"
 #include "roadmap_res.h"
 
+#define SSD_BITMAP_NAME_MAXLEN		64
 typedef struct tag_bitmap_info
 {
-   const char*    bitmap_name;
+   char    bitmap_name[SSD_BITMAP_NAME_MAXLEN];
    RoadMapImage   bitmap;
    int            width;
    int            height;
@@ -49,7 +50,6 @@ typedef struct tag_bitmap_info
 
 void bitmap_info_init( bitmap_info_ptr this)
 {
-   this->bitmap_name = NULL;
    this->bitmap      = NULL;
    this->width       = -1;
    this->height      = -1;
@@ -60,43 +60,84 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
    bitmap_info_ptr bi = (bitmap_info_ptr)this->data;
    RoadMapGuiPoint point;
+   RoadMapImage image2draw;
 
    point.x = rect->minx;
    point.y = rect->miny;
 
-   if( -1 == bi->width)
+   if ( bi->bitmap )
    {
-      bi->width = roadmap_canvas_image_width ( bi->bitmap);
-      bi->height= roadmap_canvas_image_height( bi->bitmap);
+	   image2draw = bi->bitmap;
+   }
+   else
+   {
+	   image2draw = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
    }
 
-   if ((flags & SSD_GET_SIZE)){
+   if( -1 == bi->width )
+   {
+      bi->width = roadmap_canvas_image_width ( image2draw );
+      bi->height= roadmap_canvas_image_height( image2draw );
+   }
+
+   if ( ( flags & SSD_GET_SIZE ) )
+   {
       return;
    }
 
-   roadmap_canvas_draw_image( bi->bitmap, &point, 0, IMAGE_NORMAL);
+   if ( image2draw )
+   {
+	   roadmap_canvas_draw_image( image2draw, &point, 0, IMAGE_NORMAL);
+   }
+   else
+   {
+	   roadmap_log( ROADMAP_ERROR, "Cannot draw bitmap image. Widget: %s, Bitmap: %s", this->name, bi->bitmap_name );
+   }
+
+}
+
+
+static void set_bitmap_name( bitmap_info_ptr bi, const char* name )
+{
+	if ( strlen(name) <= SSD_BITMAP_NAME_MAXLEN )
+	{
+	   strcpy( bi->bitmap_name, name );
+	}
+	else
+	{
+	   roadmap_log( ROADMAP_ERROR, "Failed setting bitmap name %s. Cannot set bitmap names larger than %d. ",
+								   name, SSD_BITMAP_NAME_MAXLEN );
+	}
+}
+
+static void release( SsdWidget widget )
+{
+	if ( widget->data )
+	{
+		free( widget->data );
+		widget->data = NULL;
+	}
 }
 
 static int set_value( SsdWidget widget, const char *value )
 {
    bitmap_info_ptr   bi = (bitmap_info_ptr) malloc(sizeof(bitmap_info) );
-
+   RoadMapImage image;
    bitmap_info_init( bi);
 
    if ( widget->data )
 	   free( widget->data );
 
-   bi->bitmap_name = value;
-   bi->bitmap     = (RoadMapImage) roadmap_res_get(
-									RES_BITMAP,
-									RES_SKIN|RES_LOCK,
-									value );
+   set_bitmap_name( bi, value );
+
+   bi->bitmap     = NULL;
    widget->data        = bi;
 
-   if (bi->bitmap != NULL)
+   image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
+   if ( image != NULL )
    {
-	  widget->size.height = roadmap_canvas_image_height( bi->bitmap );
-	  widget->size.width  = roadmap_canvas_image_width( bi->bitmap );
+	  widget->size.height = roadmap_canvas_image_height( image );
+	  widget->size.width  = roadmap_canvas_image_width( image );
    }
    return 1;
 }
@@ -112,6 +153,7 @@ SsdWidget ssd_bitmap_new(  const char *name,
 
    w->_typeid     = "Bitmap";
    w->draw        = draw;
+   w->release 	  = release;
    w->flags       = flags;
    w->set_value   = set_value;
 
@@ -131,14 +173,15 @@ SsdWidget ssd_bitmap_image_new(  const char *name,
 
    bitmap_info_init( bi);
 
-   bi->bitmap_name = name;
+   set_bitmap_name( bi, name );
+
    bi->bitmap     = image;
    w->_typeid     = "Bitmap";
    w->draw        = draw;
    w->flags       = flags;
    w->data        = bi;
    w->set_value   = set_value;
-
+   w->release 	  = release;
    return w;
 }
 
@@ -146,15 +189,15 @@ void ssd_bitmap_image_update(SsdWidget widget, RoadMapImage image )
 {
    bitmap_info_ptr   bi =  (bitmap_info_ptr) widget->data;
    bitmap_info_init( bi );
+
+   set_bitmap_name( bi, "" );
    bi->bitmap = image;
 }
 void ssd_bitmap_update(SsdWidget widget, const char *bitmap){
    bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
-   bi->bitmap_name= bitmap;
-   bi->bitmap     = (RoadMapImage)roadmap_res_get(
-                                    RES_BITMAP,
-                                    RES_SKIN|RES_LOCK,
-                                    bitmap);
+
+   set_bitmap_name( bi, bitmap );
+   bi->bitmap     = NULL;
 }
 static void close_splash (void) {
 

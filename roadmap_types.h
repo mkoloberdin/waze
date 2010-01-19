@@ -43,6 +43,11 @@ typedef unsigned char  LineRouteMax;
 typedef unsigned short LineRouteTime;
 
 typedef struct {
+   int width;
+   int height;
+} RoadMapSize;
+
+typedef struct {
    int longitude;
    int latitude;
 } RoadMapPosition;

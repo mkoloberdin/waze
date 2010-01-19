@@ -29,10 +29,12 @@
 #include "agg_pixfmt_rgb_packed.h"
 
 struct roadmap_canvas_image {
+   int isCached;
+   const char* full_path;			// The full path to the image in the FS
    agg::rendering_buffer rbuf;
    agg::pixfmt_rgba32 pixfmt;
 
-   roadmap_canvas_image():pixfmt(rbuf) {}
+   roadmap_canvas_image():pixfmt(rbuf), isCached(1), full_path( NULL ) {}
 };
 
 EXTERN_C void roadmap_canvas_set_properties( int aWidth, int aHeight, int aPixelFormat );
@@ -50,8 +52,6 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
 /* GUI specific implementation */
 int roadmap_canvas_agg_to_wchar (const char *text, wchar_t *output, int size);
 agg::rgba8 roadmap_canvas_agg_parse_color (const char *color);
-
-void roadmap_canvas_agg_free_image (RoadMapImage image);
 
 void roadmap_canvas_native_draw_multiple_lines (int count, int *lines,
 				RoadMapGuiPoint *points, int r, int g, int b, int thickness);

@@ -266,9 +266,7 @@ void local_search_term()
 
 const char* local_search_get_provider( void )
 {
-	// const char * provider = roadmap_config_get( &s_web_service_ls_provider );
-//	const char * provider = "location_world";
-	const char * provider = "google";
+	const char * provider = roadmap_config_get( &s_web_service_ls_provider );
     return provider;
 }
 

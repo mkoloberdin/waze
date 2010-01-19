@@ -77,7 +77,7 @@ static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( context_menu_items);
 static void populate_list();
 static void set_softkeys( SsdWidget dialog);
 
-static SsdWidget   tabs[tab__count];
+static SsdWidget tabs[tab__count];
 static AlertList gAlertListTable;
 static AlertList gTabAlertList;
 
@@ -170,7 +170,7 @@ static int RealtimeAlertsListCallBackTabs(SsdWidget widget, const char *new_valu
     if (RTAlerts_Get_Number_of_Comments(alertId) == 0)
     {
         ssd_generic_list_dialog_hide_all();
-        RTAlerts_Popup_By_Id(alertId);   
+        RTAlerts_Popup_By_Id(alertId);
     }
     else
     {
@@ -230,7 +230,41 @@ static void populate_tab(int tab, int num, int types,...){
        ssd_list_populate_widgets (tabs[tab], count, (const char **)&gTabAlertList.labels[0], (const void **)&gTabAlertList.values[0],&gTabAlertList.icons_widget[0], NULL,RealtimeAlertsListCallBackTabs, RealtimeAlertsDeleteCallBackTabs, TRUE);
 
 }
+static void clear_List()
+{
+	int i;
 
+	for ( i = 1; i <  gAlertListTable.iCount; i++ )
+	{
+		if ( gAlertListTable.icons[i] )
+		{
+			free( gAlertListTable.icons[i] );
+            gAlertListTable.icons[i] = NULL;
+		}
+		if ( gAlertListTable.labels[i] )
+		{
+			free( gAlertListTable.labels[i] );
+            gAlertListTable.labels[i] = NULL;
+		}
+		if ( gAlertListTable.values[i] )
+		{
+			free( gAlertListTable.values[i] );
+            gAlertListTable.values[i] = NULL;
+		}
+
+		if ( gAlertListTable.icons_widget[i] )
+		{
+			ssd_widget_free( gAlertListTable.icons_widget[i], TRUE, FALSE );
+			gAlertListTable.icons_widget[i] = NULL;
+		}
+		if ( gAlertListTable.labels_widget[i] )
+		{
+			ssd_widget_free( gAlertListTable.labels_widget[i], TRUE, FALSE );
+			gAlertListTable.labels_widget[i] = NULL;
+		}
+	}
+
+}
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void populate_list(){
     int iCount = -1;
@@ -253,7 +287,8 @@ static void populate_list(){
     SsdWidget icon_w, text_w, icon_attachment;
     SsdWidget icon_container;
     SsdWidget attachment_container;
-    SsdSize  size_alert_icon, size_attach_icon;
+    SsdSize  size_alert_icon;
+    static SsdSize size_attach_icon = {-1, -1};
     int      image_container_width = 70;
     int   offset_y = 0;
 
@@ -282,6 +317,11 @@ static void populate_list(){
     iCount = 1;
 
     iAlertCount = RTAlerts_Count();
+
+    if ( iAlertCount > 0 )
+    {
+    	clear_List();
+    }
 
     roadmap_math_get_context(&context_save_pos, &context_save_zoom);
 
@@ -404,7 +444,8 @@ static void populate_list(){
 			offset_y = 10;
         }
 
-        icon_container = ssd_container_new ("alert_icon_container", NULL, image_container_width,  SSD_MAX_SIZE,  SSD_ALIGN_VCENTER);
+        /* Persistent widget - can be released only when forced */
+        icon_container = ssd_container_new ("alert_icon_container", NULL, image_container_width,  SSD_MAX_SIZE,  SSD_PERSISTENT|SSD_ALIGN_VCENTER );
         ssd_widget_set_color(icon_container, NULL, NULL);
         button[0] = strdup(RTAlerts_Get_Icon(alert->iID));
         button[1] = NULL;
@@ -414,16 +455,24 @@ static void populate_list(){
         //ssd_widget_set_offset(icon_w, 0, offset_y);
         ssd_widget_add(icon_container, icon_w);
 
-        // Add attachment container if necessary.Preserve the icon height
-        icon_attachment =  ssd_bitmap_new ( "Image Attachment", "attachment", SSD_END_ROW );
+
+        if ( size_attach_icon.width == -1 )
+        {
+            icon_attachment =  ssd_bitmap_new ( "Image Attachment", "attachment", SSD_END_ROW );
+            ssd_widget_get_size( icon_attachment, &size_attach_icon, NULL );
+            ssd_widget_free( icon_attachment, TRUE, FALSE );
+        }
+
+        // Add attachment container always.Preserve the icon height
+        /* Persistent widget - can be released only when forced */
         ssd_widget_get_size( icon_w, &size_alert_icon, NULL );
-        ssd_widget_get_size( icon_attachment, &size_attach_icon, NULL );
         attachment_container = ssd_container_new ( "atachment_icon_container", NULL, size_attach_icon.width,
                         size_alert_icon.height,  SSD_END_ROW );
         ssd_widget_set_color( attachment_container, NULL, NULL);
         // Bitmap is added if image is attached
         if ( alert->sImageIdStr[0] )
         {
+        	icon_attachment =  ssd_bitmap_new ( "Image Attachment", "attachment", SSD_END_ROW );
             ssd_widget_add( attachment_container, icon_attachment );
         }
         // Add container in any case for the proper alignment.
@@ -433,12 +482,13 @@ static void populate_list(){
         ssd_widget_set_offset(text_w, 0, offset_y);
         ssd_widget_add(icon_container, text_w);
 
-        text_w = ssd_text_new ("Alert Disatnce", unit_str, 14,SSD_ALIGN_CENTER );
+        text_w = ssd_text_new ("Alert Distance units", unit_str, 14,SSD_ALIGN_CENTER );
         ssd_widget_set_offset(text_w, 0, offset_y);
         ssd_widget_set_color(text_w, "#383838", NULL);
         ssd_widget_add(icon_container, text_w);
+
         gAlertListTable.icons_widget[iCount] = icon_container;
-        gAlertListTable.labels_widget[iCount] = ssd_text_new("alert_txt",AlertStr, 14, SSD_END_ROW );;
+        gAlertListTable.labels_widget[iCount] = ssd_text_new("alert_txt",AlertStr, 14, SSD_PERSISTENT|SSD_END_ROW );;
 
         gAlertListTable.type[iCount] = alert->iType;
         gAlertListTable.iDistnace[iCount] = distance;
@@ -482,14 +532,17 @@ static void on_tab_gain_focus(int tab)
       case tab_traffic_jam:
             populate_tab(tab_traffic_jam,2, RT_ALERT_TYPE_TRAFFIC_INFO, RT_ALERT_TYPE_TRAFFIC_JAM);
             break;
-         case tab_accidents:
+      case tab_accidents:
             populate_tab(tab_accidents,1, RT_ALERT_TYPE_ACCIDENT);
             break;
-         case tab_others:
-            populate_tab(tab_others,5, RT_ALERT_TYPE_CHIT_CHAT, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING);
+      case tab_chit_chat:
+            populate_tab(tab_chit_chat,1, RT_ALERT_TYPE_CHIT_CHAT);
+            break;
+      case tab_others:
+            populate_tab(tab_others,4, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING);
             break;
 
-         default:
+      default:
             break;
    }
    g_active_tab = tab;
@@ -507,6 +560,7 @@ static SsdTcCtx   create_tab_control(){
    tabs_titles[tab_police] = roadmap_lang_get("Police traps");
    tabs_titles[tab_traffic_jam] = roadmap_lang_get("Traffic jams");
    tabs_titles[tab_accidents] = roadmap_lang_get("Accidents");
+   tabs_titles[tab_chit_chat] = roadmap_lang_get("Chit Chats");
    tabs_titles[tab_others] = roadmap_lang_get("Others");
 
    for (i=0; i< tab__count;i++)
@@ -569,6 +623,7 @@ static void create_lists(){
    tabs_titles[tab_police] = roadmap_lang_get("Police traps");
    tabs_titles[tab_traffic_jam] = roadmap_lang_get("Traffic jams");
    tabs_titles[tab_accidents] = roadmap_lang_get("Accidents");
+   tabs_titles[tab_chit_chat] = roadmap_lang_get("Chit Chats");
    tabs_titles[tab_others] = roadmap_lang_get("Others");
 
    for (i=0; i< tab__count;i++)
@@ -588,12 +643,18 @@ static void report_list(){
     RTAlerts_Stop_Scrolling();
    RTAlerts_Sort_List(sort_proximity);
 
-   if (tabs[0] == NULL){
-      populate_list();
-      create_lists();
-   }else{
-      populate_list();
-   }
+   /*
+    * AGA TODO :: Add configuration if create the list all the time
+    */
+   // populate_list();
+   create_lists();
+
+//   if (tabs[0] == NULL){
+//      populate_list();
+//      create_lists();
+//   }else{
+//      populate_list();
+//   }
 }
 
 static void show_list(const char *name, const char *title, SsdWidget list){
@@ -603,6 +664,7 @@ static void show_list(const char *name, const char *title, SsdWidget list){
                             title,
                             NULL,
                             SSD_CONTAINER_TITLE);
+
    ssd_widget_add(dialog, list);
    set_softkeys(dialog);
    ssd_dialog_activate(name, NULL);
@@ -657,11 +719,22 @@ void report_list_accidents(void){
             list);
 }
 
+void report_list_chit_chats(void){
+   SsdWidget list;
+
+   report_list();
+   populate_tab(tab_chit_chat,1, RT_ALERT_TYPE_CHIT_CHAT);
+   list = tabs[tab_chit_chat];
+   g_active_tab = tab_chit_chat;
+   show_list ("report_list_chit_chats",
+               roadmap_lang_get ("Chit Chats"),
+            list);
+}
 void report_list_other(void){
    SsdWidget list;
 
    report_list();
-   populate_tab(tab_others,5, RT_ALERT_TYPE_CHIT_CHAT, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING);
+   populate_tab(tab_others,4, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING);
    list = tabs[tab_others];
    g_active_tab = tab_others;
    show_list ("report_list_other",
@@ -682,6 +755,9 @@ RoadMapAction RoadMapAlertListActions[20] = {
 
    {"report_list_accidents", "Accidents", "Accidents", NULL,
       "Accidents", report_list_accidents},
+
+   {"report_list_chit_chats", "Chit Chats", "Chit Chats", NULL,
+         "Chit Chats", report_list_chit_chats},
 
    {"report_list_other", "Other", "Other", NULL,
       "Other", report_list_other}
@@ -735,7 +811,8 @@ void RealtimeAlertsList(){
   ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_police",count_tab(tab_police,1,RT_ALERT_TYPE_POLICE));
   ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_loads",count_tab(tab_traffic_jam,2, RT_ALERT_TYPE_TRAFFIC_INFO, RT_ALERT_TYPE_TRAFFIC_JAM));
   ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_accidents",count_tab(tab_accidents,1, RT_ALERT_TYPE_ACCIDENT));
-  ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_other",count_tab(tab_others,5, RT_ALERT_TYPE_CHIT_CHAT, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING));
+  ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_chit_chats",count_tab(tab_chit_chat,1, RT_ALERT_TYPE_CHIT_CHAT));
+  ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_other",count_tab(tab_others,4, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING));
 #else
    tabcontrol =  get_tabcontrol();
    ssd_tabcontrol_show(tabcontrol);

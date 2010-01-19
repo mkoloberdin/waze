@@ -295,20 +295,23 @@ static void draw_bg( SsdWidget this, RoadMapGuiRect *rect, int flags){
 #endif
    int width = roadmap_canvas_width();
 
+   /*
+    * AGA TODO:: Check images caching
+    */
    if (!TopBgImage)
-      TopBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "menu_bg_top");
+      TopBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "menu_bg_top");
    if (TopBgImage == NULL){
       return;
    }
 
    if (!BottomBgImage)
-      BottomBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "menu_bg_bottom");
+      BottomBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "menu_bg_bottom");
    if (BottomBgImage == NULL){
       return;
    }
 
    if (!MiddleBgImage)
-      MiddleBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "menu_bg_middle");
+      MiddleBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "menu_bg_middle");
    if (MiddleBgImage == NULL){
          return;
    }
@@ -433,6 +436,7 @@ static BOOL on_key_pressed(SsdWidget widget, const char* utf8char, uint32_t flag
 static void delayed_cancel(void){
    roadmap_main_remove_periodic (delayed_cancel);
    ssd_dialog_hide_current(dec_cancel);
+   roadmap_screen_redraw ();
 }
 
 static int on_cancel (SsdWidget widget, const RoadMapGuiPoint *point){
@@ -643,9 +647,11 @@ SsdWidget ssd_menu_new (const char           *name,
                            SSD_WS_TABSTOP|SSD_ALIGN_CENTER|next_item_flags);
 
          w->long_click = long_click;
+         w->key_pressed = on_key_pressed;
          w->short_click = short_click;
          w->pointer_down = on_pointer_down;
          ssd_widget_set_pointer_force_click(w);
+         w->key_pressed = on_key_pressed;
          ssd_widget_set_color (w, "#000000", NULL);
 
          button_container = ssd_container_new ("button_container", NULL,
@@ -965,6 +971,9 @@ void ssd_menu_hide (const char *name) {
 
 void ssd_menu_load_images(const char   *items_file, const RoadMapAction  *actions){
 
+	/*
+	 * AGA TODO:: Check image locking here
+	 */
 #ifdef TOUCH_SCREEN
      const char **menu_items = roadmap_factory_user_config (items_file, "menu", actions);
      int i;

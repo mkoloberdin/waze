@@ -441,7 +441,8 @@ const char* AddUser( /* IN  */   const char*       pNext,
    int                  iBufferSize;
    RTUserLocation       UL;
    int						iSpeedTimes10;
-
+   char                 tempBuff[5];
+   
    //   Initialize structure:
    RTUserLocation_Init( &UL);
 
@@ -653,7 +654,7 @@ const char* AddUser( /* IN  */   const char*       pNext,
                              ",",              //   [in,opt]   Value termination
                              NULL,             //   [in,opt]   Allowed padding
                              &UL.iPoints,     //   [out]      Put it here
-                             TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                             1);  //   [in]      Remove additional termination CHARS
    
    if(!pNext)
    {
@@ -664,16 +665,30 @@ const char* AddUser( /* IN  */   const char*       pNext,
    //  14.   Join Date
    pNext = ReadIntFromString(
                              pNext,            //   [in]      Source string
-                             ",\r\n",              //   [in,opt]   Value termination
+                             ",",              //   [in,opt]   Value termination
                              NULL,             //   [in,opt]   Allowed padding
                              &UL.iJoinDate,     //   [out]      Put it here
-                             TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                             1);  //   [in]      Remove additional termination CHARS
    
    if(!pNext)
    {
       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read join date");
       (*rc) = err_parser_unexpected_data;
       return NULL;
+   }
+
+   
+   pNext       = ReadIntFromString(
+                                  pNext,             // [in]     Source string
+                                  ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                                  NULL,             //   [in,opt]   Allowed padding
+                                  &UL.iPingFlag,     //   [out]      Put it here
+                                  TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+   if( !pNext)
+   {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read Can Ping Wazer flag");
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
    }
 
    //   Create unique ID for the GUI object-system:
@@ -797,7 +812,7 @@ const char* SystemMessage( /* IN  */   const char*       pNext,
                NULL,             // [out,opt]Output buffer
                &iBufferSize,     // [in,out] Buffer size / Size of extracted string
                ",\r\n",          // [in]     Array of chars to terminate the copy operation
-               TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+               1);  // [in]     Remove additional termination chars
 
    if( !pNext)
    {
@@ -822,8 +837,44 @@ const char* SystemMessage( /* IN  */   const char*       pNext,
                Msg.Text,         // [out,opt]Output buffer
                &iBufferSize,     // [in,out] Buffer size / Size of extracted string
                ",\r\n",          // [in]     Array of chars to terminate the copy operation
-               TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+               1);  // [in]     Remove additional termination chars
 
+
+   //   5.  Icon:
+   pLast       = pNext;
+   iBufferSize = RTNET_SYSTEMMESSAGE_ICON_MAXSIZE;
+   pNext       = ExtractNetworkString(
+                pNext,            // [in]     Source string
+                NULL,             // [out,opt]Output buffer
+                &iBufferSize,     // [in,out] Buffer size / Size of extracted string
+                ",\r\n",          // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+       RTSystemMessage_Free( &Msg);
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::SystemMessage() - Failed to read icon");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    if( iBufferSize)
+    {
+       iBufferSize++; // Additional space for the terminating null...
+       Msg.Icon    = malloc(iBufferSize);
+       pNext       = ExtractNetworkString(
+                      pLast,            // [in]     Source string
+                      Msg.Icon,         // [out,opt]Output buffer
+                      &iBufferSize,     // [in,out] Buffer size / Size of extracted string
+                      ",\r\n",          // [in]     Array of chars to terminate the copy operation
+                      TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+
+   }
+   else{
+      Msg.Icon    = NULL;
+   }
+   
+   
    // Push item to queue
    RTSystemMessageQueue_Push( &Msg);
    // Detach from object:
@@ -916,7 +967,7 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
 {
    RTAlert  alert;
    int      iBufferSize;
-   char     reportedBy[5];
+   char     tempBuff[5];
 
    //   Initialize structure:
    RTAlerts_Alert_Init(&alert);
@@ -1099,10 +1150,10 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
     }
 
    //   Read If the alert was reported by me
-   iBufferSize = sizeof(reportedBy);
+   iBufferSize = sizeof(tempBuff);
    pNext       = ExtractNetworkString(
                   pNext,             // [in]     Source string
-                  reportedBy,//   [out]   Output buffer
+                  tempBuff,//   [out]   Output buffer
                   &iBufferSize,      // [in,out] Buffer size / Size of extracted string
                   ",",          //   [in]   Array of chars to terminate the copy operation
                   1);   // [in]     Remove additional termination chars
@@ -1115,7 +1166,7 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
     }
 
 
-   if (reportedBy[0] == 'T')
+   if (tempBuff[0] == 'T')
      alert.bAlertByMe = TRUE;
    else
      alert.bAlertByMe = FALSE;
@@ -1184,8 +1235,30 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
                   pNext,            //   [in]   Source string
                   alert.sCityStr, // [out,opt]Output buffer
                   &iBufferSize,   //   [in]   Output buffer size
-                  ",\r\n",               // [in]     Array of chars to terminate the copy operation
-                  TRIM_ALL_CHARS);   //   [in]   Remove additional termination chars
+                  ",",               // [in]     Array of chars to terminate the copy operation
+                  1);   //   [in]   Remove additional termination chars
+
+   //   Read If the alert is a ping for me
+   iBufferSize = sizeof(tempBuff);
+   tempBuff[0] = 0;
+   pNext       = ExtractNetworkString(
+                   pNext,             // [in]     Source string
+                   tempBuff,//   [out]   Output buffer
+                   &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                   ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                   TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read PingWazer flag id=%d", alert.iID);
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+   }
+
+   if (tempBuff[0] == 'T')
+      alert.bPingWazer = TRUE;
+   else
+      alert.bPingWazer = FALSE;
 
    //   Add the Alert
    if( !RTAlerts_Add(&alert))
@@ -1297,6 +1370,7 @@ const char* AddAlertComment(  /* IN  */   const char*       pNext,
    RTAlertComment       comment;
    int                  iBufferSize;
    char                 reportedBy[5];
+   char                 Displayed[5];
 
    //   Initialize structure:
    RTAlerts_Comment_Init(&comment);
@@ -1419,10 +1493,10 @@ const char* AddAlertComment(  /* IN  */   const char*       pNext,
 	//   Read Rank
     pNext = ReadIntFromString(
             pNext,            //   [in]      Source string
-            ",\r\n",              //   [in,opt]   Value termination
+            ",",              //   [in,opt]   Value termination
             NULL,             //   [in,opt]   Allowed padding
             &comment.iRank,  //   [out]      Put it here
-            TRIM_ALL_CHARS);               //   [in]      Remove additional termination CHARS
+            1);               //   [in]      Remove additional termination CHARS
 
     if( !pNext)
     {
@@ -1431,6 +1505,26 @@ const char* AddAlertComment(  /* IN  */   const char*       pNext,
       return NULL;
     }
 
+    //   Read If the comment was posted by me
+    iBufferSize = sizeof(Displayed);
+    pNext = ExtractNetworkString(
+               pNext,            //   [in]   Source string
+               Displayed,    //   [out]   Output buffer
+               &iBufferSize,  //   [in]   Output buffer size
+               ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+               TRIM_ALL_CHARS);   //   [in]   Remove additional termination chars
+
+      if( !pNext)
+     {
+          roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlertComment() - Failed to read Displayed flag");
+          comment.bDisplay = FALSE;
+      }
+
+     if (Displayed[0] == 'T')
+       comment.bDisplay= TRUE;
+    else
+       comment.bDisplay = FALSE;
+     
    //   Add the Comment
    if( !RTAlerts_Comment_Add(&comment))
    {

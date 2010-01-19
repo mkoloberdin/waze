@@ -43,7 +43,7 @@ BOOL ssd_icon_wimage_is_valid( ssd_icon_wimage* this)
    return   this
                &&
             this->left     && this->middle      && this->right
-               && 
+               &&
             this->left[0]  && this->middle[0]   && this->right[0];
 }
 
@@ -53,7 +53,7 @@ typedef struct tag_wimage_info
    RoadMapImage   left;
    RoadMapImage   middle;
    RoadMapImage   right;
-   
+
 }     wimage_info;
 BOOL  wimage_info_load( wimage_info*      this,
                         ssd_icon_wimage*  filenames);
@@ -65,7 +65,7 @@ typedef struct tag_wimageset_info
    wimage_info in_focus;
 
 }     wimageset_info;
-BOOL  wimageset_info_load( wimageset_info*      this, 
+BOOL  wimageset_info_load( wimageset_info*      this,
                            ssd_icon_wimage_set* set);
 
 typedef struct tag_imageset_info
@@ -84,13 +84,13 @@ typedef struct tag_icon_ctx
       wimageset_info wimages[MAX_ICONS_COUNT];
        imageset_info  images[MAX_ICONS_COUNT];
    };
-   
+
    int   image_count;
    BOOL  wide_image;
    int   requested_width;
    int   width;
-   int   height;   
-   int   state;  
+   int   height;
+   int   state;
    BOOL  loaded;
    CB_OnWidgetKeyPressed
          on_unhandled_key_pressed;
@@ -108,15 +108,17 @@ BOOL wimage_info_load(  wimage_info*       this,
       assert(0);
       return FALSE;
    }
-
+/*
+ * AGA TODO: Check if the locked is necessary here
+ */
    LOAD_WIDE_ICON(left)
    LOAD_WIDE_ICON(middle)
    LOAD_WIDE_ICON(right)
-   
+
    return TRUE;
 }
 
-BOOL  wimageset_info_load( wimageset_info*      this, 
+BOOL  wimageset_info_load( wimageset_info*      this,
                            ssd_icon_wimage_set* set)
 {
    if( !wimage_info_load( &(this->normal), set->normal))
@@ -143,6 +145,11 @@ RoadMapImage load_image( const char* filenames)
       return NULL;
    }
 
+   /*
+    * AGA TODO: Check if the locked is necessary here
+    */
+
+
    // Else
    image = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_LOCK, filenames);
    if( !image)
@@ -150,7 +157,7 @@ RoadMapImage load_image( const char* filenames)
       assert(0);
       return NULL;
    }
-   
+
    if( -1 == s_width)
       s_width = roadmap_canvas_image_width( image);
    else
@@ -183,7 +190,7 @@ BOOL  imageset_info_load(  imageset_info*       this,
       assert(0);
       return FALSE;
    }
-   
+
    this->normal = load_image( set->normal);
    if( !this->normal)
    {
@@ -219,16 +226,16 @@ static void draw_wimage(icon_ctx_ptr      ctx,
 
    // Minimum image size is (left + right):
    assert( (left_bitmap_width+right_bitmap_width) <= ctx->requested_width);
-   
-   // If middle-bitmap is wider then right-bitmap then during the 
+
+   // If middle-bitmap is wider then right-bitmap then during the
    // painting the middle-bitmap can be painted to the right of
    // the right bitmap:
    assert( middle_bitmap_width < right_bitmap_width);
-   
+
    // Paint left
    roadmap_canvas_draw_image( ii->left, point, 0, IMAGE_NORMAL);
    point->x += left_bitmap_width;
-   
+
    // Paint middle
    middle_paint_width = ctx->requested_width - (left_bitmap_width+right_bitmap_width);
    for( i=0; i<middle_paint_width; i+=middle_bitmap_width)
@@ -236,63 +243,63 @@ static void draw_wimage(icon_ctx_ptr      ctx,
       roadmap_canvas_draw_image( ii->middle, point, 0, IMAGE_NORMAL);
       point->x += middle_bitmap_width;
    }
-   
+
    // Paint right
    point->x = offset + ctx->requested_width - right_bitmap_width;
-   roadmap_canvas_draw_image( ii->right, point, 0, IMAGE_NORMAL);      
+   roadmap_canvas_draw_image( ii->right, point, 0, IMAGE_NORMAL);
 }
 
 static void draw( SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
    icon_ctx_ptr      ctx = (icon_ctx_ptr)this->data;
    RoadMapGuiPoint   point;
-   
+
    assert( ctx->loaded);
-   
+
    if( ctx->width)
       rect->maxx = rect->minx + ctx->width -1;
    else
       rect->maxx = rect->minx;
-      
+
    if( ctx->height)
       rect->maxy = rect->miny + ctx->height-1;
-   
+
    if( SSD_GET_SIZE & flags)
       return;
-  
+
    point.x = rect->minx;
    point.y = rect->miny;
 
    if( !ctx->wide_image)
    {
       RoadMapImage image;
-      
+
       assert( 0 == ctx->requested_width);
-      
+
       if( this->in_focus)
          image = ctx->images[ctx->state].in_focus;
       else
          image = ctx->images[ctx->state].normal;
-      
+
       roadmap_canvas_draw_image( image, &point, 0, IMAGE_NORMAL);
    }
    else
    {
       wimage_info* ii;
-      
+
       assert( 0 != ctx->requested_width);
-      
+
       if( this->in_focus)
          ii = &(ctx->wimages[ctx->state].in_focus);
       else
          ii = &(ctx->wimages[ctx->state].normal);
-   
+
       draw_wimage( ctx, ii, &point);
    }
 }
 
 static BOOL on_key_pressed( SsdWidget this, const char* utf8char, uint32_t flags)
-{ 
+{
    icon_ctx_ptr ctx = (icon_ctx_ptr)this->data;
 
    if( KEY_IS_ENTER && this->callback)
@@ -300,7 +307,7 @@ static BOOL on_key_pressed( SsdWidget this, const char* utf8char, uint32_t flags
       this->callback( this, "short_click");
       return TRUE;
    }
-   
+
    if( ctx->on_unhandled_key_pressed)
       return ctx->on_unhandled_key_pressed( this, utf8char, flags);
 
@@ -310,18 +317,18 @@ static BOOL on_key_pressed( SsdWidget this, const char* utf8char, uint32_t flags
 static int on_pointer_down( SsdWidget this, const RoadMapGuiPoint* point)
 {
    BOOL done_something = FALSE;
-   
+
    if( this->tab_stop)
    {
       done_something = TRUE;
-      
+
       if( !this->in_focus)
          ssd_dialog_set_focus( this);
    }
-      
+
    if( this->short_click && this->short_click( this, point))
       done_something = TRUE;
-   
+
    return done_something;
 }
 
@@ -331,7 +338,7 @@ SsdWidget ssd_icon_create( const char* name,
 {
    icon_ctx_ptr   ctx= (icon_ctx_ptr)malloc(sizeof(icon_ctx));
    SsdWidget      w  = ssd_widget_new( name, on_key_pressed, flags);
-   
+
    icon_ctx_init( ctx);
    ctx->wide_image= wide_image;
 
@@ -340,7 +347,7 @@ SsdWidget ssd_icon_create( const char* name,
    w->draw        = draw;
    w->pointer_down= on_pointer_down;
    w->data        = ctx;
-   
+
    return w;
 }
 
@@ -351,17 +358,17 @@ void ssd_icon_set_images(  SsdWidget            this,
 {
    int            i;
    icon_ctx_ptr   ctx = (icon_ctx_ptr)this->data;
-   
+
    if( ctx->wide_image || ctx->loaded ||
        (count < 0) || (MAX_ICONS_COUNT < count))
    {
       assert(0);
       return;
    }
-   
+
    s_width  = -1;
    s_height = -1;
-   
+
    for( i=0; i<count; i++)
    {
       imageset_info* ii = ctx->images + i;
@@ -370,14 +377,14 @@ void ssd_icon_set_images(  SsdWidget            this,
          assert(0);
          return;
       }
-      
+
       ctx->image_count++;
    }
 
    ctx->width  = s_width;
    ctx->height = s_height;
    ctx->loaded = TRUE;
-}                           
+}
 
 // Wide image(s)
 void ssd_icon_set_wimages( SsdWidget            this,
@@ -386,17 +393,17 @@ void ssd_icon_set_wimages( SsdWidget            this,
 {
    int            i;
    icon_ctx_ptr   ctx = (icon_ctx_ptr)this->data;
-   
+
    if( !ctx->wide_image || ctx->loaded ||
        (count < 0) || (MAX_ICONS_COUNT < count))
    {
       assert(0);
       return;
    }
-   
+
    s_width  = -1;
    s_height = -1;
-   
+
    for( i=0; i<count; i++)
    {
       wimageset_info* ii = ctx->wimages + i;
@@ -405,13 +412,13 @@ void ssd_icon_set_wimages( SsdWidget            this,
          assert(0);
          return;
       }
-      
+
       ctx->image_count++;
    }
 
    ctx->height = s_height;
    ctx->loaded = TRUE;
-}                           
+}
 
 // Operation on 'wide-image'
 void ssd_icon_set_width( SsdWidget this, int width)
@@ -433,7 +440,7 @@ int ssd_icon_set_state( SsdWidget this, int state)
 {
    icon_ctx_ptr   ctx      = (icon_ctx_ptr)this->data;
    int            old_state= ctx->state;
-   
+
    ctx->state = state;
    return old_state;
 }
@@ -444,4 +451,4 @@ void ssd_icon_set_unhandled_key_press( SsdWidget   this,
 {
    icon_ctx_ptr ctx = (icon_ctx_ptr)this->data;
    ctx->on_unhandled_key_pressed = on_unhandled_key_pressed;
-}   
+}

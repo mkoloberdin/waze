@@ -28,14 +28,14 @@
 
 typedef void (*RoadMapResDownloadCallback) (const char* res_name, int success, void *context, char *last_modified);
 
-#define RES_DOWNLOAD_IMAGE    0
-#define RES_DOWNLOAD_SOUND    1
-#define RES_DOWNLOAD_CONFIFG  2
-#define RES_DOWNLOAD_LANG     3
-
+#define RES_DOWNLOAD_IMAGE                     0
+#define RES_DOWNLOAD_SOUND                     1
+#define RES_DOWNLOAD_CONFIFG                   2
+#define RES_DOWNLOAD_LANG                      3
+#define RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES   4
 
 void roadmap_res_download_init (void);
 void roadmap_res_download_term (void);
-void roadmap_res_download (int type, const char*name, const char *lang, BOOL override,time_t update_time,RoadMapResDownloadCallback on_loaded, void *context);
+void roadmap_res_download (int type, const char*name, const char *target_name, const char *lang, BOOL override,time_t update_time,RoadMapResDownloadCallback on_loaded, void *context);
 
 #endif /* ROADMAP_RES_DOWNLOAD_H_ */

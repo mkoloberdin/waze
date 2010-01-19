@@ -48,7 +48,9 @@
 #define SSD_WIDGET_HIDE     0x100
 #define SSD_ALIGN_BOTTOM    0x200
 #define SSD_ALIGN_LTR       0x400
-#define SSD_ORDER_LAST      0x800
+#define SSD_PERSISTENT      0x800				/* This flag is generic for widgets and dialogs.
+												 * defines if widget should be deallocated in the cleanup process
+												 */
 #define SSD_WS_TABSTOP      0x00100000
 #define SSD_WS_DEFWIDGET    0x00200000
 #define SSD_TAB_CONTROL     0x00400000
@@ -214,6 +216,7 @@ struct ssd_widget {
    int  (*drag_end)        (SsdWidget widget, const RoadMapGuiPoint *point);
    int  (*drag_motion)     (SsdWidget widget, const RoadMapGuiPoint *point);
    BOOL (*key_pressed)     (SsdWidget widget, const char* utf8char, uint32_t flags);
+   void (*release)     	   (SsdWidget widget );
    roadmap_input_type
         (*get_input_type)  (SsdWidget widget);
 };
@@ -291,5 +294,5 @@ void ssd_widget_set_click_offsets( SsdWidget widget, const SsdClickOffsets* offs
 void ssd_widget_set_click_offsets_ext( SsdWidget widget, int left, int top, int right, int bottom );
 BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point, BOOL use_offsets );
 void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight );
-
+void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent );
 #endif // __SSD_WIDGET_H_

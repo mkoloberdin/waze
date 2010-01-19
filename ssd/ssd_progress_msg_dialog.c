@@ -136,9 +136,11 @@ static SsdWidget ssd_progress_msg_dialog_new( void )
 	int         text_ascent;
 	int         text_descent;
 	int         text_height;
-	
-    dialog = ssd_dialog_new( SSD_PROGRESS_MSG_DLG_NAME, "", NULL, SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|
-                                SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+
+    dialog = ssd_dialog_new( SSD_PROGRESS_MSG_DLG_NAME, "", NULL, SSD_CONTAINER_BORDER|SSD_PERSISTENT|
+								SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|
+								SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+
     if ( !dialog )
     {
         roadmap_log( ROADMAP_ERROR, "Error creating progress message dialog" );
@@ -173,7 +175,7 @@ static SsdWidget ssd_progress_msg_dialog_new( void )
     button = ssd_button_label("Hide Button", roadmap_lang_get("Hide"), SSD_ALIGN_CENTER, on_button_hide);
     ssd_widget_add(dialog, button);
 #endif
-    
+
     return dialog;
 }
 
@@ -208,9 +210,9 @@ static void hide_timer(void){
  *  Purpose     :  Shows the dialog with the given name, for a given amount of time
  *
  *  Params		: [in] dlg_text - the text to be displayed in message
- *  			: [in] seconds - the time to be displayed 
+ *  			: [in] seconds - the time to be displayed
  *	Author		: Dan Friedman
- *  Returns 	: void 
+ *  Returns 	: void
  */
 void ssd_progress_msg_dialog_show_timed( const char* dlg_text , int seconds)
 {

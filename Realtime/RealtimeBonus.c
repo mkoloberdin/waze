@@ -191,6 +191,7 @@ void RealtimeBonus_PopUp (int iID) {
    char msg[512];
    RTBonus *pbonus = RealtimeBonus_Get (iID);
    const char *title;
+   int width;
    
    if (!pbonus)
       return;
@@ -214,7 +215,7 @@ void RealtimeBonus_PopUp (int iID) {
    ssd_widget_set_color (spacer, NULL, NULL);
    ssd_widget_add (popup, spacer);
    
-   container = ssd_container_new ("IconCon", "", 50, SSD_MIN_SIZE, 0);
+   container = ssd_container_new ("IconCon", "", 50, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
    ssd_widget_set_color (container, NULL, NULL);
    icon = ssd_bitmap_new ("bonusIcon", pbonus->pIconName, SSD_ALIGN_VCENTER | SSD_ALIGN_CENTER);
    ssd_widget_add (container, icon);
@@ -230,9 +231,16 @@ void RealtimeBonus_PopUp (int iID) {
          snprintf (msg, sizeof(msg), "%s", roadmap_lang_get ("There may be presents in this treasure chest! You'll know when you drive over it. Note: You need to be a registered user in order to receive the gift inside. Register in 'Settings > Profile'"));
    }
    
+   if (roadmap_canvas_width() > roadmap_canvas_height())
+      width = roadmap_canvas_height() - 70;
+   else
+      width = roadmap_canvas_width() - 70;      
+   container = ssd_container_new ("IconCon", "", width, SSD_MIN_SIZE, 0);
+   ssd_widget_set_color (container, NULL, NULL);
    text = ssd_text_new ("PointsTxt", msg, 16, SSD_END_ROW);
-   ssd_text_set_color (text, "#f6a201");
-   ssd_widget_add (popup, text);
+   ssd_text_set_color (text, "#ffffff");
+   ssd_widget_add (container, text);
+   ssd_widget_add (popup, container);
    
 #ifdef TOUCH_SCREEN
    spacer = ssd_container_new ("space", "", SSD_MIN_SIZE, 5, SSD_END_ROW);
@@ -336,7 +344,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus) {
    gBonusTable.iCount++;
    
    if (roadmap_res_get(RES_BITMAP,RES_SKIN, gBonusTable.bonus[index]->pIconName) == NULL){
-      roadmap_res_download(RES_DOWNLOAD_IMAGE, gBonusTable.bonus[index]->pIconName,"",FALSE,0, on_resource_downloaded, NULL );
+      roadmap_res_download(RES_DOWNLOAD_IMAGE, gBonusTable.bonus[index]->pIconName,NULL, "",FALSE,0, on_resource_downloaded, NULL );
    }
    else
       onBonusAdd (gBonusTable.bonus[index]);

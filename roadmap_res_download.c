@@ -35,9 +35,13 @@
 #include "roadmap_httpcopy_async.h"
 #include "roadmap_path.h"
 #include "roadmap_geo_config.h"
+#include "roadmap_screen.h"
 
 static RoadMapConfigDescriptor RoadMapConfigDownloadImageUrl =
       ROADMAP_CONFIG_ITEM("Download", "Images");
+
+static RoadMapConfigDescriptor RoadMapConfigDownloadCountrySpecificImagesUrl =
+      ROADMAP_CONFIG_ITEM("Download", "Country Specific Images");
 
 static RoadMapConfigDescriptor RoadMapConfigDownloadSoundUrl =
       ROADMAP_CONFIG_ITEM("Download", "Sound");
@@ -50,6 +54,9 @@ static RoadMapConfigDescriptor RoadMapConfigDownloadLangUrl =
 
 static RoadMapConfigDescriptor RoadMapConfigDownloadImageUrl_Ver =
       ROADMAP_CONFIG_ITEM("Download", "Images_Ver");
+
+static RoadMapConfigDescriptor RoadMapConfigDownloadCountrySpecificImagesUrl_Ver =
+      ROADMAP_CONFIG_ITEM("Download", "Country_Specific_Images_Ver");
 
 static RoadMapConfigDescriptor RoadMapConfigDownloadSoundUrl_Ver =
       ROADMAP_CONFIG_ITEM("Download", "Sound_Ver");
@@ -65,6 +72,7 @@ static RoadMapConfigDescriptor RoadMapConfigDownloadLangUrl_Ver =
 
 typedef struct {
    char *name;
+   char *target_name;
    int type;
    char *lang;
    BOOL override;
@@ -108,8 +116,12 @@ void roadmap_res_download_init (void) {
    
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadLangUrl, "http://waze-client-resources.s3.amazonaws.com/langs/", NULL);
    
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadCountrySpecificImagesUrl, "", NULL);
+   
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl_Ver, "", NULL);
 
+   roadmap_config_declare ("preferences", &RoadMapConfigDownloadCountrySpecificImagesUrl_Ver, "", NULL);
+   
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadSoundUrl_Ver, "", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadConfigUrl_Ver, "", NULL);
@@ -124,10 +136,17 @@ void roadmap_res_download_init (void) {
 void roadmap_res_download_term (void) {
    
 }
+
 //////////////////////////////////////////////////////////////////
 static char* get_images_url_ver (void) {
    return (char*) roadmap_config_get (&RoadMapConfigDownloadImageUrl_Ver);
 }
+
+//////////////////////////////////////////////////////////////////
+static char* get_country_specific_images_url_ver (void) {
+   return (char*) roadmap_config_get (&RoadMapConfigDownloadCountrySpecificImagesUrl_Ver);
+}
+
 
 //////////////////////////////////////////////////////////////////
 static char* get_sound_url_ver (void) {
@@ -148,6 +167,13 @@ static char* get_langs_url_ver (void) {
 static char* get_images_url_prefix (void) {
    return (char*) roadmap_config_get (&RoadMapConfigDownloadImageUrl);
 }
+
+
+//////////////////////////////////////////////////////////////////
+static char* get_country_specific_images_url_prefix (void) {
+   return (char*) roadmap_config_get (&RoadMapConfigDownloadCountrySpecificImagesUrl);
+}
+ 
 
 //////////////////////////////////////////////////////////////////
 static char* get_sound_url_prefix (void) {
@@ -175,6 +201,10 @@ static char* get_download_url (int type, const char *lang, const char* name) {
          url_prefix = get_images_url_prefix ();
          url_ver = get_images_url_ver();
          break;
+      case RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES:
+         url_prefix = get_country_specific_images_url_prefix();
+         url_ver = get_country_specific_images_url_ver();
+         break;
       case RES_DOWNLOAD_SOUND:
          url_prefix = get_sound_url_prefix ();
          url_ver = get_sound_url_ver();
@@ -195,7 +225,7 @@ static char* get_download_url (int type, const char *lang, const char* name) {
    }
    // Size of prefix +  size of image id + '\0'
    url = malloc (strlen (url_prefix) + strlen(url_ver) + strlen (name) + +strlen (lang) + +strlen (
-                  roadmap_geo_config_get_server_id ()) + 5);
+                  roadmap_geo_config_get_server_id ()) + 10);
    
    roadmap_check_allocated( url );
    
@@ -216,6 +246,12 @@ static char* get_download_url (int type, const char *lang, const char* name) {
       strcat (url, roadmap_geo_config_get_server_id ());
       strcat (url, "/");
    }
+   
+   if (roadmap_screen_is_hd_screen()){
+      strcat (url, "HD");
+      strcat (url, "/");
+   }
+   
    strcat (url, name);
    
    return url;
@@ -272,6 +308,8 @@ static void ResData_Init (ResData *item) {
    item->on_loaded_cb = NULL;
    item->context = NULL;
    item->name = NULL;
+   item->target_name = NULL;
+   item->lang = NULL;
    item->type = -1;
 }
 
@@ -293,6 +331,8 @@ static void ResData_Free (ResData *this) {
    free (this->name);
    if (this->lang)
       free (this->lang);
+   if (this->target_name)
+      free (this->target_name);
    ResData_Init (this);
 }
 
@@ -340,6 +380,7 @@ void ResDataQueue_Push (ResData *this) {
    p = AllocResData ();
    
    p->name = this->name;
+   p->target_name = this->target_name;
    p->type = this->type;
    p->override = this->override;
    p->update_time = this->update_time;
@@ -405,11 +446,15 @@ static void roadmap_download_start (void) {
       return;
    }
    downloading = TRUE;
-   // Target file name from the image id
-   res_file = malloc (strlen (resData.name) + 5);
-   strcpy (res_file, resData.name);
-   if (resData.type == RES_DOWNLOAD_IMAGE) {
+   // Target file name from the resources target name
+   res_file = malloc (strlen (resData.target_name) + 5);
+   strcpy (res_file, resData.target_name);
+   if ((resData.type == RES_DOWNLOAD_IMAGE) || (resData.type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES)){
+#ifdef ANDROID
       strcat (res_file, ".bin");
+#else      
+      strcat (res_file, ".png");
+#endif      
       res_path = get_images_output_path (res_file);
    }
    else if (resData.type == RES_DOWNLOAD_SOUND) {
@@ -437,8 +482,10 @@ static void roadmap_download_start (void) {
       return;
    }
    else {
+      free(res_file);
+      res_file = malloc (strlen (resData.name) + 5);
       strcpy (res_file, resData.name);
-      if (resData.type == RES_BITMAP)
+      if ((resData.type == RES_DOWNLOAD_IMAGE) || (resData.type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES))
          strcat (res_file, ".png");
       else if (resData.type == RES_SOUND)
          strcat (res_file, ".mp3");
@@ -457,6 +504,7 @@ static void roadmap_download_start (void) {
       context = malloc (sizeof(DownloadContext));
       context->res_path = res_path;
       context->res_data.name = resData.name;
+      context->res_data.target_name = resData.target_name;
       context->res_data.on_loaded_cb = resData.on_loaded_cb;
       context->res_data.type = resData.type;
       context->res_data.override = resData.override;
@@ -477,6 +525,7 @@ static void roadmap_download_start (void) {
 //////////////////////////////////////////////////////////////////
 void roadmap_res_download (int type,
                const char*name,
+               const char *target_name,
                const char *lang,
                BOOL override,
                time_t update_time,
@@ -491,6 +540,10 @@ void roadmap_res_download (int type,
       resData.on_loaded_cb = on_loaded;
       resData.type = type;
       resData.name = strdup (name);
+      if (target_name)
+         resData.target_name = strdup (target_name);
+      else
+         resData.target_name = strdup (name);
       resData.lang = strdup (lang);
       resData.override = override;
       resData.context = context;
@@ -503,6 +556,10 @@ void roadmap_res_download (int type,
       resData.on_loaded_cb = on_loaded;
       resData.type = type;
       resData.name = strdup (name);
+      if (target_name)
+         resData.target_name = strdup (target_name);
+      else
+         resData.target_name = strdup (name);
       resData.lang = strdup (lang);
       resData.override = override; 
       resData.update_time = update_time;
@@ -566,6 +623,7 @@ static void download_error_callback (void *context_cb,
       free( context->data );
       context->data = NULL;
    }
+   free( context->res_data.target_name );
    free( context->res_data.name );
    free( context->res_data.lang);
    free( context->res_path );
@@ -610,6 +668,7 @@ static void download_done_callback (void *context_cb, char *last_modified) {
    roadmap_download_start();
    
    // Deallocate the download context
+   free( context->res_data.target_name );
    free( context->res_data.name );
    free( context->res_data.lang );
    free( context->data );

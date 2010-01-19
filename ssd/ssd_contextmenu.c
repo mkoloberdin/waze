@@ -232,8 +232,8 @@ static void exit_context_menu( BOOL made_selection, ssd_cm_item_ptr item)
    SsdOnContextMenu     on_menu  = s_ctx.callback;
    void*                context  = s_ctx.context;
    /* exit menu if 
-   * 1. no selection was made - this is a normal exit command
-   * 2. a selection was made, but a no-close on selection flag exists
+    * 1. no selection was made - this is a normal exit command (initiated for instance when the back button is pressed)
+    * 2. a selection was made, and a close on selection flag exists
    */
    if( !made_selection ||(made_selection&& s_ctx.close_on_selection)){
   		 ssd_dialog_hide( s_dialog_name, dec_ok);   // Will call 'on_dialog_closed()' below...
@@ -1116,7 +1116,7 @@ static void draw(SsdWidget widget, RoadMapGuiRect *rect, int flags)
    //if ( ssd_dialog_get_focus()!=s_ctx.menu->item[s_ctx.menu->item_selected].row)
    		//ssd_dialog_set_focus(s_ctx.menu->item[s_ctx.menu->item_selected].row);
    setNewFocus();
-  
+
    if( s_ctx.recalc_pos)
    {
 
@@ -1165,8 +1165,20 @@ void ssd_context_menu_show(int                  x,
       exit_context_menu(FALSE,NULL); // we only support one context menu open at a time.
    }
 
-   s_dialog = menu->container;
    sprintf( s_dialog_name, "%s_0x%08X", SSD_CMDLG_DIALOG_NAME, (unsigned int) menu );
+
+   /*
+    * Check the existence of the dialog. If the dialog doesn't exist (deallocated)
+    * create the new one
+    */
+   if ( ssd_dialog_exists( s_dialog_name ) )
+   {
+	   s_dialog = menu->container;
+   }
+   else
+   {
+	   s_dialog = NULL;
+   }
 
    switch( dir)
    {
@@ -1199,7 +1211,7 @@ void ssd_context_menu_show(int                  x,
    s_ctx.close_on_selection  = close_on_selection;
    if( !s_dialog)
    {
-      int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL;
+      int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL|SSD_PERSISTENT;
 
       if( !(SSD_CONTEXTMENU_SIMPLE_LIST & flags))
          popup_flg |= (SSD_ROUNDED_CORNERS|style|SSD_POINTER_MENU);

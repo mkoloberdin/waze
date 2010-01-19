@@ -39,7 +39,7 @@
 
 #include "roadmap_res.h"
 
-#define BLOCK_SIZE 300
+#define RES_CACHE_SIZE 50
 
 const char *ResourceName[] = {
    "bitmap_res",
@@ -49,11 +49,23 @@ const char *ResourceName[] = {
 struct resource_slot {
    char *name;
    void *data;
+   unsigned int flags;
 };
+
+typedef struct resource_cache_entry {
+	int key;
+	int prev;
+	int next;
+} ResCacheEntry;
+
 
 typedef struct roadmap_resource {
    RoadMapHash *hash;
-   struct resource_slot *slots;
+
+   ResCacheEntry cache[RES_CACHE_SIZE];
+   int cache_head;
+   int res_type;
+   struct resource_slot slots[RES_CACHE_SIZE];
    int count;
    int max;
    int used_mem;
@@ -62,14 +74,19 @@ typedef struct roadmap_resource {
 
 
 static RoadMapResource Resources[MAX_RESOURCES];
+static void roadmap_res_cache_init( RoadMapResource* res );
+static int roadmap_res_cache_add( RoadMapResource* res, int hash_key );
+static void roadmap_res_cache_set_MRU( RoadMapResource* res, int slot );
 
 static void allocate_resource (unsigned int type) {
    RoadMapResource *res = &Resources[type];
+   res->res_type = type;
 
-   res->hash = roadmap_hash_new (ResourceName[type], BLOCK_SIZE);
+   res->hash = roadmap_hash_new ( ResourceName[type], RES_CACHE_SIZE );
 
-   res->slots = malloc (BLOCK_SIZE * sizeof (*res->slots));
-   res->max = BLOCK_SIZE;
+   roadmap_res_cache_init( res );
+
+   res->max = RES_CACHE_SIZE;
 }
 
 
@@ -119,12 +136,13 @@ static void *load_resource (unsigned int type, unsigned int flags,
 }
 
 
-static void free_resource (unsigned int type, int slot) {
+static void free_resource ( RoadMapResource* res, int slot) {
 
-   void *data = Resources[type].slots[slot].data;
+   void *data = res->slots[slot].data;
 
-   if (data) {
-      switch (type) {
+   if ( data ) {
+      switch ( res->res_type )
+      {
          case RES_BITMAP:
             roadmap_canvas_free_image ((RoadMapImage)data);
             break;
@@ -134,18 +152,16 @@ static void free_resource (unsigned int type, int slot) {
       }
    }
 
-   free (Resources[type].slots[slot].name);
+   free ( res->slots[slot].name);
 }
 
 
-static void *find_resource (unsigned int type, const char *name, int* found) {
+static int find_resource (unsigned int type, const char *name ) {
    int hash;
    int i;
    RoadMapResource *res = &Resources[type];
 
-   *found = FALSE;
-
-   if (!res->count) return NULL;
+   if (!res->count) return -1;
 
    hash = roadmap_hash_string (name);
 
@@ -154,12 +170,11 @@ static void *find_resource (unsigned int type, const char *name, int* found) {
         i = roadmap_hash_get_next (res->hash, i)) {
 
       if (!strcmp(name, res->slots[i].name)) {
-         *found = TRUE;
-         return res->slots[i].data;
+         return i;
       }
    }
 
-   return NULL;
+   return -1;
 }
 
 
@@ -169,22 +184,23 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    void *data = NULL;
    int mem;
    RoadMapResource *res = &Resources[type];
+   int slot;
 
    if (name == NULL)
    	return NULL;
 
    if (! (flags & RES_NOCACHE)) {
-      int found;
-      data = find_resource (type, name, &found);
+      int slot;
+      slot = find_resource ( type, name );
 
-      if (found) return data;
-      if (Resources[type].slots == NULL) allocate_resource (type);
+      if ( slot > 0 )
+	  {
+    	  roadmap_res_cache_set_MRU( res, slot );
+    	  data = res->slots[slot].data;
+    	  return data;
+	  }
+      if (Resources[type].hash == NULL) allocate_resource (type);
 
-      //TODO implement grow (or old deletion)
-      if (Resources[type].count == Resources[type].max){
-       	roadmap_log (ROADMAP_ERROR, "roadmap_res_get:%s table is full",name);
-      	return NULL;
-      }
    }
 
    if (flags & RES_NOCREATE) return NULL;
@@ -230,16 +246,125 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    }
    if (flags & RES_NOCACHE) return data;
 
-   res->slots[res->count].data = data;
-   res->slots[res->count].name = strdup(name);
+   slot = roadmap_res_cache_add( res, roadmap_hash_string( name ) );
+
+   roadmap_log( ROADMAP_DEBUG, "Placing the resource at Slot: %d, Flags: %d, ", slot, flags );
+
+   res->slots[slot].data = data;
+   res->slots[slot].name = strdup(name);
+   res->slots[slot].flags = flags;
 
    res->used_mem += mem;
 
-   roadmap_hash_add (res->hash, roadmap_hash_string (name), res->count);
-   res->count++;
-
    return data;
 }
+
+static void roadmap_res_cache_init( RoadMapResource* res )
+{
+	int i;
+
+	for( i = 1; i < RES_CACHE_SIZE; ++i )
+	{
+		res->cache[i].key = -1;
+		res->cache[i].prev = -1;
+		res->cache[i].next = -1;
+	}
+
+	res->cache_head = 0;
+	res->cache[0].prev = 0;
+	res->cache[0].next = 0;
+
+}
+
+static void roadmap_res_cache_set_MRU( RoadMapResource* res, int slot )
+{
+	ResCacheEntry* cache = res->cache;
+
+	int prev = cache[slot].prev;
+	int next = cache[slot].next;
+	int last = cache[res->cache_head].prev;
+
+	// Already the head - nothing to do
+	if ( slot == res->cache_head )
+		return;
+
+
+	// Set the MRU to be the head
+	if ( last != slot )	// If the last element the head and tail are self defined
+	{
+		cache[slot].prev = cache[res->cache_head].prev;
+		cache[slot].next = res->cache_head;
+		cache[last].next = slot;
+
+		// Fix the connections
+		if ( prev > 0 )
+			cache[prev].next = next;
+		if ( next > 0 )
+			cache[next].prev = prev;
+
+	}
+
+	// Set the current head to be the next
+	cache[res->cache_head].prev = slot;
+
+	// Update head pointer
+	res->cache_head = slot;
+
+}
+
+
+static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
+{
+	ResCacheEntry* cache = res->cache;
+	int slot;
+
+
+	/*
+	 * If there is still available slots just add
+	 */
+
+	if ( res->count < RES_CACHE_SIZE  )
+	{
+		slot = res->count;
+		res->count++;
+	}
+	else
+	{
+	    /*
+	     * Remove and deallocate the LRU element in the cache
+	     */
+		int non_locked_lru = cache[res->cache_head].prev;
+		while ( res->slots[non_locked_lru].flags & RES_LOCK )
+		{
+			non_locked_lru = cache[non_locked_lru].prev;
+		}
+		if ( non_locked_lru == res->cache_head )
+		{
+			roadmap_log( ROADMAP_ERROR, "Cannot find non-locked resource!!! Removing the locked LRU" );
+			non_locked_lru = cache[res->cache_head].prev;
+		}
+
+		slot = non_locked_lru;
+
+		roadmap_hash_remove( res->hash, cache[slot].key, slot );
+		free_resource( res, slot );
+	}
+
+	cache[slot].key = hash_key;
+	roadmap_hash_add( res->hash, hash_key, slot );
+
+	/*
+	 * Set the element to be MRU
+	 */
+	if ( res->count > 1 )
+	{
+		/* For the only element nothing to do */
+		roadmap_res_cache_set_MRU( res, slot );
+	}
+	return slot;
+}
+
+
 
 
 void roadmap_res_shutdown (void) {
@@ -251,13 +376,25 @@ void roadmap_res_shutdown (void) {
 
       for (i=0; i<Resources[type].count; i++) {
 
-         free_resource (type, i);
+         free_resource ( res, i);
       }
-      
-      if (res->slots)
-         free(res->slots);
+
    }
-   
+
 }
 
 
+#if 0
+void dbg_cache( RoadMapResource* res, int slot, const char* name )
+{
+	int i;
+	int next = res->cache_head;
+	roadmap_log( ROADMAP_WARNING, "The cache size exceed - deallocating slot %d. Name %s. Adding: %s", slot, res->slots[slot].name, name );
+	for( i = 0; i < RES_CACHE_SIZE; ++i )
+	{
+		roadmap_log_raw_data_fmt( "Cache snapshot: %d: %d, %s \n", i, next, res->slots[next].name );
+		next = cache[next].next;
+	}
+}
+
+#endif

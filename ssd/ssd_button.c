@@ -49,10 +49,12 @@
 
 #define BUTTON_CLICK_OFFSETS_DEFAULT	{0, -15, 0, 15 }
 
+#define SSD_BUTTON_BMP_NAME_MAXLEN		64
+
 struct ssd_button_data {
    int state;
-   const char *bitmap_names[MAX_STATES];
-   RoadMapImage bitmap_images[MAX_STATES];
+   char bitmap_names[MAX_STATES][SSD_BUTTON_BMP_NAME_MAXLEN];
+   RoadMapImage bitmap_images[MAX_STATES];	/* These should be initialized only in case of cutom no-cache images */
 };
 
 
@@ -66,6 +68,9 @@ void get_state (SsdWidget widget, int *state, RoadMapImage *image, int *image_st
    else
       *state = data->state;
 
+   if (data->state == BUTTON_STATE_DISABLED)
+      *state = BUTTON_STATE_DISABLED;
+
    for (i=*state; i>=0; i--)
    {
       if ( data->bitmap_images[i] )
@@ -73,10 +78,36 @@ void get_state (SsdWidget widget, int *state, RoadMapImage *image, int *image_st
     	  *image = data->bitmap_images[i];
          break;
       }
+      else if ( ( (*image) = roadmap_res_get ( RES_BITMAP, RES_SKIN, data->bitmap_names[i] ) ) )
+      {
+    	  break;
+      }
    }
    *image_state = i;
 }
 
+static void set_bitmap_name( struct ssd_button_data *data, int state, const char* name )
+{
+	if ( strlen( name ) <= SSD_BUTTON_BMP_NAME_MAXLEN )
+	{
+	   strcpy( data->bitmap_names[state], name );
+	}
+	else
+	{
+	   roadmap_log( ROADMAP_ERROR, "Failed setting bitmap name %s. Cannot set bitmap names larger than %d. ",
+								   name, SSD_BUTTON_BMP_NAME_MAXLEN );
+	}
+}
+
+
+static void release( SsdWidget widget )
+{
+	if ( widget->data )
+	{
+		free( widget->data );
+		widget->data = NULL;
+	}
+}
 
 static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 
@@ -95,9 +126,16 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    {
    	  if ( data->bitmap_images[state] != NULL )
      		image = data->bitmap_images[state];
-      else
+   	  else
+   		    image = roadmap_res_get ( RES_BITMAP, RES_SKIN, data->bitmap_names[state] );
+
+      if ( !image )
     	    image = data->bitmap_images[0];
-      if (!image)
+
+      if ( !image )
+    	    image = roadmap_res_get ( RES_BITMAP, RES_SKIN, data->bitmap_names[0] );
+
+      if (!image )
       {
          widget->size.height = widget->size.width = 0;
          return;
@@ -122,6 +160,9 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 	   case BUTTON_STATE_NORMAL:
 			roadmap_canvas_draw_image (image, &point, 0, IMAGE_NORMAL);
 			break;
+      case BUTTON_STATE_DISABLED:
+         roadmap_canvas_draw_image (image, &point, 0, IMAGE_NORMAL);
+         break;
 	   case BUTTON_STATE_SELECTED:
 			if (image_state == state)
 			{
@@ -157,6 +198,9 @@ static int ssd_button_short_click (SsdWidget widget,
    struct ssd_button_data *data = (struct ssd_button_data *) widget->data;
 
    static RoadMapSoundList list;
+
+   if (data->state == BUTTON_STATE_DISABLED)
+      return 1;
 
    widget->force_click = FALSE;
 
@@ -223,7 +267,7 @@ static int ssd_button_long_click (SsdWidget widget,
 
 static int set_value (SsdWidget widget, const char *value) {
    struct ssd_button_data *data = (struct ssd_button_data *) widget->data;
-   RoadMapImage bmp;
+   RoadMapImage bmp = NULL;
 	int max_width = 0;
 	int max_height = 0;
 	int is_different = 0;
@@ -242,15 +286,19 @@ static int set_value (SsdWidget widget, const char *value) {
 
 	for (i=0; i<MAX_STATES; i++)
 	{
-      if (!data->bitmap_images[i]) continue;
+      if (data->bitmap_images[i])
+    	  bmp = data->bitmap_images[i];
+      if ( !bmp )
+    	  bmp = roadmap_res_get ( RES_BITMAP, RES_SKIN, data->bitmap_names[i] );
 
-      bmp = data->bitmap_images[i];
       if (!bmp) continue;
 
-      if (!max_width || !max_height) {
+      if ( !max_width || !max_height )
+      {
          max_width  = roadmap_canvas_image_width(bmp);
          max_height = roadmap_canvas_image_height(bmp);
-      } else {
+      }
+      else {
          int val = roadmap_canvas_image_width(bmp);
          if (max_width != val) {
             is_different = 1;
@@ -273,7 +321,11 @@ static int set_value (SsdWidget widget, const char *value) {
 
 static BOOL ssd_button_on_key_pressed (SsdWidget button, const char* utf8char, uint32_t flags)
 {
-   if( KEY_IS_ENTER)
+   struct ssd_button_data *data = (struct ssd_button_data *) button->data;
+   if (data->state == BUTTON_STATE_DISABLED)
+      return FALSE;
+
+   if( KEY_IS_ENTER )
    {
       button->callback(button, SSD_BUTTON_SHORT_CLICK);
 
@@ -294,24 +346,27 @@ SsdWidget ssd_button_new (const char *name, const char *value,
 //   RoadMapImage image;
    struct ssd_button_data *data =
       (struct ssd_button_data *)calloc (1, sizeof(*data));
-   
+
 
    w = ssd_widget_new (name, ssd_button_on_key_pressed, flags);
 
    w->_typeid = "Button";
 
    w->draw  = draw;
+   w->release = release;
    w->flags = flags;
+   w->data = data;
 
    data->state  = BUTTON_STATE_NORMAL;
    // TODO :: Load the bitmaps here
    for (i=0; i<num_bitmaps; i++)
    {
-	   data->bitmap_names[i] = bitmap_names[i];
-	   data->bitmap_images[i] = roadmap_res_get ( RES_BITMAP, RES_SKIN, bitmap_names[i] );
+	   set_bitmap_name( data, i, bitmap_names[i] );
+
+	   data->bitmap_images[i] = NULL;
    }
 
-   w->data = data;
+
    w->callback = callback;
 
    set_value (w, value);
@@ -334,12 +389,13 @@ int ssd_button_change_icon( SsdWidget widget, const char **bitmap_names, int num
 
     assert( num_bitmaps <= MAX_STATES);
 
-	for ( i=0; i<num_bitmaps; i++ )
+    for ( i=0; i<num_bitmaps; i++ )
 	{
-		   bitmap_images[i] = roadmap_res_get ( RES_BITMAP, RES_SKIN, bitmap_names[i] );
+		   bitmap_images[i] = NULL;
 	}
 
 	res = ssd_button_change_images( widget, bitmap_images, bitmap_names, num_bitmaps );
+
 	return res;
 }
 
@@ -351,16 +407,21 @@ int ssd_button_change_images( SsdWidget widget, RoadMapImage* bitmap_images,
 	struct ssd_button_data *data = (struct ssd_button_data *) widget->data;
 	for (i=0; i<num_bitmaps; i++)
 	{
-		data->bitmap_names[i] = bitmap_names[i];
+		set_bitmap_name( data, i, bitmap_names[i] );
 		data->bitmap_images[i] = bitmap_images[i];
 	}
 
 	bmp = data->bitmap_images[0];
-    if (!bmp)
+    if ( !bmp )
+    {
+    	bmp = roadmap_res_get ( RES_BITMAP, RES_SKIN, bitmap_names[0] );
+    }
+
+    if ( !bmp )
     {
       widget->size.height = widget->size.width = 0;
       return -1;
-   }
+    }
 
     widget->size.height = roadmap_canvas_image_height( bmp );
     widget->size.width  = roadmap_canvas_image_width( bmp );
@@ -387,9 +448,9 @@ const char *ssd_button_get_name(SsdWidget widget){
 SsdWidget ssd_button_label (const char *name, const char *label,
                             int flags, SsdCallback callback) {
 
-   const char *button_icon[]   = {"button_up", "button_down"};
+   const char *button_icon[]   = {"button_up", "button_down", "button_disabled"};
    SsdWidget text;
-   SsdWidget button = ssd_button_new (name, "", button_icon, 2,
+   SsdWidget button = ssd_button_new (name, "", button_icon, 3,
                                       flags, callback);
 
    text = ssd_text_new ("label", label, 14, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
@@ -412,4 +473,35 @@ SsdWidget ssd_button_label_custom (const char *name, const char *label,
    ssd_widget_add (button,text);
 
    return button;
+}
+
+void ssd_button_disable(SsdWidget widget){
+   struct ssd_button_data *data ;
+   SsdWidget text;
+
+   if (!widget)
+      return;
+   data = (struct ssd_button_data *) widget->data;
+   if (data)
+      data->state = BUTTON_STATE_DISABLED;
+
+   text = ssd_widget_get(widget, "label");
+   if (text)
+      ssd_widget_set_color(text, "#c0c0c0", "#c0c0c0");
+}
+
+void ssd_button_enable(SsdWidget widget){
+   struct ssd_button_data *data ;
+   SsdWidget text;
+
+   if (!widget)
+      return;
+   data = (struct ssd_button_data *) widget->data;
+   if (data)
+      data->state = BUTTON_STATE_NORMAL;
+   text = ssd_widget_get(widget, "label");
+   if (text)
+      ssd_widget_set_color(text, "#ffffff", "#ffffff");
+
+
 }

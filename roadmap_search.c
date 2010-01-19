@@ -716,21 +716,23 @@ static void show_empty_list_message(const char * title){
    SsdWidget group;
    SsdWidget text;
    SsdWidget space;
-   dialog = ssd_dialog_new (title,title, NULL,
-                             SSD_CONTAINER_TITLE);
-   group = ssd_container_new ("empty_title_group", NULL,
-            SSD_MAX_SIZE, SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER);
+   if ( !ssd_dialog_exists( title ) )
+   {
+	   dialog = ssd_dialog_new (title,title, NULL,
+								 SSD_CONTAINER_TITLE);
+	   group = ssd_container_new ("empty_title_group", NULL,
+				SSD_MAX_SIZE, SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER);
 
-   space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10, SSD_WIDGET_SPACE|SSD_END_ROW);
-   ssd_widget_set_color (space, NULL,NULL);
-   ssd_widget_add (group, space);
+	   space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10, SSD_WIDGET_SPACE|SSD_END_ROW);
+	   ssd_widget_set_color (space, NULL,NULL);
+	   ssd_widget_add (group, space);
 
-   text = ssd_text_new ("empty list text", roadmap_lang_get("There are no saved addresses"), 18,SSD_ALIGN_CENTER);
-   ssd_widget_add (group, text);
+	   text = ssd_text_new ("empty list text", roadmap_lang_get("There are no saved addresses"), 18,SSD_ALIGN_CENTER);
+	   ssd_widget_add (group, text);
 
-   ssd_widget_add( dialog, group);
+	   ssd_widget_add( dialog, group);
+   }
    ssd_dialog_activate (title, NULL);
-
 }
 
 void roadmap_search_history (char category, const char *title) {
@@ -985,7 +987,7 @@ void roadmap_search_menu(void){
       return;
    }
 
-   if ( s_search_menu == NULL )
+   if ( !ssd_dialog_exists( SEARCH_MENU_DLG_NAME ) )
    {
 	   s_search_menu = ssd_menu_new( SEARCH_MENU_DLG_NAME, create_quick_search_menu(), NULL, grid_menu_labels, RoadMapStartActions, SSD_CONTAINER_TITLE );
    }
@@ -1033,7 +1035,7 @@ void search_menu_set_local_search_attrs()
 	}
 
 #ifdef TOUCH_SCREEN
-	if ( s_search_menu )
+	if ( ssd_dialog_exists( SEARCH_MENU_DLG_NAME ) && s_search_menu )
 	{
 		const char* icon_name = local_search_get_icon_name();
 		const char* provider_label = local_search_get_provider_label();

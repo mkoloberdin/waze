@@ -60,7 +60,7 @@ static void periodic_callack (void) {
       roadmap_message_unset('!');
       LastActivityTime = 0;
       roadmap_main_remove_periodic(periodic_callack);
-      roadmap_screen_mark_redraw();
+      //roadmap_screen_mark_redraw();
    }
 }
 
@@ -72,7 +72,7 @@ static BOOL show_net_mon(){
 static void update_activity (void) {
    if (!LastActivityTime) roadmap_main_set_periodic (1000, periodic_callack);
    LastActivityTime = time(NULL);   
-   roadmap_screen_mark_redraw ();
+   //roadmap_screen_mark_redraw ();
 }
 
 
@@ -85,7 +85,7 @@ void roadmap_net_mon_start (void) {
    CurrentState = NET_MON_START;
    if(show_net_mon())
    		roadmap_message_set('!', roadmap_lang_get("Accessing network..."));
-   roadmap_screen_mark_redraw ();
+   //roadmap_screen_mark_redraw ();
    update_activity();
 }
 
@@ -95,7 +95,7 @@ void roadmap_net_mon_start (void) {
 void roadmap_net_mon_destroy (void) {
    assert (CurrentState != NET_MON_DISABLED);
    CurrentState = NET_MON_DISABLED;
-   roadmap_screen_mark_redraw ();
+   //roadmap_screen_mark_redraw ();
 }
 
 

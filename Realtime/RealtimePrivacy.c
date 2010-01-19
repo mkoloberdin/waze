@@ -60,15 +60,6 @@ static SsdWidget CheckboxReporting[NUM_CHECKBOXES_REPORTING];
 static ERTVisabilityGroup gState = VisGrp_Anonymous;
 static ERTVisabilityReport gReportState = VisRep_Anonymous;
 
-#ifdef TOUCH_SCREEN
-   #ifdef __SYMBIAN32__
-      #define CONTAINER_SIZE 60
-   #else
-      #define CONTAINER_SIZE 40
-   #endif
-#else
-#define CONTAINER_SIZE 24
-#endif
 extern RoadMapConfigDescriptor RT_CFG_PRM_VISGRP_Var;
 extern RoadMapConfigDescriptor RT_CFG_PRM_VISREP_Var;
 
@@ -222,11 +213,20 @@ static void create_dialog (void) {
    char *icon[2];
    int i = 0;
    BOOL checked = FALSE;
+   int container_height = 24;
 #ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
 #else
    int tab_flag = SSD_WS_TABSTOP;
 #endif   
+   
+#ifdef TOUCH_SCREEN
+   if (roadmap_screen_is_hd_screen())
+      container_height = 60;
+   else
+      container_height = 40;
+#endif
+
    
    SsdWidget dialog = ssd_dialog_new (PRIVACY_DIALOG, roadmap_lang_get (
             PRIVACY_TITLE), on_close_dialog, SSD_CONTAINER_TITLE);
@@ -272,7 +272,7 @@ static void create_dialog (void) {
    // * Nickname
    //////////////////////////////////////////////////
    box = ssd_container_new ("Nickname group", NULL, SSD_MIN_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
    
    if (gState == VisGrp_NickName)
       checked = TRUE;
@@ -304,7 +304,7 @@ static void create_dialog (void) {
    // * Anonymous
    //////////////////////////////////////////////////
    box = ssd_container_new ("Anonymous group", NULL, SSD_MIN_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
    
    if (gState == VisGrp_Anonymous)
       checked = TRUE;
@@ -337,7 +337,7 @@ static void create_dialog (void) {
    //////////////////////////////////////////////////
 
    box = ssd_container_new ("Invisible Group", NULL, SSD_MAX_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
    if (gState == VisGrp_Invisible)
       checked = TRUE;
    else
@@ -373,7 +373,7 @@ static void create_dialog (void) {
                      | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
    
    box = ssd_container_new ("Reporting Heading group", NULL, SSD_MIN_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_add (box, ssd_text_new ("reporting_heading_label",
             roadmap_lang_get ("When reporting"), 14, SSD_TEXT_LABEL
                      | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW));
@@ -387,7 +387,7 @@ static void create_dialog (void) {
    // * Report Nickname
    //////////////////////////////////////////////////
    box = ssd_container_new ("Report Nickname Group", NULL, SSD_MIN_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
    if (gReportState == VisRep_NickName)
       checked = TRUE;
    else
@@ -415,7 +415,7 @@ static void create_dialog (void) {
    // * Report Anonymous
    //////////////////////////////////////////////////
    box = ssd_container_new ("Report Anonymous Group", NULL, SSD_MAX_SIZE,
-            CONTAINER_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+                  container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
    if (gReportState == VisRep_Anonymous)
       checked = TRUE;
    else

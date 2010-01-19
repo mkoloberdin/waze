@@ -28,6 +28,7 @@
 	#define SSD_GEN_LIST_ENTRY_HEIGHT 40
 #endif
 
+#define SSD_GEN_LIST_DLG_NAME		"generic_list"
 
 typedef int(*PFN_ON_ITEM_SELECTED)(SsdWidget widget, const char* selection,const void *value, void* context);
 

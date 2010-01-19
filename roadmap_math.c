@@ -1453,6 +1453,16 @@ void roadmap_math_screen_edges (RoadMapArea *area) {
 }
 
 
+int  roadmap_math_area_contains(RoadMapArea *a, RoadMapArea *b) {
+   if (b->west < a->west) return 0;
+   if (b->east > a->east) return 0;
+   if (b->south < a->south) return 0;
+   if (b->north > a->north) return 0;
+
+   return 1;
+}
+
+
 int  roadmap_math_street_address (const char *image, int length) {
 
    int i;

@@ -352,7 +352,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    }
 
    roadmap_keyboard_set_typing_lock_enable(  ( kb_dlg_flags & SSD_KB_DLG_TYPING_LOCK_ENABLE ) != 0 );
-   if( !s_dialog)
+   if( !ssd_dialog_exists( s_dialog_name ) )
    {
 	  // int edit_box_top_offset = ssd_keyboard_edit_box_top_offset();
       s_dialog = ssd_dialog_new( s_dialog_name,

@@ -97,7 +97,7 @@ void roadmap_login_on_signup_skip( void );
 
 const char *roadmap_login_dlg_get_username();
 const char *roadmap_login_dlg_get_password();
-
+const char *roadmap_login_dlg_get_allowPing();
 #ifdef __cplusplus
 }
 #endif

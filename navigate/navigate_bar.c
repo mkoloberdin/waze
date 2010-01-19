@@ -110,7 +110,7 @@ static NavigateBarPanel NavigateBarDefaultPanels[] = {
    {"nav_panel_wide_640", 640,64, {15, 18}, {66, 60}, {0, 95, 123, 170}, {58, 105}, {24, 118}, 106,-1, 95, 410, {560, 8, 640, 70}, {567, 23}, {572, 57}, {544, 90, 640, 150}, {595, 100}, {550, 100}, {525, 118 , 640, 150}, {535,126}, _nav_panel_disp_mode_landscape },
 
    {"nav_panel_480", 480, 64, {5, 28}, {57, 70}, {0, 100, 123, 170}, {58, 110}, {24, 123}, 88, 110, 135, 340, {400, 1, 485, 65}, {405, 22}, {415, 63}, {255, 130, 365, 180}, {315, 136}, {275, 136}, {135, 130, 247, 180}, {137, 136}, _nav_panel_disp_mode_portrait },
-   
+
 #ifdef _WIN32
    {"nav_panel_wide", 400,50, {5, 8}, {41, 30}, {0, 50, 87, 110}, {38, 60}, {14, 73}, 66,-1, 95, 302, {350, 8, 400, 44}, {347, 13}, {352, 37}, {480, 57, 480, 78}, {445, 63}, {415, 63}, {480, 78 , 480, 90}, {480,78}, _nav_panel_disp_mode_landscape },
 
@@ -128,7 +128,7 @@ static NavigateBarPanel NavigateBarDefaultPanels[] = {
 
 
 #endif
-   
+
 
 #endif
 };
@@ -158,7 +158,7 @@ const char NAVIGATE_DIR_IMG[][40] = {
 
 static RoadMapImage NavigateBarImage;
 static RoadMapImage NavigateBarBG;
-RoadMapImage NavigateDirections[LAST_DIRECTION];
+// RoadMapImage NavigateDirections[LAST_DIRECTION];
 static int NavigateBarInitialized = 0;
 static RoadMapGuiPoint NavigateBarLocation;
 static RoadMapGuiPoint NavigateBarLocOffsets = { 0, 0 };
@@ -282,13 +282,19 @@ void navigate_bar_resize(void){
       return;
    }
 
+   if ( NavigateBarBG )	// Free the previous image
+	   roadmap_canvas_free_image( NavigateBarBG );
+
    NavigateBarBG =
       (RoadMapImage) roadmap_res_get
          (RES_BITMAP, RES_SKIN|RES_NOCACHE, NavigatePanel->image_file);
 
+   if ( NavigateBarImage )	// Free the previous image
+	   roadmap_canvas_free_image( NavigateBarImage );
+
    NavigateBarImage =
       (RoadMapImage) roadmap_res_get
-         (RES_BITMAP, RES_SKIN, NavigatePanel->image_file);
+         (RES_BITMAP, RES_SKIN|RES_NOCACHE, NavigatePanel->image_file);
 
    if (!NavigateBarBG || !NavigateBarImage) return;
 
@@ -385,26 +391,23 @@ void navigate_bar_initialize (void) {
       return;
    }
 
+   if ( NavigateBarBG )	// Free the previous image
+	   roadmap_canvas_free_image( NavigateBarBG );
+
    NavigateBarBG =
       (RoadMapImage) roadmap_res_get
          (RES_BITMAP, RES_SKIN|RES_NOCACHE, NavigatePanel->image_file);
 
+   if ( NavigateBarImage )	// Free the previous image
+	   roadmap_canvas_free_image( NavigateBarImage );
+
    NavigateBarImage =
       (RoadMapImage) roadmap_res_get
-         (RES_BITMAP, RES_SKIN, NavigatePanel->image_file);
+         (RES_BITMAP, RES_SKIN|RES_NOCACHE, NavigatePanel->image_file);
 
    if (!NavigateBarBG || !NavigateBarImage) goto error;
 
    roadmap_canvas_image_set_mutable (NavigateBarImage);
-
-   for (i=0; i<LAST_DIRECTION; i++) {
-      NavigateDirections[i] =
-         (RoadMapImage) roadmap_res_get
-               (RES_BITMAP, RES_SKIN, NAVIGATE_DIR_IMG[i]);
-
-      if (!NavigateDirections[i]) goto error;
-   }
-
 
    NavigateBarLocation.x = 0;
    NavigateBarLocation.y = height - roadmap_canvas_image_height(NavigateBarBG) - roadmap_bar_bottom_height();
@@ -426,14 +429,18 @@ void navigate_bar_set_instruction (enum NavigateInstr instr) {
 
    RoadMapGuiPoint pos0 = {0,0};
    RoadMapGuiPoint pos = NavigatePanel->instruction_pos;
+   RoadMapImage direction_image;
    if (NavigateBarInitialized != 1) return;
 
    roadmap_canvas_copy_image (NavigateBarImage, &pos0, NULL, NavigateBarBG,
                               CANVAS_COPY_NORMAL);
 
-   roadmap_canvas_copy_image (NavigateBarImage, &pos, NULL,
-                              NavigateDirections[(int)instr],
-                              CANVAS_COPY_BLEND);
+   direction_image =(RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, NAVIGATE_DIR_IMG[(int) instr] );
+
+   if ( direction_image )
+   {
+	   roadmap_canvas_copy_image( NavigateBarImage, &pos, NULL, direction_image, CANVAS_COPY_BLEND );
+   }
 
    NavigateBarCurrentInstr = instr;
 

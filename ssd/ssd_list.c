@@ -76,6 +76,16 @@ typedef struct tag_ssd_list_data
 }  ssd_list_data, *ssd_list_data_ptr;
 
 
+static void release( SsdWidget widget )
+{
+	if ( widget && widget->data )
+	{
+		ssd_list_data_ptr data = widget->data;
+		free( data->rows );
+		free( data );
+		widget->data = NULL;
+	}
+}
 
 static roadmap_input_type get_input_type( SsdWidget this)
 {
@@ -272,13 +282,16 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
            if (icon_w != NULL){
                 ssd_widget_add (icon_container,  icon_w);
                 if (next_icon_container){
-                	SsdWidget button_next;
-                	const char *next_button_icon[4] = {"list_left", "list_left_s", "list_right", "list_right_s"};
-                	if (ssd_widget_rtl(NULL))
-	                	button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER, next_button_callback);
-	                else
-	                	button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[2], 2, SSD_ALIGN_VCENTER, next_button_callback);
-         			ssd_widget_add (next_icon_container,  button_next);
+                	SsdWidget button_next = ssd_widget_get( next_icon_container, "next_icon" );
+                	if ( button_next == NULL )
+                	{
+						const char *next_button_icon[4] = {"list_left", "list_left_s", "list_right", "list_right_s"};
+						if (ssd_widget_rtl(NULL))
+							button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER, next_button_callback);
+						else
+							button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[2], 2, SSD_ALIGN_VCENTER, next_button_callback);
+						ssd_widget_add (next_icon_container,  button_next);
+                	}
          			if (!list->add_next_button)
          				ssd_widget_hide(button_next);
                 }
@@ -604,7 +617,7 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
    int i;
    int next_container_width = 45;
    int icon_container_width = 70;
-   
+
    if ( roadmap_screen_is_hd_screen() )
    {
       next_container_width = 60;
@@ -814,7 +827,7 @@ SsdWidget ssd_list_new( const char*             name,
 
    SsdWidget list;
    ssd_list_data_ptr data =
-      (ssd_list_data_ptr)calloc (1, sizeof(*data));
+      (ssd_list_data_ptr) calloc (1, sizeof(*data));
 
    SsdWidget list_container = ssd_container_new (name, NULL, width, SSD_MIN_SIZE, flags);
    ssd_widget_set_color(list_container, "#ffffff", "#ffffff");
@@ -833,6 +846,7 @@ SsdWidget ssd_list_new( const char*             name,
    ssd_widget_add (list_container, list);
 
    list_container->get_data = get_data;
+   list_container->release = release;
 
    return list_container;
 }

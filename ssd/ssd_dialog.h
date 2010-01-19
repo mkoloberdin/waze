@@ -54,6 +54,8 @@ typedef enum tagEDialogExitCode {
 
 }  EDialogExitCode;
 
+typedef void(*PFN_ON_DIALOG_FREE)       ( void* context );
+
 typedef void(*PFN_ON_DIALOG_CLOSED)       (int exit_code, void* context);
 typedef void(*PFN_ON_INPUT_DIALOG_CLOSED) (int exit_code, const char* input,
                                            void* context);
@@ -90,6 +92,7 @@ void        ssd_dialog_set_callback (PFN_ON_DIALOG_CLOSED on_dialog_closed);
 void        ssd_dialog_resort_tab_order (void);
 BOOL        ssd_dialog_is_currently_active (void);
 BOOL        ssd_dialog_is_currently_vertical(void);
+BOOL 		ssd_dialog_exists( const char* dlg_name );
 char* 	    ssd_dialog_currently_active_name(void);
 void        ssd_dialog_invalidate_tab_order ();
 void        ssd_dialog_move_focus( int direction);
@@ -115,6 +118,8 @@ void ssd_dialog_set_ntv_keyboard_action( const char* name, SsdDialogNtvKbAction 
 void ssd_dialog_set_ntv_keyboard_params( const char* name, const RMNativeKBParams* params );
 void ssd_dialog_add_vspace( SsdWidget widget, int hspace, int add_flags );
 void ssd_dialog_add_hspace( SsdWidget widget, int hspace, int add_flags );
+
+void ssd_dialog_free( const char* dlg_name, BOOL force );
 
 #endif // __SSD_DIALOG_H_
 

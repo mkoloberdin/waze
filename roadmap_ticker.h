@@ -51,6 +51,6 @@ typedef enum
 	bonus_points
 } lastPointsUpdateEvent;
 void roadmap_ticker_set_last_event(int event); // set the last event the updated the points
-
-
+void roadmap_ticker_set_suppress_hide(BOOL myBool);
+void roadmap_ticker_supress_hide(void);
 #endif //INCLUDE__ROADMAP_TICKER__H

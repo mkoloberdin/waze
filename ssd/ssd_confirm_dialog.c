@@ -65,7 +65,7 @@ void ssd_confirm_dialog_update (void)
    confirm_dialog_context *data;
    SsdWidget buttonYes, buttonNo;
    char *dlg_name;
-   
+
    g_seconds--;
    if (g_seconds < 0){
       ssd_confirm_dialog_close();
@@ -77,13 +77,13 @@ void ssd_confirm_dialog_update (void)
       kill_messagebox_timer();
       return;
    }
-   
+
    data = (confirm_dialog_context *) ssd_dialog_context();
    if (!data){
       kill_messagebox_timer();
       return;
    }
-   
+
    if (data->default_yes){
       buttonYes = ssd_widget_get(s_gMsgBoxDlg, roadmap_lang_get ("Yes")); // change the buttons to custom text
       if (!g_seconds){
@@ -106,8 +106,8 @@ void ssd_confirm_dialog_update (void)
       }
       ssd_button_change_text(buttonNo, button_txt);
    }
-   
-   
+
+
    if (!roadmap_screen_refresh())
        roadmap_screen_redraw();
 }
@@ -124,7 +124,7 @@ void ssd_confirm_dialog_close (void)
       kill_messagebox_timer();
       return;
    }
-   
+
    dlg_name = ssd_dialog_currently_active_name();
    if (!dlg_name || strcmp(dlg_name, "confirm_dialog"))
    {
@@ -144,13 +144,13 @@ void ssd_confirm_dialog_close (void)
 
    kill_messagebox_timer ();
    ssd_dialog_hide ("confirm_dialog", dec_ok);
-   
+
    if (!roadmap_screen_refresh())
       roadmap_screen_redraw();
-   
+
    if (callback && data)
       (*callback)(exit_code, data->context);
-   
+
    if (data)
       free(data);
 }
@@ -171,10 +171,10 @@ static int yes_button_callback (SsdWidget widget, const char *new_value) {
    (*callback)(dec_yes, data->context);
 
    kill_messagebox_timer ();
-   
+
    if (data)
       free(data);
-   
+
 	return 0;
 }
 
@@ -195,10 +195,10 @@ static int no_button_callback (SsdWidget widget, const char *new_value) {
     (*callback)(dec_no, data->context);
 
     kill_messagebox_timer();
-    
+
     if (data)
        free(data);
-    
+
     return 0;
 }
 
@@ -239,8 +239,9 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 #endif
 
    dialog = ssd_dialog_new ("confirm_dialog", "", NULL,
-         SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
+         SSD_PERSISTENT|SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
          SSD_ALIGN_CENTER|SSD_CONTAINER_TITLE|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK|SSD_POINTER_NONE|SSD_HEADER_BLACK);
+
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
    s_gMsgBoxDlg = dialog;
 
@@ -259,7 +260,7 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
    // Text box
    text =  ssd_text_new ("text", "", 16, SSD_END_ROW|SSD_WIDGET_SPACE);
    ssd_text_set_color(text,"#ffffff");
-   
+
    ssd_widget_add (text_con,text);
 
   ssd_widget_add(dialog, text_con);
@@ -303,7 +304,7 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
 
   strncpy(data->TxtYes, textYes, 100);
   strncpy(data->TxtNo, textNo, 100);
-  
+
   if (!dialog) {
       create_confirm_dialog (default_yes,textYes,textNo);
       dialog = ssd_dialog_activate ("confirm_dialog", NULL);
@@ -322,7 +323,7 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
    ssd_dialog_refresh_current_softkeys();
 #endif
   }
-   
+
   data->callback = callback;
   data->context = context;
 
@@ -335,7 +336,7 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
 
 void ssd_confirm_dialog (const char *title, const char *text, BOOL default_yes, ConfirmDialogCallback callback, void *context) {
    g_seconds = -1;
-	ssd_confirm_dialog_custom(title, text, default_yes, callback, context, roadmap_lang_get("Yes"),roadmap_lang_get("No")); 
+	ssd_confirm_dialog_custom(title, text, default_yes, callback, context, roadmap_lang_get("Yes"),roadmap_lang_get("No"));
 
 }
 
@@ -360,7 +361,7 @@ void ssd_confirm_dialog_timeout (const char *title, const char *text, BOOL defau
    else{
       MessageBoxCallback = ssd_confirm_dialog_update;
    }
-   ssd_confirm_dialog_custom(title, text, default_yes, callback, context, roadmap_lang_get("Yes"),roadmap_lang_get("No")); 
+   ssd_confirm_dialog_custom(title, text, default_yes, callback, context, roadmap_lang_get("Yes"),roadmap_lang_get("No"));
    roadmap_main_set_periodic (1000, ssd_confirm_dialog_update );
 }
 

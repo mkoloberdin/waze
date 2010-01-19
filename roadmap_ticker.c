@@ -57,7 +57,7 @@
 #include "roadmap_display.h"
 #include "roadmap_device_events.h"
 
-static RoadMapImage gMiddleImage, gImageDivider;
+static RoadMapSize gMiddleImageSize = {-1, -1};
 static RoadMapPen RoadMapTickerPen;
 static BOOL gTickerOn = FALSE;
 static BOOL gTickerHide = FALSE;
@@ -93,6 +93,7 @@ void roadmap_ticker_display() {
    int text_width, ascent, descent;
    RoadMapGuiPoint position;
    RoadMapGuiPoint text_position;
+   RoadMapImage image;
    int start,end, start_x;
 	int iMyTotalPoints;
 	int iMyRanking;
@@ -151,13 +152,16 @@ void roadmap_ticker_display() {
    start = 1;
    start_x = 1;
 
-   while (start < end){
-		position.x = start;
-		position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset();
-		roadmap_canvas_draw_image (gMiddleImage, &position, 0, IMAGE_NORMAL);
-		start += roadmap_canvas_image_width(gMiddleImage);
-    }
-
+   image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_MIDDLE_IMAGE);
+   if ( image )
+   {
+	   while (start < end){
+			position.x = start;
+			position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset();
+			roadmap_canvas_draw_image ( image, &position, 0, IMAGE_NORMAL);
+			start += roadmap_canvas_image_width( image );
+		}
+   }
 	position.x = 0;
 
 	if (ssd_widget_rtl(NULL)){
@@ -206,13 +210,18 @@ void roadmap_ticker_display() {
 	                                   14,point_text);
 
 
-	position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_DIVIDER_OFFSET;
-   position.x = width /3 +4 + 30;
-   roadmap_canvas_draw_image (gImageDivider, &position, 0, IMAGE_NORMAL);
+	image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_DIVIDER);
 
-	position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_DIVIDER_OFFSET;
-   position.x = 2*width/3+4 +15;
-   roadmap_canvas_draw_image (gImageDivider, &position, 0, IMAGE_NORMAL);
+	if ( image )
+	{
+	   position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_DIVIDER_OFFSET;
+	   position.x = width /3 +4 + 30;
+	   roadmap_canvas_draw_image ( image, &position, 0, IMAGE_NORMAL);
+
+		position.y = roadmap_bar_top_height() + TICKER_TOP_BAR_DIVIDER_OFFSET;
+	    position.x = 2*width/3+4 +15;
+	    roadmap_canvas_draw_image ( image, &position, 0, IMAGE_NORMAL);
+	}
 
 	text_position.x =  (width/3) + (width/3)/4 + 30;
 	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 + TICKER_TOP_BAR_TEXT_OFFSET;
@@ -271,11 +280,11 @@ void roadmap_ticker_display() {
    }
 }
 
-static void supress_hide(void){
+void roadmap_ticker_supress_hide(void){
    gTickerSupressHide = FALSE;
    if(!roadmap_screen_refresh())
       roadmap_screen_redraw();
-   roadmap_main_remove_periodic (supress_hide);
+   roadmap_main_remove_periodic (roadmap_ticker_supress_hide);
 }
 
 static int roadmap_ticker_short_click(RoadMapGuiPoint *point) {
@@ -326,7 +335,7 @@ static int roadmap_ticker_key_pressed (RoadMapGuiPoint *point) {
 ////////////////////////////////////////////////////////////////////////////////
 void roadmap_ticker_initialize(void){
 	gInitialized = FALSE;
-
+	RoadMapImage image;
 	if ( roadmap_screen_is_hd_screen() )
 	{
 		gTickerTopBarOffset = -5;
@@ -334,19 +343,18 @@ void roadmap_ticker_initialize(void){
 
 	roadmap_config_declare_enumeration ("user", &ShowTickerCfg, NULL, "yes", "no", NULL);
 
-   gMiddleImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_MIDDLE_IMAGE);
-   if (gMiddleImage == NULL){
+   image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_MIDDLE_IMAGE);
+   if ( image == NULL){
 		roadmap_log (ROADMAP_ERROR, "roadmap_ticker - cannot load %s image ", TICKER_MIDDLE_IMAGE);
 		return;
     }
 
-	gImageDivider =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, TICKER_DIVIDER);
-	if (gImageDivider == NULL){
-		roadmap_log (ROADMAP_ERROR, "roadmap_ticker - cannot load %s image ", TICKER_DIVIDER);
-	}
+   gMiddleImageSize.width = roadmap_canvas_image_width( image );
+   gMiddleImageSize.height = roadmap_canvas_image_height( image );
+
 
 	OpenIconRct.miny = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset();
-	OpenIconRct.maxy = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + roadmap_canvas_image_height(gMiddleImage);
+	OpenIconRct.maxy = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + gMiddleImageSize.height;
 
 	RoadMapTickerPen = roadmap_canvas_create_pen ("Ticker_pen");
    roadmap_canvas_set_foreground (TICKER_FOREGROUND);
@@ -360,10 +368,10 @@ void roadmap_ticker_initialize(void){
 
 ////////////////////////////////////////////////////////////////////////////////
 int roadmap_ticker_height(){
-    if (!gTickerOn)
+    if (!gTickerOn || ( gMiddleImageSize.height < 0 ) )
     	 return 0;
     else
-    	return roadmap_canvas_image_height(gMiddleImage) + roadmap_ticker_top_bar_offset();
+    	return gMiddleImageSize.height + roadmap_ticker_top_bar_offset();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -393,9 +401,9 @@ void roadmap_ticker_show(void){
    }
 
    if (gTickerSupressHide)
-      roadmap_main_remove_periodic (supress_hide);
+      roadmap_main_remove_periodic (roadmap_ticker_supress_hide);
 
-   roadmap_main_set_periodic (15000, supress_hide);
+   roadmap_main_set_periodic (15000, roadmap_ticker_supress_hide);
 
    gTickerSupressHide = TRUE;
    if (!roadmap_screen_refresh())
@@ -411,4 +419,8 @@ int roadmap_ticker_top_bar_offset(void)
 {
 	return gTickerTopBarOffset;
 
+}
+
+void roadmap_ticker_set_suppress_hide(BOOL myBool){
+	gTickerSupressHide = myBool;
 }

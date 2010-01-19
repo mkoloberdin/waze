@@ -330,6 +330,9 @@ static int button_callback (SsdWidget widget, const char *new_value) {
 
       return 1;
 
+   } else if (!strcmp(widget->name, "Close")) {
+      ssd_dialog_hide_current (dec_close);
+      return 1;
    } else if (!strcmp(widget->name, "left_button")) {
       title = roadmap_lang_get (UPDATE_LEFT);
       value = ssd_widget_get_value (widget->parent, UPDATE_LEFT);
@@ -468,6 +471,9 @@ static void create_ssd_dialog (void) {
       ssd_button_label ("OK", roadmap_lang_get ("Ok"),
                         SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_TABSTOP, button_callback));
 
+   ssd_widget_add (dialog,
+      ssd_button_label ("Close", roadmap_lang_get ("Close"),
+                        SSD_ALIGN_CENTER|SSD_WS_TABSTOP, button_callback));
 }
 #endif
 

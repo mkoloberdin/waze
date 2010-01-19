@@ -84,11 +84,15 @@ struct ssd_dialog_item {
    RMNativeKBParams		   ntv_kb_params;				// Native keyboard parameters per dialog
    SsdDialogNtvKbAction    ntv_kb_action;			// If the native keyboard has to be shown/hidden/no action
 													    // when the dialog become active
+
+   PFN_ON_DIALOG_FREE  on_dialog_free;				// Dallocator function for the dialog
+   void*			   free_contex;
 };
 
 static SsdDialog RoadMapDialogWindows = NULL;
 static SsdDialog RoadMapDialogCurrent = NULL;
 
+static void ssd_dialog_free_all( BOOL force );
 
 BOOL ssd_dialog_is_currently_active(void)
 { return (NULL != RoadMapDialogCurrent);}
@@ -174,8 +178,8 @@ static void ssd_dialog_handle_native_kb( SsdDialog dialog )
 }
 static int ssd_dialog_pressed (RoadMapGuiPoint *point) {
    SsdWidget container = RoadMapDialogCurrent->container;
-	
-           
+
+
    if (!ssd_widget_find_by_pos (container, point, TRUE )) {
       LastPointerPoint.x = -1;
       if ( strstr ( container->name, SSD_CMDLG_DIALOG_NAME)!=NULL )
@@ -242,8 +246,8 @@ static int ssd_dialog_short_click (RoadMapGuiPoint *point) {
 	   res = 1;
    }
 
-   
-   
+
+
    roadmap_screen_redraw ();
    return  res;
 }
@@ -304,7 +308,7 @@ void ssd_dialog_allign_focus(void){
             ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y-20);
             ssd_dialog_draw();
          }
-         
+
          while (RoadMapDialogCurrent->in_focus->position.y < min){
             ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y+20);
             ssd_dialog_draw();
@@ -317,7 +321,7 @@ void ssd_dialog_allign_focus(void){
          }
       }
    }
-   
+
 }
 
 
@@ -350,7 +354,7 @@ BOOL ssd_dialog_set_dialog_focus( SsdDialog dialog, SsdWidget new_focus)
          Note that 'ssd_dialog_draw' will call 'ssd_dialog_sort_tab_order()',
          thus no need to call it directly.                                          */
 
-      assert( 0 && "ssd_dialog_set_dialog_focus() - widget does not belong to this dialog");
+      // assert( 0 && "ssd_dialog_set_dialog_focus() - widget does not belong to this dialog");
       return FALSE;
    }
 
@@ -389,7 +393,7 @@ BOOL ssd_dialog_set_focus( SsdWidget new_focus)
 {
    if( !RoadMapDialogCurrent)
    {
-      assert( 0 && "ssd_dialog_set_focus() - Invalid state");
+//      assert( 0 && "ssd_dialog_set_focus() - Invalid state");
       return FALSE;
    }
 
@@ -427,6 +431,8 @@ SsdWidget ssd_dialog_new (const char *name, const char *title,
 
    dialog->name                  = strdup(name);
    dialog->on_dialog_closed      = on_dialog_closed;
+   dialog->on_dialog_free	 	 = NULL;
+   dialog->free_contex			 = NULL;
    dialog->in_focus              = NULL;
    dialog->tab_order_sorted      = FALSE;
    dialog->gui_tab_order_sorted  = FALSE;
@@ -739,7 +745,7 @@ static void draw_dialog (SsdDialog dialog) {
         }
 #else
         rect.miny = 1;
-#endif 
+#endif
         rect.maxy = rect.miny + size.height-1 ;
         title->draw(title, &rect, 0);
         rect.miny +=1;
@@ -1173,6 +1179,11 @@ void ssd_dialog_hide (const char *name, int exit_code) {
    roadmap_input_type_set_mode( inputtype_numeric );
     RoadMapScreenFrozen = 0;
 
+//    if ( !ssd_dialog_is_currently_active() )
+//    {
+//    	ssd_dialog_free_all( FALSE );
+//    }
+
    roadmap_start_screen_refresh (1);
 }
 
@@ -1203,12 +1214,22 @@ const void *ssd_dialog_get_data (const char *name) {
 
 int ssd_dialog_set_value (const char *name, const char *value) {
 
-   return ssd_widget_set_value (RoadMapDialogCurrent->container, name, value);
+	if ( RoadMapDialogCurrent )
+	{
+		return ssd_widget_set_value (RoadMapDialogCurrent->container, name, value);
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 
 int ssd_dialog_set_data  (const char *name, const void *value) {
-   return ssd_widget_set_data (RoadMapDialogCurrent->container, name, value);
+	if ( RoadMapDialogCurrent )
+		return ssd_widget_set_data (RoadMapDialogCurrent->container, name, value);
+	else
+		return 0;
 }
 
 void ssd_dialog_set_current_scroll_flag(BOOL scroll){
@@ -1384,4 +1405,136 @@ void ssd_dialog_add_vspace( SsdWidget widget, int vspace, int add_flags )
 			 SSD_END_ROW | SSD_WIDGET_SPACE | add_flags );
 	ssd_widget_set_color (space, NULL, NULL);
 	ssd_widget_add ( widget, space );
+}
+
+/***********************************************************
+ *  Name        : ssd_dialog_exists
+ *  Purpose     : Checks if this dialog is loaded into memory
+ *  Params      : [in]	dlg_name - the dialog identifier
+ *  			: [in]
+ *  			: [in]
+ *              :
+ *  Returns		:
+ *  Notes       :
+ */
+BOOL ssd_dialog_exists( const char* dlg_name )
+{
+	return ( ssd_dialog_get( dlg_name ) != NULL );
+}
+
+
+/***********************************************************
+ *  Name        : ssd_dialog_free_internal
+ *  Purpose     : Releases the dialog pointed by the first parameter
+ *  Params      : [in]	dialog - the dialog pointer
+ *  			: [in]  force - TRUE - free even if persistent, FALSE otherwise (default)
+ *  			: [in]  update_refs - TRUE - update references in the dialogs list, FALSE otherwise
+ *              :
+ *  Returns		:
+ *  Notes       :
+ */
+static void ssd_dialog_free_internal( SsdDialog dialog, BOOL force, BOOL update_refs )
+{
+	SsdWidget container = dialog->container;
+
+	if ( force || !( container->flags & SSD_PERSISTENT )  )
+	{
+		/*
+		 * Update the references
+		 */
+		if ( update_refs )
+		{
+			SsdDialog iterator = RoadMapDialogWindows;
+			if ( iterator == dialog )
+			{
+				RoadMapDialogWindows = iterator->next;
+			}
+			else
+			{
+				while ( iterator->next )
+				{
+					if ( iterator->next == dialog )
+					{
+						iterator->next = dialog->next;
+						break;
+					}
+					iterator = iterator->next;
+				}
+			}
+		}
+
+		/*
+		 * Free the dialog
+		 */
+		ssd_widget_free( dialog->container, force, FALSE );
+
+		if ( dialog->on_dialog_free )
+		{
+			dialog->on_dialog_free( dialog->free_contex );
+		}
+
+		free( dialog->name );
+		free( dialog );
+	}
+}
+
+/***********************************************************
+ *  Name        : ssd_dialog_free_all
+ *  Purpose     : Releases all the ssd dialogs
+ *  Params      : [in]	force - TRUE: free even if persistent, FALSE otherwise (default)
+ *  			: [in]
+ *  			: [in]
+ *              :
+ *  Returns		:
+ *  Notes       :
+ */
+static void ssd_dialog_free_all( BOOL force )
+{
+   SsdDialog next;
+   SsdDialog iterator = RoadMapDialogWindows;
+
+   while ( iterator != NULL )
+   {
+	   next = iterator->next;
+
+	   ssd_dialog_free_internal( iterator, force, TRUE );
+
+	   iterator = next;
+   }
+}
+
+/***********************************************************
+ *  Name        : ssd_dialog_set_free
+ *  Purpose     : Sets the release function and context for the dialog
+ *  Params      : [in]	dlg_name - the dialog identifier
+ *  			: [in]	free_fn - free function
+ *  			: [in]	context - free context data
+ *              :
+ *  Returns		:
+ *  Notes       :
+ */
+void ssd_dialog_set_free( const char* dlg_name, PFN_ON_DIALOG_FREE free_fn,  void* context )
+{
+	SsdDialog dialog = ssd_dialog_get( dlg_name );
+
+	dialog->on_dialog_free = free_fn;
+	dialog->free_contex = context;
+}
+
+/***********************************************************
+ *  Name        : ssd_dialog_free
+ *  Purpose     : Releases the dialog
+ *  Params      : [in]	dlg_name - the dialog identifier
+ *  			: [in]  force - TRUE: free even if persistent, FALSE otherwise (default)
+ *  			: [in]
+ *              :
+ *  Returns		:
+ *  Notes       :
+ */
+void ssd_dialog_free( const char* dlg_name, BOOL force )
+{
+
+	SsdDialog dialog = ssd_dialog_get( dlg_name );
+
+	ssd_dialog_free_internal( dialog, force, TRUE );
 }

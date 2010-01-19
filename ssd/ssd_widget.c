@@ -246,8 +246,8 @@ static int ssd_widget_draw_row (SsdWidget *w, int count,
    int bottom = 0;
    int i;
    int rtl = ssd_widget_rtl(w[0]->parent);
-   SsdWidget prev_widget;   
-   int orig_width = width;	
+   SsdWidget prev_widget;
+   int orig_width = width;
    int orig_x = x;
    if (y > roadmap_canvas_height()){
       return 0;
@@ -353,9 +353,9 @@ static int ssd_widget_draw_row (SsdWidget *w, int count,
 
       total_width += size.width;
    }
-   
+
    space = (width - total_width) / (count + 1);
-   	
+
    for (i=0; i<count; i++) {
       SsdSize size;
       ssd_widget_get_size (w[i], &size, NULL);
@@ -364,7 +364,7 @@ static int ssd_widget_draw_row (SsdWidget *w, int count,
    		total_width=0;
 	  	total_width += size.width;
 	  	cur_x = orig_x;
-	  	if (rtl) 
+	  	if (rtl)
 	  		cur_x +=orig_width;
 	  	space = (orig_width - total_width) / (count + 1);
       }
@@ -650,6 +650,7 @@ SsdWidget ssd_widget_new (const char *name,
    w->get_input_type = NULL;
    w->pointer_down   = NULL;
    w->pointer_up     = NULL;
+   w->release = NULL;
    w->tab_sequence   = tab_order_sequence++;
    w->force_click  = FALSE;
 
@@ -847,11 +848,15 @@ static void ssd_widget_sort_children (SsdWidget widget) {
    if (!widget) return;
 
    /* No support for first widget as ORDER_LAST */
-   assert (! (widget->flags & SSD_ORDER_LAST));
+   /* Comment by AGA. THere is no assignment for this flag
+    *  assert (! (widget->flags & SSD_ORDER_LAST));
+    */
 
    assert( widget != widget->next);
 
+   /* Comment by AGA. THere is no assignment for this flag
    while (widget) {
+
 
       if (widget->flags & SSD_ORDER_LAST) {
          SsdWidget tmp = widget->next;
@@ -862,10 +867,12 @@ static void ssd_widget_sort_children (SsdWidget widget) {
          widget = tmp;
 
       } else {
+
          prev = widget;
          widget = widget->next;
       }
    }
+   */
 
    if (bottom) prev->next = bottom;
 
@@ -1098,10 +1105,11 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
       *size = w->cached_size;
       return;
    }
-
+   /* Comment by AGA. THere is no assignment for this flag
    if (size->height == SSD_MAX_SIZE) {
-      /* Check if other siblings exists and should be placed below this one */
+      /* Check if other siblings exists and should be placed below this one *
       SsdWidget below_w = w->next;
+
 
       while (below_w) {
 
@@ -1113,7 +1121,9 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
          }
          below_w = below_w->next;
       }
+
    }
+   */
 
    if (w->flags & SSD_DIALOG_FLOAT) {
       if ((size->width == SSD_MAX_SIZE) && ((max->width >= roadmap_canvas_width()) || (max->width >= roadmap_canvas_height()))){
@@ -1477,3 +1487,96 @@ void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight )
 {
 	widget->focus_highlight = is_highlight;
 }
+
+/*******************************************************
+ * Deallocates the widget node only
+ */
+static void ssd_widget_free_node( SsdWidget widget )
+{
+	/*
+	 * Release the widget itself
+	 */
+   if ( widget->release )
+   {
+	   widget->release( widget );
+   }
+
+   free( (char*) widget->name );
+   free( widget );
+}
+
+
+/*****************************
+ * Deallocates the widget tree
+ * Frees brothers and children
+ *
+ */
+static void ssd_widget_free_all( SsdWidget widget )
+{
+	SsdWidget next, cursor = widget;
+
+	if ( widget == NULL || 	( widget->flags & SSD_PERSISTENT ) )/* if persistent - nothing to do */
+		return;
+
+   /* Pass through the brothers if necessary */
+   while ( cursor != NULL )
+   {
+	   next = cursor->next;
+
+	   if ( cursor->children )
+	   {
+		   ssd_widget_free_all( cursor->children );
+	   }
+
+	   /*
+	    * Release the widget itself
+	    */
+	   ssd_widget_free_node( cursor );
+
+	   cursor = next;
+   }
+}
+
+
+/*****************************
+ * Deallocates the widget recursively. Updates the parent references
+ */
+void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent )
+{
+
+	/* if persistent - nothing to do */
+	if ( !force && ( widget->flags & SSD_PERSISTENT ) )
+		return;
+
+	/* Update the references for the parent and brothers */
+	if ( update_parent && widget->parent )
+	{
+		SsdWidget parent = widget->parent;
+		SsdWidget next;
+		if ( parent->children == widget )
+		{
+			parent->children = widget->next;
+		}
+		else
+		{
+			for ( next = parent->children; next; next = next->next )
+			{
+				if ( next->next == widget )
+				{
+					next->next = widget->next;
+					break;
+				}
+			}
+		}
+	}
+	/* Update the references */
+	ssd_widget_free_all( widget->children );
+
+   /*
+	* Release the widget itself
+	*/
+   ssd_widget_free_node( widget );
+
+
+}
+

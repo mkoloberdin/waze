@@ -260,8 +260,9 @@ RMGUISRCS=roadmap_sprite.c \
 	  roadmap_geo_config.c \
           roadmap_alternative_routes.c \
 	  roadmap_res_download.c \
-	  roadmap_prompts.c
-
+	  roadmap_prompts.c \
+	  roadmap_splash.c
+	  
 ifneq ($(SSD),YES)
 	RMGUISRCS += roadmap_address.c
 else

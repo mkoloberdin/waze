@@ -98,7 +98,7 @@ struct RoadMapScreenObjDescriptor {
    char                *name; /* Unique name of the object. */
 
    char                *sprites[MAX_STATES]; /* Icons for each state. */
-   RoadMapImage         images[MAX_STATES]; /* Icons for each state. */
+   const char          *images[MAX_STATES]; /* Icons for each state. */
 
    int                  states_count;
 
@@ -194,22 +194,14 @@ static void roadmap_screen_obj_decode_icon
    }
 
    for (i = 1; i <= argc; ++i) {
-      RoadMapImage image = NULL;
       char arg[256];
 
       roadmap_screen_obj_decode_arg (arg, sizeof(arg), argv[i], argl[i]);
 
-      if (!object->images[object->states_count]) {
+      if (!object->images[object->states_count])
+      {
+    	  object->images[object->states_count] = roadmap_object_string( arg, argl[i] );;
 
-         image = roadmap_res_get (RES_BITMAP, RES_SKIN, arg);
-
-         if (image == NULL) {
-            roadmap_log (ROADMAP_ERROR,
-                  "screen object:'%s' can't load image:%s.",
-                  object->name,
-                  arg);
-         }
-         object->images[object->states_count] = image;
       } else {
          object->sprites[object->states_count] =
             roadmap_object_string (arg, argl[i]);
@@ -636,12 +628,24 @@ static int roadmap_screen_obj_pressed (RoadMapGuiPoint *point) {
       state = (*RoadMapScreenObjSelected->state_fn) ();
 
 
-   if (RoadMapScreenObjSelected->images[state]) {
+   if ( RoadMapScreenObjSelected->images[state] ) {
       RoadMapGuiPoint pos;
+      RoadMapImage image;
       roadmap_screen_obj_pos (RoadMapScreenObjSelected, &pos);
 
-      roadmap_canvas_draw_image (RoadMapScreenObjSelected->images[state], &pos,
-                           RoadMapScreenObjSelected->opacity, IMAGE_NORMAL);
+      image = roadmap_res_get( RES_BITMAP, RES_SKIN, RoadMapScreenObjSelected->images[state] );
+
+     if (image == NULL)
+     {
+        roadmap_log (ROADMAP_ERROR, "screen object:'%s' can't load image:%s.",
+        		RoadMapScreenObjSelected->name, RoadMapScreenObjSelected->images[state] );
+        return 1;
+     }
+     else
+     {
+    	 roadmap_canvas_draw_image ( image, &pos,
+                           RoadMapScreenObjSelected->opacity, IMAGE_NORMAL );
+     }
    }
 
    roadmap_canvas_refresh ();
@@ -899,9 +903,19 @@ void roadmap_screen_obj_draw (void) {
       roadmap_screen_obj_pos (cursor, &pos);
 
       if (cursor->images[state]) {
+    	  RoadMapImage image;
+          image = roadmap_res_get( RES_BITMAP, RES_SKIN, cursor->images[state] );
 
-         roadmap_canvas_draw_image (cursor->images[state], &pos,
-                                    cursor->opacity, image_mode);
+          if (image == NULL)
+          {
+             roadmap_log (ROADMAP_ERROR, "screen object:'%s' can't load image:%s.",
+            		cursor->name, cursor->images[state] );
+          }
+          else
+          {
+
+        	  roadmap_canvas_draw_image ( image, &pos, cursor->opacity, image_mode );
+          }
       }
 
       if (cursor->sprites[state]) {

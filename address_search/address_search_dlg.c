@@ -258,6 +258,12 @@ static void on_search(void)
       roadmap_geo_config_other(NULL);
       return;
    }
+   if ( !strcmp( "##@stg", ssd_text_get_text( edit ) ) )
+   {
+      roadmap_geo_config_stg(NULL);
+      return;
+   }
+   
    
     if ( !strcmp( "##@heb", ssd_text_get_text( edit ) ) )
    {

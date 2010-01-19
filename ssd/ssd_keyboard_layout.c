@@ -298,24 +298,24 @@ static void draw_button( button_info* button, int value_index)
 
       if( !image)
       {
-         char  image_name[112];
+		 char  image_name[112];
 
-         if( BUTTON_FLAG_SELECTED & button->flags)
-            sprintf( image_name, "%s_highlighted", button->values);
-         else
-            sprintf( image_name, "%s", button->values);
+		 if( BUTTON_FLAG_SELECTED & button->flags)
+			sprintf( image_name, "%s_highlighted", button->values);
+		 else
+			sprintf( image_name, "%s", button->values);
 
-         image = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_LOCK, image_name);
+		 image = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_NOCACHE, image_name);
 
-         assert( image);
+		 assert( image);
 
-         data->image_width = roadmap_canvas_image_width ( image);
-         data->image_height= roadmap_canvas_image_height( image);
+		 data->image_width = roadmap_canvas_image_width ( image);
+		 data->image_height= roadmap_canvas_image_height( image);
 
-         if( BUTTON_FLAG_SELECTED & button->flags)
-            data->image_highlighted = image;
-         else
-            data->image = image;
+		 if( BUTTON_FLAG_SELECTED & button->flags)
+			data->image_highlighted = image;
+		 else
+			data->image = image;
       }
 
       image_pos.x += ((width - data->image_width ) / 2);
@@ -544,21 +544,22 @@ static void calc_layout( buttons_layout_info* layout, RoadMapGuiRect *rect, BOOL
       assert( -1 != selected_image);
       if( NULL == bbdi->image)
       {
-         image_info* ii = key_images + selected_image;
+		  image_info* ii = key_images + selected_image;
 
-         assert( NULL == ii->image);
+		 /*
+		  * AGA TODO:: CHeck the no cachce
+		  */
+		 ii->image = roadmap_res_get(  RES_BITMAP,
+									   RES_SKIN|RES_NOCACHE,
+									   ii->name);
 
-         ii->image = roadmap_res_get(  RES_BITMAP,
-                                       RES_SKIN|RES_LOCK,
-                                       ii->name);
+		 if( NULL == ii->image)
+		 {
+			roadmap_log( ROADMAP_ERROR, "ssd_keyboard_layout_mgr::calc_layout() - Image bitmap file missing (%s)", ii->name);
+			assert(0);
+		 }
 
-         if( NULL == ii->image)
-         {
-            roadmap_log( ROADMAP_ERROR, "ssd_keyboard_layout_mgr::calc_layout() - Image bitmap file missing (%s)", ii->name);
-            assert(0);
-         }
-
-         bbdi->image = ii->image;
+		 bbdi->image = ii->image;
       }
 #ifndef PROFILING
       // LOG: If selected image does not fit very good:
@@ -618,7 +619,7 @@ static void draw( SsdWidget this, RoadMapGuiRect *rect, int flags)
 #ifdef PROFILING
       done_calc = TRUE;
 #endif   // PROFILING
-      calc_layout( layout, rect, (SSD_GET_SIZE & flags));
+      calc_layout( layout, rect, (SSD_GET_SIZE & flags) );
 
 #ifdef PROFILING
       dw1 = GetTickCount();

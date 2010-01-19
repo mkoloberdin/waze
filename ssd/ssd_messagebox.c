@@ -105,7 +105,7 @@ static void close_messagebox (void) {
       update_button();
       return;
    }
-   
+
    kill_messagebox_timer ();
 	ssd_dialog_hide ( DLG_MSG_BOX_NAME, dec_ok );
 	restore_messagebox_defaults();
@@ -122,11 +122,11 @@ static int button_callback ( SsdWidget widget, const char *new_value ) {
       roadmap_screen_redraw();
 	if ( MessageBoxClosedCallback )
 	{
-	   messagebox_closed temp = MessageBoxClosedCallback;  
+	   messagebox_closed temp = MessageBoxClosedCallback;
 	   MessageBoxClosedCallback = NULL;
 		temp( 0 );
 	}
-	
+
    return 0;
 }
 
@@ -136,7 +136,7 @@ static SsdWidget create_messagebox ( const char* mb_name )
    SsdWidget dialog, text;
    char button_txt[20];
    dialog = ssd_dialog_new ( mb_name, "", NULL,
-         SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|
+         SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|SSD_PERSISTENT|
          SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK|SSD_HEADER_BLACK);
 
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
@@ -155,7 +155,7 @@ static SsdWidget create_messagebox ( const char* mb_name )
       sprintf(button_txt, "%s (%d)", roadmap_lang_get ("Ok"), g_seconds);
    else
       sprintf(button_txt, "%s", roadmap_lang_get ("Ok"));
-   
+
    ssd_widget_add (dialog,
       ssd_button_label ("confirm", button_txt,
                         SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
@@ -173,13 +173,13 @@ static SsdWidget create_messagebox ( const char* mb_name )
 
 static void roadmap_messagebox_t (const char *title, const char *text)
 {
-   roadmap_messagebox_custom( title, text, DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT, "#ffffff", DLG_MSG_BOX_TEXT_FONT_SIZE_DFLT, "#ffffff" );
+   roadmap_messagebox_custom( title, text, DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT, "#f6a201", DLG_MSG_BOX_TEXT_FONT_SIZE_DFLT, "#ffffff" );
 }
 
 void roadmap_messagebox (const char *title, const char *text)
 {
    g_seconds = -1;
-	roadmap_messagebox_custom( title, text, DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT, "#ffffff", DLG_MSG_BOX_TEXT_FONT_SIZE_DFLT, "#ffffff" );
+	roadmap_messagebox_custom( title, text, DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT, "#f6a201", DLG_MSG_BOX_TEXT_FONT_SIZE_DFLT, "#ffffff" );
 }
 
 
@@ -205,7 +205,7 @@ void roadmap_messagebox_custom( const char *title, const char *text,
    }
 
    if (title[0] == 0){
-      ssd_widget_hide(ssd_widget_get(dialog, "title_bar"));  
+      ssd_widget_hide(ssd_widget_get(dialog, "title_bar"));
    }
    else{
       ssd_widget_show(ssd_widget_get(dialog, "title_bar"));

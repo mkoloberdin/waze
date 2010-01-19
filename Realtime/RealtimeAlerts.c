@@ -129,6 +129,7 @@ static void OnAlertRemove(void);
 static void create_ssd_dialog(RTAlert *pAlert);
 static void OnAlertReRoute(RTAlert *pAlert);
 static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert);
+static void RTAlerts_popup_PingWazer(RTAlert *pAlert);
 static void RTAlerts_Comment_PopUp_Hide(void);
 static void RTAlerts_popup_alert(int alertId, int iCenterAround);
 static void RTAlerts_ShowProgressDlg(void);
@@ -228,6 +229,7 @@ void RTAlerts_Alert_Init(RTAlert *pAlert)
     pAlert->iNode2 = 0;
     pAlert->iDistance = 0;
     pAlert->bAlertByMe = FALSE;
+    pAlert->bPingWazer = FALSE;
     memset(pAlert->sReportedBy, 0, RT_ALERT_USERNM_MAXSIZE);
     memset(pAlert->sDescription, 0, RT_ALERT_DESCRIPTION_MAXSIZE);
     memset(pAlert->sLocationStr, 0, RT_ALERT_LOCATION_MAX_SIZE);
@@ -491,6 +493,7 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
     gAlertsTable.alert[gAlertsTable.iCount]->iReportTime
             = pAlert->iReportTime;
     gAlertsTable.alert[gAlertsTable.iCount]->bAlertByMe = pAlert->bAlertByMe;
+    gAlertsTable.alert[gAlertsTable.iCount]->bPingWazer = pAlert->bPingWazer;
     gAlertsTable.alert[gAlertsTable.iCount]->iRank = pAlert->iRank;
     gAlertsTable.alert[gAlertsTable.iCount]->iMood = pAlert->iMood;
 
@@ -655,6 +658,7 @@ BOOL RTAlerts_Comment_Add(RTAlertComment *Comment)
     CommentEntry->comment.iAlertId = Comment->iAlertId;
     CommentEntry->comment.i64ReportTime = Comment->i64ReportTime;
     CommentEntry->comment.bCommentByMe = Comment->bCommentByMe;
+    CommentEntry->comment.bDisplay = Comment->bDisplay;
     CommentEntry->comment.iMood = Comment->iMood;
     CommentEntry->comment.iRank = Comment->iRank;
     strncpy(CommentEntry->comment.sDescription, Comment->sDescription,
@@ -692,15 +696,16 @@ BOOL RTAlerts_Comment_Add(RTAlertComment *Comment)
 
     pAlert->iNumComments++;
 
-    if (!Comment->bCommentByMe){
-        if (pAlert->bAlertByMe || bCommentedByMe){
-            gState = STATE_NEW_COMMENT;
-            RTAlerts_Comment_PopUp(Comment,pAlert);
-        }
-        else
-            gState = STATE_NEW;
+    if (Comment->bDisplay){
+       if (!Comment->bCommentByMe){
+          if (pAlert->bAlertByMe || bCommentedByMe){
+             gState = STATE_NEW_COMMENT;
+             RTAlerts_Comment_PopUp(Comment,pAlert);
+          }
+          else
+             gState = STATE_NEW;
+       }
     }
-
 
 
     return TRUE;
@@ -1387,52 +1392,10 @@ static void OnAlertAdd(RTAlert *pAlert)
         gTimerActive = TRUE;
     }
 
-    if (RTAlerts_Is_Reroutable(pAlert) && (!pAlert->bAlertByMe))
-    {
-        if (navigate_track_enabled())
-        {
-            if (navigate_is_line_on_route(pAlert->iSquare, pAlert->iLineId, pAlert->iNode1,
-                    pAlert->iNode2))
-            {
-                int azymuth, delta;
-                PluginLine line;
-                RoadMapPosition alert_pos;
-                RoadMapGpsPosition gps_map_pos;
-                int steering;
-                int distance;
-
-				// check that the alert is within alert distance
-                alert_pos.latitude = pAlert->iLatitude;
-                alert_pos.longitude = pAlert->iLongitude;
-
-                if (roadmap_navigate_get_current(&gps_map_pos, &line, &steering)
-                        != -1)
-                {
-                    RoadMapPosition gps_pos;
-                    gps_pos.latitude = gps_map_pos.altitude;
-                    gps_pos.longitude = gps_map_pos.longitude;
-
-					//
-	                distance = roadmap_math_distance(&gps_pos, &alert_pos);
-					if (distance > REROUTE_MIN_DISTANCE) {
-						return;
-					}
-
-                    //check that we didnt pass the new alert on the route.
-                    azymuth = roadmap_math_azymuth(&gps_pos, &alert_pos);
-                    delta = azymuth_delta(azymuth, steering);
-                    if (delta < 90 && delta >(-90))
-                    {
-                        OnAlertReRoute(pAlert);
-                    }
-                }
-                else
-                {
-                    OnAlertReRoute(pAlert);
-                }
-            }
-        }
+    if (pAlert->bPingWazer && Realtime_AllowPing()){
+       RTAlerts_popup_PingWazer(pAlert);
     }
+    
 }
 
 /**
@@ -2089,6 +2052,11 @@ static int on_button_close (SsdWidget widget, const char *new_value){
    return 1;
 }
 
+static int on_ping_wazer_button_close (SsdWidget widget, const char *new_value){
+   ssd_dialog_hide("PingWazerPopUPDlg", dec_close);
+   return 1;
+}
+
 static int on_add_comment (SsdWidget widget, const char *new_value){
 	gPopUpType = POP_UP_ALERT;
     real_time_post_alert_comment_by_id(gCurrentAlertId);
@@ -2325,6 +2293,41 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
    }
 }
 
+static void update_ping_wazer_popup(SsdWidget popup, RTAlert *pAlert){
+   char AlertStr[700];
+   const char *mood_str;
+   
+   ssd_widget_reset_cache(popup);
+   
+   mood_str = roadmap_mood_to_string(pAlert->iMood);
+   ssd_bitmap_update(ssd_widget_get(popup, "alert_icon"), mood_str);
+   free((void *)mood_str);
+
+   ssd_widget_set_value(popup, "PingUserFrom", pAlert->sReportedBy);
+
+
+   AlertStr[0] = 0;
+   if (pAlert->sDescription[0] != 0){
+      ssd_widget_set_value(popup, "descripion_text", pAlert->sDescription);
+   }
+   else{
+      ssd_widget_set_value(popup, "descripion_text", "");
+   }
+
+#ifndef TOUCH_SCREEN
+    set_left_softkey(popup->parent, pAlert);
+    set_right_softkey(popup->parent);
+#endif
+
+   ssd_dialog_activate("PingWazerPopUPDlg", NULL);
+   ssd_dialog_refresh_current_softkeys();
+   ssd_widget_reset_cache(popup);
+   ssd_widget_reset_position(popup);
+
+   if (!roadmap_screen_refresh()){
+      roadmap_screen_redraw();
+   }
+}
 /**
  * Display the pop up of an alert
  * @param alertId - the ID of the alert to display
@@ -2376,7 +2379,8 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
    if (iCenterAround != CENTER_NONE)
      RTAlerts_zoom(position, iCenterAround);
 
-   if (popup){
+   if ( ssd_dialog_exists( "AlertPopUPDlg" ) )
+   {
       gCurrentAlertId = alertId;
       update_popup(popup, pAlert, iCenterAround);
       return;
@@ -2413,18 +2417,18 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
     text = ssd_text_new("reported_by_info", ReportedByStr, 14,0);
     ssd_widget_set_color(text,"#ffffff", NULL);
     ssd_widget_add(position_con, text);
-	RTAlerts_update_stars(position_con, pAlert);
-	ssd_widget_add (position_con,
-      ssd_container_new ("space_before_descrip", NULL, 0, 10, SSD_END_ROW));
+    RTAlerts_update_stars(position_con, pAlert);
+    ssd_widget_add (position_con,
+    ssd_container_new ("space_before_descrip", NULL, 0, 10, SSD_END_ROW));
     RTAlerts_show_space_before_desc(position_con,pAlert);
-	AlertStr[0] = 0;
+    AlertStr[0] = 0;
 
 
     if (pAlert->sDescription[0] != 0){
 	    //Display the alert description
     	snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr) - strlen(AlertStr),
         	    "%s", pAlert->sDescription);
-    	text = ssd_text_new("descripion_text", AlertStr, 14,0);
+    	text = ssd_text_new("descripion_text", AlertStr, 16,0);
     	ssd_widget_set_color(text,"#ffffff", NULL);
 		ssd_widget_add(text_con, text);
 		ssd_widget_add(position_con, text_con);
@@ -2444,6 +2448,8 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
 
 
     popup = ssd_popup_new("AlertPopUPDlg", "", on_popup_close, SSD_MAX_SIZE, SSD_MIN_SIZE,&position, SSD_ROUNDED_BLACK|SSD_POINTER_LOCATION);
+    
+
     /* Makes it possible to click in the bottom vicinity of the buttons  */
     ssd_widget_set_click_offsets_ext( popup, 0, 0, 0, 15 );
 
@@ -2509,7 +2515,7 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
 
 #else
     set_left_softkey(popup->parent, pAlert);
-    set_right_softkey(popup->parent);
+    set_right_softkey(popup->parent); 
 #endif
 
    ssd_dialog_activate("AlertPopUPDlg", NULL);
@@ -2520,6 +2526,157 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
 }
 
 
+static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
+{
+    
+    char AlertStr[700];
+    const char *focus;
+    SsdWidget text, position_con;
+    static SsdWidget pingWazerPopUP;
+    SsdWidget text_con;
+    SsdWidget spacer;
+    SsdWidget image_con;
+    const char *mood_str;
+    SsdSize size;
+    SsdWidget bitmap;
+    int width = roadmap_canvas_width() ;
+    int image_container_width = 40;
+
+#ifdef TOUCH_SCREEN
+    SsdWidget button;
+#endif
+    AlertStr[0] = 0;
+
+    if (width > roadmap_canvas_height())
+      width = roadmap_canvas_height();
+    focus = roadmap_trip_get_focus_name();
+
+    if (gAlertsTable.iCount == 0)
+        return;
+
+   if ( roadmap_screen_is_hd_screen() )
+      image_container_width = 60;
+
+   if (pAlert == NULL)
+        return;
+
+
+   AlertStr[0] =0;
+
+   if (pingWazerPopUP){
+      update_ping_wazer_popup(pingWazerPopUP, pAlert);
+      return;
+   }
+
+   mood_str = roadmap_mood_to_string(pAlert->iMood);
+   bitmap = ssd_bitmap_new("alert_icon", mood_str, SSD_ALIGN_CENTER);
+   free((void *)mood_str);
+   
+   ssd_widget_get_size(bitmap, &size, NULL);
+   position_con =
+      ssd_container_new ("position_container", "", width-size.width - image_container_width, SSD_MIN_SIZE,0);
+   ssd_widget_set_color(position_con, NULL, NULL);
+
+   text_con =
+      ssd_container_new ("text_conatiner", "", SSD_MIN_SIZE, SSD_MIN_SIZE, 0);
+   ssd_widget_set_color(text_con, NULL, NULL);
+
+   text = ssd_text_new("popuup_text", roadmap_lang_get("Ping from: "), 18, 0);
+   ssd_widget_set_color(text,"#ffffff", NULL);
+   ssd_widget_add(position_con, text);
+   ssd_dialog_add_hspace(position_con, 5, 0);
+   text = ssd_text_new("PingUserFrom", pAlert->sReportedBy, 18, SSD_END_ROW);
+   ssd_widget_set_color(text,"#f6a201", NULL);
+   ssd_widget_add(position_con, text);  
+
+   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+   ssd_widget_set_color( spacer, NULL, NULL );
+   ssd_widget_add( position_con, spacer );
+   
+   if (pAlert->sDescription[0] != 0){
+      AlertStr[0] = 0;
+       //Display the alert description
+      snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr) - strlen(AlertStr),
+             "%s %s:", roadmap_lang_get("Hi"), RealTime_GetUserName());
+      text = ssd_text_new("descripion_text", AlertStr, 18,0);
+      ssd_widget_set_color(text,"#ffffff", NULL);
+      ssd_widget_add(text_con, text);
+
+      spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+      ssd_widget_set_color( spacer, NULL, NULL );
+      ssd_widget_add( text_con, spacer );
+
+      text = ssd_text_new("descripion_text", pAlert->sDescription, 18,SSD_END_ROW);
+      ssd_widget_set_color(text,"#ffffff", NULL);
+      ssd_widget_add(text_con, text);
+
+      ssd_widget_add(position_con, text_con);
+      AlertStr[0] = 0;
+    }
+    else{
+       text = ssd_text_new("descripion_text", "", 20,0);
+       ssd_widget_set_color(text,"#f6a201", NULL);
+       ssd_widget_add(text_con, text);
+       ssd_widget_add(position_con, text_con);
+       AlertStr[0] = 0;
+    }
+
+
+    gCurrentAlertId = pAlert->iID;
+
+    
+    pingWazerPopUP = ssd_popup_new("PingWazerPopUPDlg", "", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_ROUNDED_BLACK|SSD_POINTER_COMMENT);
+    
+    /* Makes it possible to click in the bottom vicinity of the buttons  */
+    ssd_widget_set_click_offsets_ext( pingWazerPopUP, 0, 0, 0, 15 );
+
+    spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+    ssd_widget_set_color( spacer, NULL, NULL );
+    ssd_widget_add( pingWazerPopUP, spacer );
+
+    image_con =
+      ssd_container_new ("IMAGE_container", "", image_container_width, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
+    ssd_widget_set_color(image_con, NULL, NULL);
+
+#ifndef TOUCH_SCREEN
+      bitmap->key_pressed = Alert_OnKeyPressed;
+#endif
+
+   ssd_widget_add(image_con, bitmap);
+   AlertStr[0] = 0;
+   RTAlerts_get_report_distance_str( pAlert, AlertStr, sizeof( AlertStr ) );
+
+   ssd_widget_add(pingWazerPopUP, image_con);
+
+    ssd_widget_add(pingWazerPopUP, position_con);
+#ifdef TOUCH_SCREEN
+
+    spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+    ssd_widget_set_color( spacer, NULL, NULL );
+    ssd_widget_add( pingWazerPopUP, spacer );
+
+    button = ssd_button_label("Close_button", roadmap_lang_get("Close"), SSD_ALIGN_CENTER, on_ping_wazer_button_close);
+    ssd_widget_add(pingWazerPopUP, button);
+
+    button = ssd_button_label("Comment_button", roadmap_lang_get("Reply"), SSD_ALIGN_CENTER, on_add_comment);
+    ssd_widget_add(pingWazerPopUP, button);
+
+
+#else
+    set_left_softkey(pingWazerPopUP->parent, pAlert);
+    set_right_softkey(pingWazerPopUP->parent); 
+#endif
+    ssd_dialog_add_vspace(pingWazerPopUP, 3, 0);
+    text = ssd_text_new("disclaimer", roadmap_lang_get("FYI, Pings are publicly viewable."), 12,0);
+    ssd_widget_set_color(text,"#ffffff", NULL);
+    ssd_widget_add(pingWazerPopUP, text);
+    ssd_dialog_add_vspace(pingWazerPopUP, 3, 0);
+    ssd_dialog_activate("PingWazerPopUPDlg", NULL);
+    if (!roadmap_screen_refresh()){
+      roadmap_screen_redraw();
+    }
+
+}
 /**
  * Display the pop up of a specific alert
  * @param IId - the ID of the alert to popup
@@ -2613,7 +2770,7 @@ void RTAlerts_Download_Image( int alertId )
  */
 static void RTAlerts_Show_Image( int alertId, RoadMapImage image )
 {
-	static SsdWidget dialog = NULL;
+	SsdWidget dialog = NULL;
 	static SsdWidget image_bitmap = NULL;
     RTAlert *pAlert;
     const char* title;
@@ -2622,15 +2779,17 @@ static void RTAlerts_Show_Image( int alertId, RoadMapImage image )
 
     title = RTAlerts_get_title( pAlert->iType, pAlert->iSubType );
 
+    dialog = ssd_dialog_activate( SSD_RT_ALERT_IMAGE_DLG_NAME, NULL );
+
     if ( !dialog )
     {
 #ifdef TOUCH_SCREEN
-      SsdWidget close_btn;
+        SsdWidget close_btn;
      	SsdWidget top_space;
     	char* icon[2];
     	SsdClickOffsets btn_close_offsets = {-20, -20, 20, 20};
 #endif
-      SsdWidget image_container;
+        SsdWidget image_container;
 		dialog = ssd_dialog_new( SSD_RT_ALERT_IMAGE_DLG_NAME, "", NULL, SSD_CONTAINER_BORDER|
 									SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK );
 		if ( !dialog )
@@ -2662,15 +2821,15 @@ static void RTAlerts_Show_Image( int alertId, RoadMapImage image )
 		ssd_widget_add( image_container, image_bitmap );
 		ssd_widget_add( dialog, image_container );
 
+		ssd_dialog_activate( SSD_RT_ALERT_IMAGE_DLG_NAME, NULL );
+
     }
 
     ssd_bitmap_image_update( image_bitmap, image );
 
     dialog->data = (void*) image;
 
-    ssd_dialog_activate( SSD_RT_ALERT_IMAGE_DLG_NAME, NULL );
-
-    ssd_dialog_draw();
+    roadmap_screen_refresh();
 }
 
 /**
@@ -3562,7 +3721,9 @@ static void RTAlerts_Comment_PopUp_Hide(void)
 {
    if (ssd_dialog_is_currently_active() && (!strcmp(ssd_dialog_currently_active_name(), "Comment Pop Up")))
     	ssd_dialog_hide_current(dec_close);
-
+   
+   if (ssd_dialog_is_currently_active() && (!strcmp(ssd_dialog_currently_active_name(), "PingWazerPopUPDlg")))
+        ssd_dialog_hide_current(dec_close);
 }
 
 /**
@@ -3624,17 +3785,19 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
 	SsdWidget dialog;
 	SsdWidget text;
 	SsdWidget bitmap;
+	SsdWidget image_con;
+    int image_container_width = 40;
+
 	CommentStr[0] = 0;
 
+   if ( roadmap_screen_is_hd_screen() )
+     image_container_width = 60;
 
-	if ((roadmap_config_get_integer(&LastCommentAlertIDCfg) == Alert->iID) && (roadmap_config_get_integer(&LastCommentIDCfg) == Comment->iID))
-	   return;
-
-	roadmap_config_set_integer(&LastCommentAlertIDCfg, Alert->iID);
-	roadmap_config_set_integer(&LastCommentIDCfg, Comment->iID);
-	roadmap_config_save(FALSE);
 
 	 dialog =  ssd_popup_new("Comment Pop Up", roadmap_lang_get("Response"),NULL,SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_ROUNDED_BLACK|SSD_HEADER_BLACK|SSD_POINTER_COMMENT);
+    
+	 image_con =  ssd_container_new ("IMAGE_container", "", image_container_width, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
+    ssd_widget_set_color(image_con, NULL, NULL);
 
     if (Alert->iType == RT_ALERT_TYPE_ACCIDENT)
         snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
@@ -3659,7 +3822,8 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
                 - strlen(CommentStr), "%s%s", Alert->sLocationStr, NEW_LINE);
 
 	bitmap = ssd_bitmap_new("alert_icon",RTAlerts_Get_IconByType(Alert->iType, FALSE),0);
-	ssd_widget_add(dialog, bitmap);
+	ssd_widget_add(image_con, bitmap);
+	ssd_widget_add(dialog, image_con);
 	text = ssd_text_new ("Comment Str", CommentStr, 14,SSD_END_ROW);
 	ssd_widget_set_color(text,"#ffffff", NULL);
 	ssd_widget_add(dialog, text);
@@ -3674,19 +3838,18 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
 	text = ssd_text_new ("Comment Str", CommentStr, 14,0);
 	ssd_widget_add(dialog, text);
 	ssd_widget_set_color(text,"#ffffff", NULL);
-    RTAlerts_add_comment_stars(dialog, Comment);
-
+   RTAlerts_add_comment_stars(dialog, Comment);
+ 
 #ifdef TOUCH_SCREEN
 	ssd_widget_add(dialog, space(5));
-	ssd_widget_add (dialog,
-   					ssd_button_label ("Reply", roadmap_lang_get ("Reply"),
-                   	SSD_WS_TABSTOP|SSD_ALIGN_CENTER, Comment_Reply_button_callback));
    ssd_widget_add (dialog,
                   ssd_button_label ("Close", roadmap_lang_get ("Close"),
                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER, Comment_Close_button_callback));
+	ssd_widget_add (dialog,
+   					ssd_button_label ("Reply", roadmap_lang_get ("Reply"),
+                   	SSD_WS_TABSTOP|SSD_ALIGN_CENTER, Comment_Reply_button_callback));
    ssd_widget_add(dialog, space(5));
 
-   ssd_widget_add(dialog, space(5));
 #else
    RTAlerts_Comment_set_softkeys(dialog->parent);
 #endif

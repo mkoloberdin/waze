@@ -52,6 +52,7 @@
 #include "roadmap_bar.h"
 #include "roadmap_border.h"
 #include "roadmap_ticker.h"
+#include "roadmap_screen.h"
 
 #include "navigate/navigate_bar.h"
 #include "ssd/ssd_widget.h"
@@ -690,7 +691,7 @@ void roadmap_display_sign_pop_up(RoadMapSign *sign) {
     		}
 
     		close =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "rm_quit");
-    		if (image){
+    		if (close){
     			icon_screen_point.y = top.y + 4;
     			if (ssd_widget_rtl (NULL))
     				icon_screen_point.x =  top.x + 2;
@@ -1029,9 +1030,6 @@ static void roadmap_display_console_box
 #endif
 
     count = 4;
-#ifdef _WIN32
-	offset = 33;
-#endif
 
     if (! roadmap_message_format (text, sizeof(text), format)) {
         return;
@@ -1051,6 +1049,9 @@ static void roadmap_display_console_box
     	roadmap_canvas_get_text_extents (text, 16, &width, &ascent, &descent, NULL);
     }
 
+    if (roadmap_screen_is_hd_screen())
+       offset = 94;
+    
     if (type == ROADMAP_CONSOLE_ACTIVITY) {
 #ifdef TOUCH_SCREEN
        if (roadmap_horizontal_screen_orientation())

@@ -51,11 +51,11 @@
 #include "roadmap_main.h"
 #include "roadmap_sound.h"
 #include "roadmap_alert.h"
-#include "roadmap_alerter.h" 
+#include "roadmap_alerter.h"
 #include "roadmap_lang.h"
 #include "roadmap_softkeys.h"
 #include "roadmap_messagebox.h"
-#include "editor/db/editor_db.h" 
+#include "editor/db/editor_db.h"
 #include "ssd/ssd_widget.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_container.h"
@@ -82,7 +82,7 @@ typedef struct {
 	int          	active_alert_id;
 	int          	distance_to_alert;
 	int 	         alert_type;
-	int 			   alert_providor;	
+	int 			   alert_providor;
 	int            square;
 } active_alert_st;
 
@@ -96,7 +96,7 @@ static void hide_alert_dialog();
 
 #define AZYMUTH_DELTA  45
 
-#define MAX_DISTANCE_FROM_ROAD	50 
+#define MAX_DISTANCE_FROM_ROAD	50
 
 
 #define ALERT 1
@@ -142,7 +142,7 @@ void roadmap_alerter_initialize(void) {
 	("preferences", &AlertsEnabledCfg, NULL, "yes", "no", NULL);
 
 	RoadMapAlertProvidors.count = 0;
-	
+
 	alert_should_be_visible = FALSE;
 	alert_active = FALSE;
 	the_active_alert.active_alert_id = -1;
@@ -158,7 +158,7 @@ int roadmap_alerter_get_active_alert_id(){
 }
 
 static void get_street_from_line (int square, int line, const char **street_name, const char **city_name) {
-	
+
 	RoadMapStreetProperties properties;
 	roadmap_square_set_current(square);
 	roadmap_street_get_properties (line, &properties);
@@ -168,9 +168,9 @@ static void get_street_from_line (int square, int line, const char **street_name
 
 
 //return the street name given a GPS position
-static int get_street(const RoadMapPosition *position, 
-							 const char **street_name, 
-							 const char **city_name, 
+static int get_street(const RoadMapPosition *position,
+							 const char **street_name,
+							 const char **city_name,
 							 int max_distance){
 
 	int count = 0;
@@ -179,7 +179,7 @@ static int get_street(const RoadMapPosition *position,
 	RoadMapNeighbour neighbours;
 
 	layers_count =  roadmap_layer_all_roads (layers, 128);
-   
+
    if (layers_count > 0) {
       RoadMapPosition context_save_pos;
       int context_save_zoom;
@@ -196,7 +196,7 @@ static int get_street(const RoadMapPosition *position,
 			return -1;
 		}
 	}
-	
+
 	return -1;
 }
 
@@ -213,18 +213,18 @@ static int check_same_street(const PluginLine *line, const RoadMapPosition *poin
 	int square_current = roadmap_square_active ();
 
 	get_street_from_line (line->square, line->line_id, &street_name, &city_name);
-	strncpy_safe (current_street_name, street_name, sizeof (current_street_name)); 
-	strncpy_safe (current_city_name, city_name, sizeof (current_city_name)); 
+	strncpy_safe (current_street_name, street_name, sizeof (current_street_name));
+	strncpy_safe (current_city_name, city_name, sizeof (current_city_name));
 
 	point_res = get_street(point_position, &street_name, &city_name, MAX_DISTANCE_FROM_ROAD);
-   strncpy_safe (current_street_name2, street_name, sizeof (current_street_name2)); 
-   strncpy_safe (current_city_name2, city_name, sizeof (current_city_name2)); 
+   strncpy_safe (current_street_name2, street_name, sizeof (current_street_name2));
+   strncpy_safe (current_city_name2, city_name, sizeof (current_city_name2));
 
 	roadmap_square_set_current (square_current);
-	
+
 	if (point_res == -1)
 		return FALSE;
-	
+
 	if (strcmp (current_street_name, current_street_name2) == 0 &&
 		 strcmp (current_city_name, current_city_name2) == 0)
 		return TRUE;
@@ -246,7 +246,7 @@ static int azymuth_delta (int az1, int az2) {
 }
 
 static int alert_is_on_route (const RoadMapPosition *point_position, int steering) {
-	
+
 	int count = 0;
 	int layers[128];
 	int layers_count;
@@ -277,7 +277,7 @@ static int alert_is_on_route (const RoadMapPosition *point_position, int steerin
 				rc = navigate_is_line_on_route (neighbours.line.square, neighbours.line.line_id, to, from);
 		}
 	}
-	
+
 	roadmap_square_set_current (square_current);
 	return rc;
 }
@@ -290,7 +290,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 	int i;
 	int distance ;
 	int steering;
-	RoadMapPosition pos;      
+	RoadMapPosition pos;
 	int azymuth;
 	int delta;
 	int j;
@@ -298,7 +298,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 	RoadMapPosition gps_pos;
 	int square;
 	int squares[9];
-	int count_squares; 
+	int count_squares;
    RoadMapPosition context_save_pos;
    int context_save_zoom;
 
@@ -307,70 +307,70 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 
 	roadmap_math_get_context(&context_save_pos, &context_save_zoom);
    roadmap_math_set_context((RoadMapPosition *)&gps_pos, 20);
-   
+
    count_squares = roadmap_square_find_neighbours (&gps_pos, 0, squares);
-   
-	
-   
+
+
+
    for (square = 0; square < count_squares; square++) {
-			
+
 		roadmap_square_set_current(squares[square]);
-				
+
 		// loop alll prvidor for an alert
 		for (j = 0 ; j < RoadMapAlertProvidors.count; j++){
-		
+
 			count =  (* (RoadMapAlertProvidors.providor[j]->count)) ();
-			
-			
+
+
 			// no alerts for this providor
 			if (count == 0) {
 				continue;
 			}
-		
+
 			for (i=0; i<count; i++) {
-		
+
 				// if the alert is not alertable, continue. (dummy speed cams, etc.)
 				if (!(* (RoadMapAlertProvidors.providor[j]->is_alertable))(i)) {
 					continue;
 				}
-		
+
 				(* (RoadMapAlertProvidors.providor[j]->get_position)) (i, &pos, &steering);
-		
+
 				// check that the alert is within alert distance
 				distance = roadmap_math_distance(&pos, &gps_pos);
-		      
+
 				if (distance > (*(RoadMapAlertProvidors.providor[j]->get_distance))(i)) {
 					continue;
 				}
-		
+
 				// check if the alert is on the navigation route
 				if (!alert_is_on_route (&pos, steering)) {
-		
+
 				   if ((* (RoadMapAlertProvidors.providor[j]->check_same_street))(i)){
-				      
+
 				      // check that the alert is in the direction of driving
 				      delta = azymuth_delta(gps_position->steering, steering);
 				      if (delta > AZYMUTH_DELTA || delta < (0-AZYMUTH_DELTA)) {
 				         continue;
-				      }      
-			
+				      }
+
 				      // check that we didnt pass the alert
 				      azymuth = roadmap_math_azymuth (&gps_pos, &pos);
 				      delta = azymuth_delta(azymuth, steering);
 				      if (delta > 90|| delta < (-90)){
 				         continue;
-			
+
 				      }
-		
+
 				      // check that the alert is on the same street
 				      if (!check_same_street(line, &pos))  {
 				         continue;
 				      }
 					}
 				}
-		
-				
-				
+
+
+
 				// Let the provoider handle the Alert.
 				if ((* (RoadMapAlertProvidors.providor[j]->handle_event))((* (RoadMapAlertProvidors.providor[j]->get_id))(i))){
 				   continue;
@@ -389,7 +389,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 				}
 				else{
 					the_active_alert.alert_type = ALERT;
-					the_active_alert.alert_providor = j;	
+					the_active_alert.alert_providor = j;
 					the_active_alert.distance_to_alert 	= distance;
 					the_active_alert.active_alert_id 	= (* (RoadMapAlertProvidors.providor[j]->get_id))(i);
 				   roadmap_math_set_context(&context_save_pos, context_save_zoom);
@@ -402,7 +402,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 
    roadmap_math_set_context(&context_save_pos, context_save_zoom);
 	return FALSE;
-} 
+}
 
 
 // Checks if there are alerts to be displayed
@@ -417,7 +417,7 @@ void roadmap_alerter_check(const RoadMapGpsPosition *gps_position, const PluginL
 	if (roadmap_math_to_speed_unit(gps_position->speed) < config_alerts_min_speed()) {
 		// If there is any active alert turn it off.
 		the_active_alert.active_alert_id = -1;
-		alert_should_be_visible = FALSE; 
+		alert_should_be_visible = FALSE;
 		return;
 	}
 
@@ -425,7 +425,7 @@ void roadmap_alerter_check(const RoadMapGpsPosition *gps_position, const PluginL
 	if (is_alert_in_range(gps_position, line) > 0) {
 	   alert_should_be_visible = TRUE;
 	} else {
-		alert_should_be_visible = FALSE;    
+		alert_should_be_visible = FALSE;
 	}
 }
 
@@ -443,7 +443,7 @@ void roadmap_alerter_audio(){
 
 static void delete_callback(int exit_code, void *context){
     BOOL success;
-    
+
     if (exit_code != dec_yes)
          return;
    	success = (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->cancel))(the_active_alert.active_alert_id);
@@ -453,8 +453,8 @@ static void delete_callback(int exit_code, void *context){
    	if (success)
        	roadmap_messagebox_timeout("Thank you!!!", "Your request was sent to the server",5);
    	ssd_dialog_hide("Alert_Dlg", dec_close);
-   	
-       	
+
+
 }
 
 
@@ -465,30 +465,30 @@ static int report_irrelevant(SsdWidget widget, const char *new_value, void *cont
     int direction;
     const char *str;
 	RoadMapGpsPosition 	*CurrentGpsPoint;
-   
+
 	if (the_active_alert.active_alert_id == -1)
 	   return 1;
-	
+
    CurrentGpsPoint = malloc(sizeof(*CurrentGpsPoint));
 	if (roadmap_navigate_get_current
         (CurrentGpsPoint, &line, &direction) == -1) {
         roadmap_messagebox ("Error", "Can't find current street.");
         return 0;
     }
-    
+
     roadmap_trip_set_gps_position ("AlertSelection", "Selection", NULL, CurrentGpsPoint);
     str = (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_string)) (the_active_alert.active_alert_id);
 	if (str != NULL){
 		const char *alertStr = roadmap_lang_get(str);
     	sprintf(message,"%s\n%s",roadmap_lang_get("Please confirm that the following alert is not relevant:"), alertStr);
-   
+
     	ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback,  (void *)NULL);
 	}
     return 1;
 }
 
 void set_softkey(void){
-	
+
 	ssd_widget_set_right_softkey_callback(dialog->parent, report_irrelevant);
 	ssd_widget_set_right_softkey_text(dialog->parent, roadmap_lang_get("Not there"));
 }
@@ -512,7 +512,7 @@ static int alert_dialog_buttons_callback (SsdWidget widget, const char *new_valu
    }
    else if (!strcmp(widget->name, "Hide")){
    		hide_alert_dialog();
-   }  	 
+   }
    return 1;
 }
 #endif
@@ -533,31 +533,31 @@ void show_alert_dialog(){
    int 	alertId;
    BOOL is_cancelable;
    const char * iconName;
-         
-                        		
+
+
 	alertId = roadmap_alerter_get_active_alert_id();
 	roadmap_square_set_current(the_active_alert.square);
-	
+
 	sprintf(TextStr, "%s",roadmap_lang_get((* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_string)) (alertId) ));
 
-	dialog =  ssd_popup_new("Alert_Dlg", TextStr, NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_ROUNDED_BLACK | SSD_HEADER_BLACK);	
+	dialog =  ssd_popup_new("Alert_Dlg", TextStr, NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_PERSISTENT|SSD_ROUNDED_BLACK | SSD_HEADER_BLACK);
 
 	box = ssd_container_new ("box", NULL, SSD_MIN_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE);
 	ssd_widget_set_color(box, NULL, NULL);
 	ssd_widget_add (box, space(1));
 	sprintf(TextStr,"%s: %d %s", roadmap_lang_get("In"), the_active_alert.distance_to_alert, roadmap_lang_get(roadmap_math_distance_unit()));
-	   
+
 	text = ssd_text_new ("Distance", TextStr, 14,0);
    ssd_widget_set_color(text, "#ffffff", "#ffffff");
 	ssd_widget_add (box, text);
-	ssd_widget_add (dialog, box);                  
-	                            
+	ssd_widget_add (dialog, box);
+
 	if (the_active_alert.alert_type == ALERT){
 			iconName =  (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_alert_icon)) (alertId);
 	}
-	else {  
+	else {
 			iconName =  (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_warning_icon)) (alertId);
-	} 
+	}
 	bitmap = ssd_bitmap_new("alert_Icon",iconName, SSD_ALIGN_RIGHT);
 	ssd_widget_add (box, bitmap);
 
@@ -572,14 +572,14 @@ void show_alert_dialog(){
 	ssd_widget_add (dialog,
                ssd_button_label ("Hide", roadmap_lang_get ("Hide"),
                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
-	
+
 #else
 	if (is_cancelable)
 		set_softkey();
-#endif	
-    ssd_dialog_activate ("Alert_Dlg", NULL);   
-                            
-}        
+#endif
+    ssd_dialog_activate ("Alert_Dlg", NULL);
+
+}
 
 void update_alert(){
 	SsdWidget text, bitmap;
@@ -594,28 +594,28 @@ void update_alert(){
 	   return;
 	sprintf(TextStr, "%s",roadmap_lang_get(alert_text));
 	ssd_text_set_text(text, TextStr);
-	
+
 	text = ssd_widget_get(dialog, "Distance");
 	sprintf(TextStr,"%s: %d %s", roadmap_lang_get("In"), the_active_alert.distance_to_alert, roadmap_lang_get(roadmap_math_distance_unit()));
 	ssd_text_set_text(text, TextStr);
-	
+
 	bitmap = ssd_widget_get(dialog, "alert_Icon");
 	if (the_active_alert.alert_type == ALERT){
 			iconName =  (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_alert_icon)) (alertId);
 	}
-	else {  
+	else {
 			iconName =  (* (RoadMapAlertProvidors.providor[the_active_alert.alert_providor]->get_warning_icon)) (alertId);
-	} 
+	}
 	ssd_bitmap_update(bitmap, iconName);
-}   
+}
 static RoadMapCallback AlerterTimerCallback = NULL;
 
 static void kill_timer (void) {
-   
+
    if (AlerterTimerCallback) {
       roadmap_main_remove_periodic (AlerterTimerCallback);
       AlerterTimerCallback = NULL;
-   }  
+   }
 }
 
 static void update_button(void){
@@ -636,7 +636,7 @@ void hide_alert_timeout(void){
       update_button();
       return;
    }
-      
+
    hide_alert_dialog();
    alert_active = FALSE;
    the_active_alert.active_alert_id = -1;
@@ -657,7 +657,7 @@ void roadmap_alerter_display(void){
 			show_alert_dialog();
 		    if (the_active_alert.alert_type == ALERT)
 				roadmap_alerter_audio();
-            alert_active = TRUE;				
+            alert_active = TRUE;
 		}
 		else{
 			update_alert();

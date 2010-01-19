@@ -120,7 +120,7 @@ static int on_ok( SsdWidget this, const char *new_value) {
    roadmap_config_set ( &RoadMapConfigShowTicker,
                               (const char *)ssd_dialog_get_data ("show_ticker") );
 
-#ifdef ANDROID
+#if (defined(_WIN32) || defined(ANDROID))
    roadmap_config_set ( &RoadMapConfigUseNativeKeyboard,
                               (const char *) ssd_dialog_get_data ( "Native keyboard" ) );
 #endif
@@ -140,7 +140,7 @@ static int on_ok( SsdWidget this, const char *new_value) {
    else
 	 roadmap_config_set (&RoadMapConfigClockFormat,CLOCK_SETTINGS_24_HOUR);
    
-
+  
    roadmap_config_save(TRUE);
    DialogShowsShown = 0;
    if (new_lang && strcmp(current_lang,new_lang)){
@@ -573,7 +573,7 @@ void roadmap_general_settings_show(void) {
 
 
    // Native keyboard - for android only at this time
-#ifdef ANDROID
+#if (defined(_WIN32) || defined(ANDROID))
    box = ssd_container_new ( "Native keyboard container", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    ssd_widget_set_color (box, "#000000", "#ffffff");
@@ -618,8 +618,9 @@ void roadmap_general_settings_show(void) {
    				    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
    ssd_widget_add (box,
          ssd_checkbox_new ("ClockFormatChk", TRUE,  SSD_ALIGN_RIGHT, NULL,"checkbox_off", "checkbox_on", CHECKBOX_STYLE_ON_OFF));
-   
+
    ssd_widget_add(container,box);
+   
    ssd_widget_add(dialog, container);
 
 #ifndef TOUCH_SCREEN
@@ -660,14 +661,14 @@ void roadmap_general_settings_show(void) {
 	if (roadmap_config_match(&RoadMapConfigClockFormat, CLOCK_SETTINGS_12_HOUR)) pVal = yesno[0];
    	else pVal = yesno[1];
    	ssd_dialog_set_data ("ClockFormatChk", (void *) pVal);
-
+      
 	if (roadmap_config_match(&RoadMapConfigShowTicker, "yes")) pVal = yesno[0];
 	else pVal = yesno[1];
 	ssd_dialog_set_data ("show_ticker", (void *) pVal);
 
 	ssd_dialog_set_data ("lang", (void *) roadmap_lang_get_lang_value(roadmap_lang_get_system_lang()));
 	ssd_dialog_set_data ("Prompts", (void *) roadmap_prompts_get_prompt_value(roadmap_prompts_get_name()));
-#ifdef ANDROID
+#if (defined(_WIN32) || defined(ANDROID))
 	 if ( roadmap_config_match(&RoadMapConfigUseNativeKeyboard, "yes")) pVal = yesno[0];
 	 else pVal = yesno[1];
 

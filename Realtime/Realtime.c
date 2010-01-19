@@ -311,6 +311,12 @@ static RoadMapConfigDescriptor RT_CFG_PRM_SERVER_COOKIE_Var =
                                     RT_CFG_TAB,
                                     RT_CFG_PRM_SERVER_COOKIE_Name);
 
+//   Allow Ping
+static RoadMapConfigDescriptor RT_CFG_PRM_ALLOW_PING_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_ALLOW_PING_Name);
+
 BOOL GetCurrentDirectionPoints(  RoadMapGpsPosition*  GPS_position,
                                  int*                 from_node,
                                  int*                 to_node,
@@ -529,6 +535,9 @@ BOOL Realtime_Initialize()
                            RT_CFG_PRM_SERVER_COOKIE_Default,
                            NULL);
 
+   // Allow Ping
+   roadmap_config_declare_enumeration
+      (RT_USER_TYPE, &RT_CFG_PRM_ALLOW_PING_Var, OnSettingsChanged_VisabilityGroup, "no", "yes", NULL);
 
    RealtimePrivacyInit();
    RTConnectionInfo_Init   ( &gs_CI, OnAddUser, OnMoveUser, OnRemoveUser);
@@ -1188,6 +1197,17 @@ void OnAsyncOperationCompleted_ReportAlert( void* ctx, roadmap_result rc)
    OnTransactionCompleted( ctx, rc);
 }
 
+void OnAsyncOperationCompleted_PingWazer( void* ctx, roadmap_result rc)
+{
+   ssd_progress_msg_dialog_hide();
+   if( succeeded == rc){
+      roadmap_messagebox_timeout ("Thank you!!!", "Your ping was successfully sent", 3); 
+   }else{
+      roadmap_messagebox_timeout ("Error", "Sending ping failed. Please try again later", 5); 
+   }
+
+   OnTransactionCompleted( ctx, rc);
+}
 void OnAsyncOperationCompleted_SendSMS( void* ctx, roadmap_result rc)
 {
    if( succeeded == rc)
@@ -1466,6 +1486,8 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
    BOOL downloadWazers;
    BOOL downloadReports;
    BOOL downloadTraffic;
+   BOOL allowPing;
+   
    if( !gs_bShouldSendMyVisability)
    {
       if( packet_only)
@@ -1477,7 +1499,7 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
    downloadWazers = roadmap_download_settings_isDownloadWazers();
    downloadReports = roadmap_download_settings_isDownloadReports();
    downloadTraffic = roadmap_download_settings_isDownloadTraffic();
-   
+   allowPing   = Realtime_AllowPing();
    eVisability = ERTVisabilityGroup_from_string( roadmap_config_get( &RT_CFG_PRM_VISGRP_Var));
 
    eVisabilityReport = ERTVisabilityReport_from_string(roadmap_config_get( &RT_CFG_PRM_VISREP_Var));
@@ -1489,6 +1511,7 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
                               downloadWazers,
                               downloadReports,
                               downloadTraffic,
+                              allowPing,
                               packet_only))
    {
       gs_bShouldSendMyVisability = FALSE;
@@ -2468,6 +2491,8 @@ void OnAddUser(LPRTUserLocation pUI)
    char guid_crown[RT_USERID_MAXSIZE + 20];
    RoadMapDynamicString GUI_ID_CROWN;
    RoadMapDynamicString Image_Crown;
+   RoadMapDynamicString Image_WazerPing;
+   RoadMapDynamicString Image_WazerPingCrown;
    static int initialized = 0;
    const char* mood_str;
    
@@ -2495,7 +2520,7 @@ void OnAddUser(LPRTUserLocation pUI)
    
    snprintf(guid_crown, sizeof(guid_crown), "%s_crown",pUI->sGUIID);
    GUI_ID_CROWN = roadmap_string_new(guid_crown);
-   Image_Crown = roadmap_string_new( "crown");
+   
 
    Pos.longitude  = pUI->position.longitude;
    Pos.latitude   = pUI->position.latitude;
@@ -2506,12 +2531,26 @@ void OnAddUser(LPRTUserLocation pUI)
    roadmap_object_add( Group, GUI_ID, Name, Sprite, Image);
    roadmap_object_move( GUI_ID, &Pos);
    roadmap_object_set_action(GUI_ID, OnUserShortClick);
+   Image_Crown = roadmap_string_new( "crown");
+   Image_WazerPing = roadmap_string_new( "wazer_ping");
+   Image_WazerPingCrown = roadmap_string_new( "wazer_crown_ping");
    
    if (pUI->iAddon == 1) {
-      roadmap_object_add( Group, GUI_ID_CROWN, Name, Sprite, Image_Crown);
-      roadmap_object_move( GUI_ID_CROWN, &Pos);
+      if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+         roadmap_object_add( Group, GUI_ID_CROWN, Name, Sprite, Image_WazerPingCrown);
+         roadmap_object_move( GUI_ID_CROWN, &Pos);
+      }
+      else{
+         roadmap_object_add( Group, GUI_ID_CROWN, Name, Sprite, Image_Crown);
+         roadmap_object_move( GUI_ID_CROWN, &Pos);
+      }
    }
-   
+   else{
+      if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+         roadmap_object_add( Group, GUI_ID_CROWN, Name, Sprite, Image_WazerPing);
+         roadmap_object_move( GUI_ID_CROWN, &Pos);
+      }
+   }
    Point.latitude = Pos.latitude;
    Point.longitude = Pos.longitude;
    if (!roadmap_math_point_is_visible(&Point))
@@ -2527,6 +2566,8 @@ void OnAddUser(LPRTUserLocation pUI)
    roadmap_string_release( Image);
    roadmap_string_release( GUI_ID_CROWN);
    roadmap_string_release(Image_Crown);
+   roadmap_string_release(Image_WazerPing);
+   roadmap_string_release(Image_WazerPingCrown);
 }
 
 void OnMoveUser(LPRTUserLocation pUI)
@@ -2551,7 +2592,11 @@ void OnMoveUser(LPRTUserLocation pUI)
    if (pUI->iAddon == 1) {
       roadmap_object_move( GUI_ID_CROWN, &Pos);
    }
-   
+   else{
+      if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+         roadmap_object_move( GUI_ID_CROWN, &Pos);
+      }
+   }
    Point.latitude = Pos.latitude;
    Point.longitude = Pos.longitude;
    
@@ -2577,7 +2622,11 @@ void OnRemoveUser(LPRTUserLocation pUI)
    if (pUI->iAddon == 1) {
       roadmap_object_remove( GUI_ID_CROWN);
    }
-   
+   else{
+      if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+         roadmap_object_remove( GUI_ID_CROWN);
+      }
+   }
    if (pUI->iID == gs_WazerNearbyID)
       RemoveWazerNearby();
    
@@ -2601,6 +2650,23 @@ BOOL Realtime_Report_Alert(int iAlertType, const char * szDescription, int iDire
    return success;
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+BOOL Realtime_PinqWazer(const RoadMapGpsPosition *pPosition, int from_node, int to_node, int iUserId, int iAlertType, const char * szDescription, const char* szImageId, BOOL bForwardToTwitter )
+{
+   BOOL success;
+
+
+   success = RTNet_PinqWazer(&gs_CI, pPosition, from_node, to_node,  iUserId, iAlertType, szDescription, szImageId, bForwardToTwitter, OnAsyncOperationCompleted_PingWazer);
+
+   if( !success)
+   {
+      roadmap_messagebox_timeout("Error", "Sending ping failed. Please try again later",5); 
+      return FALSE;
+   }
+
+   return success;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL Realtime_SendSMS(const char * szPhoneNumber)
 {
@@ -2614,9 +2680,9 @@ BOOL Realtime_TwitterConnect(const char * userName, const char *passWord)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-BOOL Realtime_FoursquareConnect(const char * userName, const char *passWord)
+BOOL Realtime_FoursquareConnect(const char * userName, const char *passWord, BOOL bTweetLogin)
 {
-   return RTNet_FoursquareConnect(&gs_CI, userName, passWord, OnAsyncOperationCompleted_Foursquare);
+   return RTNet_FoursquareConnect(&gs_CI, userName, passWord, bTweetLogin, OnAsyncOperationCompleted_Foursquare);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2626,9 +2692,9 @@ BOOL Realtime_FoursquareSearch(RoadMapPosition* coordinates)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-BOOL Realtime_FoursquareCheckin(const char* vid)
+BOOL Realtime_FoursquareCheckin(const char* vid, BOOL bTweetBadge)
 {
-   return RTNet_FoursquareCheckin(&gs_CI, vid, OnAsyncOperationCompleted_Foursquare);
+   return RTNet_FoursquareCheckin(&gs_CI, vid, bTweetBadge, OnAsyncOperationCompleted_Foursquare);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -3414,8 +3480,8 @@ BOOL Realtime_RequestRoute(int						iRoute,
 }
 
 
-BOOL Realtime_GetGeoConfig(const RoadMapPosition   *pGPSPosition, wst_handle websvc){
-   return RTNet_GetGeoConfig(&gs_CI,websvc,pGPSPosition, OnAsyncOperationCompleted_GetGeoConfig);
+BOOL Realtime_GetGeoConfig(const RoadMapPosition   *pGPSPosition, const char *name,wst_handle websvc){
+   return RTNet_GetGeoConfig(&gs_CI,websvc,pGPSPosition, name, OnAsyncOperationCompleted_GetGeoConfig);
 }
 
 static void OnAsyncOperationCompleted_SelectRoute (void* ctx, roadmap_result rc)
@@ -3699,4 +3765,20 @@ static void freeUpdteaMapCache(){
 	}
 }
 
+
+BOOL Realtime_AllowPing(void){
+   if (0 == strcmp (roadmap_config_get (&RT_CFG_PRM_ALLOW_PING_Var), "yes"))
+      return TRUE;
+   return FALSE;
+}
+
+
+void Realtime_Set_AllowPing (BOOL AllowPing) {
+   if (AllowPing)
+      roadmap_config_set (&RT_CFG_PRM_ALLOW_PING_Var, "yes");
+   else
+      roadmap_config_set (&RT_CFG_PRM_ALLOW_PING_Var, "no");
+   roadmap_config_save (FALSE);
+
+}
 

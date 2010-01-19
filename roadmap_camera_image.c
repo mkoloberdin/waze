@@ -234,14 +234,14 @@ static char* get_download_url( const char* image_id )
 static int  download_size_callback( void *context_cb, size_t size )
 {
    DownloadContext* context = (DownloadContext*) context_cb;
-   
+
    // Allocate data storage
-   if ( size > 0 ) 
+   if ( size > 0 )
    {
    	context->data = malloc( size );
    	context->data_size = 0;
    }
-   
+
 	return size;
 }
 /***********************************************************/
@@ -252,12 +252,12 @@ static int  download_size_callback( void *context_cb, size_t size )
 static void download_progress_callback( void *context_cb, char *data, size_t size )
 {
    DownloadContext* context = (DownloadContext*) context_cb;
-   
+
    // Store data
    if ( context->data )
    {
    	memcpy( context->data + context->data_size, data, size );
-   	context->data_size += size; 
+   	context->data_size += size;
    }
 }
 
@@ -286,7 +286,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
 		free( context->data );
 		context->data = NULL;
 	}
-	
+
    context->download_cb( context->context_cb, -1, NULL );
 }
 
@@ -654,14 +654,17 @@ static SsdWidget upload_progress_ssd_dialog( void )
     bg_color = "#ff0000000";
 #endif
 
-    // Dialog with title Waze
+    // Persistent dialog with title Waze
     dialog = ssd_dialog_new( IMG_UPLOAD_SSD_DLG_NAME, "Waze", NULL, SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|
-                                SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS);
+                                SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|SSD_PERSISTENT|
+                                SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS);
+
     if ( !dialog )
     {
         roadmap_log( ROADMAP_ERROR, "Error creating upload progress dialog" );
         return NULL;
     }
+
     // Add the image upload icon
     // TODO:: Ask for the icon !!!!
 //    ssd_widget_add  ( dialog, ssd_button_new( "Image upload", "", image_upload_icon, 1,

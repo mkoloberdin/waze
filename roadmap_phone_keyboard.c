@@ -210,6 +210,7 @@ void roadmap_phone_keyboard_init()
     * Added by AGA.
     * TODO:: Find more appropriate place for this declaration
     */
+#ifdef ANDROID   
    if ( roadmap_lang_rtl() )
    {
 	   roadmap_config_declare_enumeration
@@ -220,7 +221,10 @@ void roadmap_phone_keyboard_init()
 	   roadmap_config_declare_enumeration
 			("user", &RoadMapConfigUseNativeKeyboard, NULL, "yes", "no", NULL);
    }
-
+#else
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigUseNativeKeyboard, NULL, "yes", "no", NULL);
+#endif   
 }
 
 void roadmap_phone_keyboard_term()

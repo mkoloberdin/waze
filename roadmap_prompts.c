@@ -288,7 +288,7 @@ void roadmap_prompts_download (const char *lang) {
    roadmap_warning_register (prompts_downloads_warning_fn, "prompts");
    roadmap_prompts_set_downloading_lang_name(lang);
    for (i = 0; i < num_prompts; i++) {
-      roadmap_res_download (RES_DOWNLOAD_SOUND, prompts_list[i], lang, FALSE, 0,
+      roadmap_res_download (RES_DOWNLOAD_SOUND, prompts_list[i], NULL, lang, FALSE, 0,
                      on_loaded_prompt_file, NULL);
    }
 }
@@ -370,6 +370,7 @@ static void on_download_lang_confirm(int exit_code, void *context){
    }
 
 }
+
 //////////////////////////////////////////////////////////////////
 static void on_conf_file_downloaded (const char* res_name, int success, void *context, char *last_modified) {
 
@@ -407,7 +408,7 @@ static void download_conf_file () {
    else {
       update_time = WDF_TimeFromModifiedSince(last_save_time);
     }
-   roadmap_res_download (RES_DOWNLOAD_CONFIFG, "prompts.conf", "", TRUE, update_time,
+   roadmap_res_download (RES_DOWNLOAD_CONFIFG, "prompts.conf", NULL, "", TRUE, update_time,
                   on_conf_file_downloaded, NULL);
 }
 //////////////////////////////////////////////////////////////////

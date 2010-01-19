@@ -321,7 +321,8 @@ static SsdWidget create_dlg(const char *dlg_name, const char *dlg_title, SsdWidg
    dlg  = ssd_dialog_new(  dlg_name,
                            roadmap_lang_get(dlg_title),
                            on_dlg_closed,
-                           SSD_DIALOG_GUI_TAB_ORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
+                           SSD_DIALOG_GUI_TAB_ORDER|SSD_CONTAINER_TITLE|SSD_PERSISTENT| /* AGA TODO :: Check if persistency is necessary here */
+                           SSD_DIALOG_NO_SCROLL);
 
    assert( dlg);
    assert(!dlg->context);
@@ -335,7 +336,7 @@ static SsdWidget create_dlg(const char *dlg_name, const char *dlg_title, SsdWidg
 
 static SsdWidget get_dlg(const char *dlg_name, const char *dlg_title, SsdWidget rcnt)
 {
-   if( !search_context[s_type].c_dlg)
+   if( !ssd_dialog_exists( dlg_name ) )
    {
       search_context[s_type].c_1st = TRUE;
       search_context[s_type].c_dlg = create_dlg(dlg_name, dlg_title, rcnt);

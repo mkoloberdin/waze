@@ -34,6 +34,11 @@
 #define RT_USERS_CENTER_NONE				-1
 #define RT_USERS_CENTER_ON_ALERT       1
 #define RT_USERS_CENTER_ON_ME 		   2
+
+#define RT_USERS_PING_FLAG_OLD_VER     0
+#define RT_USERS_PING_FLAG_ALLOW       1
+#define RT_USERS_PING_FLAG_DENY        2
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -55,6 +60,7 @@ typedef struct tagRTUserLocation
    int         		iPoints;                      // User points
    int   				iJoinDate;                    // User join date (time)
    BOOL        		bWasUpdated;                  // New user, OR user location was changed
+   int               iPingFlag;                  // Can we send a ping top that user
 
 }  RTUserLocation, *LPRTUserLocation;
 

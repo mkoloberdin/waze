@@ -74,6 +74,7 @@ BOOL  RTNet_SetMyVisability(  LPRTConnectionInfo   pCI,
                               BOOL showWazers,
                               BOOL showReports,
                               BOOL showTraffic,
+                              BOOL allowPing,
                               char*                packet_only);
 
 BOOL RTNet_SetMood		   (LPRTConnectionInfo   pCI,
@@ -145,6 +146,17 @@ BOOL  RTNet_ReportAlert(   LPRTConnectionInfo   pCI,
                            int                  iDirection,
                            const char*          szImageId,
                            BOOL						bForwardToTwitter,
+                           CB_OnWSTCompleted pfnOnCompleted);
+
+BOOL  RTNet_PinqWazer(     LPRTConnectionInfo   pCI,
+                           const RoadMapGpsPosition  *pPosition,
+                           int                from_node,
+                           int                to_node,
+                           int                iUserId,
+                           int                iAlertType,
+                           const char*        szDescription,
+                           const char*        szImageId,
+                           BOOL               bForwardToTwitter,
                            CB_OnWSTCompleted pfnOnCompleted);
 
 BOOL  RTNet_ReportAlertAtPosition(
@@ -268,6 +280,7 @@ BOOL  RTNet_FoursquareConnect (
                    LPRTConnectionInfo   pCI,
                    const char*          userName,
                    const char*          passWord,
+                   BOOL                 bTweetLogin,
                    CB_OnWSTCompleted    pfnOnCompleted);
 
 BOOL  RTNet_FoursquareSearch (
@@ -278,6 +291,7 @@ BOOL  RTNet_FoursquareSearch (
 BOOL  RTNet_FoursquareCheckin (
                    LPRTConnectionInfo   pCI,
                    const char*          vid,
+                   BOOL                 bTweetBadge,
                    CB_OnWSTCompleted    pfnOnCompleted);
 
 BOOL  RTNet_TripServer_CreatePOI  (
@@ -310,6 +324,7 @@ BOOL RTNet_GetGeoConfig(
                   LPRTConnectionInfo         pCI,
                   wst_handle                 websvc,
                   const RoadMapPosition      *Location,
+                  const char                 *name,
                   CB_OnWSTCompleted          pfnOnCompleted);
 
 BOOL RTNet_CollectBonus(

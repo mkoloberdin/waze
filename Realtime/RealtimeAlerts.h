@@ -86,6 +86,7 @@ typedef struct
     char sPostedBy [RT_ALERT_USERNM_MAXSIZE+1]; // The User who posted the comment
     char sDescription [RT_ALERT_DESCRIPTION_MAXSIZE+1]; // The comment
     BOOL bCommentByMe;
+    BOOL bDisplay;
     int  iRank;
     int  iMood;
 } RTAlertComment;
@@ -141,6 +142,7 @@ typedef struct
     int	 iSquare;
     int iNumComments;
     BOOL bAlertByMe;
+    BOOL bPingWazer;
     RTAlertCommentsEntry *Comment;
 
 } RTAlert;

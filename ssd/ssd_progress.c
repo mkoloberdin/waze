@@ -41,13 +41,13 @@ typedef struct tag_bitmap_info
 
 static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
-   static RoadMapImage   left;
-   static RoadMapImage   middle;
-   static RoadMapImage   right;
-   static RoadMapImage   filled;
-   static RoadMapImage   left_fill;
-   static RoadMapImage   right_fill;
-   static RoadMapImage   wazzy;
+   RoadMapImage   left = NULL;
+   RoadMapImage   middle = NULL;
+   RoadMapImage   right = NULL;
+   RoadMapImage   filled = NULL;
+   RoadMapImage   left_fill = NULL;
+   RoadMapImage   right_fill = NULL;
+   RoadMapImage   wazzy = NULL;
    RoadMapGuiPoint point;
    int   width_left, width_right, width_middle;
    int width_left_fill = 0, width_right_fill = 0;

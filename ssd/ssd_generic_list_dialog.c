@@ -26,6 +26,7 @@
 #include "ssd_generic_list_dialog.h"
 
 
+
 typedef struct ssd_list_context {
    PFN_ON_ITEM_SELECTED   on_item_selected;
    PFN_ON_ITEM_SELECTED   on_item_deleted;
@@ -96,7 +97,7 @@ void ssd_generic_list_dialog_show(const char*            title,
 
    if (!GenericList)
    {
-      GenericList = ssd_dialog_new ("generic_list", "", on_dialog_closed,
+      GenericList = ssd_dialog_new ( SSD_GEN_LIST_DLG_NAME, "", on_dialog_closed,
                                     SSD_CONTAINER_TITLE);
       list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, 0, NULL);
 
@@ -105,7 +106,7 @@ void ssd_generic_list_dialog_show(const char*            title,
 
    list = ssd_widget_get (GenericList, "list");
    ssd_widget_set_offset(GenericList,0,0);
-   
+
    ssd_widget_set_left_softkey_text(GenericList, roadmap_lang_get("Exit_key"));
    ssd_widget_set_left_softkey_callback(GenericList, NULL);
 
@@ -116,7 +117,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    ssd_widget_reset_position(GenericList);
    ssd_list_resize ( list, list_height );
    ssd_list_populate (list, count, labels, values, NULL, NULL, list_callback, del_callback, FALSE);
-   ssd_dialog_activate ("generic_list", NULL);
+   ssd_dialog_activate ( SSD_GEN_LIST_DLG_NAME, NULL );
    ssd_dialog_draw ();
  }
 
@@ -144,11 +145,10 @@ void ssd_generic_icon_list_dialog_show(
    list_context.on_item_deleted = on_item_deleted;
    list_context.context         = context;
    list_context.left_softkey_callback = left_softkey_callback;
-   if (!GenericList)
+   if ( !ssd_dialog_exists( SSD_GEN_LIST_DLG_NAME ) )
    {
-      GenericList   = ssd_dialog_new ("generic_list", "", on_dialog_closed, SSD_CONTAINER_TITLE|dialog_flags);
-      list         = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, 0, NULL);
-
+      GenericList   = ssd_dialog_new ( SSD_GEN_LIST_DLG_NAME, "", on_dialog_closed, SSD_CONTAINER_TITLE|dialog_flags);
+      list          = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, 0, NULL);
       ssd_widget_add (GenericList, list);
    }
    else{
@@ -157,21 +157,21 @@ void ssd_generic_icon_list_dialog_show(
    }
    ssd_widget_set_offset(GenericList,0,0);
    list = ssd_widget_get (GenericList, "list");
-   
+
    GenericList->set_value (GenericList->parent, title);
    ssd_widget_set_context (GenericList, &list_context);
 
 
    ssd_widget_reset_cache (list->parent);
    ssd_widget_reset_position(GenericList);
-   ssd_list_resize (list, list_height   );
+   ssd_list_resize ( list, list_height );
    ssd_list_populate (list, count, labels, values,icons,flags, list_callback, del_callback, add_next_button);
    ssd_widget_set_left_softkey_text(GenericList, left_softkey_text);
    if (left_softkey_callback != NULL)
       ssd_widget_set_left_softkey_callback(GenericList, list_left_softkey_callback);
 
-   
-   ssd_dialog_activate ("generic_list", NULL);
+
+   ssd_dialog_activate (SSD_GEN_LIST_DLG_NAME, NULL);
    ssd_dialog_draw ();
 }
 
@@ -190,7 +190,7 @@ const void* ssd_generic_list_dialog_selected_value  (void){
 
 
 void ssd_generic_list_dialog_hide (void)
-{ ssd_dialog_hide ("generic_list", dec_close);}
+{ ssd_dialog_hide ( SSD_GEN_LIST_DLG_NAME, dec_close );}
 
 void ssd_generic_list_dialog_hide_all (void)
 { ssd_dialog_hide_all (dec_close);}

@@ -45,6 +45,16 @@
 #define  FOURSQUARE_CFG_PRM_PASSWORD_Name       ("Password")
 #define  FOURSQUARE_CFG_PRM_PASSWORD_Default    ("")
 
+//  Enable / Disable Tweeting Foursquare login
+#define  FOURSQUARE_CFG_PRM_TWEET_LOGIN_Name         ("Tweet Login")
+#define  FOURSQUARE_CFG_PRM_TWEET_LOGIN_Enabled      ("Enabled")
+#define  FOURSQUARE_CFG_PRM_TWEET_LOGIN_Disabled     ("Disabled")
+
+//  Enable / Disable Tweeting Foursquare badge unlock
+#define  FOURSQUARE_CFG_PRM_TWEET_BADGE_Name         ("Tweet Badge")
+#define  FOURSQUARE_CFG_PRM_TWEET_BADGE_Enabled      ("Enabled")
+#define  FOURSQUARE_CFG_PRM_TWEET_BADGE_Disabled     ("Disabled")
+
 // Logged in status
 #define  FOURSQUARE_CFG_PRM_LOGGED_IN_Name      ("Logged In")
 #define  FOURSQUARE_CFG_PRM_LOGGED_IN_No        ("no")
@@ -123,6 +133,13 @@ const char* roadmap_foursquare_response(int status, roadmap_result* rc, int NumP
 void roadmap_foursquare_login (const char *user_name, const char *password);
 void roadmap_foursquare_get_checkin_info (FoursquareCheckin *outCheckInInfo);
 SsdWidget roadmap_foursquare_create_alert_menu(void);
+
+BOOL roadmap_foursquare_is_tweet_login_enabled(void);
+void roadmap_foursquare_enable_tweet_login();
+void roadmap_foursquare_disable_tweet_login();
+BOOL roadmap_foursquare_is_tweet_badge_enabled(void);
+void roadmap_foursquare_enable_tweet_badge();
+void roadmap_foursquare_disable_tweet_badge();
 
 
 #endif /* INCLUDE__ROADMAP_FOURSQUARE__H */

@@ -52,71 +52,36 @@
 #include "Realtime/RealtimeDefs.h"
 #include "Realtime/RealtimeAlerts.h"
 #include "roadmap_native_keyboard.h"
-
+#include "roadmap_disclaimer.h"
 #ifdef   TOUCH_SCREEN
    #include "ssd/ssd_keyboard.h"
 #endif //TOUCH_SCREEN
 
-const char* Hebrew_Disclaimer1 =
-         "ברוכים הבאים ל Waze!\n"
-         "מידע חי על מצב התנועה ונווט עוקף פקקים, אשר מיוצר בשיתוף ותרומה של חברי הקהילה\n";
-const char* Hebrew_Disclaimer2 =
-		 "בלחיצה על 'אשר' הנך מאשר כי:\n" 
-         "1. קראת והנך מסכים לתנאי השימוש ומדיניות הפרטיות. השימוש בשירות Waze כפוף להסכמים המחייבים ומעיד על הסכמתך להם. תקציר זה אינו בא במקומם, והוא מיועד לצרכי נוחות בלבד.\n" \
-         "2. השימוש בשירות הינו באחריותך בלבד. הינך מאשר כי תשתמש בשירות בהתאם להוראות כל דין, לרבות דיני התעבורה.";
-         
-  
-const char* Hebrew_Disclaimer3 =
-         "3. שירות Waze מחייב חיבור לרשת האינטרנט לצורך השימוש בו, וקבלת עדכונים בזמן אמת. חברת Waze אינה מספקת קישור כזה. באחריותך לרכוש אותו ולוודא שתנאיו מתאימים לצרכיך. חברת Waze אינה נושאת בכל אחריות לקישור ו/או לכל שיבוש, תקלה או קלקול בו. \n" \
-         "4. תוכנת המפוי Waze המותקנת על-גבי מכשיר הטלפון הסלולרי שלך, היא תוכנה חופשית; "  \
-         "אתה יכול להפיצה מחדש ו/או לשנות את התוכנה על פי תנאי הרישיון הציבורי הכללי של GNU, אם גרסה 2 של הרישיון, "\
-         "ובין אם (לפי בחירתך) כל גרסה מאוחרת שלו. התוכנה מופצת בתקווה שתהיה מועילה, אבל בלא אחריות כלשהי. לפרטים נוספים, ראה את הרישיון הציבורי הכללי של GNU. אם רצונך לקבל את קוד המקור של התכנה, פנה אלינו בכתב. ";
-
-const char* Hebrew_Disclaimer4 =
-	     "5. כשאתה מספק מידע ותוכן לשירות, אתה מאשר שאתה בעלים בלעדי של כל הזכויות בו ורשאי להקנות בו זכויות. מידע ותוכן כזה נשאר בבעלותך ואתה מקנה בו לחברת Waze רישיון חינם כלל עולמי, לא בלעדי, בלתי חוזר ובלתי מוגבל בזמן, שניתן להעברה וכולל זכות למתן רשיונות-משנה, להשתמש, להעתיק, להפיץ, ליצור יצירות נגזרות, להציג ולבצע בפומבי מידע ותוכן כזה. בכפוף לכך, בסיס הנתונים של השירות הוא קניינה של החברה ואין להשתמש בו אלא לצרכים לא מסחריים ופרטיים בלבד.";
-	
-const char* Hebrew_Disclaimer5 = 
-		 "6. שירות Waze מוצע בחינם, בתקווה שתמצא אותו מועיל. עם זאת, Waze ו/או עובדיה, מנהליה, בעלי מניותיה, יועציה ו/או מי מטעמה, לא ישאו בחבות כלשהיא כלפיך ו/או כלפי צדדים שלישים, מכל סיבה שהיא, בקשר עם מוצריה Waze ו/או שירותיה, לרבות (אך לא רק) בגין כל הפסד, אבדן רווח, פגיעה במוניטין, תשלום, הוצאה ו/או נזק, ישיר או עקיף, ממוני או בלתי-ממוני.";
 
 
 
+//disclaimer texts ( see disclaimer.h )
+static char * DISCLAIMER_ENG[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+				{{ DIS_ENG_0_0,DIS_ENG_0_1,DIS_ENG_0_2,"","",""},{DIS_ENG_1_0,DIS_ENG_1_1,DIS_ENG_1_2,DIS_ENG_1_3,
+				   DIS_ENG_1_4,DIS_ENG_1_5,DIS_ENG_1_6}};
+				   
+static char * DISCLAIMER_ESP[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+				{{ DIS_ESP_0_0,DIS_ESP_0_0,"","","",""},{DIS_ESP_1_0,DIS_ESP_1_1,DIS_ESP_1_2,DIS_ESP_1_3,
+				   DIS_ESP_1_4,DIS_ESP_1_5,DIS_ESP_1_6}};				   
+
+static char * DISCLAIMER_HEB[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+				{{ DIS_HEB_0_0,DIS_HEB_0_1,DIS_HEB_0_1,"","",""},{DIS_HEB_1_0,DIS_HEB_1_1,DIS_HEB_1_2,DIS_HEB_1_3,
+				   DIS_HEB_1_4,DIS_HEB_1_5,DIS_HEB_1_6}};
+
+
+//intro texts
+static char * INTRO_ENG[NUMBER_OF_LINES_INTRO] = {INTR_ENG_0,INTR_ENG_1,INTR_ENG_2,INTR_ENG_3};
+static char * INTRO_ESP[NUMBER_OF_LINES_INTRO] = {INTR_ESP_0,INTR_ESP_1,INTR_ESP_2,INTR_ESP_3};
 
 
 
+static void add_intro_texts(SsdWidget group, int tab_flag);
 
-
-
-
-
-const char* English_Disclaimer1 =
-   "Welcome to Waze!\n\n"
-   "You're about to join the first network of drivers working together to build and share real-time road intelligence.\n\n"
-   "Since Waze is 100% user generated, we need your collaboration and patience!";
-
-const char* English_Disclaimer2 =
-      "By clicking 'Accept' you confirm that:\n\n" \
-      "1. You have read and agreed to the 'Terms of Use' http://www.waze.com/legal/tos/ and 'Privacy Policy' http://www.waze.com/legal/privacy/ ('Binding Agreements'). The use of Waze service (the 'Service') is subject to the Binding Agreements and indicates your consent to them. This summary is not meant to replace the Binding Agreements. It is intended for convenience purposes only.";
-const char* English_Disclaimer3 =
-      "2. Use of Service is made at your sole risk.  You hereby agree to use the Service only in accordance with any applicable law, including but not limited to, all transportation laws and regulations.";
-const char* English_Disclaimer4 =      
-      "3. The Service requires Internet connection for real time updates. Waze does not provide such connection. It is your responsibility to purchase connection services and to make sure its terms matches your needs. Waze has no control over or responsibility to the connection and/or any disruption, failure or breakdown therein.\n\n" \
-      "4. The Waze client, that you install on your cellular device, is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License; either version 2 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See the GNU General Public License http://www.gnu.org/licenses/gpl-2.0.html for more details. If you wish to obtain the program's source code, please write to us.";
-      
-const char* English_Disclaimer5 =
-	  "5. When you provide data and or content to the Service, you hereby confirm that you own all exclusive rights at it and may assign or license such rights. You keep all title and rights to such data and/or content you provide to the Service, but you grant Waze Inc. and/or Waze Mobile (the Company or 'Waze') a worldwide, free, non-exclusive, irrevocable, sublicensable, transferable and perpetual license to use, copy, distribute, create derivative works of, publicly display, publicly perform and exploit in any other manner such data and content. Subject to the aforementioned, the Company keeps title and all rights to the Service's database and you may use it for non-commercial and private purposes only.\n\n" \
-	  "6. Waze service is offered for free, with hope that you find it useful. However, Waze and/or its employees, directors shareholders, advisors and/or on anyone of it's behalf (collectively: 'Waze') shall not be liable to you and/or to any third party, for any reason whatsoever, as result with the use of the Company's product and/or Service. You hereby irrevocably release Waze from any liability of any kind, for any consequence arising from use of the Company's products and/or Service, Including (but not only) for any loss, loss of profit, damage to reputation, fee, expense and/or damage, direct or indirect, financial or non-financial.";
-
-	  
-     
-const char * EnglishIntro1 = 
-	"Waze is a social mobile navigation application that allows users to build and use live maps, real-time traffic updates and turn-by-turn navigation to improve daily commuting."; 
-	
-
-const char * EnglishIntro2 = 
-"The mapping in your country has only recently begun so it'll be a little while until the app delivers its full value.\n"	
-"In many areas  there will be no map at all and you're likely to be paving roads as you start out. ";
-
-const char * EnglishIntro3 =  "If you like mapping, now's a great time to get involved and map your area - you'll have a ton of fun!\n";
 
 	
 extern RoadMapConfigDescriptor RT_CFG_PRM_NKNM_Var;
@@ -1329,8 +1294,6 @@ static int intro_screen_buttons_callback(SsdWidget widget, const char *new_value
 // create the intro screen
 static void create_intro_screen(){
 	SsdWidget dialog;
-	SsdWidget text;
-	const char * introText;
 	SsdWidget group;
 	int tab_flag=0;
 	int         width = roadmap_canvas_width() - 10;
@@ -1347,34 +1310,7 @@ static void create_intro_screen(){
             width, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_END_ROW|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
    ssd_widget_set_color (group, NULL,NULL);
    ssd_widget_add (group, space(8)); 
-   
-   if(0 == strcmp( system_lang, "Hebrew"))
-       introText = EnglishIntro1;
-    else
-       introText = EnglishIntro1;
-   text = ssd_text_new( "txt", "", 16, tab_flag|SSD_WS_DEFWIDGET);
-   ssd_text_set_text_size( text, strlen(introText));
-   ssd_text_set_text( text, introText);
-   ssd_widget_add( group, text);  
-   
-   if(0 == strcmp( system_lang, "Hebrew"))
-       introText = EnglishIntro2;
-    else
-       introText = EnglishIntro2;
-   text = ssd_text_new( "txt", "", 16, tab_flag);
-   ssd_text_set_text_size( text, strlen(introText));
-   ssd_text_set_text( text, introText);
-   ssd_widget_add( group, text);    
-   
-   if(0 == strcmp( system_lang, "Hebrew"))
-       introText = EnglishIntro3;
-    else
-       introText = EnglishIntro3;
-   text = ssd_text_new( "txt", "", 16, tab_flag);
-   ssd_text_set_text_size( text, strlen(introText));
-   ssd_text_set_text( text, introText);
-   ssd_widget_add( group, text);     
-   
+   add_intro_texts(group, tab_flag);   
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group,
    ssd_button_label ("Next", roadmap_lang_get ("Next"),
@@ -1460,29 +1396,97 @@ static BOOL OnKeyPressed( SsdWidget this, const char* utf8char, uint32_t flags){
 }
 
 
-//////////////////////////////////////////////////////////////
+
+static SsdWidget add_text_to_group(const char * in_text,SsdWidget group, int tab_flag, int font_size, BOOL first_widget ){
+	SsdWidget text;
+	if(first_widget)
+		text = ssd_text_new( "txt", "", font_size, tab_flag|SSD_WS_DEFWIDGET);
+	else
+		text = ssd_text_new( "txt", "", font_size, tab_flag);
+	ssd_text_set_text_size( text, strlen(in_text));
+	ssd_text_set_text( text, in_text);
+	ssd_widget_add( group, text);
+	ssd_widget_add (group, space(8));
+	return text;
+}
+
+static void add_intro_texts(SsdWidget group, int tab_flag){
+	int i;
+	const char* system_lang;
+	char ** intro_text ;
+	SsdWidget last_widget;
+	BOOL first_widget = TRUE;
+    system_lang = roadmap_lang_get_system_lang();
+    if (!strcmp("esp",system_lang))
+    	intro_text = &INTRO_ESP[0];
+    else // intro_text is english disclaimer
+    	intro_text = &INTRO_ENG[0];
+    	
+    //English
+	for (i=0;i<NUMBER_OF_LINES_INTRO;i++){
+		if (!strcmp(intro_text[i],"")){// reached an empty screen - got to the last available text
+			break;
+		}else{ 	
+			last_widget = add_text_to_group(intro_text[i],group,tab_flag,16,first_widget);
+			first_widget = FALSE;
+		}
+	}
+	last_widget->key_pressed     = OnKeyPressed; // disables wraparound scrolling, only up and down
+}
+
+/**
+ * Add the disclaimer texts to the disclaimer screen . 
+ * In - SsdWidget group - the widget the texts will be added to . 
+ */
+static void add_disclaimer_texts(SsdWidget group, int tab_flag){
+	int i;
+	int j;
+	const char* system_lang;
+	char ** disclaimer ;
+	SsdWidget last_widget;
+	BOOL first_widget = TRUE;
+    system_lang = roadmap_lang_get_system_lang();
+    if (!strcmp("esp",system_lang))
+    	disclaimer = &DISCLAIMER_ESP[0][0];
+    else if (!strcmp("heb",system_lang))
+    	disclaimer = &DISCLAIMER_HEB[0][0];
+    else // default is english disclaimer
+    	disclaimer = &DISCLAIMER_ENG[0][0];
+
+  	
+   if(is_show_intro_screen())
+   		i = 1;
+   else
+   		i = 0;
+   
+   for (;i<NUMBER_OF_DISCLAIMER_PARTS;i++){
+   		for (j=0;j<NUMBER_OF_LINES_PER_PART_DISC;j++){
+	   		if (!strcmp(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC],"")){// reached an empty screen - got to the last available text
+				break;
+			}else{ 	
+				last_widget = add_text_to_group(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC],group,tab_flag,14, first_widget);
+				first_widget = FALSE;			
+			}
+   		}
+   }
+   
+   last_widget->key_pressed     = OnKeyPressed; // disables wrap around scrolling, only up and down. 
+   
+}
+
+
 void term_of_use_dialog(void){
-
-   static const char* Disclaimer = NULL;
-
    SsdWidget   dialog;
    SsdWidget   group;
-   SsdWidget   text;
    int         width = roadmap_canvas_width() - 20;
    int         tab_flag = 0;
-   const char* system_lang = roadmap_lang_get( "lang");
+
 
 #ifndef TOUCH_SCREEN
    tab_flag = SSD_WS_TABSTOP;
 #endif
-   if( NULL == Disclaimer)
-   {
-      if(0 == strcmp( system_lang, "Hebrew"))
-         Disclaimer = Hebrew_Disclaimer1;
-      else
-         Disclaimer = English_Disclaimer1;
-   }
-
+   
+   
    
    dialog = ssd_dialog_new ("term_of_use",
                             roadmap_lang_get ("Terms of use"),
@@ -1495,59 +1499,10 @@ void term_of_use_dialog(void){
    ssd_widget_add (group, space(20));
 
 
+   add_disclaimer_texts(group, tab_flag);
+
+	
    
-if(!(is_show_intro_screen())){
-   text = ssd_text_new( "txt", "", 14, tab_flag|SSD_WS_DEFWIDGET);
-   ssd_text_set_text_size( text, strlen(Disclaimer));
-   ssd_text_set_text( text, Disclaimer);
-   ssd_widget_add( group, text);
-}
-
-
-   if(0 == strcmp( system_lang, "Hebrew"))
-       Disclaimer = Hebrew_Disclaimer2;
-    else
-       Disclaimer = English_Disclaimer2;
-if(!(is_show_intro_screen()))
-   text = ssd_text_new( "txt", "", 14, tab_flag);
-else
-  text = ssd_text_new( "txt", "", 14, tab_flag|SSD_WS_DEFWIDGET);
-  
-   ssd_text_set_text_size( text, strlen(Disclaimer));
-   ssd_text_set_text( text, Disclaimer);
-   ssd_widget_add( group, text);
-
-   if(0 == strcmp( system_lang, "Hebrew"))
-       Disclaimer = Hebrew_Disclaimer3;
-    else
-       Disclaimer = English_Disclaimer3;
-   text = ssd_text_new( "txt", "", 14, tab_flag);
-   ssd_text_set_text_size( text, strlen(Disclaimer));
-   ssd_text_set_text( text, Disclaimer);
-   ssd_widget_add( group, text);
-
-   if(0 == strcmp( system_lang, "Hebrew"))
-       Disclaimer = Hebrew_Disclaimer4;
-    else
-       Disclaimer = English_Disclaimer4;
-   text = ssd_text_new( "txt", "", 14, tab_flag);
-   ssd_text_set_text_size( text, strlen(Disclaimer));
-   ssd_text_set_text( text, Disclaimer);
-   ssd_widget_add( group, text);
-   
-   if(0 == strcmp( system_lang, "Hebrew"))
-       Disclaimer = Hebrew_Disclaimer5;
-    else
-       Disclaimer = English_Disclaimer5;
-   text = ssd_text_new( "txt", "", 14, tab_flag);
-   ssd_text_set_text_size( text, strlen(Disclaimer));
-   ssd_text_set_text( text, Disclaimer);
-   ssd_widget_add( group, text);
-   
-   text->key_pressed     = OnKeyPressed;
-
-   //ssd_widget_add (group, space(20));
-
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group,
    ssd_button_label ("Accept", roadmap_lang_get ("Accept"),

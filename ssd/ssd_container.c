@@ -88,11 +88,16 @@ static RoadMapImage create_title_bar_image (RoadMapImage header_image, RoadMapGu
       for (i=0;i<=num_images;i++){
              point.x = i * image_width;
              point.y = 0;
-             roadmap_canvas_copy_image (image, &point, NULL, header_image, IMAGE_NORMAL);
+             roadmap_canvas_copy_image (image, &point, NULL, header_image, CANVAS_COPY_NORMAL);
        }
     }
 
    return image;
+}
+
+
+static void release( SsdWidget widget )
+{
 }
 
 void draw_title_bar(RoadMapGuiRect *rect){
@@ -107,7 +112,7 @@ void draw_title_bar(RoadMapGuiRect *rect){
    if (!header_image)
       header_image =    roadmap_res_get(
                                  RES_BITMAP,
-                                 RES_SKIN|RES_LOCK,
+                                 RES_SKIN|RES_NOCACHE,
                                  "header");
 
    if ((cached_header_image == NULL) || (cached_width != roadmap_canvas_width())){
@@ -123,7 +128,8 @@ void draw_title_bar(RoadMapGuiRect *rect){
 }
 
 static void draw_bg(RoadMapGuiRect *rect){
-	static RoadMapImage bg_image, bg_image_night;
+	RoadMapImage bg_image = NULL;
+	RoadMapImage bg_image_night = NULL;
 	RoadMapGuiPoint point;
 	int   width;
 	int   num_images;
@@ -133,13 +139,13 @@ static void draw_bg(RoadMapGuiRect *rect){
 		if (!bg_image)
 			bg_image = 	roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN|RES_LOCK,
+                                    RES_SKIN,
                                     "container_bg");
 		image = bg_image;
       if (!bg_image_night)
          bg_image_night =  roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN|RES_LOCK,
+                                    RES_SKIN,
                                     "container_bg_night");
       if (roadmap_skin_state())
          image = bg_image_night;
@@ -170,6 +176,11 @@ static void draw_text_box(SsdWidget widget, RoadMapGuiRect *rect){
 
 	int i;
 	int num_images;
+
+	/*
+	 * AGA TODO:: Check if theses images should be cached for the memory optimizations
+	 *
+	 */
    static RoadMapImage   left;
    static RoadMapImage   middle;
    static RoadMapImage   right;
@@ -183,39 +194,38 @@ static void draw_text_box(SsdWidget widget, RoadMapGuiRect *rect){
 	int   width_left, width_right, width_middle;
 
 	if (!left)
-			left = 	roadmap_res_get(
-                                    RES_BITMAP,
-                                    RES_SKIN,
+			left = 	roadmap_res_get( RES_BITMAP,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_left");
 
 	if (!right)
 			right = 	roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_right");
 
 	if (!middle)
 			middle = 	roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_middle");
 
    if (!left_s)
          left_s =   roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_left_selected");
 
    if (!right_s)
          right_s =  roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_right_selected");
 
    if (!middle_s)
          middle_s =    roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "Txtbox_middle_selected");
 
 	if ( widget->in_focus && widget->focus_highlight ){
@@ -559,7 +569,7 @@ static void add_title (SsdWidget w, int flags) {
    		   else
    		      ssd_widget_set_color (text, "#000000", "#ff0000000");
    }
-#ifdef TOUCH_SCREEN
+#if defined(TOUCH_SCREEN) & !defined(ANDROID)
    if (!( ((flags & SSD_DIALOG_FLOAT)&& !(flags & SSD_DIALOG_TRANSPARENT)) || (flags & SSD_DIALOG_NO_BACK))){
 	   SsdWidget btn =             ssd_button_new ("back", "", back_buttons, 2,
                SSD_ALIGN_VCENTER, button_callback );
@@ -635,9 +645,6 @@ SsdWidget ssd_container_new (const char *name, const char *title,
                              int width, int height, int flags) {
 
    SsdWidget w;
-#ifdef ANDROID
-   flags |= SSD_DIALOG_NO_BACK;
-#endif
 
    if (!initialized) {
       init_containers();
@@ -650,6 +657,7 @@ SsdWidget ssd_container_new (const char *name, const char *title,
    w->flags = flags;
 
    w->draw = draw;
+   w->release = release;
 
    w->size.width = width;
    w->size.height = height;

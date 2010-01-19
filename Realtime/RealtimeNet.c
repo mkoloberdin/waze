@@ -59,7 +59,12 @@ static wst_handle gs_WST = NULL;
 
 static wst_parser login_parser[] =
 {
-   { NULL, OnLoginResponse}
+   { "SystemMessage",         SystemMessage},
+   { "GeoServerConfig",       on_geo_server_config},
+   { "ServerConfig",          on_server_config},
+   { "UpdateConfig",          on_update_config},
+   { "UpgradeClient",         VersionUpgrade},
+   { NULL, OnLoginResponse},
 };
 
 static wst_parser logout_parser[] =
@@ -77,6 +82,7 @@ static wst_parser geo_config_parser[] =
    { "RC",                    VerifyStatus},
    { "GeoServerConfig",       on_geo_server_config},
    { "ServerConfig",          on_server_config},
+   { "UpdateConfig",          on_update_config},
 };
 
 static wst_parser general_parser[] =
@@ -204,6 +210,21 @@ void format_RoadMapGpsPosition_string( char* buffer, const RoadMapGpsPosition* p
             position->speed);
 }
 
+void format_RoadMapGpsPosition_Pos_Azy_Str( char* buffer, const RoadMapGpsPosition* position)
+{
+   /* Buffer minimum size is RoadMapGpsPosition_STRING_MAXSIZE */
+
+   char  float_string_longitude[COORDINATE_VALUE_STRING_MAXSIZE+1];
+   char  float_string_latitude [COORDINATE_VALUE_STRING_MAXSIZE+1];
+
+   convert_int_coordinate_to_float_string( float_string_longitude, position->longitude);
+   convert_int_coordinate_to_float_string( float_string_latitude , position->latitude);
+   sprintf( buffer,
+            "%s,%s,%d",
+            float_string_longitude,
+            float_string_latitude,
+            position->steering);
+}
 void format_DB_point_string( char* buffer, int longitude, int latitude, time_t timestamp, int db_id)
 {
    /* Buffer minimum size is DB_Point_STRING_MAXSIZE */
@@ -939,6 +960,7 @@ BOOL  RTNet_FoursquareConnect (
                    LPRTConnectionInfo   pCI,
                    const char*          userName,
                    const char*          passWord,
+                   BOOL                 bTweetLogin,
                    CB_OnWSTCompleted    pfnOnCompleted){
 
    return wst_start_session_trans(
@@ -946,10 +968,11 @@ BOOL  RTNet_FoursquareConnect (
                            sizeof(general_parser)/sizeof(wst_parser),
                            pfnOnCompleted,
                            pCI,
-                           RTNET_FORMAT_NETPACKET_3FoursquareConnect,// Custom data for the HTTP request
+                           RTNET_FORMAT_NETPACKET_4FoursquareConnect,// Custom data for the HTTP request
                            userName,
                            passWord,
-                           "true");
+                           "T",
+                           bTweetLogin ? "T" : "F");
 
 }
 
@@ -976,14 +999,16 @@ BOOL  RTNet_FoursquareSearch (
 BOOL  RTNet_FoursquareCheckin (
                    LPRTConnectionInfo   pCI,
                    const char*          vid,
+                   BOOL                 bTweetBadge,
                    CB_OnWSTCompleted    pfnOnCompleted){
 
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
                                     pfnOnCompleted,
                                     pCI,
-                                    RTNET_FORMAT_NETPACKET_1FoursquareCheckin, // Custom data for the HTTP request
-                                    vid);
+                                    RTNET_FORMAT_NETPACKET_2FoursquareCheckin, // Custom data for the HTTP request
+                                    vid,
+                                    bTweetBadge ? "T" : "F");
 }
 
 BOOL RTNet_PostAlertComment( LPRTConnectionInfo   pCI,
@@ -1067,6 +1092,53 @@ BOOL RTNet_ReportAlertAtPosition( LPRTConnectionInfo   pCI,
                               bForwardToTwitter ? "T" : "F");
 }
 
+BOOL RTNet_PinqWazer( LPRTConnectionInfo   pCI,
+                      const RoadMapGpsPosition   *pPosition,
+                      int                from_node,
+                      int                to_node,
+                      int                iUserId,
+                      int                iAlertType,
+                      const char*        szDescription,
+                      const char*        szImageId,
+                      BOOL               bForwardToTwitter,
+                      CB_OnWSTCompleted pfnOnCompleted)
+{
+   char  GPSPosString[RoadMapGpsPosition_STRING_MAXSIZE+1];
+   char        PackedString[(RT_ALERT_DESCRIPTION_MAXSIZE*2)+1];
+   const char* szPackedString = "";
+
+   if( szDescription && (*szDescription))
+   {
+      if(!PackNetworkString( szDescription, PackedString, sizeof(PackedString)))
+      {
+         roadmap_log( ROADMAP_ERROR, "RTNet_PinqWazer() - Failed to pack network string");
+         roadmap_messagebox ("Error", "Sending ping failed. Please try again later"); 
+         return FALSE;
+      }
+      szPackedString = PackedString;
+   }
+   
+   // Image ID - packing unnecessary
+   if ( !szImageId )
+       szImageId = "";
+
+   format_RoadMapGpsPosition_Pos_Azy_Str( GPSPosString, pPosition);
+   
+   return wst_start_session_trans(
+                           general_parser,
+                           sizeof(general_parser)/sizeof(wst_parser),
+                           pfnOnCompleted,
+                           pCI,
+                           "PingWazer,%s,%d,%d,%d,%d,%s,%s,%s", // Custom data for the HTTP request
+                              GPSPosString,
+                              from_node,
+                              to_node,
+                              iUserId,
+                              iAlertType,
+                              szPackedString,
+                              szImageId,
+                              bForwardToTwitter ? "T" : "F");
+}
 
 BOOL RTNet_RemoveAlert( LPRTConnectionInfo   pCI,
                         int                  iAlertId,
@@ -1223,14 +1295,16 @@ BOOL RTNet_SetMyVisability(LPRTConnectionInfo   pCI,
                            BOOL downloadWazers,
                            BOOL downloadReports,
                            BOOL downloadTraffic,
+                           BOOL allowPing,
                            char*                packet_only)
 {
    if( packet_only)
    {
-      sprintf( packet_only, "SeeMe,%d,%d,%s,%s,%s\n", eVisability,eVisabilityReport,
+      sprintf( packet_only, "SeeMe,%d,%d,%s,%s,%s,%s\n", eVisability,eVisabilityReport,
       												downloadWazers ? "T" : "F",
       												downloadReports ? "T" : "F",
-      												downloadTraffic ? "T" : "F");
+      												downloadTraffic ? "T" : "F",
+      												allowPing ? "1" : "2");
       return TRUE;
    }
 
@@ -1897,7 +1971,8 @@ BOOL	RTNet_SelectRoute	(LPRTConnectionInfo   	pCI,
 BOOL RTNet_GetGeoConfig(
                   LPRTConnectionInfo         pCI,
                   wst_handle                 websvc,
-                  const RoadMapPosition   *pGPSPosition,
+                  const RoadMapPosition      *pGPSPosition,
+                  const char                 *name,
                   CB_OnWSTCompleted          pfnOnCompleted)
 {
 
@@ -1912,11 +1987,12 @@ BOOL RTNet_GetGeoConfig(
                          sizeof(geo_config_parser)/sizeof(wst_parser),
                          pfnOnCompleted,
                          pCI,
-                         RTNET_FORMAT_NETPACKET_4GetGeoConfig,// Custom data for the HTTP request
-                            RTNET_PROTOCOL_VERSION,
-                            GPSPosString,
-                            RT_DEVICE_ID,
-                            roadmap_start_version()))
+                         RTNET_FORMAT_NETPACKET_5GetGeoConfig,// Custom data for the HTTP request
+                         RTNET_PROTOCOL_VERSION,
+                         GPSPosString,
+                         RT_DEVICE_ID,
+                         roadmap_start_version(),
+                         name))
 
        return TRUE;
     else

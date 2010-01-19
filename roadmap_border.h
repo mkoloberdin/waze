@@ -21,7 +21,7 @@
  *   along with RoadMap; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- 
+
 #ifndef ROADMAP_BORDER_H_
 #define ROADMAP_BORDER_H_
 
@@ -34,7 +34,7 @@ typedef enum border_images
    border_image_bottom,
    border_image_bottom_right,
    border_image_bottom_left,
-   
+
    border_image_left,
    border_image_right,
 
@@ -45,7 +45,7 @@ typedef enum border_images
    border_white_bottom,
    border_white_bottom_right,
    border_white_bottom_left,
-   
+
    border_white_left,
    border_white_right,
 
@@ -66,14 +66,14 @@ typedef enum border_images
 
    border_pointer_menu,
    border_pointer_comment,
-   
+
    border_image_bottom_no_frame,
    border_image_bottom_no_frame2,
    border_black_bottom_no_frame,
-   
+
    border_img__count,
    border_img__invalid
-   
+
 }  border_images;
 
 #define STYLE_NORMAL  border_image_top
@@ -94,8 +94,11 @@ typedef struct broder_image{
 	int width;
 }border_image;
 
-BOOL load_border_images(void);
 int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position);
 int get_heading_height(int header_type);
-void roadmap_border_load_images();
+
+BOOL roadmap_border_initialize();
+void roadmap_border_shutdown();
+
+
 #endif /*ROADMAP_BORDER_H_*/

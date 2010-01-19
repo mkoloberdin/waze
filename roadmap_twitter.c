@@ -178,6 +178,9 @@ void roadmap_twitter_set_password(const char *password) {
 
 /////////////////////////////////////////////////////////////////////////////////////
 BOOL roadmap_twitter_is_sending_enabled(void) {
+   if (!roadmap_twitter_logged_in())
+      return FALSE;
+
    if (0 == strcmp(roadmap_config_get(&TWITTER_CFG_PRM_SEND_REPORTS_Var),
          TWITTER_CFG_PRM_SEND_REPORTS_Enabled))
       return TRUE;
@@ -200,6 +203,9 @@ void roadmap_twitter_disable_sending() {
 
 /////////////////////////////////////////////////////////////////////////////////////
 int roadmap_twitter_destination_mode(void) {
+   if (!roadmap_twitter_logged_in())
+         return ROADMAP_TWITTER_DESTINATION_MODE_DISABLED;
+
    if (0 == strcmp(roadmap_config_get(&TWITTER_CFG_PRM_SEND_DESTINATION_Var),
          TWITTER_CFG_PRM_SEND_DESTINATION_Full))
       return ROADMAP_TWITTER_DESTINATION_MODE_FULL;
@@ -232,6 +238,9 @@ void roadmap_twitter_set_destination_mode(int mode) {
 
 /////////////////////////////////////////////////////////////////////////////////////
 BOOL roadmap_twitter_is_munching_enabled(void) {
+   if (!roadmap_twitter_logged_in())
+         return FALSE;
+
    if (0 == strcmp(roadmap_config_get(&TWITTER_CFG_PRM_SEND_MUNCHING_Var),
          TWITTER_CFG_PRM_SEND_MUNCHING_Enabled))
       return TRUE;
@@ -690,9 +699,9 @@ void roadmap_twitter_setting_dialog(void) {
    ssd_dialog_set_data("TwitterSendTwitts", (void *) pVal);
 
    if (roadmap_twitter_is_munching_enabled())
-         pVal = yesno[0];
-      else
-         pVal = yesno[1];
-      ssd_dialog_set_data("TwitterSendMunch", (void *) pVal);
+      pVal = yesno[0];
+   else
+      pVal = yesno[1];
+   ssd_dialog_set_data("TwitterSendMunch", (void *) pVal);
 }
 #endif //IPHONE_NATIVE

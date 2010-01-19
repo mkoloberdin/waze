@@ -29,6 +29,8 @@
 #include "ssd/ssd_bitmap.h"
 #include "ssd/ssd_popup.h"
 #include "ssd/ssd_button.h"
+#include "ssd/ssd_keyboard_dialog.h"
+#include "ssd/ssd_progress_msg_dialog.h"
 #include "roadmap_lang.h"
 #include "roadmap_screen.h"
 #include "Realtime/Realtime.h"
@@ -39,18 +41,38 @@
 #include "roadmap_math.h"
 #include "roadmap_mood.h"
 #include "roadmap_layer.h"
+#include "roadmap_messagebox.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+
+static RoadMapConfigDescriptor RoadMapConfigDisclaimerShown =
+      ROADMAP_CONFIG_ITEM("Ping a wazer", "Disclaimer Shown");
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static PFN_ONUSER gs_pfnOnAddUser   = NULL;
 static PFN_ONUSER gs_pfnOnMoveUser  = NULL;
 static PFN_ONUSER gs_pfnOnRemoveUser= NULL;
+
+static LPRTUserLocation g_user;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int ValueRanges [] = {0,10,50,100,200,300,400,500,1000,5000,10000,50000,100000,1000000,10000000,100000000}; 
 static  void prepareValueString ( int iRank, char * resultString,const char * nickName);
 #define MAX_SIZE_RANGE_STR  30
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL DisclaimerShown(void){
+   if (0 == strcmp (roadmap_config_get (&RoadMapConfigDisclaimerShown), "yes"))
+      return TRUE;
+   return FALSE;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static void DisclaimerDisplayed(void){
+   roadmap_config_set (&RoadMapConfigDisclaimerShown, "yes");
+   roadmap_config_save(FALSE);
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RTUserLocation_Init( LPRTUserLocation this)
 {
@@ -67,6 +89,7 @@ void RTUserLocation_Init( LPRTUserLocation this)
    this->iRank            	= -1;
    this->iPoints          	= -1;
    this->iJoinDate      	= 0;
+   this->iPingFlag         = 0;
    memset( this->sName, 0, sizeof(this->sName));
    memset( this->sGUIID,0, sizeof(this->sGUIID));
    memset( this->sTitle, 0, sizeof(this->sTitle));
@@ -84,7 +107,9 @@ void RTUsers_Init(LPRTUsers   this,
                   PFN_ONUSER  pfnOnRemoveUser)
 {
    int i; 
-   
+   roadmap_config_declare_enumeration ("user", &RoadMapConfigDisclaimerShown, NULL, "no",
+                  "yes", NULL);
+
    for( i=0; i<RL_MAXIMUM_USERS_COUNT; i++)
       RTUserLocation_Init( &(this->Users[i]));
    
@@ -297,7 +322,28 @@ static LPRTUserLocation RTUsers_UserByGUIID( LPRTUsers this, const char *id)
    
    return NULL;
 }
-
+static void RTUsers_get_speed_str( LPRTUsers this, const char *id, char* buf, int buf_len)
+{
+   LPRTUserLocation user;
+   int speed;
+   
+   char str[100];
+   buf[0] = 0;
+   user = RTUsers_UserByGUIID(this, id);
+    if (!user) {
+       return;
+    }
+    speed = roadmap_math_to_speed_unit(user->fSpeed);
+     
+    if (speed < 10)
+       snprintf (str, sizeof(str), "%s", roadmap_lang_get("less than 10"));
+    else if (speed < 40)
+       snprintf (str, sizeof(str), "%s", roadmap_lang_get("around 25"));
+    else
+       snprintf (str, sizeof(str), "%s",roadmap_lang_get("over 40"));
+    
+    snprintf( buf, buf_len, "%s: %s %s", roadmap_lang_get("Speed"), str, roadmap_lang_get(roadmap_math_speed_unit()));  
+}
 
 static void RTUsers_get_distance_str( LPRTUsers this, const char *id, char* buf, int buf_len)
 {
@@ -348,7 +394,7 @@ static void RTUsers_get_distance_str( LPRTUsers this, const char *id, char* buf,
    snprintf( str, sizeof(str), "%d.%d", distance_far, tenths % 10 );
    snprintf( unit_str, sizeof( unit_str ), "%s", roadmap_math_trip_unit());
    
-   snprintf( buf, buf_len, roadmap_lang_get("%s %s"), str, roadmap_lang_get(unit_str));
+   snprintf( buf, buf_len, roadmap_lang_get("%s %s Away"), str, roadmap_lang_get(unit_str));
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -417,6 +463,78 @@ static int on_close (SsdWidget widget, const char *new_value){
    return 0;
 }
 
+static BOOL post_comment_keyboard_callback(int         exit_code,
+                                          const char* value,
+                                          void*       context)
+{
+    BOOL success;
+    LPRTUserLocation user = (LPRTUserLocation)context;
+    RoadMapGpsPosition position;
+    
+    if( dec_ok != exit_code)
+        return TRUE;
+
+   if (value[0] == 0)
+      return FALSE;
+
+   ssd_progress_msg_dialog_show( roadmap_lang_get( "Sending Ping . . ." ) ); 
+   position.latitude = user->position.latitude;
+   position.longitude = user->position.longitude;
+   position.steering = user->iAzimuth;
+
+   success = Realtime_PinqWazer(&position, -1, -1, user->iID, RT_ALERT_TYPE_CHIT_CHAT, value, NULL, FALSE );
+   if (success){
+       ssd_dialog_hide_all(dec_ok);   
+   }   return TRUE;
+}
+
+static int ping (LPRTUserLocation user){
+   
+   if (Realtime_is_random_user()){
+      roadmap_messagebox_timeout("Error","You need to be a registered user in order to send Pings. Register in 'Settings > Profile'", 8);
+      return 0;
+   }
+   
+   if (!DisclaimerShown()){
+      roadmap_messagebox("","Be good! Your message will pop on this user's screen but is also seen publicly in chit chat.");
+      DisclaimerDisplayed();
+      return 0;
+   }
+   
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+    ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
+            user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
+#else
+   ssd_show_keyboard_dialog(  roadmap_lang_get("Chit chat"), 
+                              NULL,
+                              post_comment_keyboard_callback,
+                              user);
+#endif
+   
+   return 1;
+}
+
+static int on_ping (SsdWidget widget, const char *new_value){
+   LPRTUserLocation user;
+   if (!widget)
+      return 0;
+   
+   user = (LPRTUserLocation)widget->context;
+   ping(user);
+   
+   return 1;
+}
+
+#ifndef TOUCH_SCREEN
+int  on_sk_ping(SsdWidget widget, const char *new_value, void *context){
+   if (!g_user)
+      return;
+   ping(g_user);
+   g_user = NULL;
+   return 1;
+}
+#endif
+
 void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 {
    SsdWidget text, position_con, image_con;
@@ -435,6 +553,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    char rates[200];
    char joined[200];
    char distance[100];
+   char ping[200];
    time_t now;
    int timeDiff;
    struct tm  ts_now;
@@ -469,7 +588,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 
    ssd_widget_get_size(mood_icon, &size, NULL);
    
-   position_con = ssd_container_new ("position_container", "", width-size.width-40, SSD_MIN_SIZE,0);
+   position_con = ssd_container_new ("position_container", "", width-size.width-70, SSD_MIN_SIZE,0);
    ssd_widget_set_color(position_con, NULL, NULL);
    
   
@@ -483,7 +602,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 	ssd_widget_set_color(text,"#f6a201", NULL);
 	ssd_widget_add(position_con, text);
 
-	ssd_dialog_add_hspace(position_con, 4, 0);
+	ssd_dialog_add_hspace(position_con, 6, 0);
 	//stars
    stars_icon = ssd_bitmap_new("stars_icon",RTAlerts_Get_Stars_Icon(user->iStars), SSD_END_ROW);
    ssd_widget_add(position_con, stars_icon);
@@ -549,13 +668,30 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    ssd_widget_set_color(text,"#ffffff", NULL);
    ssd_widget_add(position_con, text);
    
-  
+   //Speed
+   distance[0] = 0;
+   RTUsers_get_speed_str(this, id, distance, sizeof(distance));
+   text = ssd_text_new("speed", distance, 14, SSD_END_ROW);
+   ssd_widget_set_color(text,"#ffffff", NULL);
+   ssd_widget_add(position_con, text);
 
+   if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+      snprintf( ping, sizeof(ping),roadmap_lang_get("This wazer agrees to be pinged"));
+   else if (user->iPingFlag == RT_USERS_PING_FLAG_OLD_VER)
+      snprintf( ping, sizeof(ping),roadmap_lang_get("This wazer's version doesn't support ping"));
+   else
+      snprintf( ping, sizeof(ping),roadmap_lang_get("This wazer's ping feature is turned off"));
+   ssd_dialog_add_hspace(position_con, 1, SSD_END_ROW);
+      
+   text = ssd_text_new("Ping Text", ping, 12, SSD_END_ROW);
+   ssd_widget_set_color(text,"#f6a201", NULL);
+   ssd_widget_add(position_con, text);
+   
    popup = ssd_popup_new("UsersPopUPDlg", "", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, &position, SSD_POINTER_LOCATION|SSD_ROUNDED_BLACK);
 
    ssd_dialog_add_vspace(popup, 2,0);
    image_con =
-     ssd_container_new ("IMAGE_container", "", 32, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
+     ssd_container_new ("IMAGE_container", "", 70, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
    ssd_widget_set_color(image_con, NULL, NULL);
    
    //mood
@@ -574,12 +710,26 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    
    
 #ifdef TOUCH_SCREEN
-   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 2, SSD_END_ROW );
+   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
    ssd_widget_set_color( spacer, NULL, NULL );
    ssd_widget_add( popup, spacer );
    
-   button = ssd_button_label("Close_button", roadmap_lang_get("Close"), SSD_ALIGN_CENTER, on_close);
+   button = ssd_button_label("Close_button", roadmap_lang_get("Close"), SSD_ALIGN_CENTER|SSD_WS_DEFWIDGET|SSD_WS_TABSTOP, on_close);
    ssd_widget_add(popup, button);
+   
+   button = ssd_button_label("Ping_button", roadmap_lang_get("Ping"), SSD_ALIGN_CENTER|SSD_WS_TABSTOP, on_ping);
+   if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+      ssd_button_enable(button);
+   else
+      ssd_button_disable(button);
+   ssd_widget_set_context(button, (void *)user);
+   ssd_widget_add(popup, button);
+#else
+   if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+      g_user = user;
+      ssd_widget_set_left_softkey_callback(popup->parent, on_sk_ping);
+      ssd_widget_set_left_softkey_text(popup->parent, roadmap_lang_get("Ping"));
+   }
 #endif //TOUCH_SCREEN
    
    ssd_dialog_activate("UsersPopUPDlg", NULL);

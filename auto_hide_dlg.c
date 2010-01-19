@@ -106,72 +106,78 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
 	   height = 65;
    }
 
-   dialog = ssd_dialog_new (AH_DIALOG_NAME, AH_DIALOG_TITLE, cbOnClosed,
-         SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
-         SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+   if ( !ssd_dialog_exists( AH_DIALOG_NAME ) )
+   {
+	   dialog = ssd_dialog_new (AH_DIALOG_NAME, AH_DIALOG_TITLE, cbOnClosed,
+			 SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
+			 SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
 
-   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
+	   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
 
-   space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
-   ssd_widget_set_color(space, NULL, NULL);
-   ssd_widget_add (dialog, space);
+	   space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
+	   ssd_widget_set_color(space, NULL, NULL);
+	   ssd_widget_add (dialog, space);
 
-   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
-   ssd_widget_add (dialog,bitmap);
+	   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
+	   ssd_widget_add (dialog,bitmap);
 
-   space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
-   ssd_widget_set_color(space, NULL, NULL);
-   ssd_widget_add (dialog, space);
+	   space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
+	   ssd_widget_set_color(space, NULL, NULL);
+	   ssd_widget_add (dialog, space);
 
-   container = ssd_container_new(AH_CONT_NAME, NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,0);
-   ssd_widget_set_color(container, NULL, NULL);
+	   container = ssd_container_new(AH_CONT_NAME, NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,0);
+	   ssd_widget_set_color(container, NULL, NULL);
 
-   box = ssd_container_new ("Resume", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color(box, NULL, NULL);
-   text = ssd_text_new ("ResumeTxt", roadmap_lang_get("Resume manually"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text,"#ffffff");
-   ssd_widget_add(box, text);
-   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
-   box->callback = auto_hide_dlg_callback ;
-   ssd_widget_set_pointer_force_click( box );
-   box->pointer_down = on_pointer_down;
-   ssd_widget_add(container, box);
+	   box = ssd_container_new ("Resume", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
+	   ssd_widget_set_color(box, NULL, NULL);
+	   text = ssd_text_new ("ResumeTxt", roadmap_lang_get("Resume manually"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add(box, text);
+	   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
+	   box->callback = auto_hide_dlg_callback ;
+	   ssd_widget_set_pointer_force_click( box );
+	   box->pointer_down = on_pointer_down;
+	   ssd_widget_add(container, box);
 
-   box = ssd_container_new ("Resume30", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color(box, NULL, NULL);
-   text = ssd_text_new ("Resume30Txt", roadmap_lang_get("Resume in 30 seconds"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text,"#ffffff");
-   ssd_widget_add(box, text);
-   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
-   box->callback = auto_hide_dlg_callback ;
-   ssd_widget_set_pointer_force_click( box );
-   box->pointer_down = on_pointer_down;
-   ssd_widget_add(container, box);
+	   box = ssd_container_new ("Resume30", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
+	   ssd_widget_set_color(box, NULL, NULL);
+	   text = ssd_text_new ("Resume30Txt", roadmap_lang_get("Resume in 30 seconds"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add(box, text);
+	   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
+	   box->callback = auto_hide_dlg_callback ;
+	   ssd_widget_set_pointer_force_click( box );
+	   box->pointer_down = on_pointer_down;
+	   ssd_widget_add(container, box);
 
-   box = ssd_container_new ("Exit", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color(box, NULL, NULL);
-   text = ssd_text_new ("ExitTxt", roadmap_lang_get("Quit"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text,"#ffffff");
-   ssd_widget_add(box, text);
-   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
-   box->callback = auto_hide_dlg_callback ;
-   ssd_widget_set_pointer_force_click( box );
-   box->pointer_down = on_pointer_down;
-   ssd_widget_add(container, box);
+	   box = ssd_container_new ("Exit", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
+	   ssd_widget_set_color(box, NULL, NULL);
+	   text = ssd_text_new ("ExitTxt", roadmap_lang_get("Quit"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add(box, text);
+	   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
+	   box->callback = auto_hide_dlg_callback ;
+	   ssd_widget_set_pointer_force_click( box );
+	   box->pointer_down = on_pointer_down;
+	   ssd_widget_add(container, box);
 
-   box = ssd_container_new ("Cancel", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color(box, NULL, NULL);
-   text = ssd_text_new ("CancelTxt", roadmap_lang_get("Cancel"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text,"#ffffff");
-   ssd_widget_add(box, text);
-   box->callback = auto_hide_dlg_callback ;
-   ssd_widget_set_pointer_force_click( box );
-   box->pointer_down = on_pointer_down;
-   ssd_widget_add(container, box);
+	   box = ssd_container_new ("Cancel", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
+	   ssd_widget_set_color(box, NULL, NULL);
+	   text = ssd_text_new ("CancelTxt", roadmap_lang_get("Cancel"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add(box, text);
+	   box->callback = auto_hide_dlg_callback ;
+	   ssd_widget_set_pointer_force_click( box );
+	   box->pointer_down = on_pointer_down;
+	   ssd_widget_add(container, box);
 
 
-   ssd_widget_add(dialog, container);
+	   ssd_widget_add(dialog, container);
+   }
+
    ssd_dialog_activate(AH_DIALOG_NAME, NULL);
+
+   ssd_dialog_set_callback( cbOnClosed );
 
 }

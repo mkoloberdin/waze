@@ -54,7 +54,7 @@ typedef struct tag_text_ctx
    BOOL                 auto_trim;
    int                  lines_space_padding; 	/* Additional padding for the inter-lines space */
    int                  value_max_size;
-   
+
 }  text_ctx, *text_ctx_ptr;
 
 void text_ctx_init( text_ctx_ptr this)
@@ -98,12 +98,12 @@ void ssd_text_set_input_type( SsdWidget this, roadmap_input_type input_type)
 void ssd_text_set_text_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
-   
+
    ctx->value_max_size = size;
 
    if( this->value)
       free( this->value);
-      
+
    this->value = calloc( 1, ctx->value_max_size+1);
 }
 
@@ -225,7 +225,7 @@ static int format_text (SsdWidget widget, int draw,
                 &text_descent, NULL);
          }
 
-         h = text_ascent + text_descent + ctx->lines_space_padding;
+         h = (text_ascent + text_descent + ctx->lines_space_padding)*HEIGHT_FACTOR;
 
          if (draw) {
             p.y += h;
@@ -253,11 +253,25 @@ static int format_text (SsdWidget widget, int draw,
    }
 
    rect->maxx = rect->minx + max_width - 1;
-   rect->maxy = rect->miny + text_height*HEIGHT_FACTOR - 1;
+   rect->maxy = rect->miny + text_height - 1;
 
    return 0;
 }
 
+
+static void release( SsdWidget widget )
+{
+	if ( widget->value )
+	{
+		free( widget->value );
+		widget->value = NULL;
+	}
+	if ( widget->data )
+	{
+		free( widget->data );
+		widget->data = NULL;
+	}
+}
 
 static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 
@@ -278,7 +292,7 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    roadmap_canvas_select_pen (pen);
    if( widget->fg_color)
       color = widget->fg_color;
-   
+
    if ((widget->parent) && (widget->parent->in_focus) && widget->bg_color)
       color = widget->bg_color;
    roadmap_canvas_set_foreground( color);
@@ -299,7 +313,7 @@ static int set_value (SsdWidget widget, const char *value)
    if( *value)
    {
       text_ctx_ptr ctx = widget->data;
-   
+
       sttstr_copy( widget->value, value, ctx->value_max_size);
 
 //      if( widget->flags & SSD_TEXT_LABEL)
@@ -332,7 +346,7 @@ void ssd_text_set_text( SsdWidget this, const char* new_value)
    if( this)
    {
       text_ctx_ptr ctx = this->data;
-   
+
       sttstr_copy( (char*)this->value, new_value, ctx->value_max_size);
    }
 }
@@ -416,6 +430,7 @@ SsdWidget ssd_text_new( const char* name,
    w                    = ssd_widget_new (name, ssd_text_on_key_pressed, flags);
    w->_typeid           = "Text";
    w->draw              = draw;
+   w->release 			= release;
    w->set_value         = set_value;
    w->flags             = flags;
    w->data              = ctx;
