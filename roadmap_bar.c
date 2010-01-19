@@ -144,6 +144,9 @@ static BarObjectTable_s BottomBarObjectTable;
 
 static BarObject* SelectedBarObject = NULL;
 
+
+extern void roadmap_androidmenu_initialize();
+
 static BarText * roadmap_bar_text_find(const char *name){
    BarText *text;
 
@@ -1012,7 +1015,10 @@ void roadmap_bar_draw(void){
 
 
    roadmap_bar_draw_top_bar(TRUE);
+
+#ifndef ANDROID
    roadmap_bar_draw_bottom_bar(TRUE);
+#endif
 }
 
 void roadmap_bar_draw_objects(void){
@@ -1146,6 +1152,10 @@ void roadmap_bar_initialize(void){
       (roadmap_bar_obj_released, POINTER_HIGH);
 
 	roadmap_skin_register (roadmap_bar_switch_skins);
+
+#ifdef ANDROID
+	roadmap_androidmenu_initialize();
+#endif
 
 	bar_initialized = TRUE;
 }

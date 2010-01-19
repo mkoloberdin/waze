@@ -314,7 +314,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus) {
       return FALSE;
 
    if (RealtimeBonus_Exists (pbonus->iID))
-      return FALSE;
+      RealtimeBonus_Delete(pbonus->iID);
 
    if (RealtimeBonus_IsEmpty ())
       roadmap_alerter_register (&RoadmapRealTimeMapbonusnsProvidor);

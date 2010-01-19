@@ -2262,7 +2262,7 @@ const char *CollectBonusRes (/* IN  */   const char*       pNext,
                                &iPoints,          // [out]    Put it here
                                1);  // [in]     Remove additional termination CHARS
 
-    if( !pNext || (-1 == iPoints))
+    if( !pNext)
     {
        roadmap_log( ROADMAP_ERROR, "RTNet::CollectBonusRes - Failed to read points");
        (*rc) = err_parser_unexpected_data;
@@ -2276,7 +2276,7 @@ const char *CollectBonusRes (/* IN  */   const char*       pNext,
                                &iType,          // [out]    Put it here
                                1);  // [in]     Remove additional termination CHARS
 
-    if( !pNext || (-1 == iType))
+    if( !pNext)
     {
        roadmap_log( ROADMAP_ERROR, "RTNet::CollectBonusRes - Failed to read type");
        (*rc) = err_parser_unexpected_data;

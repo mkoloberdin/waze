@@ -57,8 +57,8 @@ typedef unsigned short      uint16_t;
 
 #define  CLIENT_VERSION_MAJOR       (1)
 #define  CLIENT_VERSION_MINOR       (4)
-#define  CLIENT_VERSION_SUB         (2)
-#define  CLIENT_VERSION_CFG         (4)	/* Build number for internal use only */
+#define  CLIENT_VERSION_SUB         (3)
+#define  CLIENT_VERSION_CFG         (1)	/* Build number for internal use only */
 
 
 #if defined(ANDROID)

@@ -3787,6 +3787,9 @@ int roadmap_screen_get_screen_type( void )
  */
 int roadmap_screen_is_hd_screen( void )
 {
+#ifndef TOUCH_SCREEN
+	RoadMapScreenType = RM_SCREEN_TYPE_SD_GENERIC;
+#endif
 	return ( ( RoadMapScreenType & RM_SCREEN_TYPE_CATEGORY_HD ) > 0 );
 }
 

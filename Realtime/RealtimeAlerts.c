@@ -1997,7 +1997,7 @@ static void RTAlerts_Popup(void)
 		roadmap_log(ROADMAP_DEBUG, "RTAlerts_Popup: popping up report automatically, report distance is %d",
 		pAlert->iDistance);
 		if (pAlert->iDistance > roadmap_config_get_integer(&RoadMapConfigMaxAlertPopDist))
-			roadmap_log( ROADMAP_ERROR,
+			roadmap_log( ROADMAP_DEBUG,
 			"RTAlerts_Popup: popping up report automatically, report distance is %d is bigger than maxDist %d",
 			pAlert->iDistance,roadmap_config_get_integer(&RoadMapConfigMaxAlertPopDist));
 	}
