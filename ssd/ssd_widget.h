@@ -91,9 +91,12 @@
 #define SSD_CONTAINER_TXT_BOX     0x20000000
 
 /* Text flags */
-#define SSD_TEXT_LABEL    0x1000 /* Adds a ':' sign */
-#define SSD_TEXT_PASSWORD 0x2000
-#define SSD_TEXT_READONLY 0x4000
+#define SSD_TEXT_LABEL        0x1000 /* Adds a ':' sign */
+#define SSD_TEXT_PASSWORD     0x2000
+#define SSD_TEXT_READONLY     0x4000
+#define SSD_TEXT_NORMAL_FONT  0x8000
+#define SSD_TEXT_INPUT        0x10000
+#define SSD_TEXT_SINGLE_LINE  0x20000
 
 /* Context-menu flags   */
 #define SSD_CONTEXTMENU_ROUNDED              0x0000
@@ -295,4 +298,5 @@ void ssd_widget_set_click_offsets_ext( SsdWidget widget, int left, int top, int 
 BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point, BOOL use_offsets );
 void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight );
 void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent );
+SsdWidget ssd_widget_set_recalculate( BOOL value );
 #endif // __SSD_WIDGET_H_

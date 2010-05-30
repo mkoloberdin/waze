@@ -34,6 +34,7 @@
 package com.waze;
 import java.util.TimerTask;
 
+import com.waze.FreeMapNativeManager.FreeMapUIEvent;
 import com.waze.WazeLog.LogCatMonitor;
 
 import android.app.Notification;
@@ -42,6 +43,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Debug;
 import android.os.Handler;
@@ -73,6 +75,10 @@ final public class FreeMapAppService extends Service
         // Reduce the possibility to be killed 
         setForeground( true );
         
+//        registerReceiver( mScreenManager, new IntentFilter( Intent.ACTION_SCREEN_OFF ) );
+//        registerReceiver( mScreenManager, new IntentFilter( Intent.ACTION_SCREEN_ON ) );
+
+        
         Log.w( LOG_TAG, "Service started. Instance: " + mInstance );
     }
 
@@ -80,7 +86,10 @@ final public class FreeMapAppService extends Service
     public void onDestroy()
     {
         if ( mNativeManager != null )
+        {
             mNativeManager.RestoreSystemSettings();
+//            unregisterReceiver( mStandbyManager );
+        }
         Log.w( LOG_TAG, "Service destroy." );
     }
 
@@ -94,28 +103,41 @@ final public class FreeMapAppService extends Service
     {
         mAppView = aAppView;
         mMainContext = aContext;
-        
-        // Power manager
-        mPowerManager = new FreeMapPowerManager();
-        
-        // Start the native manager
-        mNativeManager = FreeMapNativeManager.Start( mMainContext, mAppView );
-        
-        // Set notification
-        SetNotification( WAZE_NOTIFICATION_RUNNING );
-        
-        // AGA DEBUG
-        TimerTask task = new TimerTask() {
-		        @Override	
-		        public void run()
-		        {
-	                Log.w("WAZE PROFILE", "Native heap. Used: " + Debug.getNativeHeapAllocatedSize() +
-    		                ". Free: " + Debug.getNativeHeapFreeSize() +
-    		                ". Total: " + Debug.getNativeHeapSize() );
-		        }         
-		    };
-//		 mNativeManager.getTimer().scheduleAtFixedRate( task, 0, 10000 );
-        
+        try
+        {
+	        // Power manager
+	        mPowerManager = new FreeMapPowerManager();
+
+	        // Start the native manager
+	        mNativeManager = FreeMapNativeManager.Start( mMainContext, mAppView );
+
+	        // Standby manager
+	        mStandbyManager = new WazeStandbyManager( mNativeManager );
+
+	        // Screen manager
+	        mScreenManager = new WazeScreenManager( mNativeManager );
+	        
+	        // Set notification
+	        SetNotification( WAZE_NOTIFICATION_RUNNING );
+	                
+	        // AGA DEBUG
+	        TimerTask task = new TimerTask() {
+			        @Override	
+			        public void run()
+			        {
+		                Log.w("WAZE PROFILE", "Native heap. Used: " + Debug.getNativeHeapAllocatedSize() +
+	    		                ". Free: " + Debug.getNativeHeapFreeSize() +
+	    		                ". Total: " + Debug.getNativeHeapSize() );
+			        }         
+			    };
+			    //		 mNativeManager.getTimer().scheduleAtFixedRate( task, 0, 10000 );
+        }
+        catch( Exception ex )
+        {
+        	Log.e( "WAZE", "Error starting the application " + ex.getMessage() );
+        	ex.printStackTrace();
+        }
+
     }
     
     
@@ -130,6 +152,45 @@ final public class FreeMapAppService extends Service
         return mNativeManager;
     }
     
+    
+    /*************************************************************************************************
+     * Converts geo scheme to the native scheme
+     * 
+     * @param void
+     *            
+     */
+    public static String ConvertGeoUri( String aGeoUri )
+    {
+    	String res = null;
+    	String scheme = "geo:";
+    	String dummy_loc = "0,0?";
+    	char zoom_chr = 'z';
+    	char query_chr = 'q';
+    	
+    	String waze_prefix = "waze://?";
+    	String ll_prefix = "ll=";
+    	if ( aGeoUri.startsWith( scheme ) )
+    	{
+    		String token = aGeoUri.substring( scheme.length() );
+
+    		Log.w( "WAZE DEBUG", "token : " + token );
+    		// If non zero digits - add "ll=" prefix, otherwise suppose
+    		// q or z are is the start of the token 
+    		if ( token.startsWith( dummy_loc ) )
+    		{
+    			res = waze_prefix + token.substring( dummy_loc.length() );
+    		}    		
+    		else
+    		{
+    			token = token.replace( '?', '&' );
+    			res = waze_prefix + ll_prefix + token;
+    		}
+    	}
+    	Log.w( "WAZE DEBUG", "res : " + res );
+        return res;
+    }
+    
+    
     /*************************************************************************************************
      * Returns the power manager reference
      * 
@@ -140,6 +201,24 @@ final public class FreeMapAppService extends Service
     {
         return mPowerManager;
     }
+
+    /*************************************************************************************************
+     * Returns the standby manager reference
+     * @param void
+     */
+    public static WazeStandbyManager getStandbyManager()
+    {
+        return mStandbyManager;
+    }
+    /*************************************************************************************************
+     * Returns the screen manager reference
+     * @param void
+     */
+    public static WazeScreenManager getScreenManager()
+    {
+        return mScreenManager;
+    }
+
     /*************************************************************************************************
      * Returns the main context reference
      * 
@@ -159,6 +238,35 @@ final public class FreeMapAppService extends Service
     public static FreeMapAppView getAppView()
     {
         return mAppView;
+    }
+    
+    /*************************************************************************************************
+     * Returns the application url parameters reference
+     * 
+     * @param void
+     *            
+     */
+    public static String getUrl()
+    {
+        return mUrl;
+    }
+    /*************************************************************************************************
+     * Sets the application url parameters reference
+     * 
+     * @param String aUrl
+     *            
+     */
+    public static void setUrl( String aUrl )
+    {
+    	if ( aUrl != null && aUrl.startsWith( "waze" ) )
+    	{
+    		mUrl = aUrl;
+    	}
+
+    	if ( aUrl != null && aUrl.startsWith( "geo" ) )
+    	{
+    		mUrl = ConvertGeoUri( aUrl );
+    	}
     }
     
     /*************************************************************************************************
@@ -352,9 +460,6 @@ final public class FreeMapAppService extends Service
     {
     	int icon = R.drawable.notification;	        // icon from resources
     	
-    	if ( FreeMapResources.IsHD( mMainContext ) )
-    		icon = R.drawable.notification_hd;		// WVGA - another icon
-    	
     	CharSequence tickerText = "waze";              // ticker-text
     	long when = System.currentTimeMillis();         // notification time
     	Context context = (Context) mMainContext;
@@ -419,7 +524,8 @@ final public class FreeMapAppService extends Service
      */
     public void  onLowMemory()
     {
-        Log.w( "Waze Service", "Low memory warning!!!" );        
+        Log.w( "Waze Service", "Low memory warning!!!" );
+        mNativeManager.PostUIMessage( FreeMapUIEvent.UI_EVENT_LOW_MEMORY );
     }
     
     /*************************************************************************************************
@@ -429,7 +535,7 @@ final public class FreeMapAppService extends Service
     {
         if (mInstance == null)
             return;
-        if ( mLogCatMonitor != null )
+        if ( mLogCatMonitor != null ) 
             mLogCatMonitor.Destroy();
         mInstance.stopSelf();
         
@@ -471,16 +577,21 @@ final public class FreeMapAppService extends Service
 
     private static FreeMapPowerManager mPowerManager;
     
+    private static WazeStandbyManager mStandbyManager;
+    
+    private static WazeScreenManager mScreenManager;
+    
     private static FreeMapAppView mAppView;
     
 
     private static FreeMapNativeManager mNativeManager = null; // Native manager reference
 
+    private static String 	mUrl = null;		// Start Up URL parameters
 
 	
     private static FreeMapAppService    mInstance               = null;
 
-    private final static String         LOG_TAG                 = "Waze Service";
+    private final static String         LOG_TAG                 = "WAZE Service";
 
     private static final int WAZE_NOTIFICATION_RUNNING	 = 	1;
     

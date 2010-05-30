@@ -34,6 +34,7 @@ extern "C" {
 
 
 typedef void (*ImageDownloadCallback) ( void* context, int status, const char* image_path );
+typedef void (* CameraImageUploadCallback) (void * context);
 
 // Image ID buf length (bytes)
 #define ROADMAP_IMAGE_ID_BUF_LEN	( ROADMAP_IMAGE_ID_LEN + 1 )
@@ -42,9 +43,9 @@ BOOL roadmap_camera_image_alert( char** image_path,  RoadMapImage *image_thumbna
 
 BOOL roadmap_camera_image_capture( CameraImageFile *image_file, CameraImageBuf *image_thumbnail );
 
-BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_file, char* image_id, char** message );
+BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_file, char* image_id, CameraImageUploadCallback cb, void * context);
 
-BOOL roadmap_camera_image_upload_ssd( const char *image_folder, const char *image_file, char* image_id, char** message );
+
 
 int roadmap_camera_image_bytes_pp( CameraImagePixelFmt pix_fmt );
 
@@ -53,6 +54,15 @@ BOOL roadmap_camera_image_download( const char* image_id,  void* context_cb, Ima
 void roadmap_camera_image_initialize( void );
 
 void roadmap_camera_image_shutdown( void );
+
+#if 0
+// Image upload with SSD output on progress.
+// Has to be implemented again to work with a-sync editor_upload,
+// but since there are no calls to this function, removed for now - D.F.
+BOOL roadmap_camera_image_upload_ssd( const char *image_folder, const char *image_file, char* image_id,  CameraImageUploadCallback cb, void * context);
+
+#endif
+
 
 #ifdef __cplusplus
 }

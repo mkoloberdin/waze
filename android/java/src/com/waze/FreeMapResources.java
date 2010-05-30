@@ -144,13 +144,15 @@ public final class FreeMapResources
                 }
                 
                 if ( currentVerCode < 0 )       /* Clean installation */
-                {                                    
-                    WazeUtils.DeleteDir( mPkgDir, true );
-                    WazeUtils.DeleteDir( resDir, true, null );
+                {                            
+                    ExceptionEntry[] list = BuildCleanUpPkgDirExceptions( false );                    
+                    WazeUtils.DeleteDir( mPkgDir, true, list );
+                    WazeUtils.DeleteDir( resDir, true, null ); 
                     extractExceptions = BuildCleanInstallExceptionList();
                 }
                 else                            /* Upgrade            */
                 {
+                	ExceptionEntry[] list = BuildCleanUpPkgDirExceptions( true );
                     extractExceptions = BuildUpgradeExceptionList();
                     userException = new ExceptionEntry[1];
                     userException[0] = new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_IF_EXIST );
@@ -166,12 +168,12 @@ public final class FreeMapResources
                     /* Delete the contents of the resource dir, except the ... */
                     WazeUtils.DeleteDir( resDir, true, extractExceptions );
                     /* Delete the contents of the package dir, except the ... */
-                    WazeUtils.DeleteDir( mPkgDir, true, userException );
+                    WazeUtils.DeleteDir( mPkgDir, true, list );
                 }
                 // Extract the library
                 ExtractFromZip("assets/libandroidroadmap.so", libFile,
                         ZipEntryType.ZIP_ENTRY_FILE, null );
-                // Extract the resources directory                
+                // Extract the resources directory
                 ExtractFromZip("assets/freemap", resDir,
                         ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
                 
@@ -338,6 +340,28 @@ public final class FreeMapResources
         return list;
     }
 
+    /*************************************************************************************************
+     * Clean up of the package directory exceptions
+     * for the clean install process
+     */
+    static private ExceptionEntry[] BuildCleanUpPkgDirExceptions( boolean isUpgrade )
+    {
+    	ArrayList<ExceptionEntry> list = new ArrayList<ExceptionEntry>();
+
+    	list.add( new ExceptionEntry( mPkgCacheDir, ExceptionEntry.EXCLUDE_ALWAYS ) );
+    	list.add( new ExceptionEntry( mPkgDatabasesDir, ExceptionEntry.EXCLUDE_ALWAYS ) );
+    	list.add( new ExceptionEntry( mPkgLibDir, ExceptionEntry.EXCLUDE_ALWAYS ) );
+    	
+    	if ( isUpgrade )
+    	{
+    		list.add( new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS ) );
+    	}
+    	ExceptionEntry[] array= new ExceptionEntry[list.size()]; 
+    	list.toArray( array );
+    	list.clear();
+    	return array;
+    }
+    
     /*************************************************************************************************
      * Extraction of the resources from the APK package
      * for the clean install process
@@ -634,6 +658,9 @@ public final class FreeMapResources
     public static final String mPromptsConf     = "prompts.conf";
     public static final String mSessionFile     = "session";
     public static final String mUserFile        = "user";
+    public static final String mPkgCacheDir      = "cache";
+    public static final String mPkgDatabasesDir  = "databases";
+    public static final String mPkgLibDir    	 = "lib";
     public static final String mBaseDirSD        = "freemap/";
     public static final String mBaseDirHD        = "freemapHD/";
     public static final String mSkinsPath        = "skins/default/";

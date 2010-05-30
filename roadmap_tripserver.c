@@ -142,7 +142,7 @@ const char* on_suggested_trips(int NumParams,const char*  pData){
       RealtimeAltRoutes_Add_Route(&route);
 
    }
-   roadmap_alternative_routes_suggest_route_dialog(); 
+   roadmap_alternative_routes_suggested_trip(); 
    return pData;
 }
 
@@ -155,26 +155,37 @@ const char* roadmap_tripserver_response(int status, int NumParams, const char*  
    int iBufferSize;
    
    iBufferSize =  128;
-   pData       = ExtractNetworkString(
-                    pData,             // [in]     Source string
-                    ResponseName,//   [out]   Output buffer
-                    &iBufferSize,      // [in,out] Buffer size / Size of extracted string
-                    ",",          //   [in]   Array of chars to terminate the copy operation
-                    1);   // [in]     Remove additional termination chars
-   
-   
    if (status != 200){
-      roadmap_log( ROADMAP_ERROR, "roadmap_tripserver_response- %s Command failed (status= %d)",ResponseName, status );
+      if (NumParams){
+         pData       = ExtractNetworkString(
+                        pData,             // [in]     Source string
+                        ResponseName,//   [out]   Output buffer
+                        &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                        ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                        TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+   
+         if (status != 500)
+            roadmap_log( ROADMAP_ERROR, "roadmap_tripserver_response- Command failed (status= %d,%s )",status,ResponseName );
+      }
       return pData;
    }
    
-   num_handlers = sizeof(tripserver_handlers)/sizeof(TripServeHandlers);
-   for( i=0; i<num_handlers; i++){
-      if (!strcmp(ResponseName, tripserver_handlers[i].Response)){
-         return (*tripserver_handlers[i].handler)(NumParams-1, pData);
+   if (NumParams){
+      pData       = ExtractNetworkString(
+                     pData,             // [in]     Source string
+                     ResponseName,//   [out]   Output buffer
+                     &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                     ",",          //   [in]   Array of chars to terminate the copy operation
+                     1);   // [in]     Remove additional termination chars
+
+      num_handlers = sizeof(tripserver_handlers)/sizeof(TripServeHandlers);
+      for( i=0; i<num_handlers; i++){
+         if (!strcmp(ResponseName, tripserver_handlers[i].Response)){
+            return (*tripserver_handlers[i].handler)(NumParams-1, pData);
+         }
       }
    }
-
-   return NULL;   
+   
+   return pData;   
 }
  

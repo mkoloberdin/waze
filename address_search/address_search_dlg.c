@@ -91,7 +91,7 @@ typedef enum tag_contextmenu_items
 static ssd_cm_item main_menu_items[] =
 {
    //                  Label     ,           Item-ID
-   SSD_CM_INIT_ITEM  ( "Navigate",           cm_navigate),
+   SSD_CM_INIT_ITEM  ( "Drive",              cm_navigate),
    SSD_CM_INIT_ITEM  ( "Show on map",        cm_show),
    SSD_CM_INIT_ITEM  ( "Add to favorites",   cm_add_to_favorites),
    SSD_CM_INIT_ITEM  ( "Send",               cm_send),
@@ -166,22 +166,21 @@ static void on_address_resolved( void*                context,
    if( succeeded != rc)
    {
       if( is_network_error( rc))
-         roadmap_messagebox_cb ( roadmap_lang_get( "Resolve Address"),
-                              roadmap_lang_get( "Search requires internet connection."
-                                                "Please make sure you are connected."), on_search_error_message );
+         roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
+                              roadmap_lang_get( "Search requires internet connection.\r\nPlease make sure you are connected."), on_search_error_message );
 
 
 
       else if( err_as_could_not_find_matches == rc)
-         roadmap_messagebox_cb ( roadmap_lang_get( "Resolve Address"),
-                              roadmap_lang_get( "String could not be resolved to a valid address"), on_search_error_message );
+         roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
+                              roadmap_lang_get( "Sorry, no results were found for this search"), on_search_error_message );
       else
       {
-         char msg[64];
+         char msg[128];
 
-         sprintf( msg, "Search failed\nPlease try again later");
+         snprintf( msg, sizeof(msg), "%s\n%s",roadmap_lang_get("Sorry we were unable to complete the search"), roadmap_lang_get("Please try again later"));
 
-         roadmap_messagebox_cb ( roadmap_lang_get( "Resolve Address"), msg, on_search_error_message );
+         roadmap_messagebox_cb ( roadmap_lang_get( "Oops"), msg, on_search_error_message );
       }
 
       roadmap_log(ROADMAP_ERROR,
@@ -263,22 +262,22 @@ static void on_search(void)
       roadmap_geo_config_stg(NULL);
       return;
    }
-   
-   
+
+
     if ( !strcmp( "##@heb", ssd_text_get_text( edit ) ) )
    {
       roadmap_lang_set_system_lang("heb");
       roadmap_messagebox("", "Language changed to Hebrew, please restart waze");
       return;
    }
-  
+
    if ( !strcmp( "##@eng", ssd_text_get_text( edit ) ) )
    {
       roadmap_lang_set_system_lang("eng");
       roadmap_messagebox("","Language changed to English, please restart waze");
       return;
    }
-   
+
    if ( !strncmp( dl_prefix, ssd_text_get_text( edit ), strlen( dl_prefix ) ) )
    {
    	roadmap_map_download_region( ssd_text_get_text( edit ) + strlen( dl_prefix ),

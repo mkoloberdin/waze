@@ -3,7 +3,7 @@
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
-/* @(#) $Id: zutil.c,v 1.1 2006/04/21 16:22:33 eshabtai Exp $ */
+/* @(#) $Id: zutil.c,v 1.3 2006/04/29 07:31:16 wl Exp $ */
 
 #include "zutil.h"
 
@@ -157,8 +157,8 @@ void  zcfree (voidpf opaque, voidpf ptr)
 #ifndef MY_ZCALLOC /* Any system without a special alloc function */
 
 #ifndef STDC
-extern voidp  calloc OF((uInt items, uInt size));
-extern void   free   OF((voidpf ptr));
+extern voidp  ft_scalloc OF((uInt items, uInt size));
+extern void   ft_sfree   OF((voidpf ptr));
 #endif
 
 voidpf zcalloc (opaque, items, size)
@@ -167,14 +167,14 @@ voidpf zcalloc (opaque, items, size)
     unsigned size;
 {
     if (opaque) items += size - size; /* make compiler happy */
-    return (voidpf)calloc(items, size);
+    return (voidpf)ft_scalloc(items, size);
 }
 
 void  zcfree (opaque, ptr)
     voidpf opaque;
     voidpf ptr;
 {
-    free(ptr);
+    ft_sfree(ptr);
     if (opaque) return; /* make compiler happy */
 }
 

@@ -35,9 +35,11 @@ void navigate_bar_set_exit (int exit);
 void navigate_bar_set_distance (int distance);
 void navigate_bar_set_speed ();
 void navigate_bar_set_street (const char *street);
-void navigate_bar_set_distance_to_destination (void);
-void navigate_bar_set_time_to_destination (void);
 void navigate_bar_set_draw_offsets ( int offset_x, int offset_y );
 void navigate_bar_resize( void );
+BOOL navigate_bar_is_hidden(void);
+void navigate_bar_set_next_instruction (enum NavigateInstr instr);
+void navigate_bar_set_next_exit (int exit);
+void navigate_bar_set_next_distance (int distance);
 #endif // INCLUDE__NAVIGATE_BAR__H
 

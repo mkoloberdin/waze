@@ -42,7 +42,7 @@
 static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
    static RoadMapPen pen;
-   
+
    if (pen == 0){
       roadmap_canvas_create_pen("separator");
       roadmap_canvas_set_foreground ("#d8dae0");
@@ -52,31 +52,31 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
       roadmap_canvas_select_pen(pen);
    }
    rect->maxy = rect->miny + 1;
-   
+
    if( SSD_GET_SIZE & flags)
       return;
    rect->minx += 5;
    rect->maxx -= 5;
-#ifdef IPHONE
+#if defined(IPHONE) || defined(OPENGL)
    rect->maxy = rect->miny+1;
 #else
    rect->maxy = rect->miny;
 #endif
-   
+
    roadmap_canvas_erase_area(rect);
    return;
 }
 
-SsdWidget ssd_separator_new(const char *name, 
+SsdWidget ssd_separator_new(const char *name,
                            int         flags)
 {
    SsdWidget         w  = ssd_widget_new(name, NULL, flags);
-   
-  
+
+
    w->_typeid     = "Bitmap";
    w->draw        = draw;
    w->flags       = flags;
-   
+
    return w;
 }
 

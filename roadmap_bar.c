@@ -630,7 +630,7 @@ const char * get_current_num_comments(void){
 const char *get_time_to_destination(void){
   static char text[256];
 
-  	if (roadmap_message_format (text, sizeof(text), "%A|%@"))
+  	if (roadmap_message_format (text, sizeof(text), "%T|%@"))
   		return &text[0];
   	return "";
 }
@@ -641,6 +641,37 @@ const char *get_dist_to_destination(void){
   	if (roadmap_message_format (text, sizeof(text), "%D (%W)|%D"))
   		return &text[0];
   	return "";
+}
+
+static void drawBarBGImage( const char* res, const RoadMapGuiPoint* pos ) {
+
+   RoadMapImage image;
+   int width = roadmap_canvas_width ();
+   int height = roadmap_canvas_height();
+   int num_images;
+   int image_width, image_height;
+   int i;
+   RoadMapGuiPoint bottom_right_pos, BarLocation;
+   RoadMapImage bgImage = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, res );
+
+
+   image_width = roadmap_canvas_image_width( bgImage );
+   image_height = roadmap_canvas_image_height( bgImage );
+
+   bottom_right_pos.x = roadmap_canvas_width ();
+   bottom_right_pos.y = pos->y + image_height;
+
+#ifdef OPENGL
+   roadmap_canvas_draw_image_scaled( bgImage, pos, &bottom_right_pos, 0, IMAGE_NORMAL );
+#else
+   num_images = width / image_width ;
+   BarLocation.y = pos->y;
+   for ( i = 0; i < num_images; i++ )
+   {
+      BarLocation.x = pos->x + i * image_width;
+         roadmap_canvas_draw_image( bgImage, &BarLocation, 0, IMAGE_NORMAL);
+   }
+#endif
 }
 
 void draw_objects(BarObjectTable_s *table){
@@ -831,14 +862,21 @@ void roadmap_bar_draw_top_bar (BOOL draw_bg) {
 	      return;
    width = roadmap_canvas_width ();
 
-   if (TopBarObjectTable.draw_bg && draw_bg){
+      if (TopBarObjectTable.draw_bg && draw_bg){
       RoadMapGuiPoint BarLocation;
       BarLocation.y = 0;
       BarLocation.x = 0;
-         roadmap_canvas_draw_image (TopBarFullBg, &BarLocation, 0,IMAGE_NORMAL);
+      if ( TopBarFullBg )
+      {
+    	  roadmap_canvas_draw_image (TopBarFullBg, &BarLocation, 0, 2 );
+      }
+      else
+      {
+    	  drawBarBGImage(  TOP_BAR_IMAGE, &BarLocation );
+      }
    }
 
-	draw_objects(&TopBarObjectTable);
+   draw_objects(&TopBarObjectTable);
 }
 
 
@@ -1009,7 +1047,14 @@ void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
       RoadMapGuiPoint BarLocation;
       BarLocation.y = screen_height - image_height;
       BarLocation.x = 0;
-      roadmap_canvas_draw_image (BottomBarFullBg, &BarLocation, 0, IMAGE_NORMAL);
+      if ( BottomBarFullBg )
+      {
+    	  roadmap_canvas_draw_image (BottomBarFullBg, &BarLocation, 0, IMAGE_NORMAL);
+      }
+      else
+      {
+    	  drawBarBGImage(  BOTTOM_BAR_IMAGE, &BarLocation );
+      }
    }
 
    draw_objects(&BottomBarObjectTable);
@@ -1019,11 +1064,11 @@ void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
 void roadmap_bar_draw(void){
 	if (!bar_initialized)
 		return;
+
    if (roadmap_screen_show_top_bar())
    	   roadmap_top_bar_show();
    else
    	   roadmap_top_bar_hide();
-
 
    roadmap_bar_draw_top_bar(TRUE);
 
@@ -1057,7 +1102,6 @@ void roadmap_bar_set_mode (int flags) {
    }
 
 }
-
 static RoadMapImage createBGImage (RoadMapImage BarBgImage) {
 
    RoadMapImage image;
@@ -1073,6 +1117,7 @@ static RoadMapImage createBGImage (RoadMapImage BarBgImage) {
 
    image = roadmap_canvas_new_image (width,
                roadmap_canvas_image_height(BarBgImage));
+
    image_width = roadmap_canvas_image_width(BarBgImage);
 
    num_images = width / image_width ;
@@ -1084,9 +1129,9 @@ static RoadMapImage createBGImage (RoadMapImage BarBgImage) {
          roadmap_canvas_copy_image
          (image, &BarLocation, NULL, BarBgImage ,CANVAS_COPY_NORMAL);
    }
-
    return image;
 }
+
 void roadmap_bar_initialize(void){
 	int width;
 	int i;
@@ -1126,15 +1171,19 @@ void roadmap_bar_initialize(void){
 #ifdef TOUCH_SCREEN
    TopBarSelectedBg = ( RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, TOP_BAR_SELECTED_BG_IMAGE );
 #endif
+
+#if ! (defined(ANDROID_OGL))   // Draw directly for ANDROID OPENGL		AGA
    TopBarFullBg = createBGImage( topBarBgImg );
 
    BottomBarFullBg = createBGImage( bottomBarBgImg );
+#endif
 
    /*
     * Deallocate the source images
     */
    roadmap_canvas_free_image( topBarBgImg );
    roadmap_canvas_free_image( bottomBarBgImg );
+
 
    // Load top bar
 	cursor = roadmap_file_map ("skin", "top_bar", NULL, "r", &file);
@@ -1270,7 +1319,6 @@ static RoadMapImage roadmap_bar_load_image( const char* obj_name, const char* im
 {
 	RoadMapImage image = roadmap_res_get (RES_BITMAP, RES_SKIN, img_name );
 
-	roadmap_log( ROADMAP_DEBUG, "Loading bar image: %s. Pointer: %x", img_name, image );
     if (image == NULL) {
           roadmap_log (ROADMAP_ERROR, "roadmap bar:'%s' can't load image:%s.",
                 obj_name, img_name );

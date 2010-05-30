@@ -93,6 +93,15 @@ typedef void (*roadmap_gps_monitor) (const RoadMapGpsPrecision *precision,
 void roadmap_gps_register_monitor (roadmap_gps_monitor monitor);
 
 
+
+typedef void (*roadmap_fix_listener)
+                  (int longitude,
+                   int latitude);
+                   
+void roadmap_gps_register_fix_listener (roadmap_fix_listener listener);
+void roadmap_gps_unregister_fix_listener (roadmap_fix_listener listener);
+
+                   
 /* The link and periodic control functions are hooks designed to let the GPS
  * link to be managed from within an application's GUI main loop.
  *
@@ -127,6 +136,7 @@ void roadmap_gps_register_logger (roadmap_gps_logger logger);
 void roadmap_gps_open   (void);
 void roadmap_gps_input  (RoadMapIO *io);
 int  roadmap_gps_active (void);
+const RoadMapPosition* roadmap_gps_get_fix (void);
 BOOL roadmap_gps_have_reception(void);
 int  roadmap_gps_estimated_error (void);
 int  roadmap_gps_speed_accuracy  (void);

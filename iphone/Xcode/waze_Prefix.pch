@@ -1,0 +1,26 @@
+//
+// Prefix header for all source files of the 'waze' target in the 'waze' project
+//
+#define TOUCH_SCREEN
+#define IPHONE_NATIVE
+#define USE_FRIBIDI
+#define OPENGL
+//#define OPENGL_DEBUG
+
+
+//fribidi defines
+#define FRIBIDI_EXPORTS                1
+#define HAS_FRIBIDI_TAB_CHAR_TYPE_9_I  1
+#define HAS_FRIBIDI_TAB_CHAR_TYPE_2_I  1
+#define MEM_OPTIMIZED                  1
+#define FRIBIDI_NO_CHARSETS            1
+
+//FreeType
+#define FT2_BUILD_LIBRARY
+#define HAVE_TYPE_RESOURCE_INDEX 0
+
+
+#ifdef __OBJC__
+    #import <Foundation/Foundation.h>
+    #import <UIKit/UIKit.h>
+#endif

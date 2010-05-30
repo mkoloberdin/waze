@@ -97,7 +97,7 @@ static int roadmap_gpsd2_decode_coordinate (const char *input) {
 
 RoadMapSocket roadmap_gpsd2_connect (const char *name) {
 
-   RoadMapSocket socket = roadmap_net_connect ("tcp", name, 0, 2947, NULL);
+   RoadMapSocket socket = roadmap_net_connect ("tcp", name, 0, 2947, 0, NULL);
 
    if (ROADMAP_NET_IS_VALID(socket)) {
 

@@ -80,6 +80,7 @@
 #define     ROADMAP_FOURSQUARE_CROSS_STREET_MAX_SIZE  100
 #define     ROADMAP_FOURSQUARE_CITY_MAX_SIZE          100
 #define     ROADMAP_FOURSQUARE_STATE_MAX_SIZE         50
+#define     ROADMAP_FOURSQUARE_ZIP_MAX_SIZE           16
 #define     ROADMAP_FOURSQUARE_PHONE_MAX_SIZE         50
 #define     ROADMAP_FOURSQUARE_MESSAGE_MAX_SIZE       400
 #define     ROADMAP_FOURSQUARE_SCORE_PT_MAX_SIZE      10
@@ -93,13 +94,14 @@ typedef struct tagFoursquareVenue {
    char                       sCrossStreet[ROADMAP_FOURSQUARE_CROSS_STREET_MAX_SIZE +1];
    char                       sCity[ROADMAP_FOURSQUARE_CITY_MAX_SIZE +1];
    char                       sState[ROADMAP_FOURSQUARE_STATE_MAX_SIZE +1];
-   int                        iZip;
+   char                       sZip[ROADMAP_FOURSQUARE_ZIP_MAX_SIZE +1];
    int                        iLatitude;
    int                        iLongitude;
    char                       sPhone[ROADMAP_FOURSQUARE_PHONE_MAX_SIZE +1];
    int                        iDistance;
    //Following description is created from the above entries
-   char                       sDescription[ROADMAP_FOURSQUARE_NAME_MAX_SIZE + 1 + ROADMAP_FOURSQUARE_ADDRESS_MAX_SIZE + 1 + ROADMAP_FOURSQUARE_CITY_MAX_SIZE + 1];
+   char                       sDescription[ROADMAP_FOURSQUARE_NAME_MAX_SIZE + 2 + ROADMAP_FOURSQUARE_ADDRESS_MAX_SIZE + 2
+                                           + ROADMAP_FOURSQUARE_CITY_MAX_SIZE + 2 + ROADMAP_FOURSQUARE_ZIP_MAX_SIZE];
 }  FoursquareVenue;
 
 #define     ROADMAP_FOURSQUARE_CHECKIN_ENTRIES        2

@@ -1,4 +1,3 @@
-
 /* ssd_keyboard_layout_mgr.c
  *
  * LICENSE:
@@ -1006,3 +1005,4 @@ SsdWidget ssd_keyboard_layout_create(
 
    return w;
 }
+

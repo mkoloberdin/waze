@@ -33,7 +33,7 @@
 #include "roadmap_start.h"
 #include "roadmap_login.h"
 #include "roadmap_welcome_wizard.h"
-#include "roadmap_twitter.h"
+#include "roadmap_social.h"
 #include "roadmap_history.h"
 #include "roadmap_screen.h"
 #include "ssd/ssd_dialog.h"
@@ -61,16 +61,16 @@
 
 
 //disclaimer texts ( see disclaimer.h )
-static char * DISCLAIMER_ENG[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+static char * DISCLAIMER_ENG[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] =
 				{{ DIS_ENG_0_0,DIS_ENG_0_1,DIS_ENG_0_2,"","",""},{DIS_ENG_1_0,DIS_ENG_1_1,DIS_ENG_1_2,DIS_ENG_1_3,
 				   DIS_ENG_1_4,DIS_ENG_1_5,DIS_ENG_1_6}};
-				   
-static char * DISCLAIMER_ESP[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+
+static char * DISCLAIMER_ESP[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] =
 				{{ DIS_ESP_0_0,DIS_ESP_0_0,"","","",""},{DIS_ESP_1_0,DIS_ESP_1_1,DIS_ESP_1_2,DIS_ESP_1_3,
-				   DIS_ESP_1_4,DIS_ESP_1_5,DIS_ESP_1_6}};				   
+				   DIS_ESP_1_4,DIS_ESP_1_5,DIS_ESP_1_6}};
 
 static char * DISCLAIMER_HEB[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
-				{{ DIS_HEB_0_0,DIS_HEB_0_1,DIS_HEB_0_1,"","",""},{DIS_HEB_1_0,DIS_HEB_1_1,DIS_HEB_1_2,DIS_HEB_1_3,
+				{{ DIS_HEB_0_0,DIS_HEB_0_1,"","","",""},{DIS_HEB_1_0,DIS_HEB_1_1,DIS_HEB_1_2,DIS_HEB_1_3,
 				   DIS_HEB_1_4,DIS_HEB_1_5,DIS_HEB_1_6}};
 
 
@@ -83,7 +83,7 @@ static char * INTRO_ESP[NUMBER_OF_LINES_INTRO] = {INTR_ESP_0,INTR_ESP_1,INTR_ESP
 static void add_intro_texts(SsdWidget group, int tab_flag);
 
 
-	
+
 extern RoadMapConfigDescriptor RT_CFG_PRM_NKNM_Var;
 ////   First time
 static RoadMapConfigDescriptor WELCOME_WIZ_FIRST_TIME_Var =
@@ -105,11 +105,11 @@ static RoadMapConfigDescriptor WELCOME_WIZ_MINUTES_FOR_ACTIVATION_Var =
                            ROADMAP_CONFIG_ITEM(
                                     WELCOME_WIZ_TAB,
                                     WELCOME_WIZ_MINUTES_FOR_ACTIVATION_Name);
-                                    
+
 static RoadMapConfigDescriptor WELCOME_WIZ_SHOW_INTRO_SCREEN_Var =
                            ROADMAP_CONFIG_ITEM(
                                     WELCOME_WIZ_TAB,
-                                    WELCOME_WIZ_SHOW_INTRO_SCREEN_Name);                              
+                                    WELCOME_WIZ_SHOW_INTRO_SCREEN_Name);
 
 static SsdWidget gAddressResultList = NULL;
 static RoadMapCallback gCallback;
@@ -712,13 +712,12 @@ static void workaddress_dialog(){
    bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
    ssd_widget_add(edit_con, bitmap);
 
-   edit = ssd_text_new     ( "Work","", 18, SSD_ALIGN_VCENTER);
+   edit = ssd_text_new     ( "Work","", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
    ssd_text_set_input_type( edit, inputtype_free_text);
    ssd_text_set_readonly  ( edit, FALSE);
 
    edit_con->key_pressed = workaddress_on_key_pressed_delegate_to_editbox;
    ssd_widget_add(edit_con, edit);
-   ssd_widget_add(edit_con, ssd_bitmap_new("cursor", "cursor",SSD_ALIGN_VCENTER));
    ssd_widget_add (group, edit_con);
 
    ssd_widget_add (group, space(20));
@@ -1005,13 +1004,12 @@ static void homeaddress_dialog(){
 
    bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
    ssd_widget_add(edit_con, bitmap);
-   edit = ssd_text_new     ( "Home","", 18, SSD_ALIGN_VCENTER);
+   edit = ssd_text_new     ( "Home","", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
    ssd_text_set_input_type( edit, inputtype_free_text);
    ssd_text_set_readonly  ( edit, FALSE);
 
    edit_con->key_pressed = homeaddress_on_key_pressed_delegate_to_editbox;
    ssd_widget_add(edit_con, edit);
-   ssd_widget_add(edit_con, ssd_bitmap_new("cursor", "cursor",SSD_ALIGN_VCENTER));
    ssd_widget_add (group, edit_con);
 
    ssd_widget_add (group, space(20));
@@ -1120,14 +1118,13 @@ static void nickname_dialog(){
                                  SSD_MAX_SIZE,txt_box_height,SSD_WS_TABSTOP|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
    ssd_widget_set_color (edit_con, "#ffffff","#ffffff");
 
-   edit = ssd_text_new     ( "NickName",roadmap_config_get( &RT_CFG_PRM_NKNM_Var), 16, SSD_ALIGN_VCENTER);
+   edit = ssd_text_new     ( "NickName",roadmap_config_get( &RT_CFG_PRM_NKNM_Var), 16, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
    ssd_text_set_input_type( edit, inputtype_free_text);
    ssd_text_set_readonly  ( edit, FALSE);
 
    edit_con->key_pressed = nickname_on_key_pressed_delegate_to_editbox;
    ssd_widget_add(edit_con, edit);
 
-   ssd_widget_add(edit_con, ssd_bitmap_new("cursor", "cursor",SSD_ALIGN_VCENTER));
    ssd_widget_add (group, edit_con);
 
    ssd_widget_add (group, space(5));
@@ -1180,8 +1177,8 @@ static int welcome_buttons_callback (SsdWidget widget, const char *new_value) {
 }
 #else //TOUCH_SCREEN
 
-static void intro_screen_left_key_callback(){
-   return;  // do nothing if clicked left key, no back possible. 
+int intro_screen_left_key_callback (SsdWidget widget, const char *new_value, void *context) {
+   return 1;  // do nothing if clicked left key, no back possible. 
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1275,18 +1272,18 @@ static void welcome_dialog(void){
 }
 
 
-
-
-static void callGlobalCallback(){
+static int callGlobalCallback (SsdWidget widget, const char *new_value, void *context) {
 	ssd_dialog_hide_all(dec_close);
 	if (gCallback)
-            (*gCallback)();
+	   (*gCallback)();
+	
+	return 1;
 }
 
 // callback for buttons in intro screen
 static int intro_screen_buttons_callback(SsdWidget widget, const char *new_value){
 	if (!strcmp(widget->name, "Next")){
-		callGlobalCallback();
+		callGlobalCallback(NULL, NULL, NULL);
 	}
 	return 1;
 }
@@ -1300,7 +1297,7 @@ static void create_intro_screen(){
 	const char* system_lang;
 #ifndef TOUCH_SCREEN
     tab_flag = SSD_WS_TABSTOP;
-#endif	
+#endif
 	system_lang = roadmap_lang_get("lang");
 	dialog = ssd_dialog_new ("Intro_screen",
                             roadmap_lang_get ("Hi there!"),
@@ -1309,8 +1306,8 @@ static void create_intro_screen(){
    group = ssd_container_new ("Welcome", NULL,
             width, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_END_ROW|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
    ssd_widget_set_color (group, NULL,NULL);
-   ssd_widget_add (group, space(8)); 
-   add_intro_texts(group, tab_flag);   
+   ssd_widget_add (group, space(8));
+   add_intro_texts(group, tab_flag);
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group,
    ssd_button_label ("Next", roadmap_lang_get ("Next"),
@@ -1323,11 +1320,11 @@ static void create_intro_screen(){
    ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get(""));
    ssd_widget_set_left_softkey_callback   ( dialog, intro_screen_left_key_callback);
 
-#endif       
+#endif
 
    ssd_widget_add (group, space(20));
    ssd_widget_add( dialog, group);
-   ssd_dialog_activate ("Intro_screen", NULL);          
+   ssd_dialog_activate ("Intro_screen", NULL);
 }
 
 
@@ -1341,7 +1338,7 @@ static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *ne
          if (is_show_intro_screen())
          	create_intro_screen(); 
          else 
-         	callGlobalCallback();
+         	callGlobalCallback(NULL, NULL, NULL);
          return 1;  
    }
    else if (!strcmp(widget->name, "Decline")){
@@ -1367,7 +1364,7 @@ static int terms_of_use_accepted (SsdWidget widget, const char *new_value, void 
     if (is_show_intro_screen())
          create_intro_screen(); 
     else 
-         callGlobalCallback(); 
+         callGlobalCallback(NULL, NULL, NULL); 
     return 1;  
 }
 /////////////////////////////////////////////////////////////////////
@@ -1421,12 +1418,12 @@ static void add_intro_texts(SsdWidget group, int tab_flag){
     	intro_text = &INTRO_ESP[0];
     else // intro_text is english disclaimer
     	intro_text = &INTRO_ENG[0];
-    	
+
     //English
 	for (i=0;i<NUMBER_OF_LINES_INTRO;i++){
 		if (!strcmp(intro_text[i],"")){// reached an empty screen - got to the last available text
 			break;
-		}else{ 	
+		}else{
 			last_widget = add_text_to_group(intro_text[i],group,tab_flag,16,first_widget);
 			first_widget = FALSE;
 		}
@@ -1435,8 +1432,8 @@ static void add_intro_texts(SsdWidget group, int tab_flag){
 }
 
 /**
- * Add the disclaimer texts to the disclaimer screen . 
- * In - SsdWidget group - the widget the texts will be added to . 
+ * Add the disclaimer texts to the disclaimer screen .
+ * In - SsdWidget group - the widget the texts will be added to .
  */
 static void add_disclaimer_texts(SsdWidget group, int tab_flag){
 	int i;
@@ -1453,25 +1450,24 @@ static void add_disclaimer_texts(SsdWidget group, int tab_flag){
     else // default is english disclaimer
     	disclaimer = &DISCLAIMER_ENG[0][0];
 
-  	
    if(is_show_intro_screen())
    		i = 1;
    else
    		i = 0;
-   
+
    for (;i<NUMBER_OF_DISCLAIMER_PARTS;i++){
    		for (j=0;j<NUMBER_OF_LINES_PER_PART_DISC;j++){
 	   		if (!strcmp(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC],"")){// reached an empty screen - got to the last available text
 				break;
-			}else{ 	
+			}else{
 				last_widget = add_text_to_group(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC],group,tab_flag,14, first_widget);
-				first_widget = FALSE;			
+				first_widget = FALSE;
 			}
    		}
    }
-   
-   last_widget->key_pressed     = OnKeyPressed; // disables wrap around scrolling, only up and down. 
-   
+
+   last_widget->key_pressed     = OnKeyPressed; // disables wrap around scrolling, only up and down.
+
 }
 
 
@@ -1485,9 +1481,9 @@ void term_of_use_dialog(void){
 #ifndef TOUCH_SCREEN
    tab_flag = SSD_WS_TABSTOP;
 #endif
-   
-   
-   
+
+
+
    dialog = ssd_dialog_new ("term_of_use",
                             roadmap_lang_get ("Terms of use"),
                             NULL,
@@ -1501,8 +1497,8 @@ void term_of_use_dialog(void){
 
    add_disclaimer_texts(group, tab_flag);
 
-	
-   
+
+
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group,
    ssd_button_label ("Accept", roadmap_lang_get ("Accept"),
@@ -1532,7 +1528,7 @@ void term_of_use_dialog(void){
 void roadmap_term_of_use(RoadMapCallback callback){
 
 
-   if (is_terms_accepted()){
+   if ( is_terms_accepted()){
       if (callback)
          (*callback)();
          return;
@@ -1633,15 +1629,18 @@ void roadmap_welcome_personalize_dialog( void ){
    box = ssd_container_new ("spacer1", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE|SSD_END_ROW);
    ssd_widget_set_color (box, NULL,NULL);
 
-   bitmap = ssd_bitmap_new("info", "Info", SSD_END_ROW);
+   bitmap = ssd_bitmap_new("info", "Info", 0);
    ssd_widget_add(box, bitmap);
+   ssd_dialog_add_hspace(box, 10, 0);
+   text = ssd_text_new ("Label", roadmap_lang_get("You are signed-in with a randomly generated login"), 18,SSD_END_ROW);
+   ssd_widget_add (box, text);
 
    ssd_widget_add(group, box);
 
+#ifdef TOUCH_SCREEN
    ssd_widget_add (group, space(10));
+#endif   
 
-   text = ssd_text_new ("Label", roadmap_lang_get("You are signed-in with a randomly generated login"), 18,SSD_END_ROW);
-   ssd_widget_add (group, text);
 
    ssd_dialog_add_vspace( group, 5, 0 );
 

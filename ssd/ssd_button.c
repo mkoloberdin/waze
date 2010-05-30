@@ -204,13 +204,15 @@ static int ssd_button_short_click (SsdWidget widget,
 
    widget->force_click = FALSE;
 
-      if (!list) {
+#ifndef IPHONE
+	if (!list) {
       list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
       roadmap_sound_list_add (list, "click");
       roadmap_res_get (RES_SOUND, 0, "click");
    }
 
    roadmap_sound_play_list (list);
+#endif //IPHONE
 
 #ifdef TOUCH_SCREEN
 	if (widget->callback == NULL){
@@ -247,6 +249,7 @@ static int ssd_button_long_click (SsdWidget widget,
 
    widget->force_click = FALSE;
 
+#ifndef IPHONE
   if (!list) {
       list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
       roadmap_sound_list_add (list, "click_long");
@@ -254,6 +257,7 @@ static int ssd_button_long_click (SsdWidget widget,
    }
 
    roadmap_sound_play_list (list);
+#endif //IPHONE
 
    if (widget->callback) {
       (*widget->callback) (widget, SSD_BUTTON_LONG_CLICK);

@@ -69,6 +69,10 @@ static PowerMonState gPowerMonState = pwrmon_normal;
  */
 void roadmap_power_initialize( void )
 {
+#ifdef IPHONE
+   return;
+#endif //IPHONE
+   
 	int batteryCheckPeriod;
 	// Load the configuration
     roadmap_config_declare( "preferences", &RMCfgBatteryWarnThr_1, CFG_BATTERY_WARN_THR_1_DEFAULT, NULL );

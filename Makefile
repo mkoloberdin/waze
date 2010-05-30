@@ -79,6 +79,9 @@ ifeq ($(HI_RES_SCREEN),YES)
    MODECFLAGS+= -DHI_RES_SCREEN 
 endif
 
+ifeq ($(RENDERING),OPENGL)
+  MODECFLAGS+= -DOPENGL
+endif
 
 ifeq ($(CSV_GPS),REALTIME)
    CSVGPSFLAGS=-DCSV_GPS -DCSV_REALTIME
@@ -148,8 +151,15 @@ CFLAGS=$(MODECFLAGS) $(CSVGPSFLAGS) $(SSDCFLAGS) $(J2MECFLAGS) $(IPHONEFLAGS) $(
 
 LDFLAGS=$(MODELDFLAGS)
 
+#LIBS=$(RDMLIBS) -lpopt -lm
+
 RDMLIBS=libroadmap.a unix/libosroadmap.a libroadmap.a
-LIBS=$(RDMLIBS) -lpopt -lm
+
+ifeq ($(RENDERING),OPENGL)
+  RDMLIBS += libglu.a  
+endif
+
+
 
 # --- RoadMap sources & targets --------------------------------------------
 
@@ -184,10 +194,10 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_nmea.c \
           roadmap_gpsd2.c \
           $(csv_gps_c) \
+			 roadmap_http_comp.c \
           roadmap_io.c \
           roadmap_gps.c \
           roadmap_state.c \
-          roadmap_driver.c \
           roadmap_adjust.c \
           roadmap_lang.c \
           roadmap_city.c \
@@ -201,9 +211,9 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_httpcopy_async.c \
           roadmap.c \
           roadmap_tile_manager.c \
-          roadmap_tile_storage.c \
           roadmap_tile_status.c \
           roadmap_tile.c \
+          roadmap_urlscheme.c \
           roadmap_warning.c \
 	  roadmap_tripserver.c \
           roadmap_jpeg.c \
@@ -211,8 +221,17 @@ RMLIBSRCS=roadmap_log.c \
 	  roadmap_debug_info.c \
 	  roadmap_zlib.c \
           roadmap_map_download.c \
-          roadmap_reminder.c
+          roadmap_reminder.c \
+          roadmap_scoreboard.c \
+          roadmap_browser.c \
+          roadmap_analytics.c
 
+#TILE STORAGE DEPENDENT SOURCES
+ifeq ($(TILESTORAGE),SQLITE)
+  RMLIBSRCS += roadmap_tile_storage_sqlite.c
+else  
+  RMLIBSRCS += roadmap_tile_storage.c
+endif
 
 RMLIBOBJS=$(RMLIBSRCS:.c=.o)
 
@@ -238,10 +257,9 @@ RMGUISRCS=roadmap_sprite.c \
           roadmap_utf8.c \
           roadmap_display.c \
 	  roadmap_ticker.c \
-          roadmap_twitter.c \
+          roadmap_social.c \
           roadmap_foursquare.c \
-    	  roadmap_border.c \
-          roadmap_factory.c \
+    	  roadmap_factory.c \
           roadmap_preferences.c \
           roadmap_crossing.c \
           roadmap_coord.c \
@@ -261,7 +279,8 @@ RMGUISRCS=roadmap_sprite.c \
           roadmap_alternative_routes.c \
 	  roadmap_res_download.c \
 	  roadmap_prompts.c \
-	  roadmap_splash.c
+	  roadmap_splash.c \
+	  roadmap_speedometer.c
 	  
 ifneq ($(SSD),YES)
 	RMGUISRCS += roadmap_address.c
@@ -269,6 +288,16 @@ else
 	RMGUISRCS += roadmap_address_ssd.c roadmap_address_tc.c roadmap_search.c address_search/address_search.c address_search/address_search_dlg.c address_search/local_search.c address_search/local_search_dlg.c address_search/generic_search_dlg.c address_search/generic_search.c ssd/ssd_progress.c \
 	roadmap_login_ssd.c	
 endif
+
+#OPENGL DEPENDENT SOURCES
+ifeq ($(RENDERING),OPENGL)
+  RMGUISRCS += roadmap_border_ogl.c
+else  
+  RMGUISRCS += roadmap_border.c
+endif
+
+
+
 
 RMGUIOBJS=$(RMGUISRCS:.c=.o)
 
@@ -318,6 +347,7 @@ RMPLUGINSRCS=roadmap_copy.c \
              navigate/navigate_route_astar.c \
              navigate/fib-1.1/fib.c \
              navigate/navigate_route_trans.c \
+             navigate/navigate_res_dlg.c \
 
 RMPLUGINOBJS=$(RMPLUGINSRCS:.c=.o)
 
@@ -464,3 +494,6 @@ libssd_widgets.a: $(SSD_WIDGETS_OBJS)
 
 zlib/libz.a: 
 	$(MAKE) -C zlib
+	
+libglu.a:
+	$(MAKE) -C ogl/glu

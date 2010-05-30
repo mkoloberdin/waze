@@ -306,7 +306,7 @@ static ssd_contextmenu_ptr roadmap_factory_load_menu_file(
 
       if (feof(file) || ferror(file)) break;
 
-      // remove the end-of-line character. 
+      // remove the end-of-line character.
       p = strchr (buffer, '\r');
       if (p != NULL) *p = 0;
       p = strchr (buffer, '\n');
@@ -338,7 +338,11 @@ ssd_contextmenu_ptr roadmap_factory_load_menu(
    ssd_contextmenu_ptr  menu = roadmap_factory_load_menu_file( 
                                           filename, 
                                           actions, 
+#ifndef IPHONE
                                           roadmap_path_user());
+#else
+                                          roadmap_path_bundle());
+#endif //IPHONE
 
    if( menu)
       return menu;

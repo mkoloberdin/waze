@@ -19,17 +19,22 @@
  *   along with RoadMap; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  *
- * 
- */ 
+ *
+ */
 
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 
 #include "../roadmap.h"
-#include "../roadmap_twitter.h"
+#include "../roadmap_social.h"
+#include "../roadmap_messagebox.h"
 #include "RealtimeAltRoutes.h"
 #include "../roadmap_alternative_routes.h"
+#include "ssd/ssd_widget.h"
+#include "ssd/ssd_dialog.h"
+#include "ssd/ssd_progress_msg_dialog.h"
+#include "../roadmap_trip.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct {
@@ -38,8 +43,8 @@ typedef struct {
 } AltRoutesTripsTable;
 
 static AltRoutesTripsTable altRoutesTrips;
-static int gTripId;
 
+static BOOL cancelled = FALSE;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealtimeAltRoutes_Count() {
@@ -47,9 +52,14 @@ int RealtimeAltRoutes_Count() {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeAltRoutes_Clear(void) {
+   altRoutesTrips.iCount = 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeAltRoutes_Init_Record(AltRouteTrip *route) {
    int i;
-   
+
    route->iTripId = -1;
    route->sTripName[0] = 0;
    route->srcPosition.latitude = -1;
@@ -86,11 +96,11 @@ BOOL RealtimeAltRoutes_Add_Route(AltRouteTrip *pRoute) {
       return FALSE;
    }
 
-   if (RealtimeAltRoutes_Route_Exist(pRoute->iTripId)) {
-      roadmap_log( ROADMAP_ERROR,"RealtimeAltRoutes_Add_Route - cannot add route (id=%d) already exist", pRoute->iTripId);
-       return FALSE;
+   if (!pRoute){
+      roadmap_log(ROADMAP_ERROR,"RealtimeAltRoutes_Add_Route - cannot add route. route is NULL" );
+      return FALSE;
    }
-    
+
    roadmap_log(ROADMAP_DEBUG,"RealtimeAltRoutes_Add_Route - id=%d, name=%s", pRoute->iTripId, pRoute->sTripName );
    altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].iTripId = pRoute->iTripId;
 
@@ -100,6 +110,9 @@ BOOL RealtimeAltRoutes_Add_Route(AltRouteTrip *pRoute) {
    altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].srcPosition.longitude = pRoute->srcPosition.longitude;
    altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].destPosition.latitude = pRoute->destPosition.latitude;
    altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].destPosition.longitude = pRoute->destPosition.longitude;
+
+   altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].iTripDistance = pRoute->iTripDistance;
+   altRoutesTrips.altRoutTrip[altRoutesTrips.iCount].iTripLenght = pRoute->iTripLenght;
    altRoutesTrips.iCount++;
    return TRUE;
 }
@@ -109,40 +122,87 @@ void RealtimeAltRoutes_OnRouteResults (NavigateRouteRC rc, int num_res, const Na
    int i;
    if (num_res > MAX_ROUTES)
       num_res = MAX_ROUTES;
-   
-   altRoutesTrips.altRoutTrip[gTripId].iNumRoutes = num_res;
+
+
    if (rc != route_succeeded){
-      
+      ssd_progress_msg_dialog_hide ();
+      roadmap_log(ROADMAP_ERROR,"RealtimeAltRoutes_OnRouteResults failed rc=%d", rc );
       return;
    }
+
+   roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteResults %d", num_res);
+   altRoutesTrips.altRoutTrip[0].iNumRoutes = num_res;
    for (i = 0; i < num_res ; i++){
-      altRoutesTrips.altRoutTrip[gTripId].pRouteResults[i] = *(res+i);//todo check
-   }  
+      altRoutesTrips.altRoutTrip[0].pRouteResults[i] = *(res+i);//todo check
+   }
+
+   altRoutesTrips.altRoutTrip[0].iTripLenght = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_time;
+   altRoutesTrips.altRoutTrip[0].iTripDistance = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_length;
    roadmap_alternative_routes_routes_dialog();
+
+   roadmap_screen_refresh();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeAltRoutes_OnTripRouteResults (NavigateRouteRC rc, int num_res, const NavigateRouteResult *res){
+   int i;
+   if (num_res > MAX_ROUTES)
+      num_res = MAX_ROUTES;
+
+
+   if (rc != route_succeeded){
+      roadmap_log(ROADMAP_ERROR,"RealtimeAltRoutes_OnTripRouteResults failed rc=%d", rc );
+      return;
+   }
+
+   roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteResults %d", num_res);
+   altRoutesTrips.altRoutTrip[0].iNumRoutes = num_res;
+   for (i = 0; i < num_res ; i++){
+      altRoutesTrips.altRoutTrip[0].pRouteResults[i] = *(res+i);
+   }
+
+   altRoutesTrips.altRoutTrip[0].iTripLenght = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_time;
+   altRoutesTrips.altRoutTrip[0].iTripDistance = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_length;
+
+   roadmap_trip_set_point ("Destination", &altRoutesTrips.altRoutTrip[0].destPosition);
+   roadmap_trip_set_point ("Departure", &altRoutesTrips.altRoutTrip[0].srcPosition);
+
+   roadmap_alternative_routes_suggest_route_dialog();
+
    roadmap_screen_refresh();
 }
 
 
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeAltRoutes_OnRouteSegments (NavigateRouteRC rc, const NavigateRouteResult *res, const NavigateRouteSegments *segments){
+   roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments");
+   if (cancelled){
+      roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments - Navigation cancelled");
+      return;
+   }
+   
    navigate_main_on_route (res->flags, res->total_length, res->total_time, segments->segments,
                              segments->num_segments, segments->num_instrumented,
-                             res->geometry.points, res->geometry.num_points);
+                             res->geometry.points, res->geometry.num_points, res->description, FALSE);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 NavigateRouteResult *RealtimeAltRoutes_Get_Route_Result(int index){
-   return &altRoutesTrips.altRoutTrip[gTripId].pRouteResults[index];
+   return &altRoutesTrips.altRoutTrip[0].pRouteResults[index];
 }
 
 
 int RealtimeAltRoutes_Get_Num_Routes(){
-   return altRoutesTrips.altRoutTrip[gTripId].iNumRoutes;
+   return altRoutesTrips.altRoutTrip[0].iNumRoutes;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos){
+void RealtimeAltRoutes_Route_CancelRequest(void){
+   cancelled = TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes){
 	static NavigateRouteCallbacks cb = {
 		NULL,
 		RealtimeAltRoutes_OnRouteResults,
@@ -151,8 +211,9 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
       navigate_main_on_suggest_reroute,
       navigate_main_on_segment_ver_mismatch
 	};
-   gTripId = 0;
-   navigate_route_request (NULL, 
+   cancelled = FALSE;
+
+   navigate_route_request (NULL,
                            -1,
                            NULL,
                            from_pos,
@@ -161,10 +222,53 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
                            NULL,
                            NULL,
                            NULL,
-                           ROADMAP_TWITTER_DESTINATION_MODE_DISABLED,
+                           ROADMAP_SOCIAL_DESTINATION_MODE_DISABLED,
+                           ROADMAP_SOCIAL_DESTINATION_MODE_DISABLED,
                            0,
                            iTripId,
-                           MAX_ROUTES,
+                           max_routes,
+                           &cb);
+   return TRUE;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeAltRoutes_OnTripRouteRC (NavigateRouteRC rc, int protocol_rc, const char *description){
+   if ((protocol_rc != 200) || (rc != route_succeeded)){
+      roadmap_log (ROADMAP_ERROR,"RealtimeAltRoutes_OnTripRouteRC - %s (rc=%d)", description, rc);
+      if (roadmap_alternative_routes_suggest_dlg_active()){
+         ssd_dialog_hide_all(dec_close);
+         if (!roadmap_screen_refresh())
+           roadmap_screen_redraw();
+         roadmap_messagebox_timeout("Oops", description, 5);
+      }
+   }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+BOOL RealtimeAltRoutes_TripRoute_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes){
+   static NavigateRouteCallbacks cb = {
+      RealtimeAltRoutes_OnTripRouteRC,
+      RealtimeAltRoutes_OnTripRouteResults,
+      RealtimeAltRoutes_OnRouteSegments,
+      navigate_main_update_route,
+      navigate_main_on_suggest_reroute,
+      navigate_main_on_segment_ver_mismatch
+   };
+
+   navigate_route_request (NULL,
+                           -1,
+                           NULL,
+                           from_pos,
+                           to_pos,
+                           NULL,
+                           NULL,
+                           NULL,
+                           NULL,
+                           ROADMAP_SOCIAL_DESTINATION_MODE_DISABLED,
+                           ROADMAP_SOCIAL_DESTINATION_MODE_DISABLED,
+                           0,
+                           iTripId,
+                           max_routes,
                            &cb);
    return TRUE;
 }

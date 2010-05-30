@@ -20,8 +20,11 @@ DROID_LIB := $(HOME)/Android/lib
 endif
 
 # Toolchain
+ifeq ($(DROID_TOOLCHAIN_VER),)
+DROID_TOOLCHAIN_VER=4.4.0
+endif
 ifeq ($(DROID_TOOLCHAIN),)
-DROID_TOOLCHAIN:= $(DROID_SRC)/prebuilt/linux-x86/toolchain/arm-eabi-4.2.1/
+DROID_TOOLCHAIN:= $(DROID_SRC)/prebuilt/linux-x86/toolchain/arm-eabi-$(DROID_TOOLCHAIN_VER)/
 endif
 
 CXX=$(DROID_TOOLCHAIN)/bin/arm-eabi-g++
@@ -55,8 +58,10 @@ INCLUDES="-I$(DROID_SRC)/system/core/include" \
     "-I$(DROID_SRC)/bionic/libm/arm" \
     "-I$(DROID_SRC)/bionic/libm" \
     "-I$(DROID_SRC)/bionic/libc/kernel/arch-arm/asm/" \
-    "-I$(DROID_SRC)/out/target/product/generic/obj/SHARED_LIBRARIES/libm_intermediates"
-
+    "-I$(DROID_SRC)/out/target/product/generic/obj/SHARED_LIBRARIES/libm_intermediates" \
+    "-I$(DROID_SRC)/frameworks/base/opengl/include"	\
+	"-I$(DROID_SRC)/external/sqlite/dist"
+	
 PREDEFS="-D__ARM_ARCH_5__" \
 		    "-D__ARM_ARCH_5T__" \
 		    "-D__ARM_ARCH_5E__" \
@@ -66,7 +71,8 @@ PREDEFS="-D__ARM_ARCH_5__" \
 		    "-DNDEBUG" \
 		    "-include$(DROID_SRC)/system/core/include/arch/linux-arm/AndroidConfig.h" \
 		    "-D__WCHAR_TYPE__=int" \
-		    "-include$(DROID_TOOLCHAIN)/lib/gcc/arm-eabi/4.2.1/include/stddef.h" \
+		    "-DLONG_MAX=0x7FFFFFFFL" \
+		    "-include$(DROID_TOOLCHAIN)/lib/gcc/arm-eabi/$(DROID_TOOLCHAIN_VER)/include/stddef.h" \
 		    "-UDEBUG" \
 			"-DTOUCH_SCREEN" \
 		    "-DFORCE_INLINE" \
@@ -126,12 +132,15 @@ LDSHAREDFLAGS="-nostdlib" \
     "-lm" \
     "-ldl" \
     "-lz" \
+    "-lEGL" \
+    "-lGLESv1_CM" \
+    "-lsqlite" \
     "--no-undefined" \
-    "$(DROID_TOOLCHAIN)/lib/gcc/arm-eabi/4.2.1/interwork/libgcc.a" \
+    "$(DROID_TOOLCHAIN)/lib/gcc/arm-eabi/$(DROID_TOOLCHAIN_VER)/interwork/libgcc.a" \
     "--whole-archive" \
     "--cref" \
     -Map mapfile.map
-    
-			  
+
+	  
 CFLAGS_ANDROID=$(INCLUDES) $(PREDEFS) $(WARNS) $(GCCFLAGS) $(OPTFLAGS)
 CXXFLAGS_ANDROID = $(GCCXXFLAGS) 

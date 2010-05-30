@@ -1,0 +1,49 @@
+/*
+============================================================================
+ Name		 : waze.mmh
+ Author	     : Alex Agranovich
+ Copyright   : GPL
+ Description : Include file for the project ( mmp- ) files
+============================================================================
+*/
+
+/**** Comment this for non touch ****/ 
+//#define __TOUCH_SCREEN__   
+
+MACRO USE_FRIBIDI
+MACRO SIMPLE_SCREEN
+MACRO SSD
+MACRO GPS_INTERNAL
+//MACRO GPS_BLUETOOTH
+
+/*
+*   Touch screen related macros 
+*/
+#ifdef __TOUCH_SCREEN__
+
+// Touch 
+MACRO TOUCH_SCREEN
+
+// High resolution
+MACRO HI_RES_SCREEN
+
+// Camera enabled
+MACRO __CAMERA_ENABLED__
+#define __CAMERA_ENABLED__
+
+MACRO __ECAM_ADV_SETT__
+
+// Application heap size
+EPOCHEAPSIZE 0x16E0000 0x2DD0000
+
+#else // NON TOUCH
+
+// Application heap size
+EPOCHEAPSIZE 0x3D0000 0xF40000
+
+#endif  // __TOUCH_SCREEN__
+
+// Application stack size
+EPOCSTACKSIZE 0x4000
+
+

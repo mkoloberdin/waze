@@ -425,6 +425,7 @@ static void add_speed_cam(int direction){
 	}
 
 	steering = CurrentGpsPoint->steering;
+	roadmap_square_set_current(line.square);
 	alert_get_city_street(&line, &city, &street);
 
 	if (direction == OPPOSITE_DIRECTION){
@@ -433,7 +434,7 @@ static void add_speed_cam(int direction){
             steering -= 360;
 	}
 
-	add_alert(&CurrentFixedPosition,steering, "", speed, roadmap_lang_get("Speed Cam"), "", city, street, SPEED_CAM_NEW_ICON);
+	add_alert(&CurrentFixedPosition,steering, "", speed, "Speed Cam", "", city, street, SPEED_CAM_NEW_ICON);
 	roadmap_trip_restore_focus();
 	ssd_dialog_hide_all(dec_ok);
 }
@@ -467,6 +468,7 @@ static void add_red_light_cam(int direction){
     line = neighbours[0].line;
 
     steering = CurrentGpsPoint->steering;
+    roadmap_square_set_current(line.square);
     alert_get_city_street(&line, &city, &street);
 
     if (direction == OPPOSITE_DIRECTION){
@@ -475,7 +477,7 @@ static void add_red_light_cam(int direction){
             steering -= 360;
     }
 
-    add_alert(&CurrentFixedPosition,steering, "", "0", roadmap_lang_get("Red light cam"), "", city, street, RED_LIGHT_NEW_ICON);
+    add_alert(&CurrentFixedPosition,steering, "", "0", "Red light cam", "", city, street, RED_LIGHT_NEW_ICON);
     roadmap_trip_restore_focus();
     ssd_dialog_hide_all(dec_ok);
 }
@@ -517,14 +519,24 @@ void  add_speed_cam_alert(){
 
    if (!roadmap_gps_have_reception()) {
       	roadmap_messagebox("Error", "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
+#ifdef IPHONE
+	   roadmap_main_show_root(1);
+#endif //IPHONE
       	return;
    }
 
    CurrentGpsPoint = (RoadMapGpsPosition *)roadmap_trip_get_gps_position("AlertSelection");
    if ((CurrentGpsPoint == NULL) /*|| (CurrentGpsPoint->latitude <= 0) || (CurrentGpsPoint->longitude <= 0)*/) {
  		roadmap_messagebox ("Error", "Can't find current street.");
+#ifdef IPHONE
+	   roadmap_main_show_root(1);
+#endif //IPHONE
  		return;
    }
+	
+#ifdef IPHONE
+	roadmap_main_show_root(0);
+#endif //IPHONE
 
    ssd_confirm_dialog ("Speed cam", "Add speed camera on your lane?", TRUE, add_speed_cam_callback , NULL);
 
@@ -536,15 +548,24 @@ void add_red_light_cam_alert(void){
 
     if (!roadmap_gps_have_reception()) {
            roadmap_messagebox("Error", "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
+#ifdef IPHONE
+       roadmap_main_show_root(1);
+#endif //IPHONE
            return;
     }
 
     CurrentGpsPoint = (RoadMapGpsPosition *)roadmap_trip_get_gps_position("AlertSelection");
     if ((CurrentGpsPoint == NULL) /*|| (CurrentGpsPoint->latitude <= 0) || (CurrentGpsPoint->longitude <= 0)*/) {
        roadmap_messagebox ("Error", "Can't find current street.");
+#ifdef IPHONE
+       roadmap_main_show_root(1);
+#endif //IPHONE
        return;
     }
 
+#ifdef IPHONE
+	roadmap_main_show_root(0);
+#endif //IPHONE
 
     ssd_confirm_dialog ("Red light cam", "Add red light camera on your lane?", TRUE, add_red_light_cam_callback , NULL);
 }

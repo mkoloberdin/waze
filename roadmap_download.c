@@ -1010,7 +1010,7 @@ int  roadmap_download_enabled (void) {
 
 void roadmap_download_initialize (void) {
 
-	char default_destination[256];
+	static char default_destination[1024];
 	
 #ifdef __SYMBIAN32__
 	strncpy_safe (default_destination, roadmap_db_map_path(), sizeof (default_destination));

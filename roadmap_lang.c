@@ -41,6 +41,8 @@
 #include "roadmap_res_download.h"
 #include "websvc_trans/string_parser.h"
 #include "websvc_trans/web_date_format.h"
+#include "roadmap_canvas.h"
+
 
 #define INITIAL_ITEMS_SIZE 50
 #define MAX_LANGUAGES 100
@@ -211,6 +213,14 @@ static void roadmap_lang_new_item (const char *name, const char *value) {
    roadmap_hash_add (RoadMapLangHash, hash, RoadMapLangCount);
 
    RoadMapLangCount++;
+   
+#ifdef OPENGL
+   {
+      //cache characters
+      int width, ascent, descent, can_tilt=1;
+      roadmap_canvas_get_text_extents(value, -1, &width, &ascent, &descent, &can_tilt);
+   }
+#endif //OPENGL
 }
 
 
@@ -434,7 +444,7 @@ void roadmap_lang_initialize (void) {
    lang_values[0] = "eng";
 
 #ifndef J2ME
-   p = roadmap_path_user ();
+		p = roadmap_path_user ();
 #else
    p = NULL;
 #endif
@@ -459,6 +469,12 @@ const char* roadmap_lang_get (const char *name) {
    int i;
 
    if (!RoadMapLangLoaded) return name;
+
+   if ( name == NULL )
+   {
+	   roadmap_log( ROADMAP_ERROR, "String is not initialized! Language module can't work with NULL strings" );
+	   return ("");
+   }
 
    hash = roadmap_hash_string (name);
 

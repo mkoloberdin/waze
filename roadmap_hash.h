@@ -71,5 +71,7 @@ void  roadmap_hash_summary (void);
 
 int roadmap_hash_string (const char *str);
 
+void roadmap_hash_clean( RoadMapHash *hash );
+
 #endif // _ROADMAP_HASH__H_
 

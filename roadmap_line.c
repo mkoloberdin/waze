@@ -225,11 +225,10 @@ int roadmap_line_get_range (int line) {
 	
    VERIFY_THREAD("roadmap_line_get_range")
 
-#ifdef DEBUG
    if (line < 0 || line >= RoadMapLineActive->LineCount) {
-      roadmap_log (ROADMAP_FATAL, "illegal line index %d", line);
+      roadmap_log (ROADMAP_ERROR, "illegal line index %d", line);
+      return -1;
    }
-#endif
 
 	range = RoadMapLineActive->Line[line].range;
 	if (range == ROADMAP_LINE_NO_RANGE) return -1;

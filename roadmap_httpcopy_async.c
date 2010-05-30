@@ -274,7 +274,7 @@ HttpAsyncContext * roadmap_http_async_copy (RoadMapHttpAsyncCallbacks *callbacks
 	hcontext->io.os.socket = ROADMAP_INVALID_SOCKET;
 	hcontext->last_modified_buffer[0] = '\0';
 	
-   if (roadmap_net_connect_async("http_get", source, update_time, 80,
+   if (roadmap_net_connect_async("http_get", source, update_time, 80, 0,
             roadmap_http_async_connect_cb, hcontext) == -1) {
       callbacks->error(context, 1, "Can't create http connection.");
       free (hcontext);
@@ -286,11 +286,18 @@ HttpAsyncContext * roadmap_http_async_copy (RoadMapHttpAsyncCallbacks *callbacks
 
 
 void roadmap_http_async_copy_abort (HttpAsyncContext *context) {
-
-	if (ROADMAP_NET_IS_VALID(context->io.os.socket)) {
+   /*
+    * The context can be deallocated earlier by callback, however this function
+    * can be called with no consideration on the callback execution.
+    * The responsibility of the API callbacks to null the pointer on error
+    */
+   if ( context != NULL )
+   {
+      if (ROADMAP_NET_IS_VALID(context->io.os.socket)) {
 	   roadmap_main_remove_input(&context->io);
 	   roadmap_io_close (&context->io);
-	}
-   free (context);
+	  }
+      free (context);
+   }
 }
 

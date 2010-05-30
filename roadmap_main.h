@@ -90,21 +90,40 @@ void roadmap_main_set_cursor (int cursor);
 void roadmap_gui_minimize();
 void roadmap_gui_maximize();
 void roadmap_main_minimize (void);
-
+BOOL roadmap_horizontal_screen_orientation();
 #ifdef IPHONE
 
 int roadmap_main_should_mute ();
+int roadmap_main_will_suspend ();
 const char* roadmap_main_get_proxy (const char* url);
+#include <sys/socket.h>
+int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInput callback);
 
 int roadmap_main_get_platform ();
+int roadmap_main_get_os_ver ();
 int roadmap_main_should_save_nav ();
 
-void roadmap_main_adjust_skin (int state);
+char const *roadmap_main_home_path (void);
+char const *roadmap_main_bundle_path (void);
+char const *roadmap_main_cache_path (void);
+void roadmap_main_show_root (int animated);
+int roadmap_main_is_root (void);
+int roadmap_main_get_mainbox_height (void);
+void roadmap_main_pop_view(int animated);
+void roadmap_main_open_url (const char* url);
+void roadmap_main_set_backlight(int isAlwaysOn);
+void roadmap_main_refresh_backlight (void);
+void roadmap_main_play_movie (const char* url);
 
 #define ROADMAP_MAIN_PLATFORM_NA       0
 #define ROADMAP_MAIN_PLATFORM_IPOD     1
 #define ROADMAP_MAIN_PLATFORM_IPHONE   2
 #define ROADMAP_MAIN_PLATFORM_IPHONE3G 3
+#define ROADMAP_MAIN_PLATFORM_IPAD     4
+
+#define ROADMAP_MAIN_OS_NA             0
+#define ROADMAP_MAIN_OS_30             1
+#define ROADMAP_MAIN_OS_31             2
 
 #endif //IPHONE
 

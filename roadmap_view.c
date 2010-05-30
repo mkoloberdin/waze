@@ -34,7 +34,7 @@
 #include "roadmap_math.h"
 #include "roadmap_screen.h"
 #include "roadmap_main.h"
-
+#include "roadmap_alternative_routes.h"
 #include "navigate/navigate_main.h"
 #include "navigate/navigate_zoom.h"
 
@@ -51,6 +51,7 @@
 typedef enum {
    VIEW_STATE_NORMAL,
    VIEW_STATE_SHOW_ROUTE,
+   VIEW_STATE_SHOW_ALT_ROUTE,
    VIEW_STATE_NAVIGATE
 } ViewState;
 
@@ -77,31 +78,52 @@ void roadmap_view_refresh (void) {
    const char *focus = roadmap_trip_get_focus_name();
    RoadMapViewIsGpsFocus = focus && !strcmp(focus, "GPS");
 
-   if (!navigate_track_enabled() && !navigate_offtrack()) {
-      set_state(VIEW_STATE_NORMAL);
-      return;
-   }
+   if (!navigate_main_alt_routes_display()){
+      if (!navigate_track_enabled() && !navigate_offtrack())  {
+         set_state(VIEW_STATE_NORMAL);
+         return;
+      }
 
-   if (navigate_offtrack()) return;
+      if (navigate_offtrack()) return;
 
-   if (!navigate_is_auto_zoom()) {
-      return;
+      if (!navigate_is_auto_zoom()) {
+         return;
+      }
    }
 
    if (RoadMapViewState == VIEW_STATE_NORMAL) {
       roadmap_view_reset();
-      set_state(VIEW_STATE_SHOW_ROUTE);
+      if (navigate_main_alt_routes_display())
+         set_state(VIEW_STATE_SHOW_ALT_ROUTE);
+      else
+         set_state(VIEW_STATE_SHOW_ROUTE);
       roadmap_screen_set_orientation_fixed();
-   } else if (RoadMapViewState == VIEW_STATE_SHOW_ROUTE) {
-      if ((time(NULL) - RoadMapViewStateTime) > SHOW_ROUTE_TIME) {
+   } else if (RoadMapViewState == VIEW_STATE_SHOW_ROUTE)  {
+      if (navigate_main_alt_routes_display()){
+               set_state(VIEW_STATE_SHOW_ALT_ROUTE);
+               roadmap_screen_set_orientation_fixed();
+      }
+      else if (navigate_main_is_alt_routes()){
          set_state(VIEW_STATE_NAVIGATE);
          roadmap_screen_set_orientation_dynamic();
       }
+      else if ((time(NULL) - RoadMapViewStateTime) > SHOW_ROUTE_TIME) {
+         set_state(VIEW_STATE_NAVIGATE);
+         roadmap_screen_set_orientation_dynamic();
+      }
+   } else if (RoadMapViewState == VIEW_STATE_SHOW_ALT_ROUTE)  {
+      if (!navigate_main_alt_routes_display()){
+         set_state(VIEW_STATE_NORMAL);
+         roadmap_screen_set_orientation_dynamic();
+      }
+      roadmap_screen_set_orientation_fixed();
    }
+
 
    pos = roadmap_trip_get_focus_position ();
 
    if (RoadMapViewState == VIEW_STATE_SHOW_ROUTE) {
+
       navigate_get_waypoint (-1, &RoadMapViewWayPoint);
       RoadMapViewDistance =
          roadmap_math_distance(pos, &RoadMapViewWayPoint) * 9 / 4;
@@ -112,10 +134,28 @@ void roadmap_view_refresh (void) {
 		roadmap_screen_update_center(&RoadMapViewWayPoint);
       return;
    }
+   if (RoadMapViewState == VIEW_STATE_SHOW_ALT_ROUTE) {
+      roadmap_alternative_route_get_src((RoadMapPosition *)pos);
+      roadmap_alternative_route_get_waypoint (-1, &RoadMapViewWayPoint);
+         RoadMapViewDistance =
+
+            roadmap_math_distance(pos, &RoadMapViewWayPoint) * 7 / 4;
+       RoadMapViewAzymuth = 360 - roadmap_math_azymuth(pos, &RoadMapViewWayPoint);
+       RoadMapViewWayPoint.longitude = (RoadMapViewWayPoint.longitude + pos->longitude) / 2;
+       RoadMapViewWayPoint.latitude = (RoadMapViewWayPoint.latitude + pos->latitude) / 2;
+       roadmap_screen_move_center (roadmap_canvas_height()/3);
+       roadmap_screen_move_center (50);
+       roadmap_screen_update_center(&RoadMapViewWayPoint);
+       return;
+   }
 
    if (RoadMapViewMode == VIEW_COMMUTE) return;
 
-   navigate_get_waypoint (25000, &RoadMapViewWayPoint);
+   if (navigate_main_alt_routes_display())
+      roadmap_alternative_route_get_waypoint (-1, &RoadMapViewWayPoint);
+   else
+      navigate_get_waypoint (25000, &RoadMapViewWayPoint);
+
    RoadMapViewDistance = roadmap_math_distance(pos, &RoadMapViewWayPoint);
 
    RoadMapViewAzymuth = 360 - roadmap_math_azymuth(pos, &RoadMapViewWayPoint);
@@ -151,6 +191,11 @@ int roadmap_view_get_orientation (void) {
 }
 
 int roadmap_view_get_scale (void) {
+
+   if (navigate_main_alt_routes_display()){
+      return RoadMapViewDistance;
+   }
+
    if (navigate_track_enabled() && navigate_offtrack()) return -1;
 
    if (!RoadMapViewIsGpsFocus || AutoZoomSuspended ||
@@ -184,6 +229,7 @@ int roadmap_view_get_scale (void) {
 int roadmap_view_show_labels (int cfcc, RoadMapPen *pens, int num_projs) {
    int i;
    int label_max_proj = -1;
+   int min_thickness = 4;
 
    switch (cfcc) {
       case ROADMAP_ROAD_FREEWAY:
@@ -200,6 +246,9 @@ int roadmap_view_show_labels (int cfcc, RoadMapPen *pens, int num_projs) {
 
       default:
 
+	 if (roadmap_screen_is_hd_screen()) min_thickness = 7;
+         if (roadmap_canvas_get_thickness(pens[0]) < min_thickness) return -1;
+
          for (i=0; i<num_projs; i++) {
             if (pens[i] && (roadmap_canvas_get_thickness(pens[i]) > 1))
                label_max_proj = i;
@@ -215,7 +264,7 @@ static void roadmap_view_auto_zoom_restore (void) {
 }
 
 void roadmap_view_auto_zoom_suspend (void) {
-	
+
    if (!RoadMapViewIsGpsFocus) return;
 
    if (navigate_is_auto_zoom()) {
@@ -248,6 +297,6 @@ void roadmap_view_navigation (void) {
 }
 
 int roadmap_view_hold (void) {
-   return RoadMapViewState == VIEW_STATE_SHOW_ROUTE;
+   return ((RoadMapViewState == VIEW_STATE_SHOW_ROUTE) || (RoadMapViewState == VIEW_STATE_SHOW_ALT_ROUTE));
 }
 

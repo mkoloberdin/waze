@@ -31,11 +31,15 @@ typedef struct tagRTSystemMessage
    int   iId;
    int   iType;
    int   iShow;
-   char* Title;   // Max size: RTNET_SYSTEMMESSAGE_TITLE_MAXSIZE
-   char* Text;    // Max size: RTNET_SYSTEMMESSAGE_TEXT_MAXSIZE
-   char* Icon;
+   char* title;   // Max size: RTNET_SYSTEMMESSAGE_TITLE_MAXSIZE
+   char  titleTextColor[16];
+   int   titleTextSize;
+   char* msg;    // Max size: RTNET_SYSTEMMESSAGE_TEXT_MAXSIZE
+   char  msgTextColor[16];
+   int   msgTextSize;
+   char* icon;
 
-}  RTSystemMessage, *LPRTSystemMessage;  
+}  RTSystemMessage, *LPRTSystemMessage;
 
 void RTSystemMessage_Init( LPRTSystemMessage this);
 void RTSystemMessage_Free( LPRTSystemMessage this);

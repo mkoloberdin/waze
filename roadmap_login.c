@@ -43,7 +43,7 @@
 #include "roadmap_sound.h"
 #include "roadmap_car.h"
 #include "roadmap_path.h"
-#include "roadmap_twitter.h"
+#include "roadmap_social.h"
 #include "roadmap_main.h"
 #include "roadmap_messagebox.h"
 #include "ssd/ssd_progress_msg_dialog.h"
@@ -51,13 +51,21 @@
 #include "roadmap_login.h"
 #include "roadmap_device_events.h"
 
+#ifdef IPHONE
+#include "roadmap_introduction.h"
+#endif //IPHONE
+
 //======== Local Types ========
 
 //======== Defines ========
 
 //======== Globals ========
 
-static RoadmapLoginDlgShowFn sgLoginDlgShowFn = NULL;
+static RoadmapLoginDlgShowFn  sgLoginDlgShowFn = NULL;
+
+#ifdef IPHONE
+static int                    sgIsCreateAccount = 0;
+#endif //IPHONE
 
 //   User name
 RoadMapConfigDescriptor RT_CFG_PRM_NAME_Var =
@@ -94,6 +102,14 @@ void roadmap_login_initialize()
     roadmap_config_declare ("user", &RT_CFG_PRM_NAME_Var, "", NULL);
     roadmap_config_declare_password ("user", &RT_CFG_PRM_PASSWORD_Var, "");
     roadmap_config_declare ("user", &RT_CFG_PRM_NKNM_Var, "", NULL);
+   
+#ifdef IPHONE
+   if (roadmap_welcome_wizard_is_first_time()){
+      roadmap_config_set( &RT_CFG_PRM_NAME_Var, "" );
+      roadmap_config_set( &RT_CFG_PRM_PASSWORD_Var, "" );
+      roadmap_config_save(TRUE);
+   }
+#endif //IPHONE
 }
 
 void roadmap_login_set_show_function (RoadmapLoginDlgShowFn callback) {
@@ -106,9 +122,7 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 	/* Close the progress message */
    ssd_progress_msg_dialog_hide();
 
-#ifdef IPHONE
-   roadmap_main_show_root(0);
-#else
+#ifndef IPHONE
    roadmap_login_ssd_on_login_cb( bDetailsVerified, rc );
 #endif //IPHONE
 
@@ -117,7 +131,11 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 	 */
    if( bDetailsVerified )
    {
-	   Realtime_set_random_user(0);
+      Realtime_set_random_user(0);
+#ifdef IPHONE
+      roadmap_welcome_wizard_set_first_time_no();
+      roadmap_main_show_root(0);
+#endif //IPHONE   
    }
    else
    {
@@ -146,17 +164,25 @@ void roadmap_login_update_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 	/* Close the progress message */
     ssd_progress_msg_dialog_hide();
 
-#ifdef IPHONE
-
-#else
+#ifndef IPHONE
    roadmap_login_ssd_on_login_cb( bDetailsVerified, rc );
 #endif //IPHONE
 
 
    if( bDetailsVerified)
    {
+#ifndef IPHONE
       Realtime_set_random_user(0);
       welcome_wizard_twitter_dialog();
+#else
+      Realtime_set_random_user(0);
+      if (sgIsCreateAccount) {
+         welcome_wizard_twitter_dialog(1);
+         sgIsCreateAccount = 0;
+      } else {
+         welcome_wizard_twitter_dialog(0);
+      }
+#endif //IPHONE
    }
    else
    {
@@ -203,7 +229,7 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    const char *password = NULL;
    const char *nickname = NULL;
    const char *allowPing = NULL;
-   
+
    allowPing = roadmap_login_dlg_get_allowPing();
    username = roadmap_login_dlg_get_username();
    password = roadmap_login_dlg_get_password();
@@ -222,7 +248,7 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
          Realtime_Relogin();
       }
    }
-   
+
    if (allowPing){
       if(!strcasecmp( allowPing, "Yes" ))
          Realtime_Set_AllowPing(TRUE);
@@ -269,20 +295,29 @@ BOOL check_alphanumeric(const char *str){
 
 void roadmap_login_on_signup_skip( void )
 {
-	/*
-	 * Create the random account just in case that there was no successful login before
-	 */
-	if ( !Realtime_IsLoggedIn() )
-	{
-	   Realtime_RandomUserRegister();
-	}
-
+   /*
+    * Create the random account just in case that there was no successful login before
+    */
+   
 #ifdef IPHONE
-   roadmap_main_show_root(0);
+   if ( !Realtime_IsLoggedIn() )
+   {
+      Realtime_RandomUserRegister();
+      roadmap_introduction_show_auto();
+   }
+   else 
+   {
+      roadmap_main_show_root(0);
+   }
+   
 #else
+   if ( !Realtime_IsLoggedIn() )
+   {
+      Realtime_RandomUserRegister();
+   }
+   
    roadmap_login_ssd_on_signup_skip();
 #endif //IPHONE
-
 }
 
 /***********************************************************
@@ -297,13 +332,16 @@ void roadmap_login_on_signup_skip( void )
  */
 int roadmap_login_on_create( const char *username, const char* password, const char* email, BOOL send_updates )
 {
-
+#ifdef IPHONE
+   sgIsCreateAccount = 1;
+#endif //IPHONE
+   
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating new account . . . " ) );
 
    if ( !Realtime_CreateAccount( username, password, email, send_updates ) )
    {
 	  ssd_progress_msg_dialog_hide();
-	  roadmap_messagebox("Error", "Network connection problems, please try again later.");
+	  roadmap_messagebox("Oops", "Network connection problems, please try again later.");
       return FALSE;
    }
 
@@ -329,7 +367,7 @@ int roadmap_login_on_update( const char *username, const char* password, const c
    if (!Realtime_UpdateProfile( username, password, email, send_updates ) )
    {
 	  ssd_progress_msg_dialog_hide();
-      roadmap_messagebox("Error", "Network connection problems, please try again later.");
+      roadmap_messagebox("Oops", "Network connection problems, please try again later.");
       return FALSE;
    }
    return TRUE;
@@ -483,13 +521,13 @@ void roadmap_login_set_nickname(  LoginDetails* login_details, const char* nickn
  *              : [out]
  *  Notes       :
  */
-static void OnDeviceEvent( device_event event, void* context )
-{
-   if( device_event_window_orientation_changed == event )
-   {
-	   /* Add the portrait/landscape orientation handling */
-   }
-}
+//static void OnDeviceEvent( device_event event, void* context )
+//{
+//   if( device_event_window_orientation_changed == event )
+//   {
+//	   /* Add the portrait/landscape orientation handling */
+//   }
+//}
 
 /***********************************************************
  *  Name        : Returns true if user&pwd fields are empty.

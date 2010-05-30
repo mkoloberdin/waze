@@ -30,6 +30,7 @@
 
 #include "roadmap.h"
 #include "roadmap_canvas.h"
+#include "roadmap_res.h"
 #include "../roadmap_phone_keyboard.h"
 #include "../roadmap_strings.h"
 #include "../roadmap_keyboard_text.h"
@@ -40,6 +41,8 @@
 #define  AUTO_HEIGHT_FACTOR      (0.5F)
 #define  HEIGHT_FACTOR           (1.2F)
 
+static int           cursor_width = 0;
+static int           cursor_height = 0;
 static int           initialized;
 static RoadMapPen    pen;
 static const char*   def_color = "#000000";
@@ -81,9 +84,12 @@ void ssd_text_set_color( SsdWidget this, const char* color)
 
 
 static void init_containers (void) {
+   RoadMapImage cursor_image;
    pen = roadmap_canvas_create_pen ("ssd_text_pen");
    roadmap_canvas_set_foreground (def_color);
-
+   cursor_image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, "cursor" );
+   cursor_width = roadmap_canvas_image_width( cursor_image );
+   cursor_height = roadmap_canvas_image_height( cursor_image );
    initialized = 1;
 }
 
@@ -111,6 +117,11 @@ void ssd_text_set_font_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
    ctx->size = size;
+}
+
+void ssd_text_set_font_normal( SsdWidget this)
+{
+   this->flags &= SSD_TEXT_NORMAL_FONT;
 }
 
 ///[BOOKMARK]:[NOTE]:[PAZ] - This will also position widget at offset (n,m)
@@ -154,9 +165,13 @@ static int format_text (SsdWidget widget, int draw,
    int text_descent;
    int text_height = 0;
    int width = rect->maxx - rect->minx + 1;
+   int height = rect->maxy - rect->miny + 1;
    int max_width = 0;
+   int font_type;
+   int is_single_line =  widget->flags & SSD_TEXT_SINGLE_LINE;
+   int is_text_input = widget->flags & SSD_TEXT_INPUT;
+   int display_offset = 0;       // The offset of the string start in order to fit the text box
    RoadMapGuiPoint p;
-
    if (draw) {
       p.x = rect->minx;
       p.y = rect->miny;
@@ -167,11 +182,21 @@ static int format_text (SsdWidget widget, int draw,
    else
       text = widget->value;
 
+   if (widget->flags & SSD_TEXT_NORMAL_FONT)
+      font_type = FONT_TYPE_NORMAL;
+   else
+      font_type = FONT_TYPE_BOLD;
+
    while (*text || *line) {
-      const char *space = strchr(text, ' ');
-      const char *new_line = strchr(text, '\n');
       size_t len;
       size_t new_len;
+      const char *space = NULL;
+      const char *new_line = strchr(text, '\n');
+      if ( !is_text_input && !is_single_line )
+      {
+         space = strchr(text, ' ');
+      }
+
 
       if (!*text) {
          new_len = strlen(line);
@@ -208,24 +233,77 @@ static int format_text (SsdWidget widget, int draw,
          if (space) text++;
       }
 
-      roadmap_canvas_get_text_extents
+      roadmap_canvas_get_formated_text_extents
          (line, ctx->size, &text_width, &text_ascent,
-          &text_descent, NULL);
+          &text_descent, NULL, font_type);
 
       if (!*text || new_line || (text_width > width)) {
-         int h;
+         int h = 0;
 
          if ((text_width > width) && (new_len > len)) {
             line[new_len - len - 1] = '\0';
             text -= len;
             if (space) text--;
 
-            roadmap_canvas_get_text_extents
+            roadmap_canvas_get_formated_text_extents
                (line, ctx->size, &text_width, &text_ascent,
-                &text_descent, NULL);
+                &text_descent, NULL,font_type);
+         }
+         //Trim display of long strings
+         new_len--;
+         if (text_width > width && new_len )
+         {
+            int estimated_width;
+            int letter_ascent;
+            int letter_descent;
+            while (text_width > width )
+            {
+               /*
+                * Make it shorter ...
+                */
+                new_len--;
+                if ( is_text_input )
+                {
+                   display_offset++; // Truncate from left
+                }
+                else
+                {
+                   // Truncate from right
+                   line[new_len] = '\0';
+                   if ( new_len>2 )
+                   {
+                     line[new_len-1] = '.';
+                     line[new_len-2] = '.';
+                   }
+                }
+
+                /*
+                 * Estimate the result
+                 */
+                roadmap_canvas_get_formated_text_extents( &line[display_offset], ctx->size, &estimated_width, &letter_ascent, &letter_descent, NULL,font_type);
+                // For complex fonts it can two byte character
+                 if ( estimated_width )
+                    text_width = estimated_width;
+                 else
+                    continue;
+            }
          }
 
-         h = (text_ascent + text_descent + ctx->lines_space_padding)*HEIGHT_FACTOR;
+         h = (text_ascent + text_descent + ctx->lines_space_padding) * HEIGHT_FACTOR;
+
+         /*
+          * This code can add a points at the end of the last line in case of text cut
+          * in the multiline text box
+         if ( ( text_height + 2*h >= height ) && *text && !is_text_input && !is_single_line )
+         {
+            int len = strlen( line );
+            if ( len > 2 )
+            {
+               strcpy( &line[len-2], ".." );
+            }
+         }
+         */
+
 
          if (draw) {
             p.y += h;
@@ -241,7 +319,10 @@ static int format_text (SsdWidget widget, int draw,
                p.x += width - text_width;
             }
 
-            roadmap_canvas_draw_string_angle (&p, NULL, 0, ctx->size, line);
+            if ((text_height + h) < height)
+            {
+               roadmap_canvas_draw_formated_string_angle (&p, NULL, 0, ctx->size, font_type, &line[display_offset] );
+            }
          }
 
          line[0] = '\0';
@@ -253,6 +334,16 @@ static int format_text (SsdWidget widget, int draw,
    }
 
    rect->maxx = rect->minx + max_width - 1;
+   if (!draw){
+      int parent_height;
+      if (widget->parent)
+         parent_height = widget->parent->size.height;
+      else
+         parent_height = -1;
+      if ((parent_height >= 0) && (text_height > parent_height)){
+         text_height = parent_height;
+      }
+   }
    rect->maxy = rect->miny + text_height - 1;
 
    return 0;
@@ -281,13 +372,32 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 
    if( flags & SSD_GET_SIZE)
    {
-      format_text( widget, 0, rect);
+      if ( widget->flags & SSD_TEXT_INPUT )
+      {
+             // Leave some space at the right for cursor
+         if ( !ssd_widget_rtl (NULL) )
+            rect->maxx -= cursor_width;
+         // For empty strings - just indicate we have something (for cursor needs)
+         if ( strlen( widget->value ) )
+         {
+            format_text( widget, 0, rect );
+         }
+         else
+         {
+            rect->maxx = rect->minx + 1;
+         }
+      }
+      else
+      {
+         format_text( widget, 0, rect );
+      }
       return;
    }
 
    // compensate for descending characters
    // Doing it dynamically is not good as the text will move vertically.
    rect->miny -= 2;
+
 
    roadmap_canvas_select_pen (pen);
    if( widget->fg_color)
@@ -297,9 +407,28 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
       color = widget->bg_color;
    roadmap_canvas_set_foreground( color);
 
+
    format_text (widget, 1, rect);
 
+   /*
+    * Draw the cursor after the text
+    */
+   if ( widget->parent && ( widget->flags & SSD_TEXT_INPUT ) )
+   {
+      RoadMapImage cursor_image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, "cursor" );
+      RoadMapGuiPoint cursor_point;
+      RoadMapGuiPoint text_con_pos = widget->parent->position;
+      int text_con_height = widget->parent->size.height;
 
+
+      /*
+       * Adjust cursor position
+       */
+      cursor_point.y = text_con_pos.y + ( ( text_con_height - cursor_height )>>1 );
+      cursor_point.x = ssd_widget_rtl (NULL) ? ( rect->minx - cursor_width ) : rect->maxx;
+
+      roadmap_canvas_draw_image( cursor_image, &cursor_point, 0, IMAGE_NORMAL);
+   }
 
    rect->miny += 2;
 }
@@ -455,7 +584,7 @@ int ssd_text_get_char_height(int size)
       int text_ascent;
       int text_descent;
 
-      roadmap_canvas_get_text_extents( "aAbB19Xx8", size, &text_width, &text_ascent, &text_descent, NULL);
+      roadmap_canvas_get_formated_text_extents( "aAbB19Xx8", size, &text_width, &text_ascent, &text_descent, NULL,FONT_TYPE_BOLD);
       s_char_height  = 3 + text_ascent + text_descent;
       s_last_size    = size;
    }
@@ -473,7 +602,7 @@ int ssd_text_get_char_width()
       int text_ascent;
       int text_descent;
 
-      roadmap_canvas_get_text_extents( "W", -1, &text_width, &text_ascent, &text_descent, NULL);
+      roadmap_canvas_get_formated_text_extents( "W", -1, &text_width, &text_ascent, &text_descent, NULL, FONT_TYPE_BOLD);
       s_char_width = text_width;
    }
 

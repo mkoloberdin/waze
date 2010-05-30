@@ -33,7 +33,7 @@ static android_jni_obj_type gJniObj;
 
 
 #define JNI_CALL_WazeMenuManager_AddOptionsMenuItem 		"AddOptionsMenuItem"
-#define JNI_CALL_WazeMenuManager_AddOptionsMenuItem_Sig 	"(I[B[BI)V"
+#define JNI_CALL_WazeMenuManager_AddOptionsMenuItem_Sig 	"(I[B[BIII)V"
 
 
 /*************************************************************************************************
@@ -56,9 +56,11 @@ JNIEXPORT void JNICALL Java_com_waze_WazeMenuManager_InitMenuManagerNTV
  * aLabel - the item label
  * aIcon - the icon name
  * aIsNative - is native icon
- *
+ * aPortraitOrder - order in the portrait mode
+ * aLandscapeOrder - order in the landscape mode
  */
-void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const char* aIcon, int aIsNative )
+void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const char* aIcon,
+		int aIsNative, int aPortraitOrder, int aLandscapeOrder )
 {
 	JNIEnv *env;
 	jmethodID mid;
@@ -84,7 +86,7 @@ void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const 
 
 	// Call the method
 	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid,
-			aItemId, label, icon, aIsNative );
+			aItemId, label, icon, aIsNative, aPortraitOrder, aLandscapeOrder );
 }
 
 /*************************************************************************************************

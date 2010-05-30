@@ -434,9 +434,13 @@ int editor_db_open (int map_id) {
    int do_read = 0;
 
    editor_log_push ("editor_db_open");
-
+	
+#ifndef IPHONE
    map_path = roadmap_db_map_path();
-
+#else
+	map_path = roadmap_path_preferred("maps");
+#endif //IPHONE
+	
 	if (!map_path) {
       editor_log (ROADMAP_ERROR, "Can't find editor path");
       editor_log_pop ();
@@ -526,7 +530,12 @@ void editor_db_delete (int map_id) {
    char name[100];
   	const char *map_path;
 
+#ifndef IPHONE
    map_path = roadmap_db_map_path();
+#else
+	map_path = roadmap_path_preferred("maps");
+#endif //IPHONE
+   
    snprintf (name, sizeof(name), "edt%05d.dat", map_id);
    
    if (roadmap_file_exists (map_path, name)) {

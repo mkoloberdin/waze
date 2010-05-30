@@ -43,13 +43,19 @@ typedef enum
 
 #ifdef __SYMBIAN32__
 RMAsyncStoreType sgAsyncStoreType = _async_store_same_thread;
+#elif defined(ANDROID)
+RMAsyncStoreType sgAsyncStoreType = _async_store_separate_thread;
 #else
 RMAsyncStoreType sgAsyncStoreType = _async_store_none;
 #endif
 
 static const char * get_tile_filename (int fips, int tile_index, int create_path) {
 
-   const char *map_path = roadmap_db_map_path ();
+	const char *map_path = roadmap_db_map_path ();
+#ifdef IPHONE
+	const char *map_path_preferred = roadmap_path_preferred("maps");
+#endif //IPHONE
+	
    char name[30];
    char path[512];
    static char filename[512];
@@ -59,10 +65,11 @@ static const char * get_tile_filename (int fips, int tile_index, int create_path
 
       const char *suffix = "index";
       static char name[512];
-
-      snprintf (name, sizeof (name), "%05d_%s%s", fips, suffix,
+	   
+	  snprintf (name, sizeof (name), "%05d_%s%s", fips, suffix,
             ROADMAP_DATA_TYPE);
 	   roadmap_path_format (filename, sizeof (filename), map_path, name);
+
       return filename;
    }
 
@@ -70,20 +77,24 @@ static const char * get_tile_filename (int fips, int tile_index, int create_path
    snprintf (filename, sizeof (filename), "recordstore://map%05d.%d:1", fips, tile_index);
 #else
 	snprintf (path, sizeof (path), "%05d", fips);
+#ifndef IPHONE
 	roadmap_path_format (path, sizeof (path), map_path, path);
-	if (create_path) roadmap_path_create (path);
+#else
+	roadmap_path_format (path, sizeof (path), map_path_preferred, path);
+#endif //IPHONE
+	if (create_path) roadmap_path_create (path); 
 	snprintf (name, sizeof (name), "%02x", tile_index >> 24);
-	roadmap_path_format (path, sizeof (path), path, name);
-	if (create_path) roadmap_path_create (path);
+	roadmap_path_format (path, sizeof (path), path, name); 
+	if (create_path) roadmap_path_create (path); 
 	snprintf (name, sizeof (name), "%02x", (tile_index >> 16) & 255);
-	roadmap_path_format (path, sizeof (path), path, name);
-	if (create_path) roadmap_path_create (path);
+	roadmap_path_format (path, sizeof (path), path, name); 
+	if (create_path) roadmap_path_create (path); 
 	snprintf (name, sizeof (name), "%02x", (tile_index >> 8) & 255);
-	roadmap_path_format (path, sizeof (path), path, name);
-	if (create_path) roadmap_path_create (path);
+	roadmap_path_format (path, sizeof (path), path, name); 
+	if (create_path) roadmap_path_create (path); 
 	snprintf (name, sizeof (name), "%05d_%08x%s", fips, tile_index,
          ROADMAP_DATA_TYPE);
-	roadmap_path_format (filename, sizeof (filename), path, name);
+	roadmap_path_format (filename, sizeof (filename), path, name); 
 #endif
 
    return filename;
@@ -143,7 +154,7 @@ int roadmap_tile_store( int fips, int tile_index, void *data, size_t size )
 int roadmap_tile_store_context( TileContext* context )
 {
    int res = 0;
-   RoadMapFile file = NULL;
+   RoadMapFile file = ROADMAP_INVALID_FILE;
    char *parent = roadmap_path_parent( context->full_path, NULL );
    roadmap_path_create( parent );
    free(parent);
@@ -179,6 +190,18 @@ void roadmap_tile_remove (int fips, int tile_index) {
 
    roadmap_file_remove(NULL, get_tile_filename(fips, tile_index, 0));
 }
+
+void roadmap_tile_remove_all( int fips )
+{
+   const char *map_path = roadmap_db_map_path ();
+   char path[512];
+
+   snprintf ( path, sizeof (path), "%05d", fips );
+   roadmap_path_format( path, sizeof (path), map_path, path );
+   // Remove the directory
+   roadmap_file_rmdir( path, NULL );
+}
+
 
 int roadmap_tile_load (int fips, int tile_index, void **base, size_t *size) {
 

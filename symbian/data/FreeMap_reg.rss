@@ -1,0 +1,27 @@
+/*
+============================================================================
+ Name		: FreeMap.rss
+ Author	  : Ehud Shabtai
+ Copyright   : GPL
+ Description : This file contains the application registration resource.
+============================================================================
+*/
+
+#include "FreeMap.hrh"
+#include "FreeMap.rls"
+#include <appinfo.rh>
+#include <FreeMap_0x2001EB29.rsg>
+
+UID2 KUidAppRegistrationResourceFile
+UID3 _UID3
+
+RESOURCE APP_REGISTRATION_INFO
+	{
+	app_file="FreeMap_0x2001EB29";
+	localisable_resource_file =  qtn_loc_resource_file_1;
+	localisable_resource_id = R_LOCALISABLE_APP_INFO;
+
+	embeddability=KAppNotEmbeddable;
+	newfile=KAppDoesNotSupportNewFile;
+	}
+

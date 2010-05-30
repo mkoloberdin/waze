@@ -44,7 +44,7 @@
 #elif (defined(__SYMBIAN32__))
 #define  DRAG_MOVEMENT_THR 8 // Sym touch
 #define LONG_CLICK_TIMEOUT 400
-#elif (defined(_WIN32_))
+#elif (defined(WIN32))
 #define  DRAG_MOVEMENT_THR 8 // Win
 #define LONG_CLICK_TIMEOUT 400
 #else
@@ -52,15 +52,20 @@
 #define LONG_CLICK_TIMEOUT 350
 #endif
 
+#define DOUBLE_CLICK_TIMEOUT 300
 
 
 #define DRAG_FLOW_CONTROL_TIMEOUT 30
+
 
 static int is_button_down = 0;
 static int cancel_dragging = 0;
 static int is_dragging = 0;
 static int is_drag_flow_control_on = 0;
 static int is_long_click_expired = 0;
+static int is_double_click_enabled = 0;
+static int is_testing_double_click = 0;
+
 
 
 static RoadMapGuiPoint last_pointer_point;
@@ -82,6 +87,7 @@ static int exec_callbacks (int event, RoadMapGuiPoint *point) {
    int res = 0;
 
    while ((i<MAX_CALLBACKS) && pointer_callbacks[event][i].handler) {
+
       res = (pointer_callbacks[event][i].handler) (point);
       if (res) break;
       i++;
@@ -113,7 +119,7 @@ static void roadmap_pointer_button_timeout(void)
  */
 static void roadmap_pointer_drag_flow_control(void) {
 
-   //roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
+   roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
 
    exec_callbacks (DRAG_MOTION, &last_pointer_point);
    is_drag_flow_control_on = 0;
@@ -135,6 +141,16 @@ static void roadmap_pointer_button_pressed (RoadMapGuiPoint *point) {
       (LONG_CLICK_TIMEOUT, roadmap_pointer_button_timeout);
 }
 
+static void roadmap_pointer_double_click_timeout (void) {
+   roadmap_main_remove_periodic(roadmap_pointer_double_click_timeout);
+   
+   is_testing_double_click = 0;
+   
+   exec_callbacks (SHORT_CLICK, &last_pointer_point);
+   is_button_down = 0;
+   exec_callbacks (RELEASED, &last_pointer_point);
+}
+
 
 static void roadmap_pointer_button_released (RoadMapGuiPoint *point) {
 
@@ -142,22 +158,36 @@ static void roadmap_pointer_button_released (RoadMapGuiPoint *point) {
 
    if (is_dragging) {
       if (is_drag_flow_control_on) {
-         //roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
+         roadmap_main_remove_periodic(roadmap_pointer_drag_flow_control);
          is_drag_flow_control_on = 0;
       }
 
       exec_callbacks (DRAG_END, point);
-
+      
       is_dragging = 0;
       is_button_down = 0;
-   } else if (is_button_down) {
-
-
-      exec_callbacks (SHORT_CLICK, point);
+      exec_callbacks (RELEASED, point);
+   } else if (is_testing_double_click) {
+      roadmap_main_remove_periodic(roadmap_pointer_double_click_timeout);
+      
+      is_testing_double_click = 0;
+      
+      exec_callbacks (DOUBLE_CLICK, &last_pointer_point);
       is_button_down = 0;
+   } else if (is_button_down) {
+	   if ( is_double_click_enabled )
+	   {
+		  is_double_click_enabled = 0;
+		  is_testing_double_click = 1;
+		  roadmap_main_set_periodic(DOUBLE_CLICK_TIMEOUT, roadmap_pointer_double_click_timeout);
+	   }
+	   else
+	   {
+		  exec_callbacks (SHORT_CLICK, point);
+		  is_button_down = 0;
+		  exec_callbacks (RELEASED, point);
+	   }
    }
-
-   exec_callbacks (RELEASED, point);
 
    cancel_dragging = 0;
 }
@@ -170,7 +200,7 @@ static int get_drag_movement_thr(void){
 
 static void roadmap_pointer_moved (RoadMapGuiPoint *point) {
 
-   if (cancel_dragging || (!is_button_down && !is_dragging)) return;
+   if (cancel_dragging || is_testing_double_click || (!is_button_down && !is_dragging)) return;
 
    if (!is_dragging) {
 
@@ -184,18 +214,16 @@ static void roadmap_pointer_moved (RoadMapGuiPoint *point) {
 
       last_pointer_point = *point;
       is_drag_flow_control_on = 1;
-      //roadmap_main_set_periodic
-         //(DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
+      roadmap_main_set_periodic
+         (DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
       is_dragging = 1;
-      roadmap_pointer_drag_flow_control();
    } else {
       /* the flow control timer will execute the handler */
       last_pointer_point = *point;
       if (!is_drag_flow_control_on) {
          is_drag_flow_control_on = 1;
-         //roadmap_main_set_periodic
-            //(DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
-         roadmap_pointer_drag_flow_control();
+         roadmap_main_set_periodic
+            (DRAG_FLOW_CONTROL_TIMEOUT, roadmap_pointer_drag_flow_control);
       }
    }
 }
@@ -270,9 +298,15 @@ void roadmap_pointer_register_long_click (RoadMapPointerHandler handler,
    queue_callback (LONG_CLICK, handler, priority);
 }
 
+void roadmap_pointer_register_double_click (RoadMapPointerHandler handler,
+                                          int priority) {
+   
+   queue_callback (DOUBLE_CLICK, handler, priority);
+}
+
 void roadmap_pointer_register_enter_key_press    (RoadMapPointerHandler handler,
                                                   int priority){
-   queue_callback (KEY_BOARD_PRESS, handler, priority);                                           	
+   queue_callback (KEY_BOARD_PRESS, handler, priority);
 }
 
 void roadmap_pointer_register_pressed (RoadMapPointerHandler handler,
@@ -321,6 +355,11 @@ void roadmap_pointer_unregister_long_click (RoadMapPointerHandler handler) {
    remove_callback (LONG_CLICK, handler);
 }
 
+void roadmap_pointer_unregister_double_click (RoadMapPointerHandler handler) {
+   
+   remove_callback (DOUBLE_CLICK, handler);
+}
+
 
 void roadmap_pointer_unregister_pressed (RoadMapPointerHandler handler) {
 
@@ -351,6 +390,12 @@ void roadmap_pointer_unregister_drag_end (RoadMapPointerHandler handler) {
    remove_callback (DRAG_END, handler);
 }
 
+void roadmap_pointer_enable_double_click( void )
+{
+	is_double_click_enabled = 1;
+}
+
+
 void roadmap_pointer_cancel_dragging( void )
 {
    cancel_dragging = 1;
@@ -366,3 +411,4 @@ BOOL roadmap_pointer_is_down( void )
 {
 	return is_button_down;
 }
+

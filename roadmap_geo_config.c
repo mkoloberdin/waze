@@ -43,6 +43,7 @@
 #include "ssd/ssd_container.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_separator.h"
+#include "roadmap_general_settings.h"
 #include "websvc_trans/websvc_trans.h"
 #ifdef IPHONE
 #include "iphone/roadmap_location.h"
@@ -80,11 +81,10 @@ static wst_handle  s_websvc = INVALID_WEBSVC_HANDLE;
 static BOOL initialized = FALSE;
 
 static void lang_dlg(void);
+static void lang_loaded (void);
 static BOOL request_geo_config (void);
 void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char *name, RoadMapCallback callback);
 
-
-#define MAX_PARAMS 80
 
 typedef struct {
    int id;
@@ -93,7 +93,6 @@ typedef struct {
    int num_received;
    char lang[6];
    int  version;
-   RoadMapConfigDescriptor params[MAX_PARAMS];
    RoadMapCallback callback;
 } NavigateRoutingContext;
 
@@ -173,7 +172,7 @@ static void parse_string ( char* str ) {
 void GeoConfigTimer (void) {
    roadmap_log (ROADMAP_ERROR,"GeoServerConfig Timeout!! received %d out of %", GeoConfigContext.num_received+1, GeoConfigContext.num_results );
    ssd_progress_msg_dialog_hide();
-   roadmap_messagebox ("Error",
+   roadmap_messagebox ("Oops",
             "Cannot configure service. Please try again later");
    clean_up();
    roadmap_screen_refresh();
@@ -193,7 +192,7 @@ void GeoConfigTimer (void) {
 ///////////////////////////////////////////////////////////////////
 void roadmap_geo_config_transaction_failed(void){
    ssd_progress_msg_dialog_hide();
-   roadmap_messagebox ("Error",
+   roadmap_messagebox ("Oops",
             "Cannot configure service. Please try again later");
    clean_up();
 
@@ -213,9 +212,22 @@ static void on_lang_conf_downloaded(void){
 
    ssd_progress_msg_dialog_hide();
    clean_up();
-
+#ifndef IPHONE_NATIVE
    lang_dlg();
+#else
+   roadmap_general_settings_show_lang_initial(lang_loaded);
+#endif // !IPHONE_NATIVE
 
+}
+
+static void on_user_lang_downloaded(void){
+   clean_up();
+   ssd_progress_msg_dialog_hide();
+   roadmap_screen_refresh();
+
+   if (GeoConfigContext.callback)
+       (*GeoConfigContext.callback)();
+   GeoConfigContext.callback = NULL;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -253,6 +265,12 @@ static void on_recieved_completed (void) {
       roadmap_lang_download_conf_file(on_lang_conf_downloaded);
       return;
    }
+   else if ((oldServerId==-1)){
+      ssd_progress_msg_dialog_show("Downloading language");
+      roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), on_user_lang_downloaded);
+      return;
+   }
+
    roadmap_lang_download_lang_file(GeoConfigContext.lang, NULL);
 
    ssd_progress_msg_dialog_hide();
@@ -267,10 +285,12 @@ static void on_recieved_completed (void) {
    GeoConfigContext.callback = NULL;
    if ((oldServerId!=newServerId)&&(oldServerId!=-1)){
       roadmap_lang_set_update_time("");
+      roadmap_lang_set_lang_file_update_time("heb","");
+      roadmap_lang_set_lang_file_update_time("eng","");
       roadmap_prompts_set_update_time ("");
       roadmap_splash_set_update_time ("");
       roadmap_config_save(FALSE);
-   	roadmap_messagebox(roadmap_lang_get("Please restart Waze"), roadmap_lang_get(updateText));
+      roadmap_messagebox(roadmap_lang_get("Please restart Waze"), roadmap_lang_get(updateText));
    }
 }
 
@@ -334,6 +354,7 @@ const char *on_geo_server_config (/* IN  */const char* data,
        return NULL;
    }
 
+
    // version
    data = ReadIntFromString(  data,                            //   [in]      Source string
                                ",\r\n",                        //   [in,opt]  Value termination
@@ -369,6 +390,7 @@ const char *on_server_config (/* IN  */const char* data,
    char category[256];
    char key[256];
    char value[256];
+   RoadMapConfigDescriptor param;
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;
 
@@ -416,11 +438,11 @@ const char *on_server_config (/* IN  */const char* data,
 
    GeoConfigContext.num_received++;
 
-   GeoConfigContext.params[GeoConfigContext.num_received].category = strdup(category);
-   GeoConfigContext.params[GeoConfigContext.num_received].name = strdup(key);
-   roadmap_config_declare("preferences",&GeoConfigContext.params[GeoConfigContext.num_received], "", NULL);
+   param.category = strdup(category);
+   param.name = strdup(key);
+   roadmap_config_declare("preferences",&param, "", NULL);
    parse_string( value );
-   roadmap_config_set(&GeoConfigContext.params[GeoConfigContext.num_received],value);
+   roadmap_config_set(&param,value);
 
    if (GeoConfigContext.num_received == GeoConfigContext.num_results) {
       roadmap_log (ROADMAP_INFO, "GeoServerConfig, Got all results... " );
@@ -439,7 +461,6 @@ const char *on_update_config (/* IN  */const char* data,
 								/* OUT */BOOL* more_data_needed,
 								/* OUT */roadmap_result* rc) {
 
-   int serial;
    int size;
    char file[256];
    char category[256];
@@ -528,6 +549,15 @@ static int on_pointer_down( SsdWidget this, const RoadMapGuiPoint *point)
    return 0;
 }
 
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+static int lang_on_pointer_down( SsdWidget this, const RoadMapGuiPoint *point)
+{
+
+   ssd_widget_pointer_down_force_click(this, point );
+   return 0;
+}
 
 ////////////////////////////////////////////////////////////////////
 //
@@ -610,11 +640,7 @@ static void retreis_exhausted(void){
 
     box = ssd_container_new ("IL-Box", NULL, SSD_MAX_SIZE, height, SSD_END_ROW|SSD_WS_TABSTOP);
     ssd_widget_set_color(box, NULL, NULL);
-#ifndef IPHONE
     ssd_widget_add(box, ssd_text_new ("IL-TXT", roadmap_lang_get("ישראל"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER));
-#else
-   ssd_widget_add(box, ssd_text_new ("IL-TXT", roadmap_lang_get("לארשי"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER));
-#endif //IPHONE
     ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
     box->callback = il_callback ;
     ssd_widget_set_pointer_force_click( box );
@@ -649,6 +675,17 @@ static void lang_loaded (void) {
    GeoConfigContext.callback = NULL;
 
 }
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+static void lang_selected(void){
+   roadmap_main_remove_periodic(lang_selected);
+   ssd_dialog_hide ("Select Language Dialog", dec_ok);
+   ssd_progress_msg_dialog_show("Downloading language");
+   roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
+}
+
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
@@ -657,10 +694,11 @@ static int lang_callback (SsdWidget widget, const char *new_value) {
    const char *value = (const char *)widget->context;
    if (!value)
       return 0;
-   ssd_dialog_hide ("Select Language Dialog", dec_ok);
-   ssd_progress_msg_dialog_show("Downloading language");
+
    roadmap_lang_set_system_lang(value);
-   roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
+   ssd_dialog_set_focus(widget);
+   roadmap_screen_redraw ();
+   roadmap_main_set_periodic (300, lang_selected);
    return 1;
 
 }
@@ -691,16 +729,15 @@ static void lang_dlg(void){
       return ;
    }
    dialog = ssd_dialog_new ("Select Language Dialog", "Select Language", NULL,
-            SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
-            SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
-   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
+            SSD_CONTAINER_BORDER| SSD_CONTAINER_TITLE|
+            SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
 
    space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
    ssd_widget_set_color(space, NULL, NULL);
    ssd_widget_add (dialog, space);
 
    text = ssd_text_new("SelectLanguage Text","Please select language:",16, SSD_END_ROW|SSD_ALIGN_CENTER);
-   ssd_text_set_color(text, "#ffffff");
+   ssd_text_set_color(text, "#000000");
    ssd_widget_add(dialog, text);
 
    space = ssd_container_new ("spacer2", NULL, SSD_MAX_SIZE, 10, SSD_END_ROW);
@@ -717,7 +754,7 @@ static void lang_dlg(void){
       box->callback = lang_callback ;
       box->context = (void *)lang_values[i];
       ssd_widget_set_pointer_force_click( box );
-      box->pointer_down = on_pointer_down;
+      box->pointer_down = lang_on_pointer_down;
       ssd_widget_add(container, box);
    }
    ssd_widget_add(dialog, container);
@@ -783,7 +820,7 @@ static BOOL request_geo_config (void) {
       if (net_retries == MAX_NET_RETRIES) {
          roadmap_main_remove_periodic(retry);
          roadmap_log (ROADMAP_ERROR,"Failed to send GetGeoConfig request" );
-         roadmap_messagebox("Error","Failed to initialize. No network connection");
+         roadmap_messagebox("Oops","Failed to initialize. No network connection");
          roadmap_main_remove_periodic (GeoConfigTimer);
          if (GeoConfigContext.callback)
             (*GeoConfigContext.callback)();
@@ -825,29 +862,30 @@ static void roadmap_geo_config_init (void) {
 
    init_context ();
 
-   if (initialized)
-      return;
+   if (!initialized)
+   {
+      //   Web-service address
+      roadmap_config_declare( "preferences",
+                              &RoadMapConfigWebServiceName,
+                              "",
+                              NULL);
+      roadmap_config_declare ("preferences",
+                              &RoadMapConfigSystemServerId,
+                              SYSTEM_DEFAULT_ID, NULL);
 
-   //   Web-service address
-   roadmap_config_declare( "preferences",
-                           &RoadMapConfigWebServiceName,
-                           "",
-                           NULL);
-   roadmap_config_declare ("preferences",
-                           &RoadMapConfigSystemServerId,
-                           SYSTEM_DEFAULT_ID, NULL);
+      roadmap_config_declare ("preferences",
+                              &RoadMapConfigGeoConfigVersion,
+                              "0", NULL);
 
-   roadmap_config_declare ("preferences",
-                           &RoadMapConfigGeoConfigVersion,
-                           "0", NULL);
+      roadmap_config_declare ("preferences",
+                              &RoadMapConfigForceLocation,
+                              "", NULL);
 
-   roadmap_config_declare ("preferences",
-                           &RoadMapConfigForceLocation,
-                           "", NULL);
-
-   roadmap_config_declare ("session",
-                           &RoadMapConfigLastPosition,
-                           "", NULL);
+      roadmap_config_declare ("session",
+                              &RoadMapConfigLastPosition,
+                              "", NULL);
+      initialized = TRUE;
+   }
 
    address = get_webservice_address();
    if (INVALID_WEBSVC_HANDLE == s_websvc)
@@ -858,7 +896,6 @@ static void roadmap_geo_config_init (void) {
       roadmap_log(ROADMAP_DEBUG,
                   "roadmap_geo_config_init() - Web-Service Address: '%s'",
                   address);
-      initialized = TRUE;
       return;
    }
 
@@ -878,7 +915,7 @@ void roadmap_geo_config (RoadMapCallback callback) {
    const char *force_location;
    static int has_run;
    GeoConfigContext.callback = callback;
-#ifdef _WIN32
+#if (defined(_WIN32) && !defined(__SYMBIAN32__))
    if (!has_run){
 	   has_run = TRUE;
 	   roadmap_gps_detect_receiver_callback(after_detect_reciever);
@@ -891,6 +928,8 @@ void roadmap_geo_config (RoadMapCallback callback) {
    if (need_to_ask_server () && *force_location){
       roadmap_lang_set_update_time("");
       roadmap_prompts_set_update_time ("");
+      roadmap_lang_set_lang_file_update_time("heb","");
+      roadmap_lang_set_lang_file_update_time("eng","");
 
       roadmap_screen_redraw ();
       if (!strcmp(force_location, "il")){
@@ -911,6 +950,8 @@ void roadmap_geo_config (RoadMapCallback callback) {
    if (need_to_ask_server ()) {
       roadmap_lang_set_update_time("");
       roadmap_prompts_set_update_time ("");
+      roadmap_lang_set_lang_file_update_time("heb","");
+      roadmap_lang_set_lang_file_update_time("eng","");
       roadmap_screen_redraw ();
       if (request_geo_config()) {
          ssd_progress_msg_dialog_show("Initializing, please wait..");
@@ -941,7 +982,7 @@ void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char 
    roadmap_log (ROADMAP_INFO,"Requesting Geo Configuration name=%s",name );
    if(!Realtime_GetGeoConfig(gpsPosition,name, s_websvc)){
       roadmap_log (ROADMAP_ERROR,"Failed to sent GetGeoConfig request" );
-      roadmap_messagebox("Error","Failed to initialize. No network connection");
+      roadmap_messagebox("Oops","Failed to initialize. No network connection");
       ssd_progress_msg_dialog_hide();
       return;
    }

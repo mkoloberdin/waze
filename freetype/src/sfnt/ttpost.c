@@ -5,7 +5,7 @@
 /*    Postcript name table processing for TrueType and OpenType fonts      */
 /*    (body).                                                              */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003 by                                     */
+/*  Copyright 1996-2001, 2002, 2003, 2006, 2007, 2008 by                   */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -62,11 +62,11 @@
    /* table of Mac names.  Thus, it is possible to build a version of */
    /* FreeType without the Type 1 driver & PSNames module.            */
 
-#define MAC_NAME( x )  tt_post_default_names[x]
+#define MAC_NAME( x )  ( (FT_String*)tt_post_default_names[x] )
 
   /* the 258 default Mac PS glyph names */
 
-  static const FT_String*  tt_post_default_names[258] =
+  static const FT_String* const  tt_post_default_names[258] =
   {
     /*   0 */
     ".notdef", ".null", "CR", "space", "exclam",
@@ -175,7 +175,7 @@
     /* There already exist fonts which have more than 32768 glyph names */
     /* in this table, so the test for this threshold has been dropped.  */
 
-    if ( num_glyphs > face->root.num_glyphs )
+    if ( num_glyphs > face->max_profile.numGlyphs )
     {
       error = SFNT_Err_Invalid_File_Format;
       goto Exit;
@@ -240,7 +240,7 @@
       }
     }
 
-    /* all right, set table fields and exit successfuly */
+    /* all right, set table fields and exit successfully */
     {
       TT_Post_20  table = &face->postscript_names.names.format_20;
 
@@ -286,13 +286,13 @@
       goto Exit;
 
     /* check the number of glyphs */
-    if ( num_glyphs > face->root.num_glyphs || num_glyphs > 258 )
+    if ( num_glyphs > face->max_profile.numGlyphs || num_glyphs > 258 )
     {
       error = SFNT_Err_Invalid_File_Format;
       goto Exit;
     }
 
-    if ( FT_ALLOC( offset_table, num_glyphs )       ||
+    if ( FT_NEW_ARRAY( offset_table, num_glyphs )   ||
          FT_STREAM_READ( offset_table, num_glyphs ) )
       goto Fail;
 
@@ -314,7 +314,7 @@
       }
     }
 
-    /* OK, set table fields and exit successfuly */
+    /* OK, set table fields and exit successfully */
     {
       TT_Post_25  table = &face->postscript_names.names.format_25;
 
@@ -416,13 +416,14 @@
   /*    tt_face_get_ps_name                                                */
   /*                                                                       */
   /* <Description>                                                         */
-  /*    Gets the PostScript glyph name of a glyph.                         */
+  /*    Get the PostScript glyph name of a glyph.                          */
   /*                                                                       */
   /* <Input>                                                               */
   /*    face   :: A handle to the parent face.                             */
   /*                                                                       */
   /*    idx    :: The glyph index.                                         */
   /*                                                                       */
+  /* <InOut>                                                               */
   /*    PSname :: The address of a string pointer.  Will be NULL in case   */
   /*              of error, otherwise it is a pointer to the glyph name.   */
   /*                                                                       */
@@ -436,9 +437,9 @@
                        FT_UInt      idx,
                        FT_String**  PSname )
   {
-    FT_Error         error;
-    TT_Post_Names    names;
-    FT_Fixed         format;
+    FT_Error       error;
+    TT_Post_Names  names;
+    FT_Fixed       format;
 
 #ifdef FT_CONFIG_OPTION_POSTSCRIPT_NAMES
     FT_Service_PsCMaps  psnames;
@@ -448,7 +449,7 @@
     if ( !face )
       return SFNT_Err_Invalid_Face_Handle;
 
-    if ( idx >= (FT_UInt)face->root.num_glyphs )
+    if ( idx >= (FT_UInt)face->max_profile.numGlyphs )
       return SFNT_Err_Invalid_Glyph_Index;
 
 #ifdef FT_CONFIG_OPTION_POSTSCRIPT_NAMES

@@ -42,6 +42,8 @@ int roadmap_tile_store (int fips, int tile_index, void *data, size_t size);
 
 void roadmap_tile_remove (int fips, int tile_index);
 
+void roadmap_tile_remove_all ( int fips );
+
 int roadmap_tile_store_context( TileContext* context );
 
 int roadmap_tile_load (int fips, int tile_index, void **data, size_t *size);

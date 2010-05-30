@@ -24,8 +24,8 @@
 #ifndef INCLUDE__EDITOR_TRACK_REPORT__H
 #define INCLUDE__EDITOR_TRACK_REPORT__H
 
-#include "../../roadmap_types.h"
-#include "../../roadmap_gps.h"
+#include "roadmap_types.h"
+#include "roadmap_gps.h"
 
 #define  INVALID_NODE_ID                     (-1)
 #define  INVALID_COORDINATE                  (-1)
@@ -39,6 +39,7 @@
 typedef struct tagGPSPointInTime
 {
    RoadMapPosition   Position;
+   int               altitude;
    time_t            GPS_time;
 }  GPSPointInTime, *LPGPSPointInTime;
 

@@ -48,7 +48,7 @@
 #define ALERT_ICON_SPEED_CAM 		"speed_cam_alert"
 #define WARN_ICON_SPEED_CAM 		"speed_cam_warn"
 #define ALERT_ICON_RED_LIGHT     "redlightcam_alert"
-
+#define MINIMUM_DISTANCE_TO_CHECK 80
 
 static void *roadmap_alert_map (const roadmap_db_data_file *file);
 static void roadmap_alert_activate (void *context);
@@ -57,6 +57,13 @@ static int roadmap_alert_is_cancelable(int alertId);
 static int roadmap_alert_cancel(int alertId);
 static int roadmap_alert_check_same_street(int record);
 static int roadmap_alert_handle_alert(int alertId);
+static BOOL roadmap_alert_is_square_dependent(void);
+static BOOL  roadmap_alert_distance_check(RoadMapPosition);
+static roadmap_alerter_location_info * roadmap_alert_get_location_info(int alertId){
+	return NULL; // information (line_id, square_id) is not cached in these types of alerts
+}
+
+
 static RoadMapConfigDescriptor AlertDistanceCfg = 
 			ROADMAP_CONFIG_ITEM("Alerts", "Alert Distance");
 
@@ -77,7 +84,7 @@ roadmap_db_handler RoadMapAlertHandler = {
    roadmap_alert_unmap
 };
 
-roadmap_alert_providor RoadmapAlertProvidor = {
+roadmap_alert_provider RoadmapAlertProvider = {
    "alertDb",
    roadmap_alert_count,
    roadmap_alert_get_id,
@@ -93,12 +100,37 @@ roadmap_alert_providor RoadmapAlertProvidor = {
    roadmap_alert_is_cancelable,
    roadmap_alert_cancel,
    roadmap_alert_check_same_street,
-   roadmap_alert_handle_alert
+   roadmap_alert_handle_alert,
+   roadmap_alert_is_square_dependent,
+   roadmap_alert_get_location_info,
+   roadmap_alert_distance_check,
+   roadmap_alert_get_priority
 };
 
 RoadMapAlert * roadmap_alert_get_alert(int record){
    return RoadMapAlertActive->Alert + record;
 
+}
+
+static BOOL roadmap_alert_is_square_dependent(void){
+	return TRUE;
+}
+
+BOOL roadmap_alert_distance_check(RoadMapPosition gps_pos){
+	static RoadMapPosition last_checked_position = {0,0};
+	int distance;
+	if(!last_checked_position.latitude){ // first time
+		last_checked_position = gps_pos;
+		return TRUE;
+	}
+	
+	distance = roadmap_math_distance(&gps_pos, &last_checked_position);
+	if (distance < MINIMUM_DISTANCE_TO_CHECK)
+		return FALSE;
+	else{
+		last_checked_position = gps_pos;
+		return TRUE;
+	}	
 }
 
 RoadMapAlert *roadmap_alert_get_alert_by_id( int id)
@@ -243,7 +275,6 @@ int roadmap_alert_get_id(int alert){
 
 // check if an alert should be generated for a specific category
 int roadmap_alert_alertable(int record){
-
 	int alert_category = roadmap_alert_get_category(record);
 
 	switch (alert_category) {
@@ -296,6 +327,10 @@ const char * roadmap_alert_get_map_icon(int id){
 	      return  NULL; 
 	}
 } 
+
+int roadmap_alert_get_priority(void){
+	return ALERTER_PRIORITY_MEDIUM;
+}
 
 int roadmap_alert_get_distance(int record){
 	return roadmap_config_get_integer(&AlertDistanceCfg);

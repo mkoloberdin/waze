@@ -108,8 +108,17 @@ static font_manager_type            m_fman(m_feng);
 static font_engine_type             m_image_feng;
 static font_manager_type            m_image_fman(m_image_feng);
 
+static font_engine_type             m_feng_nor;
+static font_manager_type            m_fman_nor(m_feng_nor);
+
+static font_engine_type             m_image_feng_nor;
+static font_manager_type            m_image_fman_nor(m_image_feng_nor);
+
 static RoadMapConfigDescriptor RoadMapConfigFont =
                         ROADMAP_CONFIG_ITEM("Labels", "FontName");
+
+static RoadMapConfigDescriptor RoadMapConfigFontNormal =
+                        ROADMAP_CONFIG_ITEM("Labels", "FontNameNormal");
 
 struct roadmap_canvas_pen {
    struct roadmap_canvas_pen *next;
@@ -122,6 +131,7 @@ struct roadmap_canvas_pen {
 static struct roadmap_canvas_pen *RoadMapPenList = NULL;
 static RoadMapPen CurrentPen;
 static int        RoadMapCanvasFontLoaded = 0;
+static int        RoadMapCanvasNormalFontLoaded = 0;
 
 /* The canvas callbacks: all callbacks are initialized to do-nothing
  * functions, so that we don't care checking if one has been setup.
@@ -143,16 +153,21 @@ static void roadmap_canvas_ignore_configure (void) {}
 RoadMapCanvasConfigureHandler RoadMapCanvasConfigure =
                                      roadmap_canvas_ignore_configure;
 
-
-void roadmap_canvas_get_text_extents
+void roadmap_canvas_get_formated_text_extents
         (const char *text, int size, int *width,
-            int *ascent, int *descent, int *can_tilt) {
+            int *ascent, int *descent, int *can_tilt, int font_type){
 
    *ascent = 0;
    *descent = 0;
+   font_manager_type *fman;
+   font_engine_type  *feng;
+   font_engine_type  *image_feng;
+   wchar_t wstr[255];
    if (can_tilt) *can_tilt = 1;
 
-   wchar_t wstr[255];
+   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+      font_type = FONT_TYPE_BOLD;
+
    int length = roadmap_canvas_agg_to_wchar (text, wstr, 255);
 
    if (length <=0) {
@@ -164,29 +179,56 @@ void roadmap_canvas_get_text_extents
    double y  = 0;
    const wchar_t* p = wstr;
 
-   font_manager_type *fman;
+
+   if (font_type == FONT_TYPE_NORMAL){
+      feng = &m_feng_nor;
+      image_feng = &m_image_feng_nor;
+   }
+   else{
+      feng = &m_feng;
+      image_feng = &m_image_feng;
+   }
 
    if (size == -1) {
+      size = 15;
+      if ( roadmap_screen_is_hd_screen() )
+      {
+        size = (int)(size * 1.5);
+      }
+      else{
+   #ifdef _WIN32
+         size = int (size * 0.8);
+   #endif
+      }
+      feng->height(size);
+      feng->width(size);
+
       /* Use the regular font */
-      *descent = abs((int)m_feng.descender()) + 1;
-      *ascent = (int)m_feng.ascender() + 1;
-      fman = &m_fman;
+      *descent = abs((int)feng->descender()) + 1;
+      *ascent = (int)feng->ascender() + 1;
+      if (font_type == FONT_TYPE_NORMAL)
+         fman = &m_fman_nor;
+      else
+         fman = &m_fman;
    } else {
-	   if ( roadmap_screen_is_hd_screen() )
-	   {
-		   size = int (size * 1.5);
-	   }
+      if ( roadmap_screen_is_hd_screen() )
+      {
+         size = int (size * 1.5);
+      }
       else{
 #ifdef _WIN32
          size = int (size * 0.8);
 #endif
-	   }
-      m_image_feng.height(size);
-      m_image_feng.width(size);
+      }
+      image_feng->height(size);
+      image_feng->width(size);
 
-      *descent = abs((int)m_image_feng.descender()) + 1;
-      *ascent = (int)m_image_feng.ascender() + 1;
-      fman = &m_image_fman;
+      *descent = abs((int)image_feng->descender()) + 1;
+      *ascent = (int)image_feng->ascender() + 1;
+      if (font_type == FONT_TYPE_NORMAL)
+         fman = &m_image_fman_nor;
+      else
+         fman = &m_image_fman;
    }
 
    while(*p) {
@@ -201,8 +243,15 @@ void roadmap_canvas_get_text_extents
    }
 
    *width = (int)x;
+
 }
 
+
+void roadmap_canvas_get_text_extents
+        (const char *text, int size, int *width,
+            int *ascent, int *descent, int *can_tilt) {
+   roadmap_canvas_get_formated_text_extents(text, size, width, ascent, descent, can_tilt, FONT_TYPE_BOLD);
+}
 
 RoadMapPen roadmap_canvas_select_pen (RoadMapPen pen)
 {
@@ -301,10 +350,11 @@ void roadmap_canvas_erase_area (const RoadMapGuiRect *rect) {
    ren_pr.solid_rectangle(rect->minx, rect->miny, rect->maxx, rect->maxy);
 }
 
-void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
-                                 int corner,
-                                 int size,
-                                 const char *text) {
+void roadmap_canvas_draw_formated_string_size (RoadMapGuiPoint *position,
+                                                int corner,
+                                                int size,
+                                                int font_type,
+                                                const char *text) {
    int x;
    int y;
    int text_width;
@@ -338,9 +388,24 @@ void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
       x = position->x;
       break;
 
-   case ROADMAP_CANVAS_CENTER:
-      y = position->y - (text_height / 2);
+   case ROADMAP_CANVAS_BOTTOMMIDDLE:
+      y = position->y - text_height;
       x = position->x - (text_width / 2);
+      break;
+
+   case ROADMAP_CANVAS_CENTERMIDDLE:
+      y = position->y - (text_ascent / 2) - text_descent;
+      x = position->x - (text_width / 2);
+      break;
+
+   case ROADMAP_CANVAS_CENTERRIGHT:
+      y = position->y - (text_ascent / 2 ) - text_descent;
+      x = position->x - text_width;
+      break;
+
+   case ROADMAP_CANVAS_CENTERLEFT:
+      y = position->y - (text_ascent / 2) - text_descent;
+      x = position->x;
       break;
 
    default:
@@ -348,7 +413,14 @@ void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
    }
 
    RoadMapGuiPoint start = {x, y+text_height};
-   roadmap_canvas_draw_string_angle (&start, position, 0, size, text);
+   roadmap_canvas_draw_formated_string_angle (&start, position, 0, size, font_type, text);
+}
+
+void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
+                                 int corner,
+                                 int size,
+                                 const char *text) {
+   roadmap_canvas_draw_formated_string_size (position, corner, size, FONT_TYPE_BOLD, text);
 }
 
 void roadmap_canvas_draw_string (RoadMapGuiPoint *position,
@@ -641,7 +713,7 @@ static wchar_t* bidi_string(wchar_t *logical) {
       //"msGetFriBidiEncodedString()");
       return NULL;
    }
-
+   visual[len] = 0;
    new_len = len;
 
    return (wchar_t *)visual;
@@ -649,15 +721,38 @@ static wchar_t* bidi_string(wchar_t *logical) {
 }
 #endif
 
-
-void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
-                                       RoadMapGuiPoint *center,
-                                       int angle, int size,
-                                       const char *text)
+void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
+                                                RoadMapGuiPoint *center,
+                                                int angle, int size,
+                                                int font_type,
+                                                const char *text)
 {
 
+   font_manager_type *fman;
+   font_manager_type *image_fman;
+   font_engine_type  *feng;
+   font_engine_type  *image_feng;
 
-   if (RoadMapCanvasFontLoaded != 1) return;
+   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+      font_type = FONT_TYPE_BOLD;
+
+
+   if (font_type == FONT_TYPE_NORMAL){
+      fman = &m_fman_nor;
+      feng = &m_feng_nor;
+      image_feng = &m_image_feng_nor;
+      image_fman = &m_image_fman_nor;
+   }
+   else{
+      fman = &m_fman;
+      feng = &m_feng;
+      image_feng = &m_image_feng;
+      image_fman = &m_image_fman;
+   }
+
+
+   if ((font_type == FONT_TYPE_BOLD) && (RoadMapCanvasFontLoaded != 1)) return;
+
 
    dbg_time_start(DBG_TIME_TEXT_FULL);
    dbg_time_start(DBG_TIME_TEXT_CNV);
@@ -678,20 +773,19 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
 
    double x  = 0;
    double y  = 0;
+   if (size < 0) size = 15;
+
+   if ( roadmap_screen_is_hd_screen() )
+   {
+     size = (int)(size * 1.5);
+   }
+   else{
+#ifdef _WIN32
+      size = int (size * 0.8);
+#endif
+   }
 
    if (angle == 0) {
-
-      if (size < 0) size = 15;
-
-      if ( roadmap_screen_is_hd_screen() )
-      {
-    	  size = (int)(size * 1.5);
-      }
-      else{
-#ifdef _WIN32
-         size = int (size * 0.8);
-#endif
-      }
 
       /* Use faster drawing for text with no angle */
       x  = position->x;
@@ -699,17 +793,17 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
 
 //      ren_solid.color(agg::rgba8(0, 0, 0));
 
-      m_image_feng.height(size);
-      m_image_feng.width(size);
+      image_feng->height(size);
+      image_feng->width(size);
 
       while(*p) {
-         const agg::glyph_cache* glyph = m_image_fman.glyph(*p);
+         const agg::glyph_cache* glyph = image_fman->glyph(*p);
 
          if(glyph) {
-            m_image_fman.init_embedded_adaptors(glyph, x, y);
+            image_fman->init_embedded_adaptors(glyph, x, y);
 
-            agg::render_scanlines(m_image_fman.gray8_adaptor(),
-                  m_image_fman.gray8_scanline(),
+            agg::render_scanlines(image_fman->gray8_adaptor(),
+                  image_fman->gray8_scanline(),
                   ren_solid);
 
             // increment pen position
@@ -719,17 +813,21 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
          ++p;
       }
    }
+   else{
+      feng->height(size);
+      feng->width(size);
+   }
 
    while(*p) {
       dbg_time_start(DBG_TIME_TEXT_ONE_LETTER);
       dbg_time_start(DBG_TIME_TEXT_GET_GLYPH);
-      const agg::glyph_cache* glyph = m_fman.glyph(*p);
+      const agg::glyph_cache* glyph = fman->glyph(*p);
       dbg_time_end(DBG_TIME_TEXT_GET_GLYPH);
 
       if(glyph) {
-         m_fman.init_embedded_adaptors(glyph, x, y);
+         fman->init_embedded_adaptors(glyph, x, y);
 
-         //agg::conv_curve<font_manager_type::path_adaptor_type> stroke(m_fman.path_adaptor());
+         //agg::conv_curve<font_manager_type::path_adaptor_type> stroke(fman->path_adaptor());
 
          agg::trans_affine mtx;
          if (abs(angle) > 0) {
@@ -737,7 +835,7 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
          }
          mtx *= agg::trans_affine_translation(position->x, position->y);
 
-         agg::conv_transform<font_manager_type::path_adaptor_type> tr(m_fman.path_adaptor(), mtx);
+         agg::conv_transform<font_manager_type::path_adaptor_type> tr(fman->path_adaptor(), mtx);
 
          agg::conv_curve<agg::conv_transform<font_manager_type::path_adaptor_type> > fill(tr);
 
@@ -788,6 +886,15 @@ void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
    dbg_time_end(DBG_TIME_TEXT_FULL);
 }
 
+void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
+                                                RoadMapGuiPoint *center,
+                                                int angle, int size,
+                                                const char *text){
+
+      roadmap_canvas_draw_formated_string_angle(position, center, angle, size, FONT_TYPE_BOLD, text);
+}
+
+
 static int roadmap_canvas_agg_get_screen_type( int width, int height )
 {
 	int screen_type = RM_SCREEN_TYPE_SD_GENERIC;
@@ -816,11 +923,14 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
    roadmap_config_declare
        ("preferences", &RoadMapConfigFont, "font.ttf", NULL);
 
+   roadmap_config_declare
+       ("preferences", &RoadMapConfigFontNormal, "font_normal.ttf", NULL);
+
    char *font_file = roadmap_path_join(roadmap_path_user(),
 		   roadmap_config_get (&RoadMapConfigFont));
 
    if ((width) && (height))
-	roadmap_screen_set_screen_type( roadmap_canvas_agg_get_screen_type( width, height ) );
+      roadmap_screen_set_screen_type( roadmap_canvas_agg_get_screen_type( width, height ) );
 
    if (!RoadMapCanvasFontLoaded) {
 
@@ -858,8 +968,40 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
          roadmap_messagebox("Error", message);
       }
    }
-
+   RoadMapCanvasFontLoaded = 1;
    roadmap_path_free(font_file);
+
+   font_file = roadmap_path_join(roadmap_path_user(),
+         roadmap_config_get (&RoadMapConfigFontNormal));
+
+
+   if(m_feng_nor.load_font(font_file, 0, gren) &&
+            m_image_feng_nor.load_font(font_file, 0, image_gren)) {
+
+         m_feng_nor.hinting(true);
+
+         if ( roadmap_screen_is_hd_screen() )
+         {
+          m_feng_nor.height(22);
+          m_feng_nor.width(22);
+         }
+         else
+         {
+#ifdef _WIN32
+          m_feng_nor.height(12);
+          m_feng_nor.width(12);
+#else
+          m_feng_nor.height(15);
+          m_feng_nor.width(15);
+#endif
+         }
+
+         m_feng_nor.flip_y(true);
+
+         m_image_feng_nor.hinting(true);
+         m_image_feng_nor.flip_y(true);
+         RoadMapCanvasNormalFontLoaded = 1;
+   }
 }
 
 static BOOL check_file_suffix( const char* file_name, const char* suffix )
@@ -1163,11 +1305,25 @@ int  roadmap_canvas_image_height (const RoadMapImage image) {
 }
 
 
-void roadmap_canvas_draw_image_text (RoadMapImage image,
+void roadmap_canvas_draw_image_formated_text (RoadMapImage image,
                                      const RoadMapGuiPoint *position,
-                                     int size, const char *text) {
+                                     int size, const char *text, int font_type) {
+   font_manager_type *image_fman;
+   font_engine_type  *image_feng;
 
    if (RoadMapCanvasFontLoaded != 1) return;
+
+   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+      font_type = FONT_TYPE_BOLD;
+
+   if (font_type == FONT_TYPE_NORMAL){
+      image_fman = &m_image_fman_nor;
+      image_feng = &m_image_feng_nor;
+   }
+   else{
+      image_fman = &m_image_fman;
+      image_feng = &m_image_feng;
+   }
 
    wchar_t wstr[255];
    int length = roadmap_canvas_agg_to_wchar (text, wstr, 255);
@@ -1182,7 +1338,7 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
 
    if ( !roadmap_canvas_check_cached( image ) )
    {
-	   return;
+      return;
    }
 
 
@@ -1210,17 +1366,17 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
    //ren_solid.color(agg::rgba8(255, 255, 255));
    ren_solid.color(CurrentPen->color);
 
-   m_image_feng.height(size);
-   m_image_feng.width(size);
+   image_feng->height(size);
+   image_feng->width(size);
 
    while(*p) {
-      const agg::glyph_cache* glyph = m_image_fman.glyph(*p);
+      const agg::glyph_cache* glyph = image_fman->glyph(*p);
 
       if(glyph) {
-         m_image_fman.init_embedded_adaptors(glyph, x, y);
+         image_fman->init_embedded_adaptors(glyph, x, y);
 
-         agg::render_scanlines(m_image_fman.gray8_adaptor(),
-               m_image_fman.gray8_scanline(),
+         agg::render_scanlines(image_fman->gray8_adaptor(),
+               image_fman->gray8_scanline(),
                ren_solid);
 
          // increment pen position
@@ -1233,7 +1389,14 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
 #ifdef USE_FRIBIDI
    free(bidi_text);
 #endif
+}
 
+void roadmap_canvas_draw_image_text (RoadMapImage image,
+                                     const RoadMapGuiPoint *position,
+                                     int size, const char *text) {
+
+
+   roadmap_canvas_draw_image_formated_text(image, position, size, text, FONT_TYPE_BOLD);
 }
 
 RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int height, int stride )
@@ -1245,3 +1408,7 @@ RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int h
 }
 
 void roadmap_canvas_image_set_mutable (RoadMapImage img) {}
+
+void roadmap_canvas_shutdown(){}
+void roadmap_canvas_image_invalidate( RoadMapImage image ) {}
+void roadmap_canvas_unmanaged_list_add( RoadMapImage image ) {}

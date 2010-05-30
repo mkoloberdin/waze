@@ -193,7 +193,7 @@ int roadmap_city_find (const char *name) {
 
 
 const RoadMapCityId *roadmap_city_first (int index, RoadMapCityEntry *entry) {
-	
+
 	int cell_id = index;
 	RoadMapCityData *data;
 	

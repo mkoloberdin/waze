@@ -24,7 +24,7 @@
 #ifndef INCLUDE__EDITOR_CLEANUP__H
 #define INCLUDE__EDITOR_CLEANUP__H
 
-void	editor_cleanup_test (int timestamp);
+void	editor_cleanup_test (int timestamp, BOOL force);
 
 #endif // INCLUDE__EDITOR_CLEANUP__H
 

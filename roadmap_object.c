@@ -74,13 +74,24 @@ struct RoadMapObjectDescriptor {
 
 typedef struct RoadMapObjectDescriptor RoadMapObject;
 
+static BOOL short_click_enabled = TRUE;
 
 static RoadMapObject *RoadmapObjectList = NULL;
 
 static BOOL initialized = FALSE;
 
 
+void roadmap_object_disable_short_click(void){
+   short_click_enabled = FALSE;
+}
 
+void roadmap_object_enable_short_click(void){
+   short_click_enabled = TRUE;
+}
+
+BOOL roadmap_object_short_ckick_enabled(void){
+   return short_click_enabled;
+}
 void roadmap_object_null_listener (RoadMapDynamicString id,
                                    const RoadMapGpsPosition *position) {}
 
@@ -292,7 +303,15 @@ static RoadMapObject *roadmap_object_by_pos (RoadMapGuiPoint *point, BOOL action
 
 static int roadmap_object_short_click (RoadMapGuiPoint *point) {
    
-   RoadMapObject *object = roadmap_object_by_pos (point, TRUE);
+   RoadMapObject *object;
+   
+   if (!short_click_enabled){
+      return 0;
+   }
+   
+   object = roadmap_object_by_pos (point, TRUE);
+   
+   
    
    if (!object) {
       return 0;
@@ -306,9 +325,9 @@ static int roadmap_object_short_click (RoadMapGuiPoint *point) {
          roadmap_sound_list_add (list, "click");
          roadmap_res_get (RES_SOUND, 0, "click");
       }
-#ifndef IPHONE
+#if !defined(IPHONE) && defined(TOUCH_SCREEN)
       roadmap_sound_play_list (list);
-#endif //IPHONE
+#endif //!IPHONE && TOUCH_SCREEN
       (*(object->action)) (roadmap_string_get(object->name),
                            roadmap_string_get(object->sprite),
                            roadmap_string_get(object->image),

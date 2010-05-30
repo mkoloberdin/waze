@@ -106,20 +106,24 @@ void ssd_dialog_set_current_scroll_flag(BOOL scroll);
 
 void ssd_dialog_change_text(const char *name, const char *value);
 void ssd_dialog_refresh_current_softkeys();
-
+void ssd_dialog_set_context ( void* context );
 void ssd_dialog_set_offset(int offset);
 void ssd_dialog_reset_offset();
 
 void ssd_dialog_invalidate_tab_order_by_name(const char *name);
 
 void ssd_dialog_draw_prev (void);
-
+void ssd_dialog_sort_tab_order_current(void);
 void ssd_dialog_set_ntv_keyboard_action( const char* name, SsdDialogNtvKbAction action );
 void ssd_dialog_set_ntv_keyboard_params( const char* name, const RMNativeKBParams* params );
 void ssd_dialog_add_vspace( SsdWidget widget, int hspace, int add_flags );
 void ssd_dialog_add_hspace( SsdWidget widget, int hspace, int add_flags );
 
+SsdWidget ssd_dialog_right_title_button(void);
 void ssd_dialog_free( const char* dlg_name, BOOL force );
+void ssd_dialog_draw_now ( void );
+void ssd_dialog_recalculate ( const char* dlg_name );
+SsdWidget ssd_dialog_get_currently_active(void);
 
 #endif // __SSD_DIALOG_H_
 

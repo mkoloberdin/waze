@@ -348,7 +348,7 @@ static void roadmap_history_add_entry (char category, const char *data) {
 	
 	   for (i = 0; i < argc; ++i) {
 	
-	      length += (utf8_strlen(argv[i]) + 1);
+	      length += strlen(argv[i]) + 1; /* Length in bytes, not in UTF characters */
 	      if (length >= sizeof(data)) {
 	         roadmap_log (ROADMAP_FATAL, "history entry is too long");
 	      }

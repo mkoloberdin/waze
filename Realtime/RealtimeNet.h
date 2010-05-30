@@ -81,7 +81,12 @@ BOOL RTNet_SetMood		   (LPRTConnectionInfo   pCI,
                    			int 					    iMood,
                    			CB_OnWSTCompleted     pfnOnCompleted,
                    			char*                 packet_only);
-                         
+
+BOOL RTNet_Location        (LPRTConnectionInfo     pCI,
+                           const RoadMapPosition*  location,
+                           CB_OnWSTCompleted       pfnOnCompleted,
+                           char*                   packet_only);
+
 BOOL RTNet_UserPoints      (LPRTConnectionInfo   pCI,
                            int                   iUserPoints,
                            CB_OnWSTCompleted     pfnOnCompleted,
@@ -92,6 +97,7 @@ BOOL  RTNet_At            (LPRTConnectionInfo   pCI,
                            RoadMapGpsPosition*  pGPSPosition,
                            int                  from_node,
                            int                  to_node,
+                           BOOL                 refreshUsers,
                            CB_OnWSTCompleted    pfnOnCompleted,
                            char*                packet_only);
 
@@ -146,6 +152,7 @@ BOOL  RTNet_ReportAlert(   LPRTConnectionInfo   pCI,
                            int                  iDirection,
                            const char*          szImageId,
                            BOOL						bForwardToTwitter,
+                           BOOL                 bForwardToFacebook,
                            CB_OnWSTCompleted pfnOnCompleted);
 
 BOOL  RTNet_PinqWazer(     LPRTConnectionInfo   pCI,
@@ -166,6 +173,7 @@ BOOL  RTNet_ReportAlertAtPosition(
                         int                        iDirection,
                         const char*                szImageId,
                         BOOL								bForwardToTwitter,
+                        BOOL                       bForwardToFacebook,
                         const RoadMapGpsPosition*  MyLocation,
                         int 				from_node,
                         int 				to_node,
@@ -181,6 +189,7 @@ BOOL  RTNet_PostAlertComment(
                         int                  iAlertId,
                         const char*          szDescription,
                         BOOL                 bForwardToTwitter,
+                        BOOL                 bForwardToFacebook,
                         CB_OnWSTCompleted pfnOnCompleted);
 
 BOOL  RTNet_RemoveAlert(LPRTConnectionInfo   pCI,
@@ -262,6 +271,7 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
 								const int*				iOptionNumeral,
 								const BOOL*				bOptionValue,
 								int                  iTwitterLevel,
+								int                  iFacebookLevel,
 								BOOL						bReRoute,
                         CB_OnWSTCompleted		pfnOnCompleted);
 
@@ -293,6 +303,14 @@ BOOL  RTNet_FoursquareCheckin (
                    const char*          vid,
                    BOOL                 bTweetBadge,
                    CB_OnWSTCompleted    pfnOnCompleted);
+
+BOOL  RTNet_Scoreboard_getPoints (
+                                  LPRTConnectionInfo   pCI,
+                                  const char*          period,
+                                  const char*          geography,
+                                  int                  fromRank,
+                                  int                  count,
+                                  CB_OnWSTCompleted    pfnOnCompleted);
 
 BOOL  RTNet_TripServer_CreatePOI  (
                    LPRTConnectionInfo   pCI,
@@ -332,7 +350,15 @@ BOOL RTNet_CollectBonus(
                   int                  iId,
                   int                  iToken,
                   BOOL                 bForwardToTwitter,
+                  BOOL                 bForwardToFacebook,
                   CB_OnWSTCompleted    pfnOnCompleted);
+
+BOOL RTNet_ReportAbuse (
+                  LPRTConnectionInfo   pCI,
+                  int                  iAlertID,
+                  int                  iCommentID,
+                  CB_OnWSTCompleted    pfnOnCompleted);
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 

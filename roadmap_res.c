@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include "roadmap_canvas.h"
+
 #include "roadmap_sound.h"
 #include "roadmap_hash.h"
 #include "roadmap_list.h"
@@ -78,6 +79,8 @@ static void roadmap_res_cache_init( RoadMapResource* res );
 static int roadmap_res_cache_add( RoadMapResource* res, int hash_key );
 static void roadmap_res_cache_set_MRU( RoadMapResource* res, int slot );
 
+static void dbg_cache( RoadMapResource* res, int slot, const char* name );
+
 static void allocate_resource (unsigned int type) {
    RoadMapResource *res = &Resources[type];
    res->res_type = type;
@@ -87,6 +90,7 @@ static void allocate_resource (unsigned int type) {
    roadmap_res_cache_init( res );
 
    res->max = RES_CACHE_SIZE;
+
 }
 
 
@@ -189,7 +193,10 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    if (name == NULL)
    	return NULL;
 
-   if (! (flags & RES_NOCACHE)) {
+   if (Resources[type].hash == NULL) allocate_resource (type);
+
+   if (! (flags & RES_NOCACHE))
+   {
       int slot;
       slot = find_resource ( type, name );
 
@@ -199,8 +206,6 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
     	  data = res->slots[slot].data;
     	  return data;
 	  }
-      if (Resources[type].hash == NULL) allocate_resource (type);
-
    }
 
    if (flags & RES_NOCREATE) return NULL;
@@ -218,19 +223,20 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
       {
     	 char *full_name = malloc (strlen (name) + 5);
     	 data = NULL;
-    	 /* Try PNG */
-    	 if ( !data )
-    	 {
-    		 sprintf( full_name, "%s.png", name );
-    		 data = load_resource (type, flags, full_name, &mem);
-    	 }
+#ifdef ANDROID
     	 /* Try BIN */
          if ( !data )
          {
             sprintf( full_name, "%s.bin", name );
             data = load_resource (type, flags, full_name, &mem);
          }
-
+#endif
+    	 /* Try PNG */
+    	 if ( !data )
+    	 {
+    		 sprintf( full_name, "%s.png", name );
+    		 data = load_resource (type, flags, full_name, &mem);
+    	 }
          free (full_name);
       }
       break;
@@ -244,7 +250,15 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    		roadmap_log (ROADMAP_ERROR, "roadmap_res_get - resource %s type=%d not found.", name, type);
    	return NULL;
    }
-   if (flags & RES_NOCACHE) return data;
+
+   if ( flags & RES_NOCACHE )
+   {
+	   if ( type == RES_BITMAP )
+	   {
+		   roadmap_canvas_unmanaged_list_add( data );
+	   }
+	   return data;
+   }
 
    slot = roadmap_res_cache_add( res, roadmap_hash_string( name ) );
 
@@ -342,6 +356,7 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 		{
 			roadmap_log( ROADMAP_ERROR, "Cannot find non-locked resource!!! Removing the locked LRU" );
 			non_locked_lru = cache[res->cache_head].prev;
+			dbg_cache( res, non_locked_lru, "" );
 		}
 
 		slot = non_locked_lru;
@@ -365,30 +380,66 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 }
 
 
+void roadmap_res_initialize( void )
+{
+	int i;
 
+	for( i = 0; i < MAX_RESOURCES; ++i )
+	{
+		roadmap_res_cache_init( &Resources[i] );
+	}
+}
 
-void roadmap_res_shutdown (void) {
+void roadmap_res_shutdown ()
+{
    int type;
-
-   for (type=0; type<MAX_RESOURCES; type++) {
-      RoadMapResource *res = &Resources[type];
-      int i;
-
-      for (i=0; i<Resources[type].count; i++) {
-
-         free_resource ( res, i);
+   RoadMapResource *res;
+   int i;
+   for ( type=0; type<MAX_RESOURCES; type++ )
+   {
+      res = &Resources[type];
+      for ( i=0; i<Resources[type].count; i++ )
+      {
+         free_resource ( res, i );
       }
-
+      Resources[type].count = 0;
+      if ( Resources[type].hash != NULL )
+      {
+    	  roadmap_hash_free( Resources[type].hash );
+      }
    }
+}
+void roadmap_res_invalidate( int type )
+{
+   RoadMapResource *res = &Resources[type];
+   int i;
 
+   switch( type )
+   {
+	   case RES_BITMAP:
+	   {
+		   for ( i = 0; i < Resources[type].count; ++i )
+		   {
+			   roadmap_canvas_image_invalidate( res->slots[i].data );
+		   }
+		   break;
+	   }
+	   default:
+	   {
+		   roadmap_log( ROADMAP_WARNING, "No appropriate invalidation procedure for resource type: %d", type );
+		   break;
+	   }
+   }	// switch
 }
 
 
-#if 0
-void dbg_cache( RoadMapResource* res, int slot, const char* name )
+
+static void dbg_cache( RoadMapResource* res, int slot, const char* name )
 {
 	int i;
 	int next = res->cache_head;
+	ResCacheEntry* cache = res->cache;
+
 	roadmap_log( ROADMAP_WARNING, "The cache size exceed - deallocating slot %d. Name %s. Adding: %s", slot, res->slots[slot].name, name );
 	for( i = 0; i < RES_CACHE_SIZE; ++i )
 	{
@@ -396,5 +447,3 @@ void dbg_cache( RoadMapResource* res, int slot, const char* name )
 		next = cache[next].next;
 	}
 }
-
-#endif

@@ -175,7 +175,7 @@ static void roadmap_prompts_download_watchdog_timer(void){
 
    roadmap_log (ROADMAP_ERROR,"roadmap_prompts_download_watchdog_timer - Timer reached. Downloading lang %s (downloaded %d of %d)", roadmap_prompts_get_downloading_lang_name(), num_downloaded, num_prompts );
 
-   roadmap_messagebox("Error", "Downloading new voice files failed. Please try again later");
+   roadmap_messagebox("Oops", "Downloading new voice files failed. Please try again later");
    roadmap_warning_unregister (prompts_downloads_warning_fn);
    roadmap_prompts_set_downloading_lang_name("");
    if (queued_lang[0] != 0){
@@ -194,7 +194,9 @@ static int load_prompt_list (void) {
    char *name;
    char *value;
    const char *path;
-#ifndef J2ME
+#ifdef IPHONE
+   path = roadmap_path_bundle();
+#elif (!defined(J2ME))
    path = roadmap_path_user ();
 #else
    path = NULL;

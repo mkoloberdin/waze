@@ -36,7 +36,7 @@
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (127)
+#define  RTNET_PROTOCOL_VERSION                 (135)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -54,6 +54,8 @@
 #define  RTNET_SYSTEMMESSAGE_TITLE_MAXSIZE      (64)
 #define  RTNET_SYSTEMMESSAGE_TEXT_MAXSIZE       (512)
 #define  RTNET_SYSTEMMESSAGE_ICON_MAXSIZE       (20)
+#define  RTNET_SYSTEMMESSAGE_TEXT_COLOR_MAXSIZE (16)
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -89,6 +91,8 @@
 #define  MESSAGE_MAX_SIZE__At                (32 + RoadMapGpsPosition_STRING_MAXSIZE)
 #define  MESSAGE_MAX_SIZE__MapDisplyed       (100)
 #define  MESSAGE_MAX_SIZE__SeeMe             (20)
+#define  MESSAGE_MAX_SIZE__SetMood           (12)
+#define  MESSAGE_MAX_SIZE__Location          (28)
 #define  MESSAGE_MAX_SIZE__UserPoints        (10 + 1 + 10)
 #define  MESSAGE_MAX_SIZE__CreateNewRoads    (14 + 1 + 10 + 1 + 1 + 1)
 #define	MESSAGE_MAX_SIZE__Auth					(4 + 1 + \
@@ -120,6 +124,8 @@
             RTNET_NODEPATH_BUFFERSIZE__dynamic(_NodesPointsCount_)         +  \
             RTNET_CREATENEWROADS_BUFFERSIZE__dynamic(_AllowNewRoadCount_)  +  \
             MESSAGE_MAX_SIZE__SeeMe                                        +  \
+            MESSAGE_MAX_SIZE__SetMood                                      +  \
+            MESSAGE_MAX_SIZE__Location                                     +  \
             MESSAGE_MAX_SIZE__UserPoints)
 
 // Buffer sizes for GPS path string
@@ -127,7 +133,7 @@
 //    Command name (GPSPath)                             ==  7 chars
 //    Time offset:                  <32>,                == 33 chars
 //    First row (row count)         <10>,                == 11 chars
-//    A single row:                 <32>,<32>,<10>,      == 74 chars
+//    A single row:                 <12>,<12>,<12>,<10>,      == 46 chars
 //		Optional GPSDisconnect directive		<15>
 //    First row (usr point type)    <10>,                == 11 chars
 //    A single row (user points)    <10>,<10>,           == 22 chars
@@ -135,7 +141,7 @@
 #define  RTNET_GPSPATH_BUFFERSIZE_time_offset            (33)
 #define  RTNET_GPSPATH_BUFFERSIZE_row_count              (11)
 #define  RTNET_GPSPATH_BUFFERSIZE_point_type             (11)
-#define  RTNET_GPSPATH_BUFFERSIZE_single_row             (74+4+15+22)
+#define  RTNET_GPSPATH_BUFFERSIZE_single_row             (46+4+15+22)
 #define  RTNET_GPSPATH_BUFFERSIZE_rows                                  \
                            (RTNET_GPSPATH_BUFFERSIZE_single_row * RTTRK_GPSPATH_MAX_POINTS)
 #define  RTNET_GPSPATH_BUFFERSIZE_rows__dynamic(_n_)                    \
@@ -212,7 +218,8 @@ typedef struct tagRTConnectionInfo
 /*14*/   int                  iMyRating;
 /*15*/   int                  iMyPreviousRanking;
 /*16*/   int                  iMyAddon;
-         int                  iPointsTimeStamp;
+/*17*/   int                  iPointsTimeStamp;
+/*18*/   int                  iExclusiveMoods;
 
 }  RTConnectionInfo, *LPRTConnectionInfo;
 
@@ -254,7 +261,7 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_9Login                ("Login,%d,%s,%s,%d,%s,%s,%s,%d,%s")
 #define  RTNET_FORMAT_NETPACKET_3Register             ("Register,%d,%d,%s")
 #define  RTNET_FORMAT_NETPACKET_3GuestLogin           ("GuestLogin,%d,%d,%s")
-#define  RTNET_FORMAT_NETPACKET_3At                   ("At,%s,%d,%d\n")
+#define  RTNET_FORMAT_NETPACKET_4At                   ("At,%s,%d,%d,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2MapDisplayed         ("MapDisplayed,%s,%u\n")
 #define  RTNET_FORMAT_NETPACKET_6ReportMarker         ("SubmitMarker,%s,%s,%s,%d,%s,%s\n")
 #define  RTNET_FORMAT_NETPACKET_5ReportSegment        ("SubmitSegment,%s,%s,%s,%s,%d")
@@ -279,6 +286,8 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_1TripServerGetRouteSegments ("BridgeTo,TRIPSERVER,GetRouteSegments,2,tripId,%d\n")
 #define  RTNET_FORMAT_NETPACKET_4ReportMapError             ("BridgeTo,UPDATEMAP,send_update_request_mobile,8,lon,%d,lat,%d,type,%s,description,%s\n")
 #define  RTNET_FORMAT_NETPACKET_5GetGeoConfig               ("GetGeoServerConfig,%d,%s,%d,%s,%s")
+#define  RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints        ("BridgeTo,SCOREBOARD,getPoints,8,period,%s,geography,%s,from_rank,%s,count,%s\n")
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -292,6 +301,8 @@ DECLARE_WEBSVC_PARSER(RemoveAlert)
 DECLARE_WEBSVC_PARSER(SystemMessage)
 DECLARE_WEBSVC_PARSER(VersionUpgrade)
 DECLARE_WEBSVC_PARSER(AddRoadInfo)
+DECLARE_WEBSVC_PARSER(RoadInfoGeom)
+DECLARE_WEBSVC_PARSER(RoadInfoSegments)
 DECLARE_WEBSVC_PARSER(RmRoadInfo)
 DECLARE_WEBSVC_PARSER(OnLoginResponse)
 DECLARE_WEBSVC_PARSER(OnRegisterResponse)

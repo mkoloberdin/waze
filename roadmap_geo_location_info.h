@@ -53,4 +53,14 @@ void roadmap_geo_location_set_usage_score(int usage_score);
 void roadmap_geo_location_set_usage_score_str(const char* usage_score_str);
 void roadmap_geo_location_set_overall_score(int overall_score);
 
+#ifdef IPHONE
+void roadmap_geo_location_info_show(void);
+void roadmap_geo_location_iphone(const char *metro,
+                                 const char *state,
+                                 const char *map_score,
+                                 const char *traffic_score,
+                                 const char *usage_score,
+                                 int overall_score);
+#endif //IPHONE
+
 #endif /* ROADMAP_GEO_LOCATION_INFO_H_ */

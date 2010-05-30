@@ -182,7 +182,7 @@ static int roadmap_httpcopy (RoadMapDownloadCallbacks *callbacks,
    char buffer[ROADMAP_HTTP_MAX_CHUNK];
 
 
-   fd = roadmap_net_connect("http_get", source, 0, 80, NULL);
+   fd = roadmap_net_connect("http_get", source, 0, 80, 0, NULL);
    if (!ROADMAP_NET_IS_VALID(fd)) return 0;
    if (roadmap_net_send(fd, "\r\n", 2, 0) == -1) return 0;
 

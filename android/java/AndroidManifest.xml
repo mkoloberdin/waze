@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	android:name="Waze" 
-	android:versionCode="1018532" package="com.waze" android:versionName="1.5.2.3">
+	android:versionCode="1018803" package="com.waze" android:versionName="1.8.99.101">
 
 	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -14,6 +14,7 @@
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
 	<uses-permission android:name="android.permission.CAMERA" />
 
+	
 	<application android:icon="@drawable/icon" android:label="@string/app_name" 
 				 android:debuggable="false">
 		<activity android:name=".FreeMapAppActivity" android:label="@string/app_name"
@@ -21,7 +22,23 @@
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />							
 			</intent-filter>
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				<data android:scheme="waze" />
+				<data android:scheme="geo" />
+			</intent-filter>
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />
+				<category android:name="android.intent.category.DEFAULT" />
+				<category android:name="android.intent.category.BROWSABLE" />
+				<data android:scheme="geo" />
+			</intent-filter>
+			
 		</activity>
 		<activity android:name=".FreeMapCameraActivity"
 			android:screenOrientation="landscape" android:launchMode="singleTask">
@@ -30,6 +47,6 @@
 		<service android:name="com.waze.FreeMapAppService" />
 
 	</application>	
-	<uses-sdk android:minSdkVersion="3" android:targetSdkVersion="4"></uses-sdk>
+	<uses-sdk android:minSdkVersion="3" android:targetSdkVersion="4"></uses-sdk>	
 
 </manifest> 

@@ -35,6 +35,7 @@ package com.waze;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
@@ -137,7 +138,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
             {
                 Camera.Parameters parameters = mCamera.getParameters();
                 parameters.setPreviewSize(aWidth, aHeight);
-                parameters.setPictureFormat(PixelFormat.RGB_565);
+//                parameters.setPictureFormat( PixelFormat.RGB_565 );
                 mCamera.setParameters(parameters);
                 mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
                 mPreviewStatus = CAMERA_PREVIEW_STATUS_ACTIVE;
@@ -285,8 +286,8 @@ public class FreeMapCameraPreView extends SurfaceView implements
         public void onPictureTaken( byte[] aData, Camera aCamera )
         {
             // Decode the JPEG result to the bitmap
-            Bitmap imageBitmap = BitmapFactory.decodeByteArray(aData, 0,
-                    aData.length);
+        	Bitmap imageBitmap = BitmapFactory.decodeByteArray(aData, 0,
+                    aData.length );
             // Scale the bitmap to the destination size
             // Here the image in the landscape => horizontal scaling according
             // to height
@@ -315,6 +316,20 @@ public class FreeMapCameraPreView extends SurfaceView implements
         }
     }
 
+   
+    private static void SaveImage( Bitmap aBmp, String aPath )
+    {
+	    try
+	    {
+	    	OutputStream os = new FileOutputStream( aPath );
+	    	aBmp.compress( CompressFormat.JPEG, 50, os );
+	    }
+	    catch ( Exception ex )
+	    {
+	    	throw new RuntimeException( ex );
+	    }
+    }
+    
     /*************************************************************************************************
      * CompressToBuffer Save bitmap to the buffer using the requested format
      * 
@@ -472,7 +487,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
         // Create the bitmap
         Bitmap bmRes = Bitmap.createBitmap(aThumbWidth, aThumbHeight,
                 Bitmap.Config.ARGB_8888);
-
+        
         // Find the center
         float left = ((aThumbWidth - destWidth) / 2);
         float top = ((aThumbHeight - destHeight) / 2);
@@ -486,8 +501,12 @@ public class FreeMapCameraPreView extends SurfaceView implements
         Canvas canvas = new Canvas(bmRes);
         // Fill the bitmap
         canvas.drawARGB(0, 0, 0, 0);
-        // Set the filter
-        paint.setColorFilter(new ColorMatrixColorFilter(cm));
+        
+        if ( THUMBNAIL_FORMAT_BGRA )
+        {
+	        // Set the filter
+	        paint.setColorFilter(new ColorMatrixColorFilter(cm));
+        }        
         // Draw
         canvas.drawBitmap(bmScaled, left, top, paint);
         // Extract the array of pixels
@@ -524,6 +543,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
     private static ByteArrayOutputStream mBufOS;
     private static Bitmap                mBitmapOut;
 
+    private static final boolean THUMBNAIL_FORMAT_BGRA = true;
     
     // Capture params
     private static CaptureParams         mCaptureParams;

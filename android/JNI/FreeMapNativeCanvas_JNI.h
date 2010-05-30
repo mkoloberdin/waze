@@ -7,6 +7,10 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef com_waze_FreeMapNativeCanvas_WAZE_OGL_SWAP_BUFFERS_DELAY
+#define com_waze_FreeMapNativeCanvas_WAZE_OGL_SWAP_BUFFERS_DELAY 10LL
+#undef com_waze_FreeMapNativeCanvas_WAZE_OGL_RENDER_WAIT_TIMEOUT
+#define com_waze_FreeMapNativeCanvas_WAZE_OGL_RENDER_WAIT_TIMEOUT 100LL
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    InitCanvasNTV
@@ -18,17 +22,49 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_InitCanvasNTV
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    CanvasConfigureNTV
- * Signature: (III[I)V
+ * Signature: (III)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasConfigureNTV
-  (JNIEnv *, jobject, jint, jint, jint, jintArray);
+  (JNIEnv *, jobject, jint, jint, jint);
 
 /*
  * Class:     com_waze_FreeMapNativeCanvas
- * Method:    ForceNewCanvasNTV
+ * Method:    CreateCanvasNTV
  * Signature: ()V
  */
-JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_ForceNewCanvasNTV
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CreateCanvasNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeCanvas
+ * Method:    CanvasPrepareNTV
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasPrepareNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeCanvas
+ * Method:    CanvasOrientationUpdateNTV
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasOrientationUpdateNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeCanvas
+ * Method:    CanvasContextNTV
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasContextNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeCanvas
+ * Method:    CanvasRenderNTV
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
   (JNIEnv *, jobject);
 
 /*

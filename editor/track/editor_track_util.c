@@ -919,13 +919,14 @@ int editor_track_util_create_trkseg (int square,
 
 		if (*track_point_status (i) == POINT_STATUS_SAVE) {
 			
-	      RoadMapPosition *shape_pos = track_point_pos (i);
+	      RoadMapGpsPosition *shape_pos = track_point_gps (i);
 
 	      last_shape = editor_shape_add
 	                     (track_point_ordinal (i),
 	                      shape_pos->longitude - pos->longitude,
 	                      shape_pos->latitude - pos->latitude,
-	                      (short) (track_point_time (i) - gps_time));
+	                      (short) (track_point_time (i) - gps_time),
+                         shape_pos->altitude);
 	
 	      if (last_shape == -1) {
 	         editor_log (ROADMAP_ERROR, "Can't add shape point.");
@@ -937,7 +938,7 @@ int editor_track_util_create_trkseg (int square,
 	         first_shape = last_shape;
 	      }
 	
-	      pos = shape_pos;
+	      pos = (RoadMapPosition*)shape_pos;
 	      gps_time = track_point_time (i);
 		}
    }

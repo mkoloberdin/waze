@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType's OpenType validation module implementation (body).         */
 /*                                                                         */
-/*  Copyright 2004, 2005 by                                                */
+/*  Copyright 2004, 2005, 2006, 2007, 2008 by                              */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -39,10 +39,10 @@
 
 
   static FT_Error
-  otv_load_table( FT_Face    face,
-                  FT_Tag     tag,
-                  FT_Byte*  *table,
-                  FT_ULong  *table_len )
+  otv_load_table( FT_Face             face,
+                  FT_Tag              tag,
+                  FT_Byte* volatile*  table,
+                  FT_ULong*           table_len )
   {
     FT_Error   error;
     FT_Memory  memory = FT_FACE_MEMORY( face );
@@ -65,22 +65,28 @@
 
 
   static FT_Error
-  otv_validate( FT_Face    face,
-                FT_UInt    ot_flags,
-                FT_Bytes  *ot_base,
-                FT_Bytes  *ot_gdef,
-                FT_Bytes  *ot_gpos,
-                FT_Bytes  *ot_gsub,
-                FT_Bytes  *ot_jstf )
+  otv_validate( FT_Face volatile   face,
+                FT_UInt            ot_flags,
+                FT_Bytes          *ot_base,
+                FT_Bytes          *ot_gdef,
+                FT_Bytes          *ot_gpos,
+                FT_Bytes          *ot_gsub,
+                FT_Bytes          *ot_jstf )
   {
-    FT_Error         error = OTV_Err_Ok;
-    FT_Byte          *base, *gdef, *gpos, *gsub, *jstf;
-    FT_ULong         len_base, len_gdef, len_gpos, len_gsub, len_jstf;
-    FT_ValidatorRec  valid;
+    FT_Error                  error = OTV_Err_Ok;
+    FT_Byte* volatile         base;
+    FT_Byte* volatile         gdef;
+    FT_Byte* volatile         gpos;
+    FT_Byte* volatile         gsub;
+    FT_Byte* volatile         jstf;
+    FT_Byte* volatile         math;
+    FT_ULong                  len_base, len_gdef, len_gpos, len_gsub, len_jstf;
+    FT_ULong                  len_math;
+    FT_ValidatorRec volatile  valid;
 
 
-    base     = gdef     = gpos     = gsub     = jstf     = NULL;
-    len_base = len_gdef = len_gpos = len_gsub = len_jstf = 0;
+    base     = gdef     = gpos     = gsub     = jstf     = math     = NULL;
+    len_base = len_gdef = len_gpos = len_gsub = len_jstf = len_math = 0;
 
     /* load tables */
 
@@ -119,6 +125,13 @@
         goto Exit;
     }
 
+    if ( ot_flags & FT_VALIDATE_MATH )
+    {
+      error = otv_load_table( face, TTAG_MATH, &math, &len_math );
+      if ( error )
+        goto Exit;
+    }
+
     /* validate tables */
 
     if ( base )
@@ -134,7 +147,7 @@
     if ( gpos )
     {
       ft_validator_init( &valid, gpos, gpos + len_gpos, FT_VALIDATE_DEFAULT );
-      if (ft_setjmp( valid.jump_buffer ) == 0 )
+      if ( ft_setjmp( valid.jump_buffer ) == 0 )
         otv_GPOS_validate( gpos, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
@@ -155,7 +168,7 @@
     {
       ft_validator_init( &valid, gdef, gdef + len_gdef, FT_VALIDATE_DEFAULT );
       if ( ft_setjmp( valid.jump_buffer ) == 0 )
-        otv_GDEF_validate( gdef, gsub, gpos, &valid );
+        otv_GDEF_validate( gdef, gsub, gpos, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -166,6 +179,16 @@
       ft_validator_init( &valid, jstf, jstf + len_jstf, FT_VALIDATE_DEFAULT );
       if ( ft_setjmp( valid.jump_buffer ) == 0 )
         otv_JSTF_validate( jstf, gsub, gpos, face->num_glyphs, &valid );
+      error = valid.error;
+      if ( error )
+        goto Exit;
+    }
+
+    if ( math )
+    {
+      ft_validator_init( &valid, math, math + len_math, FT_VALIDATE_DEFAULT );
+      if ( ft_setjmp( valid.jump_buffer ) == 0 )
+        otv_MATH_validate( math, face->num_glyphs, &valid );
       error = valid.error;
       if ( error )
         goto Exit;
@@ -188,20 +211,26 @@
       FT_FREE( gsub );
       FT_FREE( jstf );
     }
+    {
+      FT_Memory  memory = FT_FACE_MEMORY( face );
+
+
+      FT_FREE( math );                 /* Can't return this as API is frozen */
+    }
 
     return error;
   }
 
 
   static
-  const FT_Service_OTvalidateRec  otvalid_interface = 
+  const FT_Service_OTvalidateRec  otvalid_interface =
   {
     otv_validate
   };
 
 
   static
-  const FT_ServiceDescRec  otvalid_services[] = 
+  const FT_ServiceDescRec  otvalid_services[] =
   {
     { FT_SERVICE_ID_OPENTYPE_VALIDATE, &otvalid_interface },
     { NULL, NULL }

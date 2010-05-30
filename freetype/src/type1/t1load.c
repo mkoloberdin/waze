@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Type 1 font loader (body).                                           */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 by */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -106,6 +106,8 @@
     {
       if ( FT_NEW( blend ) )
         goto Exit;
+
+      blend->num_default_design_vector = 0;
 
       face->blend = blend;
     }
@@ -228,7 +230,7 @@
 
 
     if ( ncv <= axismap->blend_points[0] )
-      return axismap->design_points[0];
+      return FT_INT_TO_FIXED( axismap->design_points[0] );
 
     for ( j = 1; j < axismap->num_points; ++j )
     {
@@ -239,16 +241,15 @@
                                  axismap->blend_points[j] -
                                    axismap->blend_points[j - 1] );
 
-
-        return axismap->design_points[j - 1] +
+        return FT_INT_TO_FIXED( axismap->design_points[j - 1] ) +
                  FT_MulDiv( t,
-                            axismap->design_points[j] - 
+                            axismap->design_points[j] -
                               axismap->design_points[j - 1],
                             1L );
       }
     }
 
-    return axismap->design_points[axismap->num_points - 1];
+    return FT_INT_TO_FIXED( axismap->design_points[axismap->num_points - 1] );
   }
 
 
@@ -335,8 +336,8 @@
       mmvar->axis[i].def     = ( mmvar->axis[i].minimum +
                                    mmvar->axis[i].maximum ) / 2;
                             /* Does not apply.  But this value is in range */
-      mmvar->axis[i].strid   = 0xFFFFFFFFLU;   /* Does not apply */
-      mmvar->axis[i].tag     = 0xFFFFFFFFLU;   /* Does not apply */
+      mmvar->axis[i].strid   = (FT_UInt)-1;    /* Does not apply */
+      mmvar->axis[i].tag     = (FT_ULong)-1;   /* Does not apply */
 
       if ( ft_strcmp( mmvar->axis[i].name, "Weight" ) == 0 )
         mmvar->axis[i].tag = FT_MAKE_TAG( 'w', 'g', 'h', 't' );
@@ -346,7 +347,7 @@
         mmvar->axis[i].tag = FT_MAKE_TAG( 'o', 'p', 's', 'z' );
     }
 
-    if ( blend->num_designs == 1U << blend->num_axis )
+    if ( blend->num_designs == ( 1U << blend->num_axis ) )
     {
       mm_weights_unmap( blend->default_weight_vector,
                         axiscoords,
@@ -671,7 +672,7 @@
 
       for ( n = 0; n < num_designs; n++ )
       {
-        T1_TokenRec  axis_tokens[T1_MAX_MM_DESIGNS];
+        T1_TokenRec  axis_tokens[T1_MAX_MM_AXIS];
         T1_Token     token;
         FT_Int       axis, n_axis;
 
@@ -684,6 +685,15 @@
 
         if ( n == 0 )
         {
+          if ( n_axis <= 0 || n_axis > T1_MAX_MM_AXIS )
+          {
+            FT_ERROR(( "parse_blend_design_positions:" ));
+            FT_ERROR(( "  invalid number of axes: %d\n",
+                       n_axis ));
+            error = T1_Err_Invalid_File_Format;
+            goto Exit;
+          }
+
           num_axis = n_axis;
           error = t1_allocate_blend( face, num_designs, num_axis );
           if ( error )
@@ -732,7 +742,7 @@
     FT_Memory    memory = face->root.memory;
 
 
-    T1_ToTokenArray( parser, axis_tokens, 
+    T1_ToTokenArray( parser, axis_tokens,
                      T1_MAX_MM_AXIS, &num_axis );
     if ( num_axis < 0 )
     {
@@ -877,6 +887,18 @@
   }
 
 
+  /* e.g., /BuildCharArray [0 0 0 0 0 0 0 0] def           */
+  /* we're only interested in the number of array elements */
+  static void
+  parse_buildchar( T1_Face    face,
+                   T1_Loader  loader )
+  {
+    face->len_buildchar = T1_ToFixedArray( &loader->parser, 0, NULL, 0 );
+
+    return;
+  }
+
+
 #endif /* T1_CONFIG_OPTION_NO_MM_SUPPORT */
 
 
@@ -926,6 +948,12 @@
       }
       break;
 
+    case T1_FIELD_LOCATION_FONT_EXTRA:
+      dummy_object = &face->type1.font_extra;
+      objects      = &dummy_object;
+      max_objects  = 0;
+      break;
+
     case T1_FIELD_LOCATION_PRIVATE:
       dummy_object = &face->type1.private_dict;
       objects      = &dummy_object;
@@ -950,6 +978,26 @@
       }
       break;
 
+    case T1_FIELD_LOCATION_LOADER:
+      dummy_object = loader;
+      objects      = &dummy_object;
+      max_objects  = 0;
+      break;
+
+    case T1_FIELD_LOCATION_FACE:
+      dummy_object = face;
+      objects      = &dummy_object;
+      max_objects  = 0;
+      break;
+
+#ifndef T1_CONFIG_OPTION_NO_MM_SUPPORT
+    case T1_FIELD_LOCATION_BLEND:
+      dummy_object = face->blend;
+      objects      = &dummy_object;
+      max_objects  = 0;
+      break;
+#endif
+
     default:
       dummy_object = &face->type1;
       objects      = &dummy_object;
@@ -969,12 +1017,13 @@
   }
 
 
-  static int
-  is_space( FT_Byte  c )
+  static void
+  parse_private( T1_Face    face,
+                 T1_Loader  loader )
   {
-    return ( c == ' '  || c == '\t'              ||
-             c == '\r' || c == '\n' || c == '\f' ||
-             c == '\0'                           );
+    FT_UNUSED( face );
+
+    loader->keywords_encountered |= T1_PRIVATE;
   }
 
 
@@ -1030,11 +1079,25 @@
     FT_Face     root   = (FT_Face)&face->root;
     FT_Fixed    temp[6];
     FT_Fixed    temp_scale;
+    FT_Int      result;
 
 
-    (void)T1_ToFixedArray( parser, 6, temp, 3 );
+    result = T1_ToFixedArray( parser, 6, temp, 3 );
+
+    if ( result < 0 )
+    {
+      parser->root.error = T1_Err_Invalid_File_Format;
+      return;
+    }
 
     temp_scale = FT_ABS( temp[3] );
+
+    if ( temp_scale == 0 )
+    {
+      FT_ERROR(( "parse_font_matrix: invalid font matrix\n" ));
+      parser->root.error = T1_Err_Invalid_File_Format;
+      return;
+    }
 
     /* Set Units per EM based on FontMatrix values.  We set the value to */
     /* 1000 / temp_scale, because temp_scale was already multiplied by   */
@@ -1161,9 +1224,9 @@
         /* we stop when we encounter a `def' or `]' */
         if ( *cur == 'd' && cur + 3 < limit )
         {
-          if ( cur[1] == 'e'      &&
-               cur[2] == 'f'      &&
-               is_space( cur[3] ) )
+          if ( cur[1] == 'e'         &&
+               cur[2] == 'f'         &&
+               IS_PS_DELIM( cur[3] ) )
           {
             FT_TRACE6(( "encoding end\n" ));
             cur += 3;
@@ -1215,9 +1278,26 @@
 
             n++;
           }
+          else if ( only_immediates )
+          {
+            /* Since the current position is not updated for           */
+            /* immediates-only mode we would get an infinite loop if   */
+            /* we don't do anything here.                              */
+            /*                                                         */
+            /* This encoding array is not valid according to the type1 */
+            /* specification (it might be an encoding for a CID type1  */
+            /* font, however), so we conclude that this font is NOT a  */
+            /* type1 font.                                             */
+            parser->root.error = FT_Err_Unknown_File_Format;
+            return;
+          }
         }
         else
+        {
           T1_Skip_PS_Token( parser );
+          if ( parser->root.error )
+            return;
+        }
 
         T1_Skip_Spaces( parser );
       }
@@ -1256,9 +1336,9 @@
     PS_Table   table  = &loader->subrs;
     FT_Memory  memory = parser->root.memory;
     FT_Error   error;
-    FT_Int     n, num_subrs;
+    FT_Int     num_subrs;
 
-    PSAux_Service  psaux  = (PSAux_Service)face->psaux;
+    PSAux_Service  psaux = (PSAux_Service)face->psaux;
 
 
     T1_Skip_Spaces( parser );
@@ -1292,18 +1372,17 @@
         goto Fail;
     }
 
-    /* the format is simple:                                 */
-    /*                                                       */
-    /*   `index' + binary data                               */
-    /*                                                       */
-    for ( n = 0; n < num_subrs; n++ )
+    /* the format is simple:   */
+    /*                         */
+    /*   `index' + binary data */
+    /*                         */
+    for (;;)
     {
       FT_Long   idx, size;
       FT_Byte*  base;
 
 
-      /* If the next token isn't `dup', we are also done.  This */
-      /* happens when there are `holes' in the Subrs array.     */
+      /* If the next token isn't `dup' we are done. */
       if ( ft_strncmp( (char*)parser->root.cursor, "dup", 3 ) != 0 )
         break;
 
@@ -1342,6 +1421,15 @@
       {
         FT_Byte*  temp;
 
+
+        /* some fonts define empty subr records -- this is not totally */
+        /* compliant to the specification (which says they should at   */
+        /* least contain a `return'), but we support them anyway       */
+        if ( size < face->type1.private_dict.lenIV )
+        {
+          error = T1_Err_Invalid_File_Format;
+          goto Fail;
+        }
 
         /* t1_decrypt() shouldn't write to base -- make temporary copy */
         if ( FT_ALLOC( temp, size ) )
@@ -1443,7 +1531,7 @@
         break;
 
       /* we stop when we find a `def' or `end' keyword */
-      if ( cur + 3 < limit && is_space( cur[3] ) )
+      if ( cur + 3 < limit && IS_PS_DELIM( cur[3] ) )
       {
         if ( cur[0] == 'd' &&
              cur[1] == 'e' &&
@@ -1512,11 +1600,17 @@
           notdef_found = 1;
         }
 
-        if ( face->type1.private_dict.lenIV >= 0   &&
-             n < num_glyphs + TABLE_EXTEND )
+        if ( face->type1.private_dict.lenIV >= 0 &&
+             n < num_glyphs + TABLE_EXTEND       )
         {
           FT_Byte*  temp;
 
+
+          if ( size <= face->type1.private_dict.lenIV )
+          {
+            error = T1_Err_Invalid_File_Format;
+            goto Fail;
+          }
 
           /* t1_decrypt() shouldn't write to base -- make temporary copy */
           if ( FT_ALLOC( temp, size ) )
@@ -1537,15 +1631,11 @@
       }
     }
 
-    if ( loader->num_glyphs )
-      return;
-    else
-      loader->num_glyphs = n;
+    loader->num_glyphs = n;
 
     /* if /.notdef is found but does not occupy index 0, do our magic. */
-    if ( ft_strcmp( (const char*)".notdef",
-                    (const char*)name_table->elements[0] ) &&
-         notdef_found                                      )
+    if ( notdef_found                                                 &&
+         ft_strcmp( ".notdef", (const char*)name_table->elements[0] ) )
     {
       /* Swap glyph in index 0 with /.notdef glyph.  First, add index 0  */
       /* name and code entries to swap_table.  Then place notdef_index   */
@@ -1614,7 +1704,7 @@
       /* and add our own /.notdef glyph to index 0.               */
 
       /* 0 333 hsbw endchar */
-      FT_Byte  notdef_glyph[] = {0x8B, 0xF7, 0xE1, 0x0D, 0x0E};
+      FT_Byte  notdef_glyph[] = { 0x8B, 0xF7, 0xE1, 0x0D, 0x0E };
       char*    notdef_name    = (char *)".notdef";
 
 
@@ -1652,7 +1742,7 @@
         goto Fail;
 
       /* we added a glyph. */
-      loader->num_glyphs = n + 1;
+      loader->num_glyphs += 1;
     }
 
     return;
@@ -1677,19 +1767,31 @@
 #include "t1tokens.h"
 
     /* now add the special functions... */
-    T1_FIELD_CALLBACK( "FontMatrix", parse_font_matrix )
-    T1_FIELD_CALLBACK( "Encoding", parse_encoding )
-    T1_FIELD_CALLBACK( "Subrs", parse_subrs )
-    T1_FIELD_CALLBACK( "CharStrings", parse_charstrings )
+    T1_FIELD_CALLBACK( "FontMatrix",           parse_font_matrix,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "Encoding",             parse_encoding,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "Subrs",                parse_subrs,
+                       T1_FIELD_DICT_PRIVATE )
+    T1_FIELD_CALLBACK( "CharStrings",          parse_charstrings,
+                       T1_FIELD_DICT_PRIVATE )
+    T1_FIELD_CALLBACK( "Private",              parse_private,
+                       T1_FIELD_DICT_FONTDICT )
 
 #ifndef T1_CONFIG_OPTION_NO_MM_SUPPORT
-    T1_FIELD_CALLBACK( "BlendDesignPositions", parse_blend_design_positions )
-    T1_FIELD_CALLBACK( "BlendDesignMap", parse_blend_design_map )
-    T1_FIELD_CALLBACK( "BlendAxisTypes", parse_blend_axis_types )
-    T1_FIELD_CALLBACK( "WeightVector", parse_weight_vector )
+    T1_FIELD_CALLBACK( "BlendDesignPositions", parse_blend_design_positions,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "BlendDesignMap",       parse_blend_design_map,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "BlendAxisTypes",       parse_blend_axis_types,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "WeightVector",         parse_weight_vector,
+                       T1_FIELD_DICT_FONTDICT )
+    T1_FIELD_CALLBACK( "BuildCharArray",       parse_buildchar,
+                       T1_FIELD_DICT_PRIVATE )
 #endif
 
-    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0 }
+    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0, 0 }
   };
 
 
@@ -1701,8 +1803,7 @@
   parse_dict( T1_Face    face,
               T1_Loader  loader,
               FT_Byte*   base,
-              FT_Long    size,
-              FT_Byte*   keyword_flags )
+              FT_Long    size )
   {
     T1_Parser  parser = &loader->parser;
     FT_Byte   *limit, *start_binary = NULL;
@@ -1724,58 +1825,23 @@
 
       cur = parser->root.cursor;
 
-      /* look for `FontDirectory' which causes problems for some fonts */
-      if ( *cur == 'F' && cur + 25 < limit                    &&
-           ft_strncmp( (char*)cur, "FontDirectory", 13 ) == 0 )
-      {
-        FT_Byte*  cur2;
-
-
-        /* skip the `FontDirectory' keyword */
-        T1_Skip_PS_Token( parser );
-        T1_Skip_Spaces  ( parser );
-        cur = cur2 = parser->root.cursor;
-
-        /* look up the `known' keyword */
-        while ( cur < limit )
-        {
-          if ( *cur == 'k' && cur + 5 < limit            &&
-               ft_strncmp( (char*)cur, "known", 5 ) == 0 )
-            break;
-
-          T1_Skip_PS_Token( parser );
-          if ( parser->root.error )
-            goto Exit;
-          T1_Skip_Spaces( parser );
-          cur = parser->root.cursor;
-        }
-
-        if ( cur < limit )
-        {
-          T1_TokenRec  token;
-
-
-          /* skip the `known' keyword and the token following it */
-          T1_Skip_PS_Token( parser );
-          T1_ToToken( parser, &token );
-
-          /* if the last token was an array, skip it! */
-          if ( token.type == T1_TOKEN_TYPE_ARRAY )
-            cur2 = parser->root.cursor;
-        }
-        parser->root.cursor = cur2;
-        have_integer = 0;
-      }
-
       /* look for `eexec' */
-      else if ( *cur == 'e' && cur + 5 < limit &&
-                ft_strncmp( (char*)cur, "eexec", 5 ) == 0 )
+      if ( IS_PS_TOKEN( cur, limit, "eexec" ) )
         break;
 
       /* look for `closefile' which ends the eexec section */
-      else if ( *cur == 'c' && cur + 9 < limit &&
-                ft_strncmp( (char*)cur, "closefile", 9 ) == 0 )
+      else if ( IS_PS_TOKEN( cur, limit, "closefile" ) )
         break;
+
+      /* in a synthetic font the base font starts after a           */
+      /* `FontDictionary' token that is placed after a Private dict */
+      else if ( IS_PS_TOKEN( cur, limit, "FontDirectory" ) )
+      {
+        if ( loader->keywords_encountered & T1_PRIVATE )
+          loader->keywords_encountered |=
+            T1_FONTDIR_AFTER_PRIVATE;
+        parser->root.cursor += 13;
+      }
 
       /* check whether we have an integer */
       else if ( ft_isdigit( *cur ) )
@@ -1834,8 +1900,7 @@
         if ( len > 0 && len < 22 && parser->root.cursor < limit )
         {
           /* now compare the immediate name to the keyword table */
-          T1_Field  keyword      = (T1_Field)t1_keywords;
-          FT_Byte*  keyword_flag = keyword_flags;
+          T1_Field  keyword = (T1_Field)t1_keywords;
 
 
           for (;;)
@@ -1851,21 +1916,54 @@
                  len == (FT_PtrDist)ft_strlen( (const char *)name ) &&
                  ft_memcmp( cur, name, len ) == 0                   )
             {
-              /* We found it -- run the parsing callback! */
-              /* We only record the first instance of any */
-              /* field to deal adequately with synthetic  */
-              /* fonts; /Subrs and /CharStrings are       */
-              /* handled specially.                       */
-              if ( keyword_flag[0] == 0                              ||
-                   ft_strcmp( (const char*)name, "Subrs" ) == 0      ||
-                   ft_strcmp( (const char*)name, "CharStrings") == 0 )
+              /* We found it -- run the parsing callback!     */
+              /* We record every instance of every field      */
+              /* (until we reach the base font of a           */
+              /* synthetic font) to deal adequately with      */
+              /* multiple master fonts; this is also          */
+              /* necessary because later PostScript           */
+              /* definitions override earlier ones.           */
+
+              /* Once we encounter `FontDirectory' after      */
+              /* `/Private', we know that this is a synthetic */
+              /* font; except for `/CharStrings' we are not   */
+              /* interested in anything that follows this     */
+              /* `FontDirectory'.                             */
+
+              /* MM fonts have more than one /Private token at */
+              /* the top level; let's hope that all the junk   */
+              /* that follows the first /Private token is not  */
+              /* interesting to us.                            */
+
+              /* According to Adobe Tech Note #5175 (CID-Keyed */
+              /* Font Installation for ATM Software) a `begin' */
+              /* must be followed by exactly one `end', and    */
+              /* `begin' -- `end' pairs must be accurately     */
+              /* paired.  We could use this to distinguish     */
+              /* between the global Private and the Private    */
+              /* dict that is a member of the Blend dict.      */
+
+              const FT_UInt dict =
+                ( loader->keywords_encountered & T1_PRIVATE )
+                    ? T1_FIELD_DICT_PRIVATE
+                    : T1_FIELD_DICT_FONTDICT;
+
+              if ( !( dict & keyword->dict ) )
+              {
+                FT_TRACE1(( "parse_dict: found %s but ignoring it "
+                            "since it is in the wrong dictionary\n",
+                            keyword->ident ));
+                break;
+              }
+
+              if ( !( loader->keywords_encountered &
+                      T1_FONTDIR_AFTER_PRIVATE     )                  ||
+                   ft_strcmp( (const char*)name, "CharStrings" ) == 0 )
               {
                 parser->root.error = t1_load_keyword( face,
                                                       loader,
                                                       keyword );
-                if ( parser->root.error == T1_Err_Ok )
-                  keyword_flag[0] = 1;
-                else
+                if ( parser->root.error != T1_Err_Ok )
                 {
                   if ( FT_ERROR_BASE( parser->root.error ) == FT_Err_Ignore )
                     parser->root.error = T1_Err_Ok;
@@ -1877,7 +1975,6 @@
             }
 
             keyword++;
-            keyword_flag++;
           }
         }
 
@@ -1910,12 +2007,13 @@
     loader->num_chars  = 0;
 
     /* initialize the tables -- simply set their `init' field to 0 */
-    loader->encoding_table.init = 0;
-    loader->charstrings.init    = 0;
-    loader->glyph_names.init    = 0;
-    loader->subrs.init          = 0;
-    loader->swap_table.init     = 0;
-    loader->fontdata            = 0;
+    loader->encoding_table.init  = 0;
+    loader->charstrings.init     = 0;
+    loader->glyph_names.init     = 0;
+    loader->subrs.init           = 0;
+    loader->swap_table.init      = 0;
+    loader->fontdata             = 0;
+    loader->keywords_encountered = 0;
   }
 
 
@@ -1945,7 +2043,6 @@
     T1_Font        type1 = &face->type1;
     PS_Private     priv  = &type1->private_dict;
     FT_Error       error;
-    FT_Byte        keyword_flags[T1_FIELD_COUNT];
 
     PSAux_Service  psaux = (PSAux_Service)face->psaux;
 
@@ -1953,6 +2050,10 @@
     t1_init_loader( &loader, face );
 
     /* default values */
+    face->ndv_idx          = -1;
+    face->cdv_idx          = -1;
+    face->len_buildchar    = 0;
+
     priv->blue_shift       = 7;
     priv->blue_fuzz        = 1;
     priv->lenIV            = 4;
@@ -1967,16 +2068,8 @@
     if ( error )
       goto Exit;
 
-    {
-      FT_UInt  n;
-      
-
-      for ( n = 0; n < T1_FIELD_COUNT; n++ )
-        keyword_flags[n] = 0;
-    }
-
-    error = parse_dict( face, &loader, parser->base_dict, parser->base_len,
-                        keyword_flags );
+    error = parse_dict( face, &loader,
+                        parser->base_dict, parser->base_len );
     if ( error )
       goto Exit;
 
@@ -1984,13 +2077,28 @@
     if ( error )
       goto Exit;
 
-    error = parse_dict( face, &loader, parser->private_dict,
-                        parser->private_len,
-                        keyword_flags );
+    error = parse_dict( face, &loader,
+                        parser->private_dict, parser->private_len );
     if ( error )
       goto Exit;
 
+    /* ensure even-ness of `num_blue_values' */
+    priv->num_blue_values &= ~1;
+
 #ifndef T1_CONFIG_OPTION_NO_MM_SUPPORT
+
+    if ( face->blend                                                     &&
+         face->blend->num_default_design_vector != 0                     &&
+         face->blend->num_default_design_vector != face->blend->num_axis )
+    {
+      /* we don't use it currently so just warn, reset, and ignore */
+      FT_ERROR(( "T1_Open_Face(): /DesignVector contains %u entries "
+                 "while there are %u axes.\n",
+                 face->blend->num_default_design_vector,
+                 face->blend->num_axis ));
+
+      face->blend->num_default_design_vector = 0;
+    }
 
     /* the following can happen for MM instances; we then treat the */
     /* font as a normal PS font                                     */
@@ -2010,6 +2118,22 @@
           T1_Done_Blend( face );
           break;
         }
+    }
+
+    if ( face->blend )
+    {
+      if ( face->len_buildchar > 0 )
+      {
+        FT_Memory  memory = face->root.memory;
+
+
+        if ( FT_NEW_ARRAY( face->buildchar, face->len_buildchar ) )
+        {
+          FT_ERROR(( "T1_Open_Face: cannot allocate BuildCharArray\n" ));
+          face->len_buildchar = 0;
+          goto Exit;
+        }
+      }
     }
 
 #endif /* T1_CONFIG_OPTION_NO_MM_SUPPORT */

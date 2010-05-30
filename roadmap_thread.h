@@ -34,39 +34,47 @@ typedef enum
 	_priority_low,
 	_priority_normal,
 	_priority_high,
-	_priority_realtime	
+	_priority_realtime
 } RMThreadPriority;
 
 typedef int (*RMThreadFunc) ( void* context );
 
+typedef struct
+{
+	RMThreadFunc func;
+	void* context;
+} RMThreadContext;
+
+
+
 /*
- * Executes the thread function with the given priority in separate thread or async request 
- * running in the same thread. OS specific implementation 
+ * Executes the thread function with the given priority in separate thread or async request
+ * running in the same thread. OS specific implementation
  * @param func: [in] - the function pointer to the thread body function
  * @param context: [in] - the context pointer to be passed to the thread function
  * @param priority: [in] - thread priority
  * @param name:  [in] - thread/task name (usually must be unique)
- * @param separate thread:  [in] - TRUE - execute in the separate thread, FALSE - execute as asynchronous event running in the same thread 
+ * @param separate thread:  [in] - TRUE - execute in the separate thread, FALSE - execute as asynchronous event running in the same thread
  */
-EXTERN_C BOOL roadmap_thread_run ( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name, BOOL separate_thread );  
+EXTERN_C BOOL roadmap_thread_run ( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name, BOOL separate_thread );
 
 /*
- * Executes the thread function as an asynchronous task in the same thread. OS specific implementation 
+ * Executes the thread function as an asynchronous task in the same thread. OS specific implementation
  * @param func: [in] - the function pointer to the thread body function
  * @param context: [in] - the contedifferentaxt pointer to be passed to the thread function
  * @param priority: [in] - task priority
  * @param name:  [in] - thread/task name (usually must be unique)
  */
-EXTERN_C BOOL roadmap_thread_run_same( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name );  
+EXTERN_C BOOL roadmap_thread_run_same( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name );
 
 /*
- * Executes the thread function as an asynchronous task in the same thread. OS specific implementation 
+ * Executes the thread function as an asynchronous task in the same thread. OS specific implementation
  * @param func: [in] - the function pointer to the thread body function
  * @param context: [in] - the contedifferentaxt pointer to be passed to the thread function
  * @param priority: [in] - task priority
  * @param name:  [in] - thread/task name (usually must be unique)
  */
-EXTERN_C BOOL roadmap_thread_run_separate( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name );  
+EXTERN_C BOOL roadmap_thread_run_separate( RMThreadFunc func, void* context, RMThreadPriority priority, const char* name );
 
 
 #endif /* ROADMAP_THREAD_H_ */

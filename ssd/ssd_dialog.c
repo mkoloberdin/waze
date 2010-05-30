@@ -53,6 +53,10 @@
 #include "ssd_text.h"
 #include "ssd_contextmenu.h"
 
+
+#define	SCROLL_AFTER_END_COUNTER 4
+#define ALIGN_FOCUS_TIMEOUT		 40
+
 struct ssd_dialog_item;
 typedef struct ssd_dialog_item *SsdDialog;
 
@@ -93,9 +97,18 @@ static SsdDialog RoadMapDialogWindows = NULL;
 static SsdDialog RoadMapDialogCurrent = NULL;
 
 static void ssd_dialog_free_all( BOOL force );
+static void ssd_dialog_align_focus_timeout( void );
 
 BOOL ssd_dialog_is_currently_active(void)
-{ return (NULL != RoadMapDialogCurrent);}
+{
+   return (NULL != RoadMapDialogCurrent);
+}
+
+SsdWidget ssd_dialog_get_currently_active(void){
+   if (!ssd_dialog_is_currently_active())
+      return NULL;
+   return RoadMapDialogCurrent->container;
+}
 
 char *ssd_dialog_currently_active_name(void){
 	if (!ssd_dialog_is_currently_active())
@@ -157,6 +170,7 @@ static void ssd_dialog_disable_key (void) {
 
 static void ssd_dialog_handle_native_kb( SsdDialog dialog )
 {
+#ifndef IPHONE
    if ( roadmap_native_keyboard_enabled() )
    {
 	   if ( dialog )
@@ -175,10 +189,12 @@ static void ssd_dialog_handle_native_kb( SsdDialog dialog )
 		   roadmap_native_keyboard_hide();
 	   }
    }
+#endif //IPHONE
 }
+
+
 static int ssd_dialog_pressed (RoadMapGuiPoint *point) {
    SsdWidget container = RoadMapDialogCurrent->container;
-
 
    if (!ssd_widget_find_by_pos (container, point, TRUE )) {
       LastPointerPoint.x = -1;
@@ -213,6 +229,7 @@ static int ssd_dialog_pressed (RoadMapGuiPoint *point) {
 
 static int ssd_dialog_released(RoadMapGuiPoint *point)
 {
+
    LastPointerPoint.x = -1;
    if( !ssd_widget_pointer_up(RoadMapDialogCurrent->container, point))
       return 0;
@@ -273,16 +290,29 @@ static void append_child (SsdWidget child) {
    ssd_widget_add (RoadMapDialogWindows->container, child);
 }
 
-void ssd_dialog_allign_focus(void){
+#ifdef OPENGL
+void ssd_dialog_align_focus(void){
    SsdSize size;
    int height;
    int min;
    SsdWidget title;
+
+   // Can be called by timer - the dialog will be closed before this call
+   if ( RoadMapDialogCurrent == NULL )
+	   return;
+
     title = ssd_widget_get (RoadMapDialogCurrent->container, "title_bar");
     if (title)
-       min =  title->cached_size.height;
+    {
+    	SsdSize size;
+    	ssd_widget_get_size( title, &size, NULL );
+    	min = size.height;
+    	// min = title->cached_size.height;
+    }
     else
+    {
        min = 0;
+    }
 #ifndef TOUCH_SCREEN
     if (!is_screen_wide())
     	min += roadmap_bar_top_height();
@@ -303,27 +333,98 @@ void ssd_dialog_allign_focus(void){
       }
       ssd_widget_get_size(RoadMapDialogCurrent->in_focus, &size, NULL);
       if (( RoadMapDialogCurrent->in_focus->position.y == 0) || ((size.height + RoadMapDialogCurrent->in_focus->position.y) > height)){
-
-          while (( RoadMapDialogCurrent->in_focus->position.y == 0) || ((size.height + RoadMapDialogCurrent->in_focus->position.y) > height)) {
+	      /*
+	       * Replaced by AGA added periodic call in order to let the screen to be redrawn
+	       * while (( RoadMapDialogCurrent->in_focus->position.y == 0) || ((size.height + RoadMapDialogCurrent->in_focus->position.y) > height)) {
+	       */
+          if (( RoadMapDialogCurrent->in_focus->position.y == 0) || ((size.height + RoadMapDialogCurrent->in_focus->position.y) > height)) {
             ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y-20);
-            ssd_dialog_draw();
+            roadmap_main_set_periodic( ALIGN_FOCUS_TIMEOUT, ssd_dialog_align_focus_timeout );
          }
+          /*
+           * Replaced by AGA added periodic call in order to let the screen to be redrawn
+           * while (RoadMapDialogCurrent->in_focus->position.y < min){
+           */
 
-         while (RoadMapDialogCurrent->in_focus->position.y < min){
+         if (RoadMapDialogCurrent->in_focus->position.y < min){
             ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y+20);
-            ssd_dialog_draw();
+            roadmap_main_set_periodic( ALIGN_FOCUS_TIMEOUT, ssd_dialog_align_focus_timeout );
          }
       }
       else{
-         while (RoadMapDialogCurrent->in_focus->position.y < min){
+    	  /*
+    	   * Replaced by AGA added periodic call in order to let the screen to be redrawn
+    	   * while (RoadMapDialogCurrent->in_focus->position.y < min){
+    	   */
+         if (RoadMapDialogCurrent->in_focus->position.y < min){
             ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y+20);
-            ssd_dialog_draw();
+            roadmap_main_set_periodic( ALIGN_FOCUS_TIMEOUT, ssd_dialog_align_focus_timeout );
          }
       }
    }
-
+   ssd_dialog_draw();
 }
+#else
+void ssd_dialog_align_focus(void){
+   SsdSize size;
+   int height;
+   int min;
+   SsdWidget title;
+   title = ssd_widget_get (RoadMapDialogCurrent->container, "title_bar");
+   if (title){
+       SsdSize title_size;
+       ssd_widget_get_size(title, &title_size, NULL);
+       min =  title_size.height;
+   }
+   else{
+       min = 0;
+   }
 
+#ifndef TOUCH_SCREEN
+   if (!is_screen_wide())
+        min += roadmap_bar_top_height();
+   if( SSD_TAB_CONTROL & RoadMapDialogCurrent->container->flags)
+       min += ssd_tabcontrol_get_height();
+#endif
+
+#ifdef TOUCH_SCREEN
+   height = roadmap_canvas_height();
+#else
+   height = roadmap_canvas_height() - roadmap_bar_bottom_height();
+#endif
+   if (RoadMapDialogCurrent->in_focus && RoadMapDialogCurrent->scroll_container){
+      if ((RoadMapDialogCurrent->in_focus->position.y == -1) || (RoadMapDialogCurrent->in_focus->position.x == -1 )){
+         RoadMapDialogCurrent->in_focus->position.y = 0;
+         RoadMapDialogCurrent->scroll_container->offset_y +=20;
+      }
+      ssd_widget_get_size(RoadMapDialogCurrent->in_focus, &size, NULL);
+      while ( RoadMapDialogCurrent->in_focus->position.y == 0){ // scroll down by half the screen's height until you reach widgets
+            ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y  - height/2);
+            ssd_dialog_recalculate( NULL );
+      }
+
+      if ((size.height + RoadMapDialogCurrent->in_focus->position.y) > height){
+          int diff_to_add =  height - RoadMapDialogCurrent->in_focus->position.y - size.height - 5 ; // add a bit so it won't be glued to the bottom
+          ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y+diff_to_add);
+          ssd_dialog_recalculate( NULL );
+      }else if (RoadMapDialogCurrent->in_focus->position.y < min){
+          int diff_to_add = min -RoadMapDialogCurrent->in_focus->position.y;
+          ssd_widget_set_offset(RoadMapDialogCurrent->scroll_container, 0, RoadMapDialogCurrent->scroll_container->offset_y+diff_to_add);
+          ssd_dialog_recalculate( NULL );
+      }
+   }
+   ssd_dialog_draw();
+}
+#endif // OPENGL
+void ssd_dialog_set_context ( void* context ) {
+   if (!RoadMapDialogCurrent) {
+      roadmap_log (ROADMAP_ERROR,
+         "Trying to set dialog context, but no active dialogs exist");
+      return ;
+   }
+
+   RoadMapDialogCurrent->container->context = context;
+}
 
 BOOL ssd_dialog_set_dialog_focus( SsdDialog dialog, SsdWidget new_focus)
 {
@@ -378,9 +479,11 @@ BOOL ssd_dialog_set_dialog_focus( SsdDialog dialog, SsdWidget new_focus)
 
    dialog->in_focus = new_focus;
 
-   ssd_dialog_allign_focus();
+   ssd_dialog_align_focus();
    return TRUE;
 }
+
+
 
 SsdWidget ssd_dialog_get_focus(void)
 {
@@ -413,7 +516,7 @@ void ssd_dialog_move_focus (int direction) {
 
    RoadMapDialogCurrent->in_focus =
       ssd_widget_move_focus(RoadMapDialogCurrent->in_focus, direction);
-   ssd_dialog_allign_focus();
+   ssd_dialog_align_focus();
    ssd_dialog_resort_tab_order();
 }
 
@@ -527,6 +630,11 @@ void ssd_dialog_change_button(const char *name, const char **bitmaps, int num_bi
    SsdWidget button = ssd_widget_get(RoadMapDialogCurrent->container, name);
    if (button)
       ssd_button_change_icon(button, bitmaps, num_bitmaps);
+}
+
+SsdWidget ssd_dialog_right_title_button(void){
+   SsdWidget button = ssd_widget_get(RoadMapDialogCurrent->container, "right_titlle_button");
+   return button;
 }
 
 void ssd_dialog_change_text(const char *name, const char *value){
@@ -671,6 +779,10 @@ void ssd_dialog_sort_tab_order( SsdDialog dialog)
 #endif   // !TOUCH_SCREEN
 }
 
+void ssd_dialog_sort_tab_order_current(){
+	ssd_dialog_sort_tab_order(RoadMapDialogCurrent);
+}
+
 void ssd_dialog_sort_tab_order_by_gui_position()
 {
    SsdWidget old_focus;
@@ -712,7 +824,7 @@ static void draw_dialog (SsdDialog dialog) {
          rect.miny = roadmap_bar_top_height()+1;
       rect.maxx = roadmap_canvas_width() -1;
 #else
-      if (dialog->container->flags & SSD_DIALOG_FLOAT)
+      if ((dialog->container->flags & SSD_DIALOG_FLOAT) && !(dialog->container->flags & SSD_DIALOG_TRANSPARENT))
          rect.miny = roadmap_bar_top_height()+5;
       else
          rect.miny = 1;
@@ -764,12 +876,13 @@ static void draw_dialog (SsdDialog dialog) {
       ssd_dialog_sort_tab_order_by_gui_position();
    }
 }
-
 void ssd_dialog_draw (void) {
-
-   draw_dialog(RoadMapDialogCurrent);
-   roadmap_canvas_refresh ();
+	roadmap_screen_redraw();
 }
+void ssd_dialog_draw_now (void) {
+   draw_dialog(RoadMapDialogCurrent);
+}
+
 
 void ssd_dialog_draw_prev (void) {
 
@@ -777,7 +890,6 @@ void ssd_dialog_draw_prev (void) {
 		draw_dialog(RoadMapDialogCurrent->activated_prev);
 
 }
-
 
 static void left_softkey_callback(void){
    SsdDialog   current  = RoadMapDialogCurrent;
@@ -850,32 +962,6 @@ void ssd_dialog_refresh_current_softkeys(){
 
 #define SCROLL_AFTER_END_COUNTER 4
 
-
-static void keep_dragging (void) {
-   SsdDialog dialog = RoadMapDialogCurrent;
-   RoadMapGuiPoint point;
-   int diff;
-
-   if (dialog == NULL)
-      return;
-
-   dialog->scroll_counter++;
-   point.x = dialog->drag_start_point.x;
-   diff = dialog->drag_end_motion.y - dialog->drag_start_point.y;
-   if (diff > 0)
-        point.y= dialog->drag_last_motion.y + dialog->scroll_counter *   (dialog->drag_speed/3);
-   else
-        point.y = dialog->drag_last_motion.y - dialog->scroll_counter  * (dialog->drag_speed/3);
-
-   if (dialog->scroll_counter < SCROLL_AFTER_END_COUNTER)
-      ssd_dialog_drag_motion(&point);
-   else{
-      dialog->time_active = FALSE;
-      ssd_dialog_drag_end(&point);
-      roadmap_main_remove_periodic (keep_dragging);
-   }
-}
-
 int ssd_dialog_drag_start (RoadMapGuiPoint *point) {
    SsdDialog dialog = RoadMapDialogCurrent;
    if (dialog == NULL){
@@ -898,10 +984,6 @@ int ssd_dialog_drag_start (RoadMapGuiPoint *point) {
       dialog->drag_last_motion.y = point->y;
       dialog->scroll_counter = 0;
       dialog->drag_start_time_ms = roadmap_time_get_millis();
-      if (dialog->time_active){
-         roadmap_main_remove_periodic (keep_dragging);
-         dialog->time_active = FALSE;
-      }
    }
    return 1;
 }
@@ -931,15 +1013,6 @@ int ssd_dialog_drag_end (RoadMapGuiPoint *point) {
    if (time_diff > 0)
       speed = (int)(drag_diff*10)/time_diff;
 
-#if 0
-   if ((dialog->scroll_counter < SCROLL_AFTER_END_COUNTER) &&  (drag_diff > 40)){
-      dialog->drag_speed = speed;
-      roadmap_main_set_periodic (30, keep_dragging);
-      dialog->time_active = TRUE;
-      return 1;
-   }
-#endif
-
    if (dialog->scroll_container && dialog->scroll_container->drag_end)
       return (*dialog->scroll_container->drag_end)(dialog->container, point);
    else if ((dialog->scroll_container) && (dialog->scroll)){
@@ -954,7 +1027,7 @@ int ssd_dialog_drag_end (RoadMapGuiPoint *point) {
       ssd_widget_reset_cache(dialog->scroll_container);
       ssd_widget_get_size(dialog->scroll_container, &size, NULL);
       if (size.height == roadmap_canvas_height() +1){
-         ssd_widget_reset_cache(dialog->scroll_container);
+//         ssd_widget_reset_cache(dialog->scroll_container);
          size2.width = SSD_MIN_SIZE;
          size2.height = SSD_MIN_SIZE;
          ssd_widget_get_size(dialog->scroll_container, &size, &size2);
@@ -1101,6 +1174,10 @@ SsdWidget ssd_dialog_activate (const char *name, void *context) {
       RoadMapScreenFrozen = 1;
    }
 
+   if (RoadMapScreenFrozen){
+      roadmap_start_screen_refresh (0);
+   }
+
    ssd_dialog_disable_key ();
 
    ssd_dialog_handle_native_kb( dialog );
@@ -1178,13 +1255,26 @@ void ssd_dialog_hide (const char *name, int exit_code) {
 
    roadmap_input_type_set_mode( inputtype_numeric );
     RoadMapScreenFrozen = 0;
-
+// AGA TODO:: This causes crash on about close after 3 times
 //    if ( !ssd_dialog_is_currently_active() )
 //    {
 //    	ssd_dialog_free_all( FALSE );
 //    }
 
+//   roadmap_log_raw_data_fmt( ">>>> AGA DEBUG <<<< | ssd_dialog_hide before refresh ... \n" );
+//    if ( !ssd_dialog_is_currently_active() )
+//    {
+//    	ssd_dialog_free_all( FALSE );
+//    }
+#ifndef IPHONE_NATIVE
+
+
    roadmap_start_screen_refresh (1);
+#endif
+
+//   roadmap_log_raw_data_fmt( ">>>> AGA DEBUG <<<< | ssd_dialog_hide after refresh ... \n" );
+
+
 }
 
 
@@ -1322,7 +1412,7 @@ void ssd_dialog_resort_tab_order()
    if( focus_set)
       draw_dialog(RoadMapDialogCurrent);
 
-   roadmap_canvas_refresh ();
+//   roadmap_canvas_refresh ();
 }
 
 void ssd_dialog_reset_offset(){
@@ -1538,3 +1628,38 @@ void ssd_dialog_free( const char* dlg_name, BOOL force )
 
 	ssd_dialog_free_internal( dialog, force, TRUE );
 }
+
+void ssd_dialog_align_focus_timeout ( void )
+{
+	roadmap_main_remove_periodic( ssd_dialog_align_focus_timeout );
+	ssd_dialog_align_focus();
+}
+void ssd_dialog_recalculate ( const char* dlg_name )
+{
+	SsdDialog dialog = NULL;
+	if ( dlg_name )
+	{
+		dialog = ssd_dialog_get( dlg_name );
+	}
+	else
+	{
+		dialog = RoadMapDialogCurrent;
+	}
+	ssd_widget_set_recalculate( TRUE );
+	draw_dialog( dialog );
+	ssd_widget_set_recalculate( FALSE );
+}
+BOOL ssd_dialog_is_context_menu(void){
+   SsdWidget container;
+
+   if (!RoadMapDialogCurrent){
+      return FALSE;
+   }
+
+   container = RoadMapDialogCurrent->container;
+   if ( strstr ( container->name, SSD_CMDLG_DIALOG_NAME)!=NULL )
+           return TRUE;
+   else return FALSE;
+}
+
+

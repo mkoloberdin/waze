@@ -136,19 +136,37 @@ int	roadmap_hash_remove	(RoadMapHash *hash, int key, int index) {
    }
 
 	slot = &(hash->head[hash_code]);
-	
+
 	while (*slot >= 0) {
-	
+
 		if (*slot == index) {
 
 			*slot = hash->next[index];
-			return 1;			
-		}	
+			return 1;
+		}
 		slot = &(hash->next[*slot]);
 	}
 
-	return 0;	
+	return 0;
 }
+
+/*
+ *	Just clean hash entries
+ */
+void roadmap_hash_clean( RoadMapHash *hash )
+{
+   int i;
+   for (i = 0; i < ROADMAP_HASH_MODULO; i++)
+   {
+	  hash->head[i] = -1;
+   }
+
+   for (i = 0; i < hash->size; i++)
+   {
+	  hash->next[i] = -1;
+   }
+}
+
 
 
 void roadmap_hash_resize (RoadMapHash *hash, int size) {
@@ -184,7 +202,7 @@ void roadmap_hash_free (RoadMapHash *hash) {
 	if (hash->next_hash) {
 		hash->next_hash->prev_hash = prev;
 	}
-	
+
    if (hash->values != NULL) {
       free (hash->values);
    }
@@ -263,7 +281,7 @@ int roadmap_hash_string (const char *str) {
 
    int hash = 0;
    unsigned int i;
-   
+
    for (i=0; i<strlen(str); i++) {
       hash += str[i]*(i+1);
    }

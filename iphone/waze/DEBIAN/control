@@ -1,0 +1,14 @@
+Package: il.co.waze
+Name: waze
+Version: 0.14.2
+Architecture: iphoneos-arm 
+Description: Waze - navigation client for the free mapping project in Israel
+ 1. The installed product is an open-source (GPL) software using community generated content and data. The product's contents are provided for non-commercial and private use only. 
+ 2. To protect your privacy and personal security, you hereby declare that you have read and understand the terms and conditions detailed at http://www.waze.co.il/terms.html.
+ 3. Never rely solely on the contents, materials and services provided by this product. 
+ 4. This product should never be operated and used by a driver of a motor vehicle while driving. Always obey all local laws and keep your hands free to operate vehicle while driving.
+ 5. To the maximum extent permitted by applicable laws, we, our related entities and contractors, exclude any and all responsibility and liability (including negligence), arising from or in connection to any use of this product and its contents.
+Homepage: http://www.freemap.co.il/wiki/index.php/%D7%9E%D7%93%D7%A8%D7%99%D7%9A_%D7%9C%D7%92%D7%A8%D7%A1%D7%AA_iPhone
+Maintainer: ar0903 <ar0903@gmail.com>
+Author: Ehud Shabtai <eshabtai@gmail.com>
+Section: Waze / FreeMap

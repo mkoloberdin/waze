@@ -31,11 +31,17 @@
 #define  LSR_WEBSVC_ADDRESS           			("Web-Service Address")
 #define  LSR_WEBSVC_PROVIDER          			("Provider")
 #define  LSR_WEBSVC_PROVIDER_LABEL    			("Provider Label")
-#define  LSR_WEBSVC_DEFAULT_PROVIDER_LABEL      ("")
-#define  LSR_WEBSVC_DEFAULT_PROVIDER            ("google")
+#define  LSR_WEBSVC_PROVIDER_LOGO           ("Provider Logo")
+#define  LSR_WEBSVC_PROVIDER_ICON           ("Provider Icon")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER_LABEL     ("Google")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER_ICON      ("ls_icon_google")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER_LOGO      ("ls_logo_google")
+#define  LSR_WEBSVC_DEFAULT_PROVIDER           ("google")
 #define  LSR_WEBSVC_DEFAULT_ADDRESS   			("")
 
-#define  LSR_GENERIC_PROVIDER_NAME    ("generic")
+#define  LSR_GENERIC_PROVIDER_NAME           ("generic")
+#define  LSR_GENERIC_PROVIDER_ICON           ("ls_icon_generic")
+#define  LSR_GENERIC_PROVIDER_LOGO           ("ls_logo_generic")
 
 #define  ADSR_CITY_STRING_MAX_SIZE        (63)
 #define  ADSR_STREET_STRING_MAX_SIZE      (128)
@@ -51,7 +57,7 @@
                                           ADSR_STATE_STRING_MAX_SIZE +  \
                                           ADSR_COUNTY_STRING_MAX_SIZE+  \
                                           12 /* house number */   )
-#define  ADSR_ADDRESS_MIN_SIZE         (3)
+#define  ADSR_ADDRESS_MIN_SIZE         (2)
 #define  LSR_ADDRESS_MIN_SIZE         (2)
 #define  ADSR_MAX_RESULTS              (13)
 
@@ -62,6 +68,7 @@
 #define  ADDRESS_STREET_NAME_MAX_SIZE     (112)
 
 #define  LSR_MENU_NAME_SUFFIX             ("local search")
+#define  LSR_PROVIDER_LABEL_MAX_SIZE      (128)
 
 // Definitions for 'roadmap_history.h' API
 typedef enum tag_search_type

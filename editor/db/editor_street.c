@@ -364,7 +364,10 @@ const char *editor_street_get_street_name
    static char name[512];
    const char *fename = editor_street_get_street_fename (street_id);
    const char *fetype = editor_street_get_street_fetype (street_id);
-
+   
+   if (!fename) fename = "";
+   if (!fetype) fetype = "";
+                  
 	sprintf (name, "%s%s%s",
 				fetype,
 				*fetype ? " " : "",

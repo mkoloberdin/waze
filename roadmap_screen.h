@@ -70,6 +70,7 @@ void roadmap_screen_set_orientation_dynamic (void);
 void roadmap_screen_increase_horizon (void);
 void roadmap_screen_decrease_horizon (void);
 int roadmap_screen_get_orientation_mode (void);
+int roadmap_screen_get_view_mode (void);
 
 void roadmap_screen_rotate (int delta);
 
@@ -106,6 +107,22 @@ int  roadmap_screen_draw_one_line (RoadMapPosition *from,
                                    int *total_length,
                                    RoadMapGuiPoint *middle,
                                    int *angle);
+
+int roadmap_screen_draw_one_tex_line (RoadMapPosition *from,
+                                      RoadMapPosition *to,
+                                      int fully_visible,
+                                      RoadMapPosition *first_shape_pos,
+                                      int first_shape,
+                                      int last_shape,
+                                      RoadMapShapeItr shape_itr,
+                                      RoadMapPen *pens,
+                                      int num_pens,
+                                      int label_max_proj,
+                                      int *total_length_ptr,
+                                      RoadMapGuiPoint *middle,
+                                      int *angle,
+                                      RoadMapImage image,
+                                      BOOL oposite);
 
 void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          RoadMapPosition *to,
@@ -176,4 +193,12 @@ void roadmap_screen_draw_flush(void);
 int roadmap_screen_show_top_bar(void);
 void roadmap_screen_set_Xicon_state(BOOL state);
 BOOL roadmap_screen_is_xicon_open();
+
+void roadmap_screen_set_background_run( BOOL value );
+BOOL roadmap_screen_get_background_run( void );
+
+void roadmap_screen_shade_bg(void);
+void roadmap_screen_flush_lines_and_points(void);
+
+
 #endif // INCLUDE__ROADMAP_SCREEN__H

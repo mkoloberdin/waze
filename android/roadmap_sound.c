@@ -65,7 +65,7 @@ void roadmap_sound_initialize ()
    // Set current volume from the configuration
    roadmap_config_declare("user", &RoadMapConfigVolControl, SND_DEFAULT_VOLUME_LVL, NULL );
    curLvl = roadmap_config_get_integer( &RoadMapConfigVolControl );
-   FreeMapNativeManager_SetVolume( curLvl, SND_VOLUME_LVLS[0], SND_VOLUME_LVLS[SND_VOLUME_LVLS_COUNT-1] );
+//   FreeMapNativeManager_SetVolume( curLvl, SND_VOLUME_LVLS[0], SND_VOLUME_LVLS[SND_VOLUME_LVLS_COUNT-1] );
 
    // Preload the sound resources
    snprintf( sound_dir, sizeof( sound_dir ), "%s//%s//%s",
@@ -213,7 +213,7 @@ int roadmap_sound_record (const char *file_name, int seconds) {
 void roadmap_sound_set_volume ( int volLvl )
 {
 	// Update the device
-	FreeMapNativeManager_SetVolume( volLvl, SND_VOLUME_LVLS[0], SND_VOLUME_LVLS[SND_VOLUME_LVLS_COUNT-1] );
+//	FreeMapNativeManager_SetVolume( volLvl, SND_VOLUME_LVLS[0], SND_VOLUME_LVLS[SND_VOLUME_LVLS_COUNT-1] );
 
 	// Update the configuration
 	roadmap_config_set_integer( &RoadMapConfigVolControl, volLvl );

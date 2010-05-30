@@ -1,4 +1,4 @@
-/* roadmap|_bar.h - Handle main bar
+/* roadmap_bar.h - Handle main bar
  *
  * LICENSE:
  *
@@ -44,5 +44,10 @@ BOOL roadmap_bottom_bar_shown();
 BOOL roadmap_top_bar_shown();
 void roadmap_top_bar_set_clickable( BOOL val );
 int roadmap_bar_top_bar_exit_state ( void );
+#ifdef IPHONE_NATIVE
+void roadmap_more_bar_hide();
+void roadmap_more_bar_show();
+int roadmap_bar_more_state();
+#endif //IPHONE_NATIVE
 
 #endif /*ROADMAP_BAR_H_*/

@@ -25,7 +25,7 @@
 
 #ifndef __REALTIMEBONUS_H__
 #define __REALTIMEBONUS_H__
-
+#include "../roadmap_alerter.h"
 #define MAX_ADD_ONS 250
 #define MAX_GUID_ID 30
 
@@ -44,6 +44,7 @@ typedef struct
     char *pIconName; // Name of the icon
     char sGUIID[MAX_GUID_ID+1]; // GUI ID 
     BOOL collected;
+    roadmap_alerter_location_info location_info;
 } RTBonus;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -74,5 +75,9 @@ void  RealtimeBonus_Get_Position(int record, RoadMapPosition *position, int *ste
 int   RealtimeBonus_Get_Distance (int index);
 int   RealtimeBonus_Get_NumberOfPoints (int iId);
 const char *RealtimeBonus_Get_Icon_Name (int iId);
+BOOL RealtimeBonus_is_square_dependent(void);
+int RealtimeBonus_get_priority(void);
+roadmap_alerter_location_info *  RealtimeBonus_get_location_info(int index);
+BOOL RealtimeBonus_distance_check(RoadMapPosition gps_pos);
 
 #endif /* __REALTIMEBONUS_H__ */

@@ -14,7 +14,6 @@
  *
  *   RoadMap is distributed in the hope that it will be useful,
  *   but WITHOUT ANY WARRANTY; without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *   GNU General Public License for more details.
  *
  *   You should have received a copy of the GNU General Public License
@@ -421,10 +420,7 @@ static void roadmap_display_highlight (const RoadMapPosition *position) {
 
 
 static void roadmap_display_sign (RoadMapSign *sign) {
-    static const char *shadow_bg = "#606060";
-    RoadMapPen shadow_pen;
     RoadMapGuiPoint points[7];
-    RoadMapGuiPoint shadow_points[7];
     RoadMapGuiPoint text_position;
     int width, height, ascent, descent;
     int screen_width;
@@ -572,19 +568,9 @@ static void roadmap_display_sign (RoadMapSign *sign) {
         count = 4;
     }
 
-	for (i=0; i<count;i++){
-		shadow_points[i].x = points[i].x + 3;
-		shadow_points[i].y = points[i].y -  3;
-	}
-
-	shadow_pen = roadmap_canvas_create_pen ("pop_up_shadow");
-
-   	roadmap_canvas_set_foreground(shadow_bg);
-	roadmap_canvas_set_opacity(115);
-    roadmap_canvas_draw_multiple_polygons (1, &count, shadow_points, 1, 0);
 
     roadmap_canvas_select_pen (sign->background);
-    roadmap_canvas_set_opacity(255);
+    roadmap_canvas_set_opacity(181);
     roadmap_canvas_draw_multiple_polygons (1, &count, points, 1, 0);
 
 
@@ -1012,7 +998,6 @@ static void roadmap_display_console_box
     int count;
     int width, ascent, descent;
     int i;
-    static const char *shadow_bg = "#606060";
     int warning_font_size = 13;
     int offset = 62;
 
@@ -1022,8 +1007,6 @@ static void roadmap_display_console_box
 
 
     RoadMapGuiPoint frame[4];
-    RoadMapGuiPoint shadow_points[4];
-    RoadMapPen shadow_pen;
 
 #ifdef _WIN32
    offset = 33;
@@ -1066,7 +1049,7 @@ static void roadmap_display_console_box
         frame[2].x = roadmap_canvas_width() - 5-offset;
        else
 #endif
-        frame[2].x = roadmap_canvas_width() - 5 ;
+        frame[2].x = roadmap_canvas_width() - 1 ;
         frame[0].x = frame[2].x - width - 6;
     } else {
         frame[0].x = 5;
@@ -1081,34 +1064,25 @@ static void roadmap_display_console_box
     } else {
        if ( type == ROADMAP_CONSOLE_ACTIVITY || type == ROADMAP_CONSOLE_WARNING )
        {
-    	   frame[0].y = roadmap_bar_top_height() + 3;
+    	   frame[0].y = roadmap_bar_top_height() + 1;
        }
        else
        {
           frame[0].y = 40;
        }
 
-       frame[1].y = ascent + descent + frame[0].y + 5;
+       frame[1].y = ascent + descent + frame[0].y + 6;
     }
     frame[2].y = frame[1].y;
     frame[3].y = frame[0].y;
 
-    for (i=0; i<count;i++){
-    	shadow_points[i].x = frame[i].x + 3;
-    	shadow_points[i].y = frame[i].y -  3;
-    }
-
-    shadow_pen = roadmap_canvas_create_pen ("pop_up_shadow");
-	if (type != ROADMAP_CONSOLE_ACTIVITY){
-    roadmap_canvas_set_foreground(shadow_bg);
-	roadmap_canvas_set_opacity(115);
-    roadmap_canvas_draw_multiple_polygons (1, &count, shadow_points, 1, 0);
-	}
+ 
 
     count = 4;
 
     if (type == ROADMAP_CONSOLE_WARNING ) {
     	roadmap_canvas_select_pen (RoadMapWarningBackground);
+      roadmap_canvas_set_opacity(181);
     }
     else if (type == ROADMAP_CONSOLE_ACTIVITY) {
        roadmap_canvas_select_pen (RoadMapActivityBackground);
@@ -1130,7 +1104,7 @@ static void roadmap_display_console_box
     roadmap_canvas_draw_multiple_polygons (1, &count, frame, 0, 0);
 
     frame[0].x = frame[3].x - 3;
-    frame[0].y = frame[3].y + 3;
+    frame[0].y = frame[3].y + 1;
     if (type == ROADMAP_CONSOLE_WARNING )
     {
     	roadmap_canvas_draw_string_size (frame,
@@ -1247,9 +1221,9 @@ void roadmap_display_initialize (void) {
         ("schema", &RoadMapConfigConsoleForeground, "#000000", NULL);
 
     roadmap_config_declare
-        ("schema", &RoadMapConfigWarningBackground, "#d7d7d7", NULL);
+        ("schema", &RoadMapConfigWarningBackground, "#000000", NULL);
     roadmap_config_declare
-        ("schema", &RoadMapConfigWarningForeground, "#026d97", NULL);
+        ("schema", &RoadMapConfigWarningForeground, "#FFFFFF", NULL);
 
     roadmap_config_declare
         ("schema", &RoadMapConfigActivityBackground, "#535252", NULL);

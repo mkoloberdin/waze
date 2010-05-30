@@ -29,6 +29,8 @@
 #ifdef __SYMBIAN32__
 //TODO temp
 #define MAX_SOUND_NAME 300
+#elif defined(IPHONE)
+#define MAX_SOUND_NAME 512
 #else
 #define MAX_SOUND_NAME 100
 #endif

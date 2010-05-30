@@ -81,17 +81,23 @@ BOOL  Realtime_RequestRoute(int						iRoute,
 									const int*				iOptionNumeral,
 									const BOOL*				bOptionValue,
 									int                  iTwitterLevel,
+									int                  iFacebookLevel,
 									BOOL						bReRoute);
 BOOL	Realtime_SelectRoute	(int                 iRoute,
 								 	 int                 AltId);
+
 BOOL  Realtime_CollectBonus(int                 iId,
                             int                 iToken,
-                            BOOL                bForwardToTwitter);
+                            BOOL                bForwardToTwitter,
+                            BOOL                bForwardToFacebook);
 
-BOOL  Realtime_Report_Alert(int iAlertType, const char * szDescription, int iDirection, const char* szImageId, BOOL bForwardToTwitter );
+BOOL Realtime_ReportAbuse (int                  iAlertID,
+                           int                  iCommentID);
+
+BOOL  Realtime_Report_Alert(int iAlertType, const char * szDescription, int iDirection, const char* szImageId, BOOL bForwardToTwitter, BOOL bForwardToFacebook );
 BOOL  Realtime_Alert_ReportAtLocation(int iAlertType, const char * szDescription, int iDirection, RoadMapGpsPosition   MyLocation);
 BOOL  Realtime_Remove_Alert(int iAlertId);
-BOOL  Realtime_Post_Alert_Comment(int iAlertId, const char * szCommentText, BOOL bForwardToTwitter);
+BOOL  Realtime_Post_Alert_Comment(int iAlertId, const char * szCommentText, BOOL bForwardToTwitter, BOOL bForwardToFacebook);
 BOOL  Realtime_StartSendingTrafficInfo(void);
 BOOL  Realtime_SendTrafficInfo(int mode);
 BOOL  Realtime_SendSMS(const char * szPhoneNumber);
@@ -99,6 +105,7 @@ BOOL  Realtime_TwitterConnect(const char * userName, const char *passWord);
 BOOL  Realtime_FoursquareConnect(const char * userName, const char *passWord, BOOL bTweetLogin);
 BOOL  Realtime_FoursquareSearch(RoadMapPosition* coordinates);
 BOOL  Realtime_FoursquareCheckin(const char* vid, BOOL bTweetBadge);
+BOOL Realtime_Scoreboard_getPoints(const char *period, const char *geography, int fromRank, int count);
 BOOL  Realtime_Editor_ExportMarkers(PFN_LOGINTESTRES editor_cb);
 BOOL  Realtime_Editor_ExportSegments(PFN_LOGINTESTRES editor_cb);
 
@@ -132,6 +139,7 @@ void RecommentToFriend(void);
 
 int         RealTimeLoginState(void);
 const char* RealTime_GetUserName();
+const char* Realtime_GetNickName();
 
 int RealTime_GetMyTotalPoints();
 int RealTime_GetMyRanking();
@@ -144,6 +152,9 @@ char* Realtime_GetServerCookie(void);
 BOOL Realtime_PinqWazer(const RoadMapGpsPosition *pPosition, int from_node, int to_node, int iUserId, int iAlertType, const char * szDescription, const char* szImageId, BOOL bForwardToTwitter );
 BOOL Realtime_AllowPing(void);
 void Realtime_Set_AllowPing (BOOL AllowPing);
+int Realtime_GetServerId(void);
+void RT_SetWebServiceAddress(const char* address);
+void Realtime_CheckDumpOfflineAfterCrash(void);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

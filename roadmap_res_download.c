@@ -107,34 +107,34 @@ static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks = { download_size_callback,
 
 //////////////////////////////////////////////////////////////////
 void roadmap_res_download_init (void) {
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl, "http://waze-client-resources.s3.amazonaws.com/images/", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadSoundUrl, "http://waze-client-resources.s3.amazonaws.com/sounds/", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadConfigUrl, "http://waze-client-resources.s3.amazonaws.com/config/", NULL);
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadLangUrl, "http://waze-client-resources.s3.amazonaws.com/langs/", NULL);
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadCountrySpecificImagesUrl, "", NULL);
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadImageUrl_Ver, "", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadCountrySpecificImagesUrl_Ver, "", NULL);
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadSoundUrl_Ver, "", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadConfigUrl_Ver, "", NULL);
-   
+
    roadmap_config_declare ("preferences", &RoadMapConfigDownloadLangUrl_Ver, "", NULL);
-   
-   
+
+
    Initialized = TRUE;
 }
 
 //////////////////////////////////////////////////////////////////
 void roadmap_res_download_term (void) {
-   
+
 }
 
 //////////////////////////////////////////////////////////////////
@@ -173,7 +173,7 @@ static char* get_images_url_prefix (void) {
 static char* get_country_specific_images_url_prefix (void) {
    return (char*) roadmap_config_get (&RoadMapConfigDownloadCountrySpecificImagesUrl);
 }
- 
+
 
 //////////////////////////////////////////////////////////////////
 static char* get_sound_url_prefix (void) {
@@ -195,7 +195,7 @@ static char* get_download_url (int type, const char *lang, const char* name) {
    char* url;
    const char* url_prefix;
    const char* url_ver;
-   
+
    switch (type) {
       case RES_DOWNLOAD_IMAGE:
          url_prefix = get_images_url_prefix ();
@@ -226,16 +226,16 @@ static char* get_download_url (int type, const char *lang, const char* name) {
    // Size of prefix +  size of image id + '\0'
    url = malloc (strlen (url_prefix) + strlen(url_ver) + strlen (name) + +strlen (lang) + +strlen (
                   roadmap_geo_config_get_server_id ()) + 10);
-   
+
    roadmap_check_allocated( url );
-   
+
    strcpy (url, url_prefix);
-   
+
    if (url_ver[0] != 0){
       strcat (url, url_ver);
       strcat (url, "/");
    }
-   
+
 
    if (lang && (lang[0] != 0)) {
       strcat (url, lang);
@@ -246,14 +246,25 @@ static char* get_download_url (int type, const char *lang, const char* name) {
       strcat (url, roadmap_geo_config_get_server_id ());
       strcat (url, "/");
    }
-   
+
    if (roadmap_screen_is_hd_screen()){
-      strcat (url, "HD");
-      strcat (url, "/");
+     if (( type == RES_DOWNLOAD_IMAGE ) || ( type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES )){
+      	strcat (url, "HD");
+	    strcat (url, "/");
+      }
    }
-   
+   else
+   {
+#ifndef TOUCH_SCREEN
+      if (( type == RES_DOWNLOAD_IMAGE ) || ( type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES )){
+          strcat (url, "no_touch");
+        strcat (url, "/");
+       }
+#endif
+   }
+
    strcat (url, name);
-   
+
    return url;
 }
 //////////////////////////////////////////////////////////////////
@@ -274,17 +285,17 @@ BOOL ResDataQueue_IsFull (void) {
 //////////////////////////////////////////////////////////////////
 static int IncrementIndex (int i) {
    i++;
-   
+
    if (i < RES_DOWNLOAD_MAX_QUEUE)
       return i;
-   
+
    return 0;
 }
 
 //////////////////////////////////////////////////////////////////
 static int AllocCell () {
    int iNextFreeCell;
-   
+
    if (RES_DOWNLOAD_MAX_QUEUE == ItemsCount)
       return -1;
 
@@ -296,10 +307,10 @@ static int AllocCell () {
 
    iNextFreeCell = (FirstItem + ItemsCount);
    ItemsCount++;
-   
+
    if (iNextFreeCell < RES_DOWNLOAD_MAX_QUEUE)
       return iNextFreeCell;
-   
+
    return (iNextFreeCell - RES_DOWNLOAD_MAX_QUEUE);
 }
 
@@ -322,7 +333,7 @@ static ResData * AllocResData () {
 
    pCell = RequestQueue + iCell;
    ResData_Init (pCell);
-   
+
    return pCell;
 }
 
@@ -339,7 +350,7 @@ static void ResData_Free (ResData *this) {
 //////////////////////////////////////////////////////////////////
 static BOOL PopOldest (ResData *pRD) {
    ResData *pCell;
-   
+
    if (!ItemsCount || (-1 == FirstItem)) {
       if (pRD)
          ResData_Init (pRD);
@@ -347,7 +358,7 @@ static BOOL PopOldest (ResData *pRD) {
    }
 
    pCell = RequestQueue + FirstItem;
-   
+
    if (pRD) {
       // Copy item data:
       (*pRD) = (*pCell);
@@ -357,7 +368,7 @@ static BOOL PopOldest (ResData *pRD) {
    else
       // Item is NOT being copied; Release item resources:
       ResData_Free (pCell);
-   
+
    if (1 == ItemsCount) {
       ItemsCount = 0;
       FirstItem = -1;
@@ -366,19 +377,19 @@ static BOOL PopOldest (ResData *pRD) {
       ItemsCount--;
       FirstItem = IncrementIndex (FirstItem);
    }
-   
+
    return TRUE;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void ResDataQueue_Push (ResData *this) {
    ResData * p;
-   
+
    if (ResDataQueue_IsFull ())
       PopOldest (NULL);
-   
+
    p = AllocResData ();
-   
+
    p->name = this->name;
    p->target_name = this->target_name;
    p->type = this->type;
@@ -409,7 +420,7 @@ static char * get_sound_output_path (const char *lang, const char *file_name) {
    else {
       res_path = roadmap_path_join (roadmap_path_downloads (), file_name);
    }
-   
+
    return res_path;
 }
 
@@ -420,7 +431,7 @@ static char * get_images_output_path (const char *file_name) {
    roadmap_path_format (path, sizeof (path), roadmap_path_downloads (), "skins");
    roadmap_path_format (path, sizeof (path), path, "default");
    res_path = roadmap_path_join (path, file_name);
-   
+
    return res_path;
 }
 
@@ -436,7 +447,7 @@ static void roadmap_download_start (void) {
    char *url;
    char *res_file, *res_path;
    DownloadContext* context;
-   
+
    if (downloading) {
       return;
    }
@@ -452,17 +463,17 @@ static void roadmap_download_start (void) {
    if ((resData.type == RES_DOWNLOAD_IMAGE) || (resData.type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES)){
 #ifdef ANDROID
       strcat (res_file, ".bin");
-#else      
+#else
       strcat (res_file, ".png");
-#endif      
+#endif
       res_path = get_images_output_path (res_file);
    }
    else if (resData.type == RES_DOWNLOAD_SOUND) {
 #ifdef ANDROID
       strcat (res_file, ".bin");
-#else      
+#else
       strcat (res_file, ".mp3");
-#endif      
+#endif
       res_path = get_sound_output_path (resData.lang, res_file);
    }
    else if (resData.type == RES_DOWNLOAD_LANG) {
@@ -489,7 +500,7 @@ static void roadmap_download_start (void) {
          strcat (res_file, ".png");
       else if (resData.type == RES_SOUND)
          strcat (res_file, ".mp3");
-         
+
       url = get_download_url (resData.type, resData.lang, res_file);
       if (!url){
          if (resData.on_loaded_cb)
@@ -499,7 +510,7 @@ static void roadmap_download_start (void) {
          downloading = FALSE;
          roadmap_download_start ();
          return;
-      } 
+      }
       // Init the download process context
       context = malloc (sizeof(DownloadContext));
       context->res_path = res_path;
@@ -509,7 +520,7 @@ static void roadmap_download_start (void) {
       context->res_data.type = resData.type;
       context->res_data.override = resData.override;
       context->res_data.update_time = resData.update_time;
-      context->res_data.lang = resData.lang; 
+      context->res_data.lang = resData.lang;
       context->res_data.context = resData.context;
       context->data = NULL;
       roadmap_log (ROADMAP_DEBUG,"Downloading resource.  type=%d, name=%s, lang=%s" ,resData.type, resData.name, resData.lang );
@@ -532,10 +543,10 @@ void roadmap_res_download (int type,
                RoadMapResDownloadCallback on_loaded,
                void *context) {
    ResData resData;
-   
+
    if (!Initialized)
       roadmap_res_download_init ();
-   
+
    if (ResDataQueue_IsEmpty ()) {
       resData.on_loaded_cb = on_loaded;
       resData.type = type;
@@ -561,31 +572,31 @@ void roadmap_res_download (int type,
       else
          resData.target_name = strdup (name);
       resData.lang = strdup (lang);
-      resData.override = override; 
+      resData.override = override;
       resData.update_time = update_time;
       resData.context = context;
       ResDataQueue_Push (&resData);
    }
-   
+
 }
 
 //////////////////////////////////////////////////////////////////
 static int download_size_callback (void *context_cb, size_t size) {
    DownloadContext* context = (DownloadContext*) context_cb;
-   
+
    // Allocate data storage
    if (size > 0) {
       context->data = malloc (size);
       context->data_size = 0;
    }
-   
+
    return size;
 }
 
 //////////////////////////////////////////////////////////////////
 static void download_progress_callback (void *context_cb, char *data, size_t size) {
    DownloadContext* context = (DownloadContext*) context_cb;
-   
+
    // Store data
    if (context->data) {
       memcpy (context->data + context->data_size, data, size);
@@ -601,22 +612,17 @@ static void download_error_callback (void *context_cb,
    DownloadContext* context = (DownloadContext*) context_cb;
    va_list ap;
    char err_string[1024];
-   
+
    // Load the arguments
    va_start( ap, format );
    vsnprintf (err_string, 1024, format, ap);
    va_end( ap );
-   
-   // Log it...
-   if (strstr (err_string, " 304 ") == NULL) {
-      roadmap_log (ROADMAP_WARNING,"Error dowloading %s - %s" ,context->res_path, err_string );
-   }
-   else{
-      roadmap_log (ROADMAP_DEBUG,"%s was not downloaded error = %s" ,context->res_path, err_string );
-   }
+
+   roadmap_log (ROADMAP_DEBUG,"%s was not downloaded error = %s" ,context->res_path, err_string );
+
    if (context->res_data.on_loaded_cb)
       (*(context->res_data.on_loaded_cb))( context->res_data.name,0, context->res_data.context,"" );
-   
+
    // Free allocated space
    if ( context->data )
    {
@@ -638,7 +644,7 @@ static void download_done_callback (void *context_cb, char *last_modified) {
    const char* path = context->res_path;
    RoadMapFile file;
    const char *directory;
-   
+
    roadmap_log (ROADMAP_DEBUG,"Download finished downloading (%s) Writing %d bytes, last modified = %s" , path, context->data_size, last_modified );
 
    directory = roadmap_path_parent (NULL, path);
@@ -657,16 +663,16 @@ static void download_done_callback (void *context_cb, char *last_modified) {
 
       if (context->res_data.on_loaded_cb)
          (*(context->res_data.on_loaded_cb))( context->res_data.name, 1,context->res_data.context, last_modified);
-      
+
    }
    else{
       roadmap_log( ROADMAP_ERROR, "File openning error for file: %s", path );
    }
-   
+
    downloading = FALSE;
-   
+
    roadmap_download_start();
-   
+
    // Deallocate the download context
    free( context->res_data.target_name );
    free( context->res_data.name );
@@ -674,5 +680,5 @@ static void download_done_callback (void *context_cb, char *last_modified) {
    free( context->data );
    free( context->res_path );
    free( context );
-   
+
 }

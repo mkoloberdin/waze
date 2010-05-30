@@ -26,6 +26,9 @@
 #ifndef REALTIMEPRIVACY_H_
 #define REALTIMEPRIVACY_H_
 
+
+#include "ssd/ssd_widget.h"
+
 //////////////////////////////////////////////
 // Context menu:
 typedef enum privacy_context_menu_items
@@ -44,5 +47,5 @@ typedef enum privacy_context_menu_items
 void RealtimePrivacyInit(void);
 void RealtimePrivacySettings(void);
 int  RealtimePrivacyState(void);
-
+int RealtimePrivacySettingsWidgetCallBack(SsdWidget widget, const char *new_value);
 #endif /*REALTIMEPRIVACY_H_*/

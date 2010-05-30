@@ -40,6 +40,7 @@
 #include "static/update_range.h"
 #include "static/notes.h"
 #include "static/add_alert.h"
+#include "static/editor_street_bar.h"
 #include "track/editor_track_main.h"
 #include "track/editor_track_report.h"
 #include "track/editor_gps_data.h"
@@ -87,7 +88,10 @@ void editor_main_initialize (void) {
    update_range_initialize    ();
    editor_notes_initialize    ();
    add_alert_initialize       ();
-
+#ifdef IPHONE_NATIVE
+   editor_street_bar_initialize ();
+#endif
+   
    EditorPluginID = editor_plugin_register ();
    /* This is due to the WinCE auto sync */
    assert(EditorPluginID == 1);

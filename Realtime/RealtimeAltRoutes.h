@@ -41,14 +41,20 @@ typedef struct {
    RoadMapPosition srcPosition;
    RoadMapPosition destPosition;
    int iNumRoutes;
+   int iTripLenght;
+   int iTripDistance;
    NavigateRouteResult pRouteResults[MAX_ROUTES];
 } AltRouteTrip;
 
+void RealtimeAltRoutes_Clear(void);
 int RealtimeAltRoutes_Count ();
 void RealtimeAltRoutes_Init_Record (AltRouteTrip *route);
 AltRouteTrip *RealtimeAltRoutes_Get_Record (int index);
 BOOL RealtimeAltRoutes_Add_Route (AltRouteTrip *route);
-BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos);
+BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes);
+BOOL RealtimeAltRoutes_TripRoute_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes);
 NavigateRouteResult *RealtimeAltRoutes_Get_Route_Result(int index);
 int RealtimeAltRoutes_Get_Num_Routes();
+
+void RealtimeAltRoutes_Route_CancelRequest(void);
 #endif /* REALTIMEALTROUTES_H_ */

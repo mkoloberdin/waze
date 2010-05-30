@@ -52,6 +52,11 @@ typedef struct {
 	NavigateSegment		*segments;
 } NavigateRouteSegments;
 
+typedef enum {
+   origin_server,
+   origin_trip,
+}  NavigateResponseOrigin;
+
 typedef struct {
 	
 	int							flags;
@@ -61,6 +66,7 @@ typedef struct {
 	int							alt_id;
 	char							*description;
 	int							route_status;
+	int                     origin;
 	NavigateRouteGeometry	geometry;
 } NavigateRouteResult;
 
@@ -69,6 +75,7 @@ typedef enum {
 	route_server_error,
 	route_inconsistent	
 }	NavigateRouteRC;
+
 
 typedef void (*NavigateOnRouteRC) (NavigateRouteRC rc, int protocol_rc, const char *description);
 typedef void (*NavigateOnRouteResults) (NavigateRouteRC rc, int num_res, const NavigateRouteResult *res);
@@ -120,6 +127,7 @@ void navigate_route_request (const PluginLine *from_line,
                              const char *to_city,
                              const char *to_state,
                              int   twitter_mode,
+                             int   facebook_mode,
                              int flags,
                              int trip_id,
                              int max_routes,

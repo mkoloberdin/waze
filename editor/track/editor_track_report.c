@@ -216,6 +216,7 @@ static void editor_track_report_get_points (int offline,
 		time_t start_time;
 		time_t shape_time;
 		time_t end_time;
+      int shape_altitude;
 
 		count = editor_trkseg_get_count ();
 		for (i = 0; i < count; i++) {
@@ -240,6 +241,7 @@ static void editor_track_report_get_points (int offline,
 				ordinal = editor_shape_ordinal (j);
 				editor_shape_position (j, &from_pos);
 				editor_shape_time (j, &shape_time);
+            shape_altitude = editor_shape_altitude(j);
 
 				if (ordinal > PendingOrdinal) {
 			      /* on new track, add a null point */
@@ -250,6 +252,7 @@ static void editor_track_report_get_points (int offline,
 			      	}
 			      	points[point].Position.longitude = INVALID_COORDINATE;
 			      	points[point].Position.latitude = INVALID_COORDINATE;
+                  points[point].altitude = INVALID_COORDINATE;
 			      	points[point].GPS_time = 0;
 			      	point++;
 			      }
@@ -271,6 +274,7 @@ static void editor_track_report_get_points (int offline,
 	         		editor_log (ROADMAP_FATAL, "not enough space (%d) for GPSPath", max_points);
 		      	}
 					points[point].Position = from_pos;
+               points[point].altitude = shape_altitude;
 					points[point].GPS_time = shape_time;
 					point++;
 					PendingOrdinal = ordinal;
@@ -334,6 +338,7 @@ static void editor_track_report_get_points (int offline,
 		}
    	points[point].Position.longitude = INVALID_COORDINATE;
    	points[point].Position.latitude = INVALID_COORDINATE;
+      points[point].altitude = INVALID_COORDINATE;
    	points[point].GPS_time = 0;
    	point++;
 	}
@@ -348,6 +353,7 @@ static void editor_track_report_get_points (int offline,
 					editor_log (ROADMAP_FATAL, "not enough space (%d) for GPSPath", max_points);
 				}
 				points[point].Position = *export_track_point_pos (i);
+            points[point].altitude = export_track_point_gps (i) -> altitude;
 				points[point].GPS_time = export_track_point_time (i);
 				point++;
 			}

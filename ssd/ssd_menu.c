@@ -494,9 +494,22 @@ SsdWidget ssd_menu_new (const char           *name,
       int width = roadmap_canvas_width();
 
       if (height < width)
+#ifndef IPHONE_NATIVE
          width = height;
+#else
+         width = 320;
+#endif
+      
 
       width -= 40;
+      if (!roadmap_screen_is_hd_screen()){
+        if (width > 240)
+          width = 240;
+      }
+      else{
+        if (width > 480)
+          width = 480;
+      }
 
       if (flags & SSD_DIALOG_VERTICAL){
          width = SSD_MIN_SIZE;
@@ -982,7 +995,7 @@ void ssd_menu_load_images(const char   *items_file, const RoadMapAction  *action
          const char *item = menu_items[i];
          if (item != RoadMapFactorySeparator) {
                roadmap_res_get(RES_BITMAP,
-                                 RES_SKIN|RES_LOCK,
+                                 RES_SKIN|RES_NOCACHE,
                                 item);
          }
    }

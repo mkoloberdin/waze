@@ -269,6 +269,7 @@ void ssd_widget_loose_focus( SsdWidget w)
 
 static SsdWidget ssd_widget_focus_backward( SsdWidget w)
 {
+   
    if( !w->prev_tabstop || (w->prev_tabstop == w))
       return w;   // Only one tab-stop in w dialog. Nothing changed.
 
@@ -775,7 +776,7 @@ void ssd_widget_sort_gui_tab_order__fix_orphan_pointers( SsdWidget first)
 
       p = p->next_tabstop;
 
-   }  while( p != first);
+   }  while(p && (p != first));
 }
 
 SsdWidget ssd_widget_sort_gui_tab_order( SsdWidget first)
@@ -806,17 +807,18 @@ SsdWidget ssd_widget_sort_gui_tab_order( SsdWidget first)
 
          if(!new_focus)
              new_focus = w;
+         if (next){         
+            do
+            {
+#if 0
+               // Maybe neighbours?
+               if( valid_gui_element( next))
+                  consider_a_neighbour(w,next);
+#endif
+               next = next->next_tabstop;
 
-         do
-         {
-            // Maybe neighbours?
-            if( valid_gui_element( next))
-               consider_a_neighbour(w,next);
-
-            next = next->next_tabstop;
-
-         }  while( next != w);
-
+            }  while (next && ( next != w));
+         }
 #ifdef DEBUG_GUI_TAB_ORDER
          sprintf( dbgmsg,
                   "Mapping of '%s':\r\n"
@@ -836,7 +838,7 @@ SsdWidget ssd_widget_sort_gui_tab_order( SsdWidget first)
 
       w = w->next_tabstop;
 
-   }  while( w != first);
+   }  while( w && (w != first));
 
    assert(new_focus);
 
@@ -1028,6 +1030,7 @@ SsdWidget ssd_widget_sort_tab_order(void* parent_dialog, SsdWidget head)
    if(!last_tabstop)
       return NULL;   // No tab-stops found
 
+#ifdef TOUCH_SCREEN
    if( first_tabstop != last_tabstop)
    {
       // Make 'last' and 'first' point at each other:
@@ -1036,7 +1039,7 @@ SsdWidget ssd_widget_sort_tab_order(void* parent_dialog, SsdWidget head)
 
       fix_tab_order_sequence( first_tabstop);
    }
-
+#endif
    if( !default_widget)
 	   default_widget = first_tabstop;
 

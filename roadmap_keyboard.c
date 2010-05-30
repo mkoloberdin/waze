@@ -176,6 +176,12 @@ static void on_disabling_driving_lock(int exit_code, void *data){
 		roadmap_keyboard_set_typing_lock_enable(FALSE);
 }
 
+#ifdef IPHONE
+void on_ok_disabling_driving_lock(int exit_code ){
+   roadmap_keyboard_set_typing_lock_enable(FALSE);
+}
+#endif //IPHONE
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*************************************************************************************************
@@ -216,16 +222,23 @@ BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
 	res = ( position.speed > sTypingLockSpeedThr );
 	if ( res && show_msg )
 	{
-		int cur_len = 0;
-		snprintf( msg_text, KB_TYPING_LOCK_MSG_MAX_LEN, roadmap_lang_get( "Typing is disabled when driving." ) );
+
+#ifdef IPHONE_NATIVE
+      strncpy_safe(msg_text,
+                   roadmap_lang_get( "Typing is disabled when driving. Press OK to allow typing for passengers" ),
+                   KB_TYPING_LOCK_MSG_MAX_LEN);
+      roadmap_messagebox_cb ("", msg_text, on_ok_disabling_driving_lock);
+#else
+      int cur_len = 0;
+
+      strncpy_safe(msg_text,
+                   roadmap_lang_get( "Typing is disabled when driving." ),
+                   KB_TYPING_LOCK_MSG_MAX_LEN);
 
 #ifdef TOUCH_SCREEN
-		cur_len = strlen( roadmap_lang_get( "Typing is disabled when driving." ) );
+		cur_len = strlen( msg_text );
 		snprintf( &msg_text[cur_len], KB_TYPING_LOCK_MSG_MAX_LEN-cur_len, "\n%s", roadmap_lang_get( "You can minimize the 'Report' screen and type later." ) );
-#endif
-
-		//roadmap_messagebox_timeout( "", msg_text, KB_TYPING_LOCK_MSG_TIMEOUT );
-
+#endif //TOUCH_SCREEN
 
 		ssd_confirm_dialog_custom_timeout( "",
                         msg_text,
@@ -233,7 +246,7 @@ BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
                         on_disabling_driving_lock,
                         NULL, roadmap_lang_get( "Understood!" ),
                         roadmap_lang_get( "I'm not the driver" ), KB_TYPING_LOCK_MSG_TIMEOUT );
-
+#endif //IPHONE_NATIVE
 
 	}
 	return res;

@@ -51,6 +51,9 @@ void search_menu_search_favorites(void);
 void search_menu_search_address(void);
 void search_menu_search_local(void);
 void search_menu_my_saved_places(void);
+#ifdef IPHONE_NATIVE
+void roamdmap_search_address_book(void);
+#endif //IPHONE_NATIVE
 void search_menu_geo_reminders(void);
 void search_menu_set_local_search_attrs( void );
 #endif /*ROADMAP_SEARCH_H_*/

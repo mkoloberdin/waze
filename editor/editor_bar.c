@@ -44,8 +44,8 @@
 #define EDITOR_BAR_FOREGROUND  ("#ffffff")
 
 
-static RoadMapImage gBgImage;
-static RoadMapImage gBgFullImage;
+static RoadMapImage gBgImage = NULL;
+static RoadMapImage gBgFullImage = NULL;
 static int  gBgImageWidth, gBgImageHeight;
 static BOOL gShowBar;
 static RoadMapPen gEditorBarPen;
@@ -66,7 +66,7 @@ BOOL editor_bar_feature_enabled (void) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int editor_bar_pressed (RoadMapGuiPoint *point) {
-   static RoadMapImage RecordDownImage = NULL;
+   RoadMapImage RecordDownImage = NULL;
    RoadMapGuiPoint position;
 
    if (!gShowBar)
@@ -86,9 +86,16 @@ static int editor_bar_pressed (RoadMapGuiPoint *point) {
 
       position.x = 20;
       position.y = roadmap_canvas_height() - roadmap_bar_bottom_height() - gBgImageHeight + 5 ;
+      /*
+       * AGA TODO : Check this canvas refresh
+       */
       if (RecordDownImage)
          roadmap_canvas_draw_image (RecordDownImage, &position,0, IMAGE_NORMAL);
+#if (defined(IPHONE) && defined(OPENGL))
+      roadmap_screen_refresh();
+#else
       roadmap_canvas_refresh ();
+#endif
       return 1;
 
    }
@@ -124,6 +131,49 @@ static int editor_bar_short_click(RoadMapGuiPoint *point) {
 
 }
 
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static void drawBGImage ( const RoadMapGuiPoint* position )
+{
+   RoadMapImage image;
+   int width = roadmap_canvas_width ();
+   int height = roadmap_canvas_height();
+   int num_images;
+   int image_width;
+   int i;
+   RoadMapGuiPoint barLocation;
+
+   RoadMapImage BarBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, EDITOR_BAR_BG);
+
+   /*
+    * Draw created before image
+    */
+   if ( gBgFullImage )
+   {
+	   roadmap_canvas_draw_image (gBgFullImage, position, 0, IMAGE_NORMAL);
+	   return;
+   }
+
+   /*
+    * Direct draw
+    */
+   if (height > width){
+      width = width*2;
+   }
+
+   image_width = roadmap_canvas_image_width( BarBgImage );
+
+   num_images = width / image_width ;
+
+   for (i = 0; i < num_images; i++)
+   {
+
+	   barLocation.y = position->y;
+	   barLocation.x = position->x + i * image_width;
+	   roadmap_canvas_draw_image
+         ( BarBgImage, &barLocation, 0, IMAGE_NORMAL);
+   }
+}
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,9 +212,10 @@ static void editor_bar_after_refresh (void) {
       return;
    }
 
+
    position.x = 0;
    position.y = roadmap_canvas_height() - roadmap_bar_bottom_height() - gBgImageHeight ;
-   roadmap_canvas_draw_image (gBgFullImage, &position, 0, IMAGE_NORMAL);
+   drawBGImage( &position );
 
 
 #ifdef TOUCH_SCREEN
@@ -175,7 +226,7 @@ static void editor_bar_after_refresh (void) {
    {
            roadmap_log (ROADMAP_ERROR, "editor_bar - cannot load %s image ", "StopButtonUp");
    }
-   
+
 
 
    if (RecordUpImage){
@@ -289,6 +340,7 @@ static RoadMapImage createBGImage (RoadMapImage BarBgImage) {
    return image;
 }
 
+
 /////////////////////////////////////////////////////////
 void editor_bar_initialize(void){
 
@@ -298,13 +350,19 @@ void editor_bar_initialize(void){
    if (!editor_bar_feature_enabled())
       return;
 
-   gBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_LOCK, EDITOR_BAR_BG);
+
+   /*
+    * AGA TODO :: Check this lock
+    */
+   gBgImage = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, EDITOR_BAR_BG);
    if (gBgImage == NULL){
       roadmap_log (ROADMAP_ERROR, "editor_bar - cannot load %s image ", EDITOR_BAR_BG);
       return;
    }
 
+#if !( defined(ANDROID) && defined(OPENGL) )
    gBgFullImage = createBGImage(gBgImage);
+#endif
 
    gBgImageWidth= roadmap_canvas_image_width(gBgImage);
    gBgImageHeight = roadmap_canvas_image_height(gBgImage);

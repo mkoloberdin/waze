@@ -41,11 +41,20 @@
 static int g_seconds;
 static SsdWidget s_gMsgBoxDlg;
 
+#ifndef IPHONE
+ #define TEXT_SIZE 16
+ #define TITLE_TEXT_SIZE 20
+#else
+ #define TEXT_SIZE 14
+ #define TITLE_TEXT_SIZE 18
+#endif //IPHONE
+
+
 typedef struct {
 	void *context;
 	ConfirmDialogCallback callback;
-	char TxtYes[100];
-	char TxtNo[100];
+	char TxtYes[SSD_TEXT_MAXIMUM_TEXT_LENGTH];
+	char TxtNo[SSD_TEXT_MAXIMUM_TEXT_LENGTH];
 	BOOL default_yes;
 } confirm_dialog_context;
 
@@ -59,9 +68,9 @@ static void kill_messagebox_timer (void) {
    }
 }
 
-void ssd_confirm_dialog_update (void)
+static void ssd_confirm_dialog_update (void)
 {
-   char button_txt[20];
+   char button_txt[SSD_TEXT_MAXIMUM_TEXT_LENGTH];
    confirm_dialog_context *data;
    SsdWidget buttonYes, buttonNo;
    char *dlg_name;
@@ -88,29 +97,41 @@ void ssd_confirm_dialog_update (void)
       buttonYes = ssd_widget_get(s_gMsgBoxDlg, roadmap_lang_get ("Yes")); // change the buttons to custom text
       if (!g_seconds){
          ssd_dialog_set_focus(buttonYes);
-         sprintf(button_txt, "%s", roadmap_lang_get (data->TxtYes));
+         snprintf( button_txt, SSD_TEXT_MAXIMUM_TEXT_LENGTH, "%s", roadmap_lang_get (data->TxtYes));
       }
       else{
-         sprintf(button_txt, "%s (%d)", roadmap_lang_get (data->TxtYes), g_seconds);
+         snprintf( button_txt, SSD_TEXT_MAXIMUM_TEXT_LENGTH, "%s (%d)", roadmap_lang_get (data->TxtYes), g_seconds);
       }
+#ifdef TOUCH_SCREEN
       ssd_button_change_text(buttonYes, button_txt);
+#else
+      ssd_widget_set_left_softkey_text(s_gMsgBoxDlg,button_txt);
+      ssd_dialog_refresh_current_softkeys();
+#endif
    }
    else{
       buttonNo = ssd_widget_get(s_gMsgBoxDlg, roadmap_lang_get ("No")); // change the buttons to custom text
       if (!g_seconds){
          ssd_dialog_set_focus(buttonNo);
-         sprintf(button_txt, "%s", roadmap_lang_get (data->TxtNo));
+         snprintf( button_txt, SSD_TEXT_MAXIMUM_TEXT_LENGTH, "%s", roadmap_lang_get (data->TxtNo));
       }
       else{
-         sprintf(button_txt, "%s (%d)", roadmap_lang_get (data->TxtNo), g_seconds);
+         snprintf( button_txt, SSD_TEXT_MAXIMUM_TEXT_LENGTH, "%s (%d)", roadmap_lang_get (data->TxtNo), g_seconds);
       }
+
+#ifdef TOUCH_SCREEN
       ssd_button_change_text(buttonNo, button_txt);
+#else
+      ssd_widget_set_right_softkey_text(s_gMsgBoxDlg,button_txt);
+      ssd_dialog_refresh_current_softkeys();
+#endif
    }
 
 
    if (!roadmap_screen_refresh())
        roadmap_screen_redraw();
 }
+
 void ssd_confirm_dialog_close (void)
 {
    char *dlg_name;
@@ -131,7 +152,7 @@ void ssd_confirm_dialog_close (void)
       kill_messagebox_timer();
       return;
    }
-
+   
    dialog = ssd_dialog_context();
    data = (confirm_dialog_context *) ssd_dialog_context();
    if (data){
@@ -141,8 +162,13 @@ void ssd_confirm_dialog_close (void)
       else
          exit_code = dec_no;
    }
-
+   
    kill_messagebox_timer ();
+   /* Set the NULL to the current before hide
+    * NUll context is critical as an indicator for the delayed callback in ssd_button
+    * that the context is already not accessible
+    */
+   ssd_dialog_set_context( NULL );
    ssd_dialog_hide ("confirm_dialog", dec_ok);
 
    if (!roadmap_screen_refresh())
@@ -152,7 +178,9 @@ void ssd_confirm_dialog_close (void)
       (*callback)(exit_code, data->context);
 
    if (data)
+   {
       free(data);
+   }
 }
 
 static int yes_button_callback (SsdWidget widget, const char *new_value) {
@@ -164,16 +192,18 @@ static int yes_button_callback (SsdWidget widget, const char *new_value) {
 	dialog = widget->parent;
 	data = (confirm_dialog_context *)dialog->context;
 
-	callback = (ConfirmDialogCallback)data->callback;
-
 	ssd_dialog_hide ("confirm_dialog", dec_yes);
 
-   (*callback)(dec_yes, data->context);
-
-   kill_messagebox_timer ();
-
    if (data)
+	{
+      callback = (ConfirmDialogCallback)data->callback;
+
+      (*callback)(dec_yes, data->context);
+
+      kill_messagebox_timer ();
+      dialog->context = NULL;
       free(data);
+	}
 
 	return 0;
 }
@@ -184,20 +214,23 @@ static int no_button_callback (SsdWidget widget, const char *new_value) {
     SsdWidget dialog;
     ConfirmDialogCallback callback;
 	 confirm_dialog_context *data;
-
+   
     dialog = widget->parent;
     data = (confirm_dialog_context  *)dialog->context;
 
-    callback = (ConfirmDialogCallback)data->callback;
-
     ssd_dialog_hide ("confirm_dialog", dec_no);
 
-    (*callback)(dec_no, data->context);
-
-    kill_messagebox_timer();
-
     if (data)
+    {
+       callback = (ConfirmDialogCallback)data->callback;
+
+       (*callback)(dec_no, data->context);
+
+       kill_messagebox_timer();
+       dialog->context = NULL;
+
        free(data);
+    }
 
     return 0;
 }
@@ -248,7 +281,7 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
    ssd_widget_get_size( dialog, &dlg_size, NULL );
    /* Spacer */
    ssd_widget_add (dialog,
-      ssd_container_new ("spacer1", NULL, 0, 15, SSD_END_ROW));
+      ssd_container_new ("spacer1", NULL, 0, 12, SSD_END_ROW));
 
     text_con = ssd_container_new ("text_container", NULL,
                                   -1,	/* 90% of dialog width */
@@ -258,7 +291,7 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
 
    // Text box
-   text =  ssd_text_new ("text", "", 16, SSD_END_ROW|SSD_WIDGET_SPACE);
+   text =  ssd_text_new ("text", "", 16, SSD_ALIGN_CENTER|SSD_END_ROW|SSD_WIDGET_SPACE|SSD_TEXT_NORMAL_FONT);
    ssd_text_set_color(text,"#ffffff");
 
    ssd_widget_add (text_con,text);
@@ -266,12 +299,12 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
   ssd_widget_add(dialog, text_con);
 
   widget_title = ssd_widget_get( dialog, "title_text" );
-  ssd_text_set_color(widget_title,"#ffffff");
-  ssd_text_set_font_size( widget_title, 20 );
+   ssd_text_set_color(widget_title,"#ffffff");
+  ssd_text_set_font_size( widget_title, TITLE_TEXT_SIZE );
 
 #ifdef TOUCH_SCREEN
 
-  ssd_dialog_add_vspace( dialog, 10, SSD_START_NEW_ROW );
+  ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
 
     ssd_widget_add (dialog,
     ssd_button_label (roadmap_lang_get ("Yes"), textYes,
@@ -287,8 +320,8 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 	set_soft_keys(dialog, textYes, textNo);
 
 #endif
-    ssd_widget_add (dialog,
-      ssd_container_new ("spacer2", NULL, 0, 10, SSD_START_NEW_ROW|SSD_WIDGET_SPACE));
+   ssd_widget_add (dialog,
+      ssd_container_new ("spacer3", NULL, 0, 2, SSD_END_ROW));
 }
 
 void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL default_yes, ConfirmDialogCallback callback, void *context,const char *textYes, const char *textNo) {
@@ -302,8 +335,8 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
   title = roadmap_lang_get (title);
   text  = roadmap_lang_get (text);
 
-  strncpy(data->TxtYes, textYes, 100);
-  strncpy(data->TxtNo, textNo, 100);
+  strncpy(data->TxtYes, textYes, SSD_TEXT_MAXIMUM_TEXT_LENGTH );
+  strncpy(data->TxtNo, textNo, SSD_TEXT_MAXIMUM_TEXT_LENGTH );
 
   if (!dialog) {
       create_confirm_dialog (default_yes,textYes,textNo);

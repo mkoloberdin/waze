@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    The FreeType internal cache interface (body).                        */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 2000-2001, 2002, 2003, 2004, 2005, 2006, 2007 by             */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -17,7 +17,7 @@
 
 
 #include <ft2build.h>
-#include FT_CACHE_INTERNAL_MANAGER_H
+#include "ftcmanag.h"
 #include FT_INTERNAL_OBJECTS_H
 #include FT_INTERNAL_DEBUG_H
 
@@ -46,7 +46,10 @@
   ftc_node_mru_link( FTC_Node     node,
                      FTC_Manager  manager )
   {
-    FTC_MruNode_Prepend( (FTC_MruNode*)&manager->nodes_list,
+    void  *nl = &manager->nodes_list;
+
+
+    FTC_MruNode_Prepend( (FTC_MruNode*)nl,
                          (FTC_MruNode)node );
     manager->num_nodes++;
   }
@@ -57,11 +60,16 @@
   ftc_node_mru_unlink( FTC_Node     node,
                        FTC_Manager  manager )
   {
-    FTC_MruNode_Remove( (FTC_MruNode*)&manager->nodes_list,
+    void  *nl = &manager->nodes_list;
+
+
+    FTC_MruNode_Remove( (FTC_MruNode*)nl,
                         (FTC_MruNode)node );
     manager->num_nodes--;
   }
 
+
+#ifndef FTC_INLINE
 
   /* move a node to the head of the manager's MRU list */
   static void
@@ -71,6 +79,8 @@
     FTC_MruNode_Up( (FTC_MruNode*)&manager->nodes_list,
                     (FTC_MruNode)node );
   }
+
+#endif /* !FTC_INLINE */
 
 
   /* Note that this function cannot fail.  If we cannot re-size the
@@ -100,10 +110,11 @@
         if ( p >= mask )
         {
           FT_Memory  memory = cache->memory;
+          FT_Error   error;
 
 
           /* if we can't expand the array, leave immediately */
-          if ( FT_MEM_RENEW_ARRAY( cache->buckets, (mask+1)*2, (mask+1)*4 ) )
+          if ( FT_RENEW_ARRAY( cache->buckets, (mask+1)*2, (mask+1)*4 ) )
             break;
         }
 
@@ -152,11 +163,12 @@
         if ( p == 0 )
         {
           FT_Memory  memory = cache->memory;
+          FT_Error   error;
 
 
           /* if we can't shrink the array, leave immediately */
-          if ( FT_MEM_RENEW_ARRAY( cache->buckets,
-                                   ( mask + 1 ) * 2, mask + 1 ) )
+          if ( FT_RENEW_ARRAY( cache->buckets,
+                               ( mask + 1 ) * 2, mask + 1 ) )
             break;
 
           cache->mask >>= 1;
@@ -246,7 +258,11 @@
 
 
   /* remove a node from the cache manager */
-  FT_EXPORT_DEF( void )
+#ifdef FT_CONFIG_OPTION_OLD_INTERNALS
+  FT_BASE_DEF( void )
+#else
+  FT_LOCAL_DEF( void )
+#endif
   ftc_node_destroy( FTC_Node     node,
                     FTC_Manager  manager )
   {
@@ -301,7 +317,7 @@
   /*************************************************************************/
 
 
-  FT_EXPORT_DEF( FT_Error )
+  FT_LOCAL_DEF( FT_Error )
   FTC_Cache_Init( FTC_Cache  cache )
   {
     return ftc_cache_init( cache );
@@ -312,17 +328,19 @@
   ftc_cache_init( FTC_Cache  cache )
   {
     FT_Memory  memory = cache->memory;
+    FT_Error   error;
 
 
     cache->p     = 0;
     cache->mask  = FTC_HASH_INITIAL_SIZE - 1;
     cache->slack = FTC_HASH_INITIAL_SIZE * FTC_HASH_MAX_LOAD;
 
-    return ( FT_MEM_NEW_ARRAY( cache->buckets, FTC_HASH_INITIAL_SIZE * 2 ) );
+    (void)FT_NEW_ARRAY( cache->buckets, FTC_HASH_INITIAL_SIZE * 2 );
+    return error;
   }
 
 
-  FT_EXPORT_DEF( void )
+  static void
   FTC_Cache_Clear( FTC_Cache  cache )
   {
     if ( cache )
@@ -380,7 +398,7 @@
   }
 
 
-  FT_EXPORT_DEF( void )
+  FT_LOCAL_DEF( void )
   FTC_Cache_Done( FTC_Cache  cache )
   {
     ftc_cache_done( cache );
@@ -415,7 +433,7 @@
   }
 
 
-  FT_EXPORT_DEF( FT_Error )
+  FT_LOCAL_DEF( FT_Error )
   FTC_Cache_NewNode( FTC_Cache   cache,
                      FT_UInt32   hash,
                      FT_Pointer  query,
@@ -452,7 +470,9 @@
   }
 
 
-  FT_EXPORT_DEF( FT_Error )
+#ifndef FTC_INLINE
+
+  FT_LOCAL_DEF( FT_Error )
   FTC_Cache_Lookup( FTC_Cache   cache,
                     FT_UInt32   hash,
                     FT_Pointer  query,
@@ -510,8 +530,10 @@
     return FTC_Cache_NewNode( cache, hash, query, anode );
   }
 
+#endif /* !FTC_INLINE */
 
-  FT_EXPORT_DEF( void )
+
+  FT_LOCAL_DEF( void )
   FTC_Cache_RemoveFaceID( FTC_Cache   cache,
                           FTC_FaceID  face_id )
   {

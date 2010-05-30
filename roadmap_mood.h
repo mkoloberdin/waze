@@ -48,10 +48,16 @@ typedef enum MoodType
    Mood_Peaceful_Female,
    Mood_Singing_Female,
    Mood_Wondering_Female,
-
+   Mood_Bronze,
+   Mood_Silver,
+   Mood_Gold,
+   Mood_Busy,
+   Mood_Busy_Female,
+   Mood_In_a_Hurry,
+   Mood_In_a_Hurry_Female,
    Mood__count,
    Mood__invalid
-   
+
 }  MoodType;
 
 
@@ -68,46 +74,27 @@ typedef enum MoodType
 #define  MOOD_Name_Peaceful  ("peaceful")
 #define  MOOD_Name_Singing   ("singing")
 #define  MOOD_Name_Wondering ("wondering")
-#define  MOOD_Name_Happy_Female     ("happy-female")
-#define  MOOD_Name_Sad_Female       ("sad-female")
-#define  MOOD_Name_Mad_Female       ("mad-female")
-#define  MOOD_Name_Bored_Female     ("bored-female")
-#define  MOOD_Name_Speedy_Female    ("speedy-female")
-#define  MOOD_Name_Starving_Female  ("starving-female")
-#define  MOOD_Name_Sleepy_Female    ("sleepy-female")
-#define  MOOD_Name_Cool_Female      ("cool-female")
-#define  MOOD_Name_InLove_Female    ("inlove-female")
-#define  MOOD_Name_LOL_Female       ("LOL-female")
-#define  MOOD_Name_Peaceful_Female  ("peaceful-female")
-#define  MOOD_Name_Singing_Female   ("singing-female")
-#define  MOOD_Name_Wondering_Female ("wondering-female")
+#define  MOOD_Name_Happy_Female      ("happy-female")
+#define  MOOD_Name_Sad_Female        ("sad-female")
+#define  MOOD_Name_Mad_Female        ("mad-female")
+#define  MOOD_Name_Bored_Female      ("bored-female")
+#define  MOOD_Name_Speedy_Female     ("speedy-female")
+#define  MOOD_Name_Starving_Female   ("starving-female")
+#define  MOOD_Name_Sleepy_Female     ("sleepy-female")
+#define  MOOD_Name_Cool_Female       ("cool-female")
+#define  MOOD_Name_InLove_Female     ("inlove-female")
+#define  MOOD_Name_LOL_Female        ("LOL-female")
+#define  MOOD_Name_Peaceful_Female   ("peaceful-female")
+#define  MOOD_Name_Singing_Female    ("singing-female")
+#define  MOOD_Name_Wondering_Female  ("wondering-female")
+#define  MOOD_Name_Bronze            ("wazer_bronze")
+#define  MOOD_Name_Silver            ("wazer_silver")
+#define  MOOD_Name_Gold              ("wazer_gold")
+#define  MOOD_Name_Busy              ("busy")
+#define  MOOD_Name_In_A_Hurry        ("in_a_hurry")
+#define  MOOD_Name_Busy_Female       ("busy-female")
+#define  MOOD_Name_In_A_Hurry_Female ("in_a_hurry-female")
 
-#define  MOOD_Name_Happy_Small     ("mood_happy_small")
-#define  MOOD_Name_Sad_Small       ("mood_sad_small")
-#define  MOOD_Name_Mad_Small       ("mood_mad_small")
-#define  MOOD_Name_Bored_Small     ("mood_bored_small")
-#define  MOOD_Name_Speedy_Small    ("mood_speedy_small")
-#define  MOOD_Name_Starving_Small  ("mood_starving_small")
-#define  MOOD_Name_Sleepy_Small    ("mood_sleepy_small")
-#define  MOOD_Name_Cool_Small      ("mood_cool_small")
-#define  MOOD_Name_InLove_Small    ("mood_inlove_small")
-#define  MOOD_Name_LOL_Small       ("mood_LOL_small")
-#define  MOOD_Name_Peaceful_Small  ("mood_peaceful_small")
-#define  MOOD_Name_Singing_Small   ("mood_singing_small")
-#define  MOOD_Name_Wondering_Small ("mood_wondering_small")
-#define  MOOD_Name_Happy_Small_Female     ("mood_happy_small_female")
-#define  MOOD_Name_Sad_Small_Female       ("mood_sad_small_female")
-#define  MOOD_Name_Mad_Small_Female       ("mood_mad_small_female")
-#define  MOOD_Name_Bored_Small_Female     ("mood_bored_small_female")
-#define  MOOD_Name_Speedy_Small_Female    ("mood_speedy_small_female")
-#define  MOOD_Name_Starving_Small_Female  ("mood_starving_small_female")
-#define  MOOD_Name_Sleepy_Small_Female    ("mood_sleepy_small_female")
-#define  MOOD_Name_Cool_Small_Female      ("mood_cool_small_female")
-#define  MOOD_Name_InLove_Small_Female    ("mood_inlove_small_female")
-#define  MOOD_Name_LOL_Small_Female       ("mood_LOL_small_female")
-#define  MOOD_Name_Peaceful_Small_Female  ("mood_peaceful_small_female")
-#define  MOOD_Name_Singing_Small_Female   ("mood_singing_small_female")
-#define  MOOD_Name_Wondering_Small_Female ("mood_wondering_small_female")
 
 void roadmap_mood (void);
 void roadmap_mood_dialog (RoadMapCallback callback);
@@ -116,7 +103,10 @@ const char *roadmap_mood_get_name();
 void roadmap_mood_set(const char *value);
 const char *roadmap_mood_get_top_name();
 int roadmap_mood_state(void);
+int roadmap_mood_actual_state(void);
+void roadmap_mood_set_exclusive_moods(int mood);
+void roadmap_mood_set_override_mood(int mood);
+int roadmap_mood_get_exclusive_moods(void);
 
 const char* roadmap_mood_to_string(MoodType mood);
 MoodType roadmap_mood_from_string( const char* szMood);
-const char* roadmap_mood_to_string_small(MoodType mood);

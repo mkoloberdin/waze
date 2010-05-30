@@ -27,17 +27,6 @@
 
 typedef enum border_images
 {
-   border_image_top,
-   border_image_top_right,
-   border_image_top_left,
-
-   border_image_bottom,
-   border_image_bottom_right,
-   border_image_bottom_left,
-
-   border_image_left,
-   border_image_right,
-
    border_white_top,
    border_white_top_right,
    border_white_top_left,
@@ -67,8 +56,6 @@ typedef enum border_images
    border_pointer_menu,
    border_pointer_comment,
 
-   border_image_bottom_no_frame,
-   border_image_bottom_no_frame2,
    border_black_bottom_no_frame,
 
    border_img__count,
@@ -76,14 +63,14 @@ typedef enum border_images
 
 }  border_images;
 
-#define STYLE_NORMAL  border_image_top
+#define STYLE_NORMAL  border_black_top
 #define STYLE_WHITE   border_white_top
 #define STYLE_BLACK   border_black_top
 
 #define POINTER_NONE 	 -1
 #define POINTER_POSITION 0
 #define POINTER_MENU  	 border_pointer_menu
-#define POINTER_COMMNET  border_pointer_comment
+#define POINTER_COMMENT  border_pointer_comment
 
 #define HEADER_NONE		 -1
 #define HEADER_BLACK	    border_heading_black_left

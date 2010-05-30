@@ -28,6 +28,9 @@
 #include <time.h>
 #include "roadmap.h"
 
+#define NET_COMPRESS 0x00000001
+#define TEST_NET_COMPRESS( flags ) ( roadmap_net_get_compress_enabled() ? (flags & NET_COMPRESS) : 0 )
+
 #if defined (_WIN32) && !defined (__SYMBIAN32__)
 
 #include <winsock.h>
@@ -48,8 +51,10 @@ typedef void* RoadMapSocket;
 
 #else
 
-typedef int RoadMapSocket; /* UNIX style. */
-#define ROADMAP_INVALID_SOCKET ((RoadMapSocket)-1)
+struct roadmap_socket_t;
+typedef struct roadmap_socket_t *RoadMapSocket;
+#define ROADMAP_INVALID_SOCKET ((RoadMapSocket) NULL)
+int roadmap_net_get_fd(RoadMapSocket s);
 
 #endif /* _WIN32 */
 
@@ -59,8 +64,9 @@ typedef void (*RoadMapNetConnectCallback) (RoadMapSocket socket, void *context, 
 
 RoadMapSocket roadmap_net_connect(  const char*       protocol,
                                     const char*       name, 
-                                    time_t			update_time, 
+                                    time_t            update_time, 
                                     int               default_port,
+                                    int               flags,
                                     roadmap_result*   res); // Optional, can be NULL
 
 // A-syncronious receive:
@@ -68,6 +74,7 @@ int roadmap_net_connect_async (const char *protocol,
                                 const char *name, 
                                 time_t update_time,
                                 int default_port,
+                                int flags,
                                 RoadMapNetConnectCallback callback,
                                 void *context);
 
@@ -89,5 +96,7 @@ void roadmap_net_shutdown ( void );
 
 void roadmap_net_initialize( void );
 
+void roadmap_net_set_compress_enabled( BOOL value );
+BOOL roadmap_net_get_compress_enabled( void );
 #endif // _ROADMAP_NET__H_
 

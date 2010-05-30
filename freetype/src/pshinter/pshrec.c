@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType PostScript hints recorder (body).                           */
 /*                                                                         */
-/*  Copyright 2001, 2002, 2003, 2004 by                                    */
+/*  Copyright 2001, 2002, 2003, 2004, 2007 by                              */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -308,11 +308,11 @@
 
   /* set a new mask to a given bit range */
   static FT_Error
-  ps_mask_table_set_bits( PS_Mask_Table  table,
-                          FT_Byte*       source,
-                          FT_UInt        bit_pos,
-                          FT_UInt        bit_count,
-                          FT_Memory      memory )
+  ps_mask_table_set_bits( PS_Mask_Table   table,
+                          const FT_Byte*  source,
+                          FT_UInt         bit_pos,
+                          FT_UInt         bit_count,
+                          FT_Memory       memory )
   {
     FT_Error  error = 0;
     PS_Mask   mask;
@@ -330,7 +330,7 @@
 
     /* now, copy bits */
     {
-      FT_Byte*  read  = source + ( bit_pos >> 3 );
+      FT_Byte*  read  = (FT_Byte*)source + ( bit_pos >> 3 );
       FT_Int    rmask = 0x80 >> ( bit_pos & 7 );
       FT_Byte*  write = mask->bytes;
       FT_Int    wmask = 0x80;
@@ -628,7 +628,7 @@
       goto Exit;
 
     /* set bits in new mask */
-    error = ps_mask_table_set_bits( &dim->masks, (FT_Byte*)source,
+    error = ps_mask_table_set_bits( &dim->masks, source,
                                     source_pos, source_bits, memory );
 
   Exit:
@@ -730,7 +730,7 @@
         break;
     }
 
-    /* creat a new counter when needed */
+    /* create a new counter when needed */
     if ( count == 0 )
     {
       error = ps_mask_table_alloc( &dim->counters, memory, &counter );

@@ -33,20 +33,21 @@
 
 #include "roadmap_types.h"
 
-typedef struct {  /* table point.data */
-
-   /* The position here is relative to the upper-left corner
-    * of the square the point belongs to.
-    */
-#if defined(J2MEMAP)
+typedef struct {
    int longitude;
    int latitude;
-#else
+} RoadMapPointJ2ME;
+
+typedef struct {
    unsigned short longitude;
    unsigned short latitude;
-#endif
+} RoadMapPointC;
 
-} RoadMapPoint;
+#if defined(J2MEMAP)
+	typedef RoadMapPointJ2ME RoadMapPoint; 
+#else
+	typedef RoadMapPointC RoadMapPoint; 
+#endif
 
 #endif // _ROADMAP_DB_POINT__H_
 

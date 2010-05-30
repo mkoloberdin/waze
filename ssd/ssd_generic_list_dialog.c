@@ -89,6 +89,14 @@ void ssd_generic_list_dialog_show(const char*            title,
    static SsdListContext list_context;
 
    SsdWidget list;
+   int flags = 0;
+
+#ifdef OPENGL
+   /*
+    * Borders are fast in OPENGL
+    */
+   flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
+#endif // OPENGL
 
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
@@ -99,7 +107,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    {
       GenericList = ssd_dialog_new ( SSD_GEN_LIST_DLG_NAME, "", on_dialog_closed,
                                     SSD_CONTAINER_TITLE);
-      list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, 0, NULL);
+      list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, flags, NULL);
 
       ssd_widget_add (GenericList, list);
    }
@@ -118,7 +126,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    ssd_list_resize ( list, list_height );
    ssd_list_populate (list, count, labels, values, NULL, NULL, list_callback, del_callback, FALSE);
    ssd_dialog_activate ( SSD_GEN_LIST_DLG_NAME, NULL );
-   ssd_dialog_draw ();
+   ssd_dialog_draw();
  }
 
 void ssd_generic_icon_list_dialog_show(

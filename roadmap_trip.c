@@ -125,11 +125,12 @@ RoadMapTripPoint RoadMapTripPredefined[] = {
     ROADMAP_TRIP_ITEM("Destination", "Destination", "Destination", 0, 1, 0),
     ROADMAP_TRIP_ITEM("Departure", "Departure", "Departure", 1, 1, 0),
     ROADMAP_TRIP_ITEM("Address",     NULL,    NULL,       0, 0, 1),
-    ROADMAP_TRIP_ITEM("Selection",   "Selection",  NULL,  0, 0, 1),
+    ROADMAP_TRIP_ITEM("Selection",   "Selection",  "Selection",  0, 0, 1),
     ROADMAP_TRIP_ITEM("Hold",        NULL,    NULL,       1, 0, 0),
     ROADMAP_TRIP_ITEM("Location",   "Location",  "location",    0, 0, 1),
     ROADMAP_TRIP_ITEM("ORIG_GPS",   "ORIG_GPS",  NULL,    0, 0, 1),
     ROADMAP_TRIP_ITEM("Marked_Location", "Selection",    "mark_location_pin",       0, 1, 0),
+    ROADMAP_TRIP_ITEM("Alt-Routes",        NULL,    NULL,       1, 0, 0),
     ROADMAP_TRIP_ITEM(NULL, NULL, NULL, 0, 0, 0)
 };
 
@@ -1096,7 +1097,7 @@ void roadmap_trip_display (void) {
                 	if (car_name == NULL){
                 	    car_name = roadmap_path_join("cars", config_car);
                        image =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, car_name);
-                       free(car_name);
+                       roadmap_path_free(car_name);
                 	}
                 	else
                      image =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, car_name);

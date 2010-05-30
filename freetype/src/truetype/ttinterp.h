@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    TrueType bytecode interpreter (specification).                       */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004 by                               */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005, 2006, 2007 by             */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,7 +18,6 @@
 
 #ifndef __TTINTERP_H__
 #define __TTINTERP_H__
-
 
 #include <ft2build.h>
 #include "ttobjs.h"
@@ -79,8 +78,8 @@ FT_BEGIN_HEADER
 
   /* Distance projection along one of the projection vectors */
   typedef FT_F26Dot6
-  (*TT_Project_Func)( EXEC_OP_ FT_Vector*  v1,
-                               FT_Vector*  v2 );
+  (*TT_Project_Func)( EXEC_OP_ FT_Pos   dx,
+                               FT_Pos   dy );
 
   /* reading a cvt value.  Take care of non-square pixels if necessary */
   typedef FT_F26Dot6
@@ -216,9 +215,6 @@ FT_BEGIN_HEADER
     TT_Set_CVT_Func    func_write_cvt; /* write a cvt entry (in pixels) */
     TT_Set_CVT_Func    func_move_cvt;  /* incr a cvt entry (in pixels)  */
 
-    FT_ULong           loadSize;
-    TT_SubGlyph_Stack  loadStack;      /* loading subglyph stack */
-
     FT_Bool            grayscale;      /* are we hinting for grayscale? */
 
   } TT_ExecContextRec;
@@ -263,15 +259,10 @@ FT_BEGIN_HEADER
   /*    Only the glyph loader and debugger should call this function.      */
   /*                                                                       */
   FT_EXPORT( TT_ExecContext )
-  TT_New_Context( TT_Face  face );
-
+  TT_New_Context( TT_Driver  driver );
 
   FT_LOCAL( FT_Error )
   TT_Done_Context( TT_ExecContext  exec );
-
-  FT_LOCAL( FT_Error )
-  TT_Destroy_Context( TT_ExecContext  exec,
-                      FT_Memory       memory );
 
   FT_LOCAL( FT_Error )
   TT_Load_Context( TT_ExecContext  exec,

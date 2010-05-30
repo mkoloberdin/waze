@@ -37,6 +37,9 @@
 
 #include "ssd_entry.h"
 
+#ifdef IPHONE
+#include "roadmap_editbox.h"
+#endif //IPHONE
 typedef struct
 {
 	const char* 	  mb_text;			/* Message box text for the confirmed entry */
@@ -89,7 +92,7 @@ static int edit_callback (SsdWidget widget, const char *new_value) {
 
    value = widget->get_value (widget);
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
    {
 	   SsdWidget text = ssd_widget_get(widget->children, "Text");
 
@@ -159,6 +162,7 @@ SsdWidget ssd_entry_new (const char *name,
    SsdWidget bg_text;
    SsdWidget entry;
    SsdWidget text_box;
+   SsdWidget text;
    int tab_st = 0;
    int txt_box_height = 40;
    SsdEntryContext*  ctx = (SsdEntryContext*) calloc( 1, sizeof( SsdEntryContext ) );
@@ -179,6 +183,7 @@ SsdWidget ssd_entry_new (const char *name,
    text_box =
       ssd_container_new ("text_box", NULL, width,
                txt_box_height, SSD_CONTAINER_TXT_BOX|SSD_ALIGN_VCENTER|tab_st);
+   ssd_widget_set_color(text_box, NULL, NULL);
    ssd_widget_set_pointer_force_click( text_box );
    entry->get_value = get_value;
    entry->set_value = set_value;
@@ -192,11 +197,14 @@ SsdWidget ssd_entry_new (const char *name,
    space = ssd_container_new("Space", NULL,5, SSD_MIN_SIZE, SSD_WIDGET_SPACE);
    ssd_widget_set_color(space, NULL, NULL);
    ssd_widget_add(text_box, space);
-   ssd_widget_add (text_box, ssd_text_new ("Text", value, -1, text_flags|SSD_ALIGN_VCENTER));
+   text = ssd_text_new ("Text", value, -1, text_flags|SSD_ALIGN_VCENTER|SSD_TEXT_SINGLE_LINE );
+   ssd_widget_add (text_box, text);
+   ssd_widget_set_offset(text, 0, -2);
    if (background_text == NULL)
-   		bg_text = ssd_text_new ("BgText", "", -1, SSD_ALIGN_VCENTER);
+   		bg_text = ssd_text_new ("BgText", "", -1, SSD_ALIGN_VCENTER|SSD_TEXT_SINGLE_LINE);
    else
-   		bg_text = ssd_text_new ("BgText", background_text, -1, SSD_ALIGN_VCENTER);
+   		bg_text = ssd_text_new ("BgText", background_text, -1, SSD_ALIGN_VCENTER|SSD_TEXT_SINGLE_LINE);
+   ssd_widget_set_offset(bg_text, 0, -2);
    ssd_widget_set_color(bg_text, "#C0C0C0",NULL);
    ssd_widget_add (text_box, bg_text);
    entry->context = ctx;

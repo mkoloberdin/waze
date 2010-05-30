@@ -22,6 +22,10 @@
  *
  */
 
+#ifndef INCLUDE__ROADMAP_WELCOME_WIZARD__H
+#define INCLUDE__ROADMAP_WELCOME_WIZARD__H
+
+
 #include "roadmap.h"
 
 #define  WELCOME_WIZ_CONFIG_TYPE	   ("user")
@@ -36,13 +40,28 @@
 #define  WELCOME_WIZ_SHOW_INTRO_SCREEN_Name    ("Show intro screen")
 #define  WELCOME_WIZ_MINUTES_FOR_ACTIVATION_Name ("Minutes for activation")
 #define  WELCOME_WIZ_FIRST_TIME_Yes    ("yes")
+#ifdef IPHONE
+#define  WELCOME_WIZ_FIRST_TIME_No     ("iphone_no")
+#else
 #define  WELCOME_WIZ_FIRST_TIME_No     ("no")
+#endif //IPHONE
 #define  WELCOME_WIZ_SHOW_INTRO_SCREEN_Yes    ("yes")
 #define  WELCOME_WIZ_SHOW_INTRO_SCREEN_No     ("no")
 #define  WELCOME_WIZ_MINUTES_FOR_ACTIVATION_Defaut ("1440")
 
 void roadmap_welcome_wizard(void);
 BOOL roadmap_welcome_on_preferences( void );
+#ifndef IPHONE
 void welcome_wizard_twitter_dialog(void);
+#endif //!IPHONE
 void roadmap_welcome_personalize_dialog();
 void roadmap_term_of_use(RoadMapCallback callback);
+
+#ifdef IPHONE
+void roadmap_welcome_personalize_later_dialog();
+void welcome_wizard_twitter_dialog(int showIntro);
+BOOL roadmap_welcome_wizard_is_first_time(void);
+#endif //IPHONE
+
+
+#endif /* INCLUDE__ROADMAP_WELCOME_WIZARD__H */

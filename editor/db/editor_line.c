@@ -531,7 +531,7 @@ static void add_point (editor_line_copy_points *copy_points, RoadMapPosition *po
 	
 	if (delta_lon == 0 && delta_lat == 0) return;
 	
-	shape_id = editor_shape_add (0, delta_lon, delta_lat, -1);
+	shape_id = editor_shape_add (0, delta_lon, delta_lat, -1, 0);
 	
 	if (copy_points->first_shape == -1) {
 		copy_points->first_shape = shape_id;

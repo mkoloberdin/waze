@@ -34,13 +34,14 @@
 #define RT_TRAFFIC_INFO_MAX_DESCRIPTION		            250
 #define RT_TRAFFIC_INFO_MAX_NODES 			                50
 #define RT_TRAFFIC_INFO_TILE_FETCH_LIST_MAXSIZE      	16
+#define RT_TRAFFIC_INFO_MAX_GEOM 			               200
 
 #define ALERT_ID_OFFSET 100000
 
 #ifdef J2ME
-#define MAX_LINES 300
+#define RT_TRAFFIC_INFO_MAX_LINES 300
 #else
-#define MAX_LINES 3000
+#define RT_TRAFFIC_INFO_MAX_LINES 3000
 #endif
 
 #define LIGHT_TRAFFIC	    0
@@ -50,57 +51,47 @@
 
 //////////////////////////////////////////////////////////////////////////////
 //
+
+typedef struct _RTTrafficInfo RTTrafficInfo;
+
 typedef struct
 {
-	PluginLine 		pluginLine;
+	int iSquare;
+	int iVersion;
+	int iLine;
+	int cfcc;
 	RoadMapPosition positionFrom;
 	RoadMapPosition positionTo;
+	RoadMapArea boundingBox;
 	int iDirection;
 	int iFirstShape;
 	int iLastShape;
 	int iType;
 	int iSpeed;
 	int iTrafficInfoId;
+	RTTrafficInfo *pTrafficInfo;
+	int isInstrumented;
 } RTTrafficInfoLines;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-//	Segment
-typedef struct
-{
-    int iNodeId;			// The Segments Node ID
-    RoadMapPosition Position;
-} RTTrafficInfoNode;
-
-
-typedef struct _RTTrafficInfo RTTrafficInfo;
-
-//////////////////////////////////////////////////////////////////////////////////////////////////
-// Hash entry for waiting tiles map
-typedef struct
-{
-	RTTrafficInfo *pData;			// Traffic data
-	int hash_index;						// Index in hash
-	int tile_id;						// Tile id
-} RTTrafficInfoTileMapEntry;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //	Road Info
 struct _RTTrafficInfo
 {
     int iID; 			//	Alert ID (within the server)
-    double fSpeed; 	// Alowed speed to alert
+    int fSpeedMpS; 	// Alowed speed to alert (meters per second)
+    int iSpeed; 	// Alowed speed to alert (client speed units)
     int iType; 		//  Alert Type
     int iUserContribution;	// User contibution to creating this traffic alert
     char sStreet [RT_TRAFFIC_INFO_ADDRESS_MAXSIZE+1]; // The Street name
     char sCity		[RT_TRAFFIC_INFO_ADDRESS_MAXSIZE+1]; // The City name
     char sStart	[RT_TRAFFIC_INFO_ADDRESS_MAXSIZE+1]; // The Start name
     char sEnd 	[RT_TRAFFIC_INFO_ADDRESS_MAXSIZE+1]; // The End name
-	int 	iNumNodes;
-	int   iDirection;
-	RTTrafficInfoNode sNodes[RT_TRAFFIC_INFO_MAX_NODES];
+
+	int iNumGeometryPoints;
+	RoadMapPosition geometry[RT_TRAFFIC_INFO_MAX_GEOM];
+	RoadMapArea boundingBox;
+	
 	char sDescription[RT_TRAFFIC_INFO_MAX_DESCRIPTION+1];
-	RTTrafficInfoTileMapEntry sTileFetchList[RT_TRAFFIC_INFO_TILE_FETCH_LIST_MAXSIZE];	// Fetch list entries in map
-	int iFetchListCount;																// The count of the fetch list
 };
 
 
@@ -114,7 +105,7 @@ typedef struct
 } RTTrafficInfos;
 
 typedef struct{
-	RTTrafficInfoLines *pRTTrafficInfoLines[MAX_LINES];
+	RTTrafficInfoLines *pRTTrafficInfoLines[RT_TRAFFIC_INFO_MAX_LINES];
 	int iCount;
 }RTTrafficLines;
 
@@ -138,6 +129,7 @@ RTTrafficInfo *RTTrafficInfo_Get(int index);
 int RTTrafficInfo_GetAlertForLine(int iLineid, int iSquareId);
 int RTTrafficInfo_Get_Avg_Cross_Time (int line, int square, int against_dir);
 int RTTrafficInfo_Get_Avg_Speed(int line, int square, int against_dir);
-
+BOOL RTTrafficInfo_UpdateGeometry(RTTrafficInfo *pTrafficInfo);
+BOOL RTTrafficInfo_AddSegments( int iTrafficInfoID, int iSquare, int iVersion, int nLines, int iLines[] );
 void RTTrafficInfo_RecalculateSegments();
 #endif  //__REALTIME_TRAFFIC_INFO_H__

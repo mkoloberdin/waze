@@ -92,7 +92,7 @@ typedef enum tag_contextmenu_items
 static ssd_cm_item main_menu_items[] =
 {
    //                  Label     ,           Item-ID
-   SSD_CM_INIT_ITEM  ( "Navigate",           cm_navigate),
+   SSD_CM_INIT_ITEM  ( "Drive",              cm_navigate),
    SSD_CM_INIT_ITEM  ( "Show on map",        cm_show),
    SSD_CM_INIT_ITEM  ( "Add to favorites",   cm_add_to_favorites),
    SSD_CM_INIT_ITEM  ( "Cancel",             cm_cancel)
@@ -115,10 +115,10 @@ static void on_address_resolved( void*                context,
                                  int                  size,
                                  roadmap_result       rc)
 {
-   static   const char* results[ADSR_MAX_RESULTS];
-   static   void*       indexes[ADSR_MAX_RESULTS];
-   static   const char* icons[ADSR_MAX_RESULTS];
-
+   static   const char* results[ADSR_MAX_RESULTS+1];
+   static   void*       indexes[ADSR_MAX_RESULTS+1];
+   static   const char* icons[ADSR_MAX_RESULTS+1];
+   const char* provider_icon = NULL;
    SsdWidget list_cont = (SsdWidget)context;
    SsdWidget list;
    SsdWidget bmp_logo = NULL;
@@ -138,20 +138,20 @@ static void on_address_resolved( void*                context,
    if( succeeded != rc)
    {
       if( is_network_error( rc))
-         roadmap_messagebox_cb ( roadmap_lang_get( "Search location"),
+         roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                               roadmap_lang_get( "Search requires internet connection.\r\n"
                                                 "Please make sure you are connected."), on_search_error_message );
 
 
 
       else if( err_as_could_not_find_matches == rc)
-         roadmap_messagebox_cb ( roadmap_lang_get( "Search location"),
-                              roadmap_lang_get( "No results found"), on_search_error_message );
+         roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
+                              roadmap_lang_get( "Sorry, no results were found for this search"), on_search_error_message );
       else
       {
-         char msg[64];
+         char msg[128];
 
-         sprintf( msg, "Search failed\nPlease try again later");
+         snprintf( msg, sizeof(msg), "%s\n%s",roadmap_lang_get("Sorry we were unable to complete the search"), roadmap_lang_get("Please try again later"));
 
          roadmap_messagebox_cb ( roadmap_lang_get( "Search location"), msg, on_search_error_message );
       }
@@ -171,11 +171,12 @@ static void on_address_resolved( void*                context,
 
    assert( size <= ADSR_MAX_RESULTS);
 
+   provider_icon = local_search_get_icon_name();
    for( i=0; i<size; i++)
    {
       results[i] = array[i].address;
       indexes[i] = (void*)i;
-      icons[i] = local_search_get_icon_name();
+      icons[i] = provider_icon;
    }
 
    if ( roadmap_native_keyboard_enabled() )
@@ -395,6 +396,7 @@ static SsdWidget create_results_container()
    SsdWidget list = NULL;
    SsdWidget title = NULL;
    SsdWidget bitmap = NULL;
+   SsdWidget bitmap_cnt = NULL;
    SsdWidget text = NULL;
 
    rcnt = ssd_container_new(  LSD_RESULTS_CONT_NAME,
@@ -411,14 +413,14 @@ static SsdWidget create_results_container()
                    SSD_MIN_SIZE,
                    SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
 
-   ssd_dialog_add_vspace(title, 5, 0);
-   bitmap = ssd_bitmap_new("local search icon", "ls_logo_google", SSD_ALIGN_VCENTER);
-   ssd_dialog_add_hspace(title, 5, 0);
-   ssd_widget_add(title, bitmap);
-   ssd_dialog_add_hspace(title, 5, 0);
-   text = ssd_text_new("Local search text", roadmap_lang_get("Local search results"), 14, SSD_ALIGN_VCENTER);
+   ssd_dialog_add_vspace( rcnt, 2, 0);
+   bitmap_cnt = ssd_container_new( "Logo container", NULL, 80, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
+   bitmap = ssd_bitmap_new( "local search icon", local_search_get_logo_name(), SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER );
+   ssd_widget_add( bitmap_cnt, bitmap );
+   ssd_widget_add(title, bitmap_cnt);
+
+   text = ssd_text_new("Local search text", roadmap_lang_get("Local search results"), 14, SSD_ALIGN_VCENTER );
    ssd_widget_add(title, text);
-   ssd_dialog_add_hspace(title, 5, 0);
    ssd_widget_add( rcnt, title);
    ssd_dialog_add_vspace(rcnt, 5, 0);
    list = ssd_list_new(       LSD_RC_LIST_NAME,

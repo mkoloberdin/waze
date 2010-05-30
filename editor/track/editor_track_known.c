@@ -537,10 +537,8 @@ int editor_track_known_locate_point (int point_id,
          *confirmed_line = *new_line;
          confirmed_street->valid = 1;
 
-         if (confirmed_street->valid) {
-            /* This is probably a GPS jump or an error in resolve */
-            return -1;
-         }
+         /* This is probably a GPS jump or an error in resolve */
+         return -1;
       }
 
       return point_id;

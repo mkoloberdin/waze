@@ -1,0 +1,29 @@
+/*
+============================================================================
+ Name		: bld.inf
+ Author	  : Ehud Shabtai
+ Copyright   : GPL
+ Description : This file provides the information required for building the
+			   whole of a FreeMap.
+============================================================================
+*/
+
+
+PRJ_PLATFORMS
+WINSCW ARMV5 GCCE
+
+PRJ_MMPFILES
+
+..\zlib\zlib.mmp
+..\..\freetype\builds\symbian\freetype.mmp
+..\libfribidi\libfribidi.mmp
+..\libssd\libssd.mmp
+..\libpng\libpng.mmp
+gnumakefile icons_scalable_dc.mk
+gnumakefile ..\help\build_help.mk
+FreeMap.mmp
+..\libRealTime\libRealTime.mmp
+..\libagg\libagg.mmp
+// gnumakefile ..\..\freetype\config.mk
+
+

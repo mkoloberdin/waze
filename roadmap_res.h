@@ -32,12 +32,13 @@
 #define RES_SKIN      0x1
 #define RES_NOCACHE   0x2
 #define RES_NOCREATE  0x4
-#define RES_LOCK      0x8
+#define RES_LOCK      0x8	// Should not be used. FFU 			*** AGA ***
 
 void *roadmap_res_get (unsigned int type, unsigned int flags,
                        const char *name);
 
-void roadmap_res_shutdown (void);
-
+void roadmap_res_initialize( void );
+void roadmap_res_shutdown ();
+void roadmap_res_invalidate();
 #endif // _ROADMAP_RES__H_
 

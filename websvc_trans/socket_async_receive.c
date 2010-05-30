@@ -35,7 +35,11 @@ typedef struct tag_sar_info
 
 }  sar_info, *sar_info_ptr;
 
-inline void SAR_ReceiveInfo_Init( sar_info_ptr this)
+#if !defined(INLINE_DEC)
+#define INLINE_DEC
+#endif
+
+INLINE_DEC void SAR_ReceiveInfo_Init( sar_info_ptr this)
 { memset( this, 0, sizeof(sar_info));}
 
 static   sar_info   AsyncJobs[RECEIVER_QUEUE_SIZE];

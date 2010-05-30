@@ -84,9 +84,24 @@ void roadmap_file_remove (const char *path, const char *name) {
    const char *full_name = roadmap_path_join (path, name);
 
    remove(full_name);
+
    roadmap_path_free (full_name);
 }
 
+/*
+ * Removing non empty directory
+ */
+void roadmap_file_rmdir( const char *path, const char *name )
+{
+
+   const char *full_name = roadmap_path_join (path, name);
+
+   char cmd[1024];
+   snprintf( cmd, 1024, "rm -r %s", full_name );
+   system( cmd );
+
+   roadmap_path_free (full_name);
+}
 
 int roadmap_file_exists (const char *path, const char *name) {
 

@@ -61,7 +61,7 @@ extern "C"
 
 
   typedef fribidi_int8 FriBidiLevel;
-#ifdef ANDROID
+#if defined (ANDROID) || defined (IPHONE)
   typedef fribidi_uint32 FriBidiChar;
 #else
   typedef fribidi_uint16 FriBidiChar;

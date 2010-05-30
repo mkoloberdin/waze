@@ -139,11 +139,13 @@ const char*  RT_CFG_GetWebServiceAddress();
 #define  RT_CFG_PRM_SERVER_COOKIE_Name    ("Server Cookie")
 #define  RT_CFG_PRM_SERVER_COOKIE_Default ("")
 
-
 // Allow Ping
 #define  RT_CFG_PRM_ALLOW_PING_Var      RTPrm_AllowPing
 #define  RT_CFG_PRM_ALLOW_PING_Name     ("Allow Ping")
-#define  RT_CFG_PRM_SERVER_COOKIE_Default ("")
+
+// In Dump Offline
+#define  RT_CFG_PRM_IN_DUMP_OFFLINE_Var      RTPrm_InDumpOffline
+#define  RT_CFG_PRM_IN_DUMP_OFFLINE_Name     ("In Dump Offline")
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

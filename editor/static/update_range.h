@@ -24,8 +24,15 @@
 #ifndef INCLUDE__UPDATE_RANGE__H
 #define INCLUDE__UPDATE_RANGE__H
 
+
+#include "roadmap_gps.h"
+
 void update_range_initialize (void);
 void update_range_dialog     (void);
+void update_range_with_pos (const char *updated_left, const char *updated_right,
+                            const char *city, const char *street,
+                            RoadMapGpsPosition current_pos,
+                            RoadMapPosition    current_fixed_pos);
 
 #endif // INCLUDE__UPDATE_RANGE__H
 

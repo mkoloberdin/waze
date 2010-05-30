@@ -26,7 +26,7 @@
 #define __SSD_WIDGET_ICON_DEFS_H__
 
 #define  LOAD_WIDE_ICON(_part_)                                                        \
-   this->_part_ = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_LOCK, filenames->_part_);  \
+   this->_part_ = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_NOCACHE, filenames->_part_);  \
    if( !this->_part_)                                                                  \
    {                                                                                   \
       assert(0);                                                                       \

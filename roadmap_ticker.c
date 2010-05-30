@@ -334,8 +334,9 @@ static int roadmap_ticker_key_pressed (RoadMapGuiPoint *point) {
 
 ////////////////////////////////////////////////////////////////////////////////
 void roadmap_ticker_initialize(void){
-	gInitialized = FALSE;
-	RoadMapImage image;
+   RoadMapImage image;
+   gInitialized = FALSE;
+
 	if ( roadmap_screen_is_hd_screen() )
 	{
 		gTickerTopBarOffset = -5;

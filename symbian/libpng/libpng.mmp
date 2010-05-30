@@ -1,0 +1,28 @@
+//
+// libpng makefile for the symbian platform
+//
+
+TARGET 			libpng.lib
+TARGETTYPE 		lib
+
+
+SOURCEPATH ..\..\libpng
+SOURCE png.c
+SOURCE pngerror.c
+SOURCE pnggccrd.c
+SOURCE pngget.c
+SOURCE pngmem.c
+SOURCE pngread.c
+SOURCE pngpread.c
+SOURCE pngrio.c
+SOURCE pngrtran.c
+SOURCE pngrutil.c
+SOURCE pngset.c
+SOURCE pngtest.c
+SOURCE pngtrans.c
+SOURCE pngvcrd.c
+
+SYSTEMINCLUDE		\epoc32\include
+SYSTEMINCLUDE		\epoc32\include\libc
+USERINCLUDE			..\..\libpng
+

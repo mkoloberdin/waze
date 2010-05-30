@@ -38,11 +38,24 @@ typedef struct {
    RoadMapString fename;
    RoadMapString fetype;
    RoadMapString fedirs;
-#ifndef J2MEMAP
    RoadMapString t2s;
-#endif
 
-} RoadMapStreet;
+} RoadMapStreetC;
+
+typedef struct {
+
+   RoadMapString fedirp;
+   RoadMapString fename;
+   RoadMapString fetype;
+   RoadMapString fedirs;
+
+} RoadMapStreetJ2ME;
+
+#if defined(J2MEMAP)
+	typedef RoadMapStreetJ2ME RoadMapStreet; 
+#else
+	typedef RoadMapStreetC RoadMapStreet; 
+#endif
 
 typedef struct {
 	RoadMapString  city;

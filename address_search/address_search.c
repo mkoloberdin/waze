@@ -396,10 +396,8 @@ roadmap_result address_search_resolve_address(
    return generic_search_resolve_address(s_websvc, data_parser,sizeof(data_parser)/sizeof(wst_parser),
 		   "mozi",context, cbOnAddressResolved, address, NULL );
 }
+
 static void on_completed_reporting_bad_address( void* ctx, roadmap_result res){
-#ifdef IPHONE   
-    roadmap_main_pop_view();
-#endif    
     ssd_progress_msg_dialog_show_timed(roadmap_lang_get("Sending address search info..."),2);
 }
 

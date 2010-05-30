@@ -22,13 +22,20 @@
 #ifndef ROADMAP_MAP_SETTINGS_H_
 #define ROADMAP_MAP_SETTINGS_H_
 
+#include "roadmap_config.h"
+
 void roadmap_map_settings_show(void);
 void roadmap_map_settings_init(void);
 BOOL roadmap_map_settings_isEnabled(RoadMapConfigDescriptor descriptor);
 BOOL roadmap_map_settings_isShowWazers(void);
 BOOL roadmap_map_settings_isShowReports(void);
 BOOL roadmap_map_settings_isShowTopBarOnTap(void);
+BOOL roadmap_map_settings_isAutoShowStreetBar(void);
 BOOL roadmap_map_settings_show_report(int iType);
 BOOL roadmap_map_settings_color_roads();
 BOOL roadmap_map_settings_isShowSpeedCams();
+int roadmap_map_settings_allowed_alerts(int outAlertsUserCanToggle[]);
+void roadmap_map_settings_alert_string(char *outAlertString[]);
+BOOL roadmap_map_settings_isShowSpeedometer();
+BOOL roadmap_map_settings_road_goodies();
 #endif /*ROADMAP_MAP_SETTINGS_H_*/

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    TrueType GX Font Variation loader                                    */
 /*                                                                         */
-/*  Copyright 2004, 2005 by                                                */
+/*  Copyright 2004, 2005, 2006, 2007, 2008 by                              */
 /*  David Turner, Robert Wilhelm, Werner Lemberg, and George Williams.     */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -22,7 +22,7 @@
 /*                                                                         */
 /*   http://developer.apple.com/fonts/TTRefMan/RM06/Chap6[fgca]var.html    */
 /*                                                                         */
-/* The documentation for `fvar' is inconsistant.  At one point it says     */
+/* The documentation for `fvar' is inconsistent.  At one point it says     */
 /* that `countSizePairs' should be 3, at another point 2.  It should be 2. */
 /*                                                                         */
 /* The documentation for `gvar' is not intelligible; `cvar' refers you to  */
@@ -337,7 +337,8 @@
   }
 
 
-  typedef struct  GX_GVar_Head_ {
+  typedef struct  GX_GVar_Head_
+  {
     FT_Long    version;
     FT_UShort  axisCount;
     FT_UShort  globalCoordCount;
@@ -564,7 +565,8 @@
   /*************************************************************************/
 
 
-  typedef struct  GX_FVar_Head_ {
+  typedef struct  GX_FVar_Head_
+  {
     FT_Long    version;
     FT_UShort  offsetToData;
     FT_UShort  countSizePairs;
@@ -576,7 +578,8 @@
   } GX_FVar_Head;
 
 
-  typedef struct  fvar_axis {
+  typedef struct  fvar_axis_
+  {
     FT_ULong   axisTag;
     FT_ULong   minValue;
     FT_ULong   defaultValue;
@@ -684,15 +687,17 @@
         goto Exit;
       }
 
-      if ( FT_ALLOC( face->blend, sizeof ( GX_BlendRec ) ) )
+      if ( FT_NEW( face->blend ) )
         goto Exit;
 
+      /* XXX: TODO - check for overflows */
       face->blend->mmvar_len =
         sizeof ( FT_MM_Var ) +
         fvar_head.axisCount * sizeof ( FT_Var_Axis ) +
         fvar_head.instanceCount * sizeof ( FT_Var_Named_Style ) +
         fvar_head.instanceCount * fvar_head.axisCount * sizeof ( FT_Fixed ) +
         5 * fvar_head.axisCount;
+
       if ( FT_ALLOC( mmvar, face->blend->mmvar_len ) )
         goto Exit;
       face->blend->mmvar = mmvar;
@@ -752,7 +757,7 @@
       }
 
       ns = mmvar->namedstyle;
-      for ( i = 0; i < fvar_head.instanceCount; ++i )
+      for ( i = 0; i < fvar_head.instanceCount; ++i, ++ns )
       {
         if ( FT_FRAME_ENTER( 4L + 4L * fvar_head.axisCount ) )
           goto Exit;
@@ -900,13 +905,15 @@
     }
     else
     {
-      for ( i = 0;
-            i < num_coords && blend->normalizedcoords[i] == coords[i];
-            ++i );
-        if ( i == num_coords )
-          manageCvt = mcvt_retain;
-        else
+      manageCvt = mcvt_retain;
+      for ( i = 0; i < num_coords; ++i )
+      {
+        if ( blend->normalizedcoords[i] != coords[i] )
+        {
           manageCvt = mcvt_load;
+          break;
+        }
+      }
 
       /* If we don't change the blend coords then we don't need to do  */
       /* anything to the cvt table.  It will be correct.  Otherwise we */
@@ -1253,7 +1260,7 @@
         for ( j = 0; j < point_count; ++j )
         {
           int  pindex = localpoints[j];
-          
+
           face->cvt[pindex] = (FT_Short)( face->cvt[pindex] +
                                           FT_MulFix( deltas[j], apply ) );
         }

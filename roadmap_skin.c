@@ -93,33 +93,38 @@ void roadmap_skin_register (RoadMapCallback listener) {
 void roadmap_skin_set_subskin (const char *sub_skin) {
    const char *base_path = roadmap_path_preferred ("skin");
    char path[1024];
-   char *skin_path;
+   char *skin_path = NULL;
    char *subskin_path;
    const char *cursor;
+   char *subskin_path2 = NULL;
    CurrentSubSkin = sub_skin;
 
    skin_path = roadmap_path_join (base_path, CurrentSkin);
    subskin_path = roadmap_path_join (skin_path, CurrentSubSkin);
+//   offset = strlen(path);
+
    if (!strcmp(CurrentSubSkin,"day")){
-      char *subskin_path2;
       subskin_path2 = roadmap_path_join (subskin_path, get_map_schema());
+
       snprintf (path, sizeof(path), "%s", subskin_path2);
       roadmap_path_free (subskin_path2);
    }
    else{
-      snprintf (path, sizeof(path), "%s",subskin_path);
+      snprintf (path, sizeof(path), "%s", subskin_path);
    }
 
-   
-   for (cursor = roadmap_path_first ("skin");
-               cursor != NULL;
-               cursor = roadmap_path_next ("skin", cursor)) {
-      if ( !((strstr(cursor,"day") || strstr(cursor,"night")))){
-         strcat(path, ",");
-         strcat(path, cursor);
-      }
+
+   for ( cursor = roadmap_path_first ("skin");
+                  cursor != NULL;
+			  cursor = roadmap_path_next ("skin", cursor))
+   {
+	 if ( !((strstr(cursor,"day") || strstr(cursor,"night")))){
+	   strcat(path, ",");
+		strcat(path, cursor);
+
+	 }
    }
-   
+
    roadmap_path_set ("skin", path);
 
    roadmap_path_free (subskin_path);
@@ -129,7 +134,7 @@ void roadmap_skin_set_subskin (const char *sub_skin) {
    notify_listeners ();
 
    roadmap_screen_redraw ();
-   
+
 }
 
 
@@ -137,7 +142,7 @@ void roadmap_skin_toggle (void) {
    if (!strcmp (CurrentSubSkin, "day")) {
       roadmap_skin_set_subskin ("night");
    } else {
-               
+
       roadmap_skin_set_subskin ("day");
    }
 }
@@ -186,28 +191,24 @@ static void roadmap_skin_gps_listener
                (time_t gps_time,
                 const RoadMapGpsPrecision *dilution,
                 const RoadMapGpsPosition *position){
-   time_t rawtime_sunset, rawtime_sunrise, rawtime_temp;
+   time_t rawtime_sunset, rawtime_sunrise;
    static int has_run = 0;
    time_t now ;
    int timer_t;
    struct tm realtime, *tmp_tm;
-   //struct tm *realtime2;
-   
+   struct tm *realtime2;
+   static int num_points = 0;
+
    //time_t now = time(NULL);
 
-#ifdef _WIN32
-   struct tm curtime_gmt;
-#endif
+   if (num_points < 3){
+	   num_points++;
+	   return;
+   }
 
-   if ((gps_time + (3600 * 24)) < time(NULL))
-      now = time(NULL);
-   else
-      now = gps_time;
+   now = gps_time;
 
-#ifdef _WIN32
-   curtime_gmt = *(gmtime(&now));
-   now  = mktime(&curtime_gmt);
-#endif
+
    //realtime = localtime (&now);
 //   printf ("gpstime %s", asctime (realtime) );
 
@@ -224,18 +225,13 @@ static void roadmap_skin_gps_listener
    tmp_tm = localtime (&rawtime_sunrise);
    realtime = *tmp_tm;
 //   printf ("sunrise: %d:%d\n", tmp_tm->tm_hour, tmp_tm->tm_min);
-   
+
    rawtime_sunset = roadmap_sunset (position, now);
-//   realtime2 = localtime (&rawtime_sunset);
-  
+   realtime2 = localtime (&rawtime_sunset);
+
    //printf ("sunset:  %d:%d\n", realtime2->tm_hour, realtime2->tm_min);
 
-   if (realtime.tm_hour > 12){
-      rawtime_temp = rawtime_sunrise;
-      rawtime_sunrise = rawtime_sunset;
-      rawtime_sunset = rawtime_temp;
-   }
-   
+
    //printf ("sunrise: %d:%d\n", realtime->tm_hour, realtime->tm_min);
    //printf ("sunset %s\n\n", asctime (realtime2) );
 
@@ -260,10 +256,10 @@ static void roadmap_skin_gps_listener
 
 void roadmap_skin_init(void){
    const char *map_scheme;
-   
+
    roadmap_config_declare
       ("user", &RoadMapConfigMapScheme, "2", NULL);
-   
+
    map_scheme = get_map_schema();
    if (map_scheme[0] != 0){
       roadmap_skin_set_subskin ("day");
@@ -294,7 +290,7 @@ void roadmap_skin_auto_night_mode(void){
 
    if (!roadmap_skin_auto_night_feature_enabled())
       return;
-   
+
    roadmap_config_declare_enumeration
       ("user", &RoadMapConfigAutoNightMode, NULL, "yes", "no", NULL);
 

@@ -47,6 +47,8 @@
 #include "roadmap_layer.h"
 #include "roadmap_reminder.h"
 
+#include "roadmap_analytics.h"
+
 #include "ssd/ssd_widget.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_container.h"
@@ -64,6 +66,13 @@
 #include "address_search/local_search_dlg.h"
 #include "address_search/local_search.h"
 #include "Realtime/RealtimeAltRoutes.h"
+
+#ifdef IPHONE
+#include "iphone/roadmap_list_menu.h"
+#include "iphone/roadmap_editbox.h"
+
+#define MAX_CONTEXT_ENTRIES 10
+#endif //IPHONE
 
 typedef struct {
    char    category;
@@ -92,7 +101,7 @@ void roadmap_search_history (char category, const char *title);
 static ssd_cm_item main_menu_items[] =
 {
    //                  Label     ,        Item-ID
-   SSD_CM_INIT_ITEM  ( "Navigate",        search_menu_navigate),
+   SSD_CM_INIT_ITEM  ( "Drive",           search_menu_navigate),
    SSD_CM_INIT_ITEM  ( "Show on map",     search_menu_show),
    SSD_CM_INIT_ITEM  ( "Delete",          search_menu_delete),
    SSD_CM_INIT_ITEM  ( "Add to favorites",search_menu_add_to_favorites),
@@ -102,6 +111,17 @@ static ssd_cm_item main_menu_items[] =
 
 // Context menu:
 static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( main_menu_items);
+
+
+// Search menu events
+static const char* ANALYTICS_EVENT_SEARCHMENU_NAME       =  "SEARCH_MENU";
+static const char* ANALYTICS_EVENT_SEARCHFAV_NAME        =  "SEARCH_FAV";
+static const char* ANALYTICS_EVENT_SEARCHHISTORY_NAME    =  "SEARCH_HISTORY";
+static const char* ANALYTICS_EVENT_SEARCHMARKED_NAME     =  "SEARCH_MARKED";
+static const char* ANALYTICS_EVENT_SEARCHAB_NAME         =  "SEARCH_ADDRESS_BOOK";
+static const char* ANALYTICS_EVENT_SEARCHADDR_NAME       =  "SEARCH_ADDRESS";
+static const char* ANALYTICS_EVENT_SEARCHLOCAL_NAME      =  "SEARCH_LOCAL";
+
 
 static void hide_our_dialogs( int exit_code)
 {
@@ -212,13 +232,18 @@ static int roadmap_address_show (const char 			*city,
    ai.city =city;
    ai.street = street_name;
    ai.house = street_number_image;
-  	count = roadmap_geocode_address (&selections,
+   if ((position != NULL) && (position->latitude != 0) && (position->longitude != 0)){
+      count = 0;
+   }
+   else{
+      count = roadmap_geocode_address (&selections,
 													street_number_image,
 													street_name,
 													city,
 													state);
+   }
 
-  	if (count <= 0) {
+   if (count <= 0) {
 
   	   if ((position != NULL) && (position->latitude != 0) && (position->longitude != 0)){
   	      int number;
@@ -359,6 +384,10 @@ static int on_show(void *data){
    char *street_number;
    char *state;
 
+#ifdef IPHONE
+	roadmap_main_show_root(0);
+#endif //IPHONE
+
     ContextmenuContext *context = (ContextmenuContext *)data;
     RoadMapPosition *position = NULL;
 
@@ -397,7 +426,13 @@ static void on_erase_history_item(int exit_code, void *data){
       return;
 
    if (context->context->category == 'F'){
+#ifndef IPHONE
 		const char* selection= ssd_generic_list_dialog_selected_string ();
+#else
+      char *argv[reminder_hi__count];
+      roadmap_history_get ('S', (void *)context->history, argv);
+      const char* selection= argv[4];
+#endif //IPHONE
    	Realtime_TripServer_DeletePOI(selection);
    }
    else if (context->context->category == 'S'){
@@ -406,6 +441,7 @@ static void on_erase_history_item(int exit_code, void *data){
          if (!strcmp(argv[reminder_hi_add_reminder],"1"))
             roadmap_reminder_delete(context->history);
    }
+
    roadmap_history_delete_entry(context->history);
    roadmap_history_save();
    ssd_generic_list_dialog_hide ();
@@ -414,9 +450,31 @@ static void on_erase_history_item(int exit_code, void *data){
 }
 
 static void on_delete(void *data){
-   const char* selection= ssd_generic_list_dialog_selected_string ();
    char string[100];
    ContextmenuContext *context = (ContextmenuContext *)data;
+#ifndef IPHONE
+   const char* selection= ssd_generic_list_dialog_selected_string ();
+#else
+   char *argv[reminder_hi__count];
+   char selection[100];
+
+   roadmap_history_get (context->context->category,context->history, argv);
+
+   if (context->context->category == 'S'){
+      snprintf (selection, sizeof(selection), "%s %s, %s", argv[1], argv[0], argv[2]);
+   }
+   else if (context->context->category == 'A'){
+      if (ssd_widget_rtl(NULL))
+         snprintf (selection, sizeof(selection), "%s %s, %s", argv[1], argv[0], argv[2]);
+      else
+         snprintf (selection, sizeof(selection), "%s %s, %s", argv[0], argv[1], argv[2]);
+   }
+   else{
+      snprintf (selection, sizeof(selection), "%s", argv[4]);
+   }
+	roadmap_main_show_root(0); //TODO: remove this when confirm dialog is ready
+#endif //IPHONE
+
 
    if (context->context->category == 'S')
       strcpy(string, "Are you sure you want to remove saved location?");
@@ -437,7 +495,7 @@ static BOOL keyboard_callback(  int         exit_code,
                            const char* value,
                            void*       context)
 {
-   char *argv[10];
+   char *argv[reminder_hi__count];
    char empty[250];
    RoadMapPosition coordinates;
    ContextmenuContext *ctx = context;
@@ -460,13 +518,18 @@ static BOOL keyboard_callback(  int         exit_code,
 
    roadmap_history_add ('F', (const char **)argv);
    roadmap_history_save();
-   return TRUE;
+
+#ifdef IPHONE
+	roadmap_main_show_root(0);
+#endif //IPHONE
+
+	return TRUE;
 }
 
 
 static void on_add_to_favorites(void *data){
 
-    #if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+   #if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE)
       ShowEditbox(roadmap_lang_get("Name"), "",
           keyboard_callback, (void *)data, EEditBoxStandard | EEditBoxAlphaNumeric );
     #else
@@ -476,6 +539,7 @@ static void on_add_to_favorites(void *data){
                             data);
     #endif
 }
+
 
 static void on_add_to_geo_reminder(void *data){
    RoadMapPosition position;
@@ -487,6 +551,8 @@ static void on_add_to_geo_reminder(void *data){
 
    roadmap_reminder_add_at_position(&position, TRUE, TRUE);
 }
+
+#ifndef IPHONE
 static void on_option_selected(  BOOL              made_selection,
                                  ssd_cm_item_ptr   item,
                                  void*             context)
@@ -499,6 +565,16 @@ static void on_option_selected(  BOOL              made_selection,
 
    if( !made_selection)
       return;
+#else
+static int on_option_selected (SsdWidget widget, const char *new_value, const void *value,
+								   void *context) {
+
+		search_menu_context_menu_items   selection;
+		int                  exit_code = dec_ok;
+		BOOL hide = FALSE;
+
+		ssd_cm_item_ptr item = (ssd_cm_item_ptr)value;
+#endif //IPHONE
 
    selection = (search_menu_context_menu_items)item->id;
 
@@ -537,11 +613,33 @@ static void on_option_selected(  BOOL              made_selection,
         ssd_dialog_hide_all( exit_code);
       roadmap_screen_refresh ();
    }
+
+#ifdef IPHONE
+	return TRUE;
+#endif //IPHONE
 }
+
+#ifdef IPHONE
+static void get_context_item (search_menu_context_menu_items id, ssd_cm_item_ptr *item){
+	int i;
+
+	for( i=0; i<context_menu.item_count; i++)
+	{
+		*item = context_menu.item + i;
+		if ((*item)->id == id) {
+			return;
+		}
+	}
+
+	//wrong id
+	roadmap_log(ROADMAP_ERROR, "roadmap_search - get_context_item() bad item id: %d count is: %d", id, context_menu.item_count);
+	*item = context_menu.item;
+}
+#endif //IPHONE
 
 
 static int on_options(SsdWidget widget, const char *new_value, void *context){
-
+#ifndef IPHONE
    int menu_x;
    static ContextmenuContext menu_context;
    BOOL can_navigate;
@@ -650,6 +748,94 @@ static int on_options(SsdWidget widget, const char *new_value, void *context){
 
    s_context_menu_is_active = TRUE;
 
+#else
+	static ContextmenuContext menu_context;
+	static char *labels[MAX_CONTEXT_ENTRIES];
+	static void *values[MAX_CONTEXT_ENTRIES];
+	static char *icons[MAX_CONTEXT_ENTRIES];
+	ssd_cm_item_ptr item;
+
+	int count = 0;
+
+	menu_context.history = (void *)new_value;
+	menu_context.context = context;
+
+
+
+	get_context_item (search_menu_navigate, &item);
+	values[count] = item;
+	labels[count] = strdup(item->label);
+	icons[count] = NULL;
+	count++;
+
+
+	get_context_item (search_menu_show, &item);
+	values[count] = item;
+	labels[count] = strdup(item->label);
+	icons[count] = NULL;
+	count++;
+
+	get_context_item (search_menu_delete, &item);
+	values[count] = item;
+	labels[count] = strdup(item->label);
+	icons[count] = NULL;
+	count++;
+
+	if (menu_context.context->category == 'A'){
+		get_context_item (search_menu_add_to_favorites, &item);
+		values[count] = item;
+		labels[count] = strdup(item->label);
+		icons[count] = NULL;
+		count++;
+
+      if (roadmap_reminder_feature_enabled()) {
+         get_context_item (search_menu_add_geo_reminder, &item);
+         values[count] = item;
+         labels[count] = strdup(item->label);
+         icons[count] = NULL;
+         count++;
+      }
+	} else if (menu_context.context->category == 'S'){
+      char *argv[reminder_hi__count];
+      roadmap_history_get ('S', menu_context.history, argv);
+      if (strcmp(argv[reminder_hi_add_reminder],"1")) {
+
+         get_context_item (search_menu_add_to_favorites, &item);
+         values[count] = item;
+         labels[count] = strdup(item->label);
+         icons[count] = NULL;
+         count++;
+
+         if (roadmap_reminder_feature_enabled()) {
+            get_context_item (search_menu_add_geo_reminder, &item);
+            values[count] = item;
+            labels[count] = strdup(item->label);
+            icons[count] = NULL;
+            count++;
+         }
+      }
+	} else if (menu_context.context->category == 'F' && roadmap_reminder_feature_enabled()){
+      get_context_item (search_menu_add_geo_reminder, &item);
+      values[count] = item;
+      labels[count] = strdup(item->label);
+      icons[count] = NULL;
+      count++;
+   }
+
+
+	roadmap_list_menu_generic ("Options",
+                              count,
+                              (const char **)labels,
+                              (const void **)values,
+                              (const char **)icons,
+                              NULL,
+                              NULL,
+                              on_option_selected,
+                              NULL,
+                              &menu_context,
+                              NULL, 60, FALSE);
+#endif //IPHONE
+
    return 0;
 }
 
@@ -747,10 +933,13 @@ void roadmap_search_history (char category, const char *title) {
    static int count = -1;
    void *history;
    void *prev;
+   int height = 70;
    int homeIndex = -1; // these will hold the places of the home and work places in the list, if they stay -1
    int workIndex = -1;	// they don't exist
 
-
+#ifndef TOUCH_SCREEN
+   height = 44;
+#endif
    context.category = category;
    context.title = strdup(title);
 
@@ -852,6 +1041,7 @@ void roadmap_search_history (char category, const char *title) {
    	    }
    }
 
+#ifndef IPHONE //TODO: handle empty list
    if (count == 0)
       show_empty_list_message(roadmap_lang_get (title));
    else
@@ -865,20 +1055,39 @@ void roadmap_search_history (char category, const char *title) {
                   NULL,
                   &context,
                   roadmap_lang_get("Options"),
-                  on_options, 70,0,TRUE);
+                  on_options, height,0,TRUE);
+#else
+	roadmap_list_menu_generic (roadmap_lang_get (title),
+                              count,
+                              (const char **)labels,
+                              (const void **)values,
+                              (const char **)icons,
+                              NULL,
+                              NULL,
+                              history_callback,
+                              NULL,
+                              &context,
+                              on_options, 60, TRUE);
+#endif //IPHONE
 }
 
 
 
 void search_menu_search_history(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHHISTORY_NAME, NULL, NULL);
+
    roadmap_search_history ('A', "Recent searches");
 }
 
 void search_menu_search_favorites(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHFAV_NAME, NULL, NULL);
+
    roadmap_search_history ('F', "My favorites");
 }
 
 void search_menu_my_saved_places(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHMARKED_NAME, NULL, NULL);
+
 	roadmap_search_history ('S', "Saved locations");
 }
 
@@ -903,7 +1112,9 @@ static void on_dlg_closed_local(int exit_code, void* context)
 }
 
 void search_menu_search_address(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHADDR_NAME, NULL, NULL);
 
+#ifndef IPHONE
    if( s_address_search_is_active)
    {
       assert(0);
@@ -912,10 +1123,15 @@ void search_menu_search_address(void){
 
    address_search_dlg_show( on_dlg_closed_address, NULL);
    s_address_search_is_active = TRUE;
+#else
+	address_search_dlg_show(NULL, NULL);
+#endif //IPHONE
 }
 
 void search_menu_search_local(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHLOCAL_NAME, NULL, NULL);
 
+#ifndef IPHONE
    if( s_poi_search_is_active)
    {
       assert(0);
@@ -924,10 +1140,19 @@ void search_menu_search_local(void){
 
    local_search_dlg_show( on_dlg_closed_local, NULL);
    s_poi_search_is_active = TRUE;
+#else
+	local_search_dlg_show(NULL, NULL);
+#endif //IPHONE
 }
 
 /////////////////////////////////////////////////////////////////////
+#ifdef IPHONE_NATIVE
+void roamdmap_search_address_book(void){
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHAB_NAME, NULL, NULL);
 
+   address_book_dlg_show(NULL, NULL);
+}
+#endif //IPHONE_NATIVE
 
 SsdWidget create_quick_search_menu(){
 
@@ -945,10 +1170,14 @@ BOOL get_menu_item_names(  const char*          menu_name,
                            const char*          items[],
                            int*                 count);
 
+
+
 void roadmap_search_menu(void){
    int                  count;
    RoadMapGpsPosition   MyLocation;
    RoadMapPosition      position;
+
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHMENU_NAME, NULL, NULL);
 
    if( roadmap_navigate_get_current( &MyLocation, NULL, NULL) == -1)
    {
@@ -987,6 +1216,7 @@ void roadmap_search_menu(void){
       return;
    }
 
+#ifndef IPHONE
    if ( !ssd_dialog_exists( SEARCH_MENU_DLG_NAME ) )
    {
 	   s_search_menu = ssd_menu_new( SEARCH_MENU_DLG_NAME, create_quick_search_menu(), NULL, grid_menu_labels, RoadMapStartActions, SSD_CONTAINER_TITLE );
@@ -996,6 +1226,37 @@ void roadmap_search_menu(void){
 
    ssd_dialog_activate ( SEARCH_MENU_DLG_NAME, NULL );
    ssd_dialog_draw ();
+#else
+   const char *icons[20];
+   const char *labels[20];
+   const char *menu_label;
+   int i = 0;
+
+   menu_label = grid_menu_labels[i];
+
+   //replace the local search action's icon and label
+   while (menu_label != NULL) {
+      if (strcmp(menu_label, "search_local") == 0) {
+         icons[i] = local_search_get_icon_name();
+         labels[i] = local_search_get_provider_label();
+      } else {
+         icons[i] = NULL;
+         labels[i] = NULL;
+      }
+      i++;
+      menu_label = grid_menu_labels[i];
+   }
+	roadmap_list_menu_simple (SEARCH_MENU_DLG_NAME,
+                             NULL,
+                             grid_menu_labels,
+                             NULL,
+                             labels,
+                             icons,
+                             NULL,
+                             RoadMapStartActions,
+                             0);
+
+#endif //IPHONE
 }
 #else
 
@@ -1009,38 +1270,12 @@ void roadmap_search_menu(void){
  */
 void search_menu_set_local_search_attrs()
 {
-	/* Setting the icon */
-
-//	const char* provider = local_search_get_provider();
-	static char label[64];
-
-	/* Setting the label */
-	sprintf( label, "%s", LSR_MENU_NAME_SUFFIX );
-	/*
-	 * Not in use
-	if ( provider_label[0] )
-	{
-		sprintf( label, "%s %s", provider_label, LSR_MENU_NAME_SUFFIX );
-	}
-	else
-	{
-		sprintf( label, "%s", LSR_MENU_NAME_SUFFIX );
-	}
-	*/
-
-	/* Make upper case */
-	if ( ( label[0] >=97 ) && ( label[0] <= 122 ) )
-	{
-		label[0] -= 32;
-	}
-
 #ifdef TOUCH_SCREEN
 	if ( ssd_dialog_exists( SEARCH_MENU_DLG_NAME ) && s_search_menu )
 	{
 		const char* icon_name = local_search_get_icon_name();
-		const char* provider_label = local_search_get_provider_label();
 		ssd_menu_set_item_icon( s_search_menu, "search_local", icon_name );
-		ssd_menu_set_label_long_text( SEARCH_MENU_DLG_NAME, "search_local", roadmap_lang_get( label ) );
+		ssd_menu_set_label_long_text( SEARCH_MENU_DLG_NAME, "search_local", roadmap_lang_get( local_search_get_provider_label() ) );
 	}
 #else
 	if ( s_main_menu )
@@ -1048,7 +1283,7 @@ void search_menu_set_local_search_attrs()
 	   ssd_cm_item_ptr item;
 	   item = roadmap_start_get_menu_item( "search_menu", "search_local", s_main_menu );
 	   item->icon = local_search_get_icon_name();
-	   item->label = label;
+	   item->label = roadmap_lang_get(local_search_get_provider_label());
 	}
 #endif
 }

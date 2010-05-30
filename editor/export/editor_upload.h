@@ -26,13 +26,37 @@
 
 #include "roadmap_download.h"
 
+
+
+typedef int  (*EditorUploadCallbackSize)     (void *context, int size);
+typedef void (*EditorUploadCallbackProgress) (void * context, int loaded);
+typedef void (*EditorUploadCallbackError)    (void * context);
+typedef void (*EditorUploadCallbackDone)     (void * context, const char *format, ...);
+
+typedef struct {
+   EditorUploadCallbackSize     size;
+   EditorUploadCallbackProgress progress;
+   EditorUploadCallbackError    error;
+   EditorUploadCallbackDone     done;
+} EditorUploadCallbacks;
+
+
+typedef struct tag_editor_upload_context
+{
+	char * file_name;
+	EditorUploadCallbacks *callbacks;
+	char* custom_content_type;
+	void * caller_specific_context;
+} editor_upload_context, *editor_upload_context_ptr;
+
+
 void editor_upload_initialize (void);
 void editor_upload_select     (void);
 void editor_upload_file       (const char *filename, int remove_file);
 
 int  editor_upload_auto       (const char *filename,
-                               RoadMapDownloadCallbacks *callbacks,
-                               char **message, const char* custom_target, const char* custom_content_type  );
+                               EditorUploadCallbacks *callbacks,
+                               const char* custom_target, const char* custom_content_type, void * context  );
 
 #endif // INCLUDE__EDITOR_UPLOAD__H
 

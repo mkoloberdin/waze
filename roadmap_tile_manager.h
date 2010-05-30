@@ -31,5 +31,6 @@ typedef void (*RoadMapTileCallback) (int tile_id);
 RoadMapTileCallback roadmap_tile_register_callback (RoadMapTileCallback cb);
 void roadmap_tile_request (int index, int priority, int force_update, RoadMapCallback on_loaded);
 void roadmap_tile_reset_session (void);
+void roadmap_tile_refresh_all( void );
 
 #endif // _ROADMAP_TILE_MANAGER__H

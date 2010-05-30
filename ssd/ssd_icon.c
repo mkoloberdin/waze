@@ -79,11 +79,10 @@ BOOL  imageset_info_load(  imageset_info*       this,
 
 typedef struct tag_icon_ctx
 {
-   union
-   {
-      wimageset_info wimages[MAX_ICONS_COUNT];
-       imageset_info  images[MAX_ICONS_COUNT];
-   };
+   //The following fields are only used one at a time
+   wimageset_info wimages[MAX_ICONS_COUNT];
+   imageset_info  images[MAX_ICONS_COUNT];
+   
 
    int   image_count;
    BOOL  wide_image;
@@ -151,7 +150,7 @@ RoadMapImage load_image( const char* filenames)
 
 
    // Else
-   image = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_LOCK, filenames);
+   image = roadmap_res_get( RES_BITMAP, RES_SKIN|RES_NOCACHE, filenames);
    if( !image)
    {
       assert(0);

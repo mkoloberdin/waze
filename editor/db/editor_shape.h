@@ -34,28 +34,20 @@ typedef struct editor_db_shape_s {
    short delta_longitude;
    short delta_latitude;
    short delta_time;
-   short filler;
+   short altitude;
 } editor_db_shape;
 
 
 int editor_shape_add (int ordinal,
 							 short delta_longitude,
                       short delta_latitude,
-                      short delta_time);
+                      short delta_time,
+                      short altitude);
 
 void editor_shape_position (int shape, RoadMapPosition *position);
+int editor_shape_altitude (int shape);
 void editor_shape_time (int shape, time_t *time);
 int editor_shape_ordinal (int shape);
-
-void editor_shape_adjust_point (int shape,
-                                int lon_diff,
-                                int lat_diff,
-                                int time_diff);
-
-void editor_shape_set_point (int shape,
-                             int lon_diff,
-                             int lat_diff,
-                             int time_diff);
 
 extern editor_db_handler EditorShapeHandler;
 

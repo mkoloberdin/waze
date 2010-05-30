@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
 	android:orientation="vertical" android:layout_width="fill_parent"
 	android:layout_height="fill_parent">
-</LinearLayout>
+    <com.waze.FreeMapAppView  
+       android:id="@+id/app_view"
+       android:layout_width="fill_parent" 
+       android:layout_height="fill_parent"        
+       />
+    <com.waze.WazeWebView  
+    	android:id="@+id/webview"
+    	android:layout_marginTop="50px"
+        android:layout_width="fill_parent" 
+        android:layout_height="200px" 
+        android:text="@string/hello"
+        />
+</RelativeLayout>

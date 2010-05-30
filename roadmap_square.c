@@ -61,6 +61,7 @@
 #include "roadmap_hash.h"
 #include "roadmap_tile_manager.h"
 #include "roadmap_tile_status.h"
+#include "roadmap_tile_storage.h"
 
 #include "roadmap_square.h"
 
@@ -131,8 +132,6 @@ static int RoadMapSquareCurrentSlot = -1;
 static int RoadMapSquareNextAvailableSlot = ROADMAP_SQUARE_CACHE_SIZE-1;
 
 static int RoadMapSquareForceUpdateMode = 0;
-
-static void roadmap_square_unload_all (void);
 
 static void *roadmap_square_map (const roadmap_db_data_file *file) {
 
@@ -304,7 +303,7 @@ static void roadmap_square_promote (int slot) {
 }
 
 
-static void roadmap_square_unload_all (void) {
+void roadmap_square_unload_all (void) {
 
 	int i;
 
@@ -824,6 +823,7 @@ int roadmap_square_view (int *square, int size) {
             	square[count] = index;
 				}
             count += 1;
+
             if (size > 0 && count > size) {
                roadmap_log (ROADMAP_ERROR,
                             "too many square are visible: %d is not enough",
@@ -1023,6 +1023,10 @@ int roadmap_square_current_scale_factor (void) {
 		return 1;
 	}
 
+	if (RoadMapSquareCurrentSlot < 0) {
+		return 1;
+	}
+
 	return roadmap_tile_get_scale_factor (RoadMapSquareActive->Square[RoadMapSquareCurrentSlot]->square->scale);
 }
 
@@ -1036,5 +1040,45 @@ int	roadmap_square_scale (int square) {
 int roadmap_square_at_current_scale (int square) {
 
 	return roadmap_square_scale (square) == RoadMapScaleCurrent;
+}
+
+/*
+ * Requests the forced download of all the tiles that are currently in cache
+ * Returns the number of requested tiles
+ */
+int roadmap_square_refresh( int fips, int max_num_tiles, RoadMapCallback tile_loaded_cb )
+{
+   int tile_id;
+   int *tile_status;
+   int i, tile_count = 0;
+
+   for ( i = 1; i <= ROADMAP_SQUARE_CACHE_SIZE; i++ )
+   {
+      if (RoadMapSquareActive->SquareCache[i].square >= 0)
+      {
+         RoadMapSquare* s;
+         RoadMapSquareData* square_data;
+         tile_id = RoadMapSquareActive->SquareCache[i].square;
+         square_data = RoadMapSquareActive->Square[i];
+         if ( !square_data )
+            continue;
+
+         s = square_data->square;
+         s->timestamp = 0;
+
+         tile_status = roadmap_tile_status_get ( tile_id );
+         (*tile_status) &= ~ROADMAP_TILE_STATUS_FLAG_UPTODATE;
+
+         // If exceed the max number of tiles to request - just mark for update
+         if ( tile_count < max_num_tiles )
+         {
+            // Request with the highest priority
+            roadmap_tile_request( tile_id, ROADMAP_TILE_STATUS_PRIORITY_GPS, 1, tile_loaded_cb );
+            tile_count++;
+         }
+      }
+   }
+
+   return tile_count;
 }
 

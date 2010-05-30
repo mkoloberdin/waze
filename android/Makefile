@@ -19,10 +19,13 @@ man1dir=$(mandir)/man1
 
 
 # --- Tool specific options ------------------------------------------------
+OPENGL_DIR=../ogl
 
+STDCFLAGS= $(CFLAGS)
 LIB_INCLUDES+= -I. -I.. -I../agg/include -I../freetype/include/freetype -I../freetype/include -I../libfribidi -I../libpng -I../zlib
 LIB_INCLUDES+= -I/usr/lib/jvm/java-6-sun/include -I/usr/lib/jvm/java-6-sun/include/linux
-LIB_DIRS+= -L.. -L../unix -L../freetype -L../agg -L../libpng -L../libfribidi -L../libpng -L../zlib
+LIB_DIRS+= -L.. -L../unix -L../freetype -L../agg -L../libpng -L../libfribidi -L../libpng -L../zlib -L$(OPENGL_DIR)/glu
+
 
 
 ifeq ($(MODE),DEBUG)
@@ -35,6 +38,11 @@ else
 endif
 endif
 
+ifeq ($(RENDERING),OPENGL)
+  MODECFLAGS+= "-DOPENGL -DANDROID_OGL" 
+endif
+
+
 ifeq ($(SSD),YES)
 CFLAGS += -DSSD
 SSDLIB=../libssd_widgets.a
@@ -46,7 +54,13 @@ RDMLIBS=../libroadmap.a libandroidroadmap.a ../unix/libosroadmap.a
 ARFLAGS="rf"
 
 CFLAGS = $(CFLAGS_ANDROID) $(MODECFLAGS) $(LIB_INCLUDES)
-LIBS += $(RDMLIBS) -lft -lagg -lpng
+LIBS += $(RDMLIBS) -lft -lpng
+
+ifneq ($(RENDERING),OPENGL)
+LIBS += -lagg
+else
+LIBS += -lglu
+endif
 
 ifeq ($(BIDI),YES)
 LIBS += -lfribidi
@@ -59,12 +73,15 @@ CFLAGS += -DFREEMAP_IL
 RUNTIME=libandroidroadmap.so  
 endif
 
+
 RUNTIME=libandroidroadmap.so
 
 CXXFLAGS = $(CFLAGS) 
 # --- RoadMap sources & targets -----------------------------------
 
-RMLIBSRCS=roadmap_path.c \
+RMLIBSRCS=roadmap_main.c \
+	      roadmap_libpng.c \
+		  roadmap_path.c \
 		  roadmap_dialog.c \
           roadmap_fileselection.c \
           roadmap_wchar.c \
@@ -85,15 +102,23 @@ RMLIBSRCS=roadmap_path.c \
           JNI/WazeLog_JNI.c \
           JNI/WazeMenuManager_JNI.c \
           JNI/FreeMapJNI.c	                             
-	  #roadmap_keyboard.c \
+
+
+ifeq ($(RENDERING),OPENGL)
+RMLIBSRCS+= roadmap_canvas_ogl.c $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c
+else
+RMLIBSRCS+= roadmap_canvas_agg.c 
+endif
 
 
 ifneq ($(SSD),YES)
 RMLIBSRCS += roadmap_messagebox.c
 endif
 
-RMLIBOBJS=$(RMLIBSRCS:.c=.o) roadmap_canvas_agg.o \
-								roadmap_libpng.o roadmap_main.o
+RMLIBOBJS=$(RMLIBSRCS:.c=.o)
+
+#RMLIBOBJS=$(RMLIBSRCS:.c=.o) roadmap_canvas_agg.o \
+#								roadmap_libpng.o roadmap_main.o
 							  
 
 # --- Conventional targets ----------------------------------------
@@ -104,12 +129,12 @@ all: runtime libstrip libpackage
 	
 others:
 	$(MAKE) -C ../freetype -f Makefile.android
-	$(MAKE) -C ../agg -f Makefile.android
+#	$(MAKE) -C ../agg -f Makefile.android
 	$(MAKE) -C ../libpng -f Makefile.android
 #	$(MAKE) -C ../zlib   -f Makefile libz.a
 	$(MAKE) -C ../libfribidi   -f Makefile.android
-	$(MAKE) -C .. CFLAGS="$(STDCFLAGS)" runtime
-	$(MAKE) -C .. -C unix CFLAGS="$(STDCFLAGS) -I.." runtime
+	$(MAKE) -C .. runtime
+	$(MAKE) -C ../unix runtime
 
 build:
 	$(MAKE) -C .. CFLAGS="$(STDCFLAGS)" build
@@ -138,7 +163,7 @@ uninstall:
 	$(MAKE) -C .. uninstall
 cleanall:
 	$(MAKE) -C .. cleanone
-	$(MAKE) -C .. -C unix cleanone
+	$(MAKE) -C ../unix cleanone
 	$(MAKE) -C ../freetype -f Makefile.android clean
 	$(MAKE) -C ../agg -f Makefile.android clean
 	$(MAKE) -C ../libpng -f Makefile.android clean

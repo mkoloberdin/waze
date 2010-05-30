@@ -48,6 +48,8 @@ void roadmap_net_mon_error (const char *text);
 ROADMAP_NET_MON_STATE roadmap_net_mon_get_status (void);
 size_t roadmap_net_mon_get_count (void);
 void roadmap_net_mon_offline (void);
-
+BOOL roadmap_net_mon_get_enabled( void );
+void roadmap_net_mon_set_enabled( BOOL is_enabled );
+void roadmap_net_mon_initialize (void);
 #endif // INCLUDE__ROADMAP_NET_MON__H
 

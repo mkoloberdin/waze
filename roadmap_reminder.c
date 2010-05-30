@@ -117,6 +117,9 @@ static ReminderTableStr ReminderTable;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL roadmap_reminder_feature_enabled (void) {
+#ifdef IPHONE_NATIVE
+   return FALSE; // Feature not ready yet for iPhone
+#endif //IPHONE_NATIVE
    if (0 == strcmp (roadmap_config_get (&RoadMapConfigFeatureEnabled), "yes_new"))
       return TRUE;
    return FALSE;

@@ -42,6 +42,10 @@
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 
+#ifdef IPHONE
+#include "roadmap_main.h"
+#endif //IPHONE
+
 static RoadMapConfigDescriptor DlMapSourceConf =
                     ROADMAP_CONFIG_ITEM("Download", "Source");
 
@@ -115,7 +119,7 @@ static void dlmap_update_tiles (void) {
 	ssd_progress_msg_dialog_hide ();
 	roadmap_tile_reset_session ();
 	
-	roadmap_messagebox_cb ("Map Download Complete", "Please Restart Waze", dl_map_cb);
+	roadmap_messagebox_cb ("Map Download Complete", "Please restart Waze", dl_map_cb);
 }
 
 
@@ -210,8 +214,25 @@ BOOL roamdmap_map_download_enabled(void){
 
 }
 
-void roadmap_map_download(SsdWidget widget, const char *new_value){
+int roadmap_map_download(SsdWidget widget, const char *new_value){
+#ifdef IPHONE
+   roadmap_main_show_root(0);
+#endif //IPHONE
    ssd_confirm_dialog ("Warning", "Download requires large amount of data, continue?", TRUE, DlMapConfirmCallback , NULL);
+   return 1;
+}
+
+const char* roadmap_map_download_build_file_name( int fips )
+{
+   snprintf( DlMapFileName, sizeof (DlMapFileName), "map%05d.wzm", fips );
+#ifndef IPHONE
+	roadmap_path_format (DlMapFileFullName, sizeof (DlMapFileFullName), 
+								roadmap_db_map_path (), DlMapFileName);
+#else
+     roadmap_path_format (DlMapFileFullName, sizeof (DlMapFileFullName), 
+								roadmap_path_preferred("maps"), DlMapFileName);
+#endif //IPHONE
+   return DlMapFileFullName;
 }
 
 void roadmap_map_download_region (const char *region_code, int fips) {
@@ -223,11 +244,9 @@ void roadmap_map_download_region (const char *region_code, int fips) {
 		roadmap_log (ROADMAP_ERROR, "Trying to open a second map download");
 		return;	
 	}
-	
+
 	DlFips = fips;
-	snprintf (DlMapFileName, sizeof (DlMapFileName), "map%05d.wzm", fips);
-	roadmap_path_format (DlMapFileFullName, sizeof (DlMapFileFullName), 
-								roadmap_db_map_path (), DlMapFileName);
+	roadmap_map_download_build_file_name( fips );
 	snprintf (DlMapTempFullName, sizeof (DlMapTempFullName), "%s_", DlMapFileFullName);
 	
 	snprintf (url, sizeof(url), "%s/%s/%s", 

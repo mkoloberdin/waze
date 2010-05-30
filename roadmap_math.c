@@ -46,6 +46,7 @@
 #include "roadmap_config.h"
 #include "roadmap_layer.h"
 #include "roadmap_shape.h"
+#include "navigate/navigate_main.h"
 
 #include "roadmap_trigonometry.h"
 
@@ -55,11 +56,13 @@
 #define ROADMAP_BASE_METRIC   1
 
 #define MIN_ZOOM_IN     6
+
 #define MAX_ZOOM_OUT    0x10000
 
 #define DOTS_PER_INCH 72
 #define INCHES_PER_DEGREE 4374754
 
+static int overide_min_zoom = -1;
 
 static RoadMapConfigDescriptor RoadMapConfigGeneralDefaultZoom =
                         ROADMAP_CONFIG_ITEM("General", "Default Zoom");
@@ -67,6 +70,7 @@ static RoadMapConfigDescriptor RoadMapConfigGeneralDefaultZoom =
 static RoadMapConfigDescriptor RoadMapConfigGeneralZoom =
                         ROADMAP_CONFIG_ITEM("General", "Zoom");
 
+static RoadMapUnitChangeCallback sUnitChangeCb = NULL;
 
 #define ROADMAP_REFERENCE_ZOOM 20
 
@@ -79,7 +83,7 @@ typedef struct RoadMapUnits_t {
     float speed_per_m_p_s;
     float cm_to_unit;
     int    to_trip_unit;
-    float  to_screen_unit; 
+    float  to_screen_unit;
     char  *length;
     char  *trip_distance;
     char  *speed;
@@ -88,7 +92,7 @@ typedef struct RoadMapUnits_t {
 
 
 static RoadMapUnits RoadMapMetricSystem = {
-    ROADMAP_BASE_METRIC,             
+    ROADMAP_BASE_METRIC,
     0.11112F, /* Meters per latitude. */
     0.0F,     /* Meters per longitude (dynamic). */
     1.852F,   /* Kmh per knot. */
@@ -116,6 +120,10 @@ static RoadMapUnits RoadMapImperialSystem = {
 };
 
 struct RoadMapContext_t RoadMapContext;
+
+void roadmap_math_set_min_zoom(int zoom){
+   overide_min_zoom = zoom;
+}
 
 static void roadmap_math_trigonometry (int angle, int *sine_p, int *cosine_p) {
 
@@ -237,10 +245,21 @@ static void roadmap_math_compute_scale (void) {
        RoadMapContext.zoom = ROADMAP_REFERENCE_ZOOM;
    }
 
-   if (roadmap_screen_fast_refresh()) {
-      roadmap_square_adjust_scale (RoadMapContext.zoom / 7);
-   } else {
-      roadmap_square_adjust_scale (RoadMapContext.zoom / 25);
+   if ( roadmap_screen_is_hd_screen() )
+   {
+      if ( roadmap_screen_fast_refresh() )   {
+          roadmap_square_adjust_scale (RoadMapContext.zoom / 7);
+      } else {
+          roadmap_square_adjust_scale (RoadMapContext.zoom / 12 );
+      }
+   }
+   else
+   {
+	   if (roadmap_screen_fast_refresh()) {
+		  roadmap_square_adjust_scale (RoadMapContext.zoom / 7);
+	   } else {
+		  roadmap_square_adjust_scale (RoadMapContext.zoom / 25);
+	   }
    }
 
    RoadMapContext.center_x = RoadMapContext.width / 2;
@@ -734,16 +753,29 @@ void roadmap_math_initialize (void) {
 }
 
 
+RoadMapUnitChangeCallback roadmap_math_register_unit_change_callback (RoadMapUnitChangeCallback cb) {
+	
+	RoadMapUnitChangeCallback oldValue = sUnitChangeCb;
+	sUnitChangeCb = cb;
+	return oldValue;
+}
+
+
 void roadmap_math_use_metric (void) {
 
     RoadMapContext.units = &RoadMapMetricSystem;
 
+	if (sUnitChangeCb != NULL)
+		sUnitChangeCb ();
 }
 
 
 void roadmap_math_use_imperial (void) {
 
     RoadMapContext.units = &RoadMapImperialSystem;
+
+	if (sUnitChangeCb != NULL)
+		sUnitChangeCb ();
 }
 
 
@@ -869,6 +901,13 @@ void roadmap_math_zoom_in (void) {
       RoadMapContext.zoom = MIN_ZOOM_IN;
    }
 
+   if (overide_min_zoom != -1){
+      if (RoadMapContext.zoom < overide_min_zoom) {
+           RoadMapContext.zoom = overide_min_zoom;
+      }
+   }
+
+
    roadmap_config_set_integer (&RoadMapConfigGeneralZoom, RoadMapContext.zoom);
    roadmap_math_compute_scale ();
 }
@@ -885,7 +924,14 @@ int roadmap_math_zoom_set (int zoom) {
    } else if (zoom > MAX_ZOOM_OUT) {
       RoadMapContext.zoom = 0xffff;
    }
+   
+   if (overide_min_zoom != -1){
+       if (RoadMapContext.zoom < overide_min_zoom) {
+            RoadMapContext.zoom = overide_min_zoom;
+       }
+    }
 
+   
    roadmap_config_set_integer (&RoadMapConfigGeneralZoom, RoadMapContext.zoom);
    roadmap_math_compute_scale ();
 
@@ -924,12 +970,16 @@ int roadmap_math_thickness (int base, int declutter, int zoom_level,
 
    float ratio;
    int zoom = RoadMapContext.zoom;
+   float factor = 2.5;
 
    if (zoom > 50) {
       zoom = roadmap_math_area_zoom (zoom_level - 1);
    }
 
-   ratio = (float)(((2.5 * ROADMAP_REFERENCE_ZOOM) * base) / zoom);
+   if (zoom < 15)
+      factor = 1.5;
+
+   ratio = (float)(((factor * ROADMAP_REFERENCE_ZOOM) * base) / zoom);
 
    if (ratio < 0.1 / base) {
       return 1;
@@ -1072,21 +1122,6 @@ int  roadmap_math_get_zoom (void) {
 
    return (int) RoadMapContext.zoom;
 }
-
-#ifdef IPHONE
-float roadmap_math_get_angle (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1) {
-   float delta_x = point0->x - point1->x + 1;
-   float delta_y = point0->y - point1->y + 1;
-   return (90 * (delta_y / (delta_x + delta_y)));
-}
-
-float roadmap_math_get_diagonal (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1) {
-   float diagonal = sqrt(powf((abs(point0->x - point1->x) + 1),2) +
-                         powf((abs(point0->y - point1->y) + 1),2));
-   return (diagonal);
-}
-#endif
-
 
 
 void roadmap_math_to_position (const RoadMapGuiPoint *point,
@@ -1776,5 +1811,5 @@ int roadmap_math_calc_line_length (const RoadMapPosition *position,
 
 
 BOOL roadmap_math_is_metric(void){
-   return (RoadMapContext.units->value == ROADMAP_BASE_METRIC); 
+   return (RoadMapContext.units->value == ROADMAP_BASE_METRIC);
 }

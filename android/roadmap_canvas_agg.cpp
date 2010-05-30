@@ -244,7 +244,7 @@ EXTERN_C void GetAndrCanvas( const roadmap_android_canvas_type** aCanvasPtr )
 	*aCanvasPtr = &gAndrCanvas;
 }
 
-EXTERN_C void roadmap_canvas_agg_mouse_pressed( int aX, int aY )
+EXTERN_C void roadmap_canvas_mouse_pressed( int aX, int aY )
 {
 	RoadMapGuiPoint point;
 	point.x = aX;
@@ -252,7 +252,7 @@ EXTERN_C void roadmap_canvas_agg_mouse_pressed( int aX, int aY )
 	(*RoadMapCanvasMouseButtonPressed)( &point );
 }
 
-EXTERN_C void roadmap_canvas_agg_mouse_released( int aX, int aY )
+EXTERN_C void roadmap_canvas_mouse_released( int aX, int aY )
 {
 	RoadMapGuiPoint point;
 	point.x = aX;
@@ -260,7 +260,7 @@ EXTERN_C void roadmap_canvas_agg_mouse_released( int aX, int aY )
 	(*RoadMapCanvasMouseButtonReleased)( &point );
 }
 
-EXTERN_C void roadmap_canvas_agg_mouse_moved( int aX, int aY )
+EXTERN_C void roadmap_canvas_mouse_moved( int aX, int aY )
 {
 	RoadMapGuiPoint point;
 	point.x = aX;

@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include "roadmap_lang.h"
+#include "roadmap_screen.h"
 #include "roadmap_skin.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_button.h"
@@ -36,8 +37,14 @@
 #include "Realtime/Realtime.h"
 #include "roadmap_map_download.h"
 #include "Realtime/RealtimeAlerts.h"
+#include "Realtime/RealtimeBonus.h"
 #include <string.h>
 #include <stdlib.h>
+
+#ifdef IPHONE
+#include "iphone/roadmap_map_settings_dialog.h"
+#endif //IPHONE
+
 static const char* title = "Map";
 static int DialogShowsAgain = 0;
 static const char *yesno_label[2];
@@ -45,31 +52,41 @@ static const char *yesno[2];
 static void on_close_dialog (int exit_code, void* context);
 static int on_ok( SsdWidget this, const char *new_value);
 static void addShowAlertsToMenu(SsdWidget container);
-static int on_ok_softkey(SsdWidget this, const char *new_value, void *context);
+#ifndef TOUCH_SCREEN
+   static int on_ok_softkey(SsdWidget this, const char *new_value, void *context);
+#endif
 static void update_reports_dont_show();
-static RoadMapConfigDescriptor RoadMapConfigShowScreenIconsOnTap =
+RoadMapConfigDescriptor RoadMapConfigShowScreenIconsOnTap =
                         ROADMAP_CONFIG_ITEM("Map Icons", "Show on screen on tap");
 
-static RoadMapConfigDescriptor RoadMapConfigShowTopBarOnTap =
+RoadMapConfigDescriptor RoadMapConfigShowTopBarOnTap =
                         ROADMAP_CONFIG_ITEM("Map", "Show top bar on tap");
+
+RoadMapConfigDescriptor RoadMapConfigAutoShowStreetBar =
+                        ROADMAP_CONFIG_ITEM("Map", "Auto show street bar");
 
 static SsdWidget space(int height);
 
-static RoadMapConfigDescriptor RoadMapConfigShowWazers =
+RoadMapConfigDescriptor RoadMapConfigShowWazers =
                         ROADMAP_CONFIG_ITEM("Map", "Show other wazers");
 
-static RoadMapConfigDescriptor RoadMapConfigShowSpeedCams =
+RoadMapConfigDescriptor RoadMapConfigShowSpeedCams =
                         ROADMAP_CONFIG_ITEM("Map", "Show speed cams");
 
-static RoadMapConfigDescriptor RoadMapConfigColorRoads =
+RoadMapConfigDescriptor RoadMapConfigColorRoads =
                         ROADMAP_CONFIG_ITEM("Map", "Show traffic jams");
 
-static RoadMapConfigDescriptor RoadMapConfigReportDontShow =
+RoadMapConfigDescriptor RoadMapConfigReportDontShow =
                         ROADMAP_CONFIG_ITEM("Map", "Dont Show reports types");
 
-static RoadMapConfigDescriptor RoadMapConfigEnableToggleConstruction =
+RoadMapConfigDescriptor RoadMapConfigEnableToggleConstruction =
                         ROADMAP_CONFIG_ITEM("Map", "Enable Toggle Construction");
 
+RoadMapConfigDescriptor RoadMapConfigShowSpeedometer =
+                        ROADMAP_CONFIG_ITEM("Map", "Show speedometer");
+
+RoadMapConfigDescriptor RoadMapConfigRoadGoodies =
+                        ROADMAP_CONFIG_ITEM("Map", "Show road goodies");
 
 // wording of different reports, correlates to the report numbers defined in RealtimeAlert.h
 static char*  AlertString[] = {"Chit Chats","Police traps","Accidents","Traffic jams ","Traffic info","Hazards",
@@ -77,7 +94,7 @@ static char*  AlertString[] = {"Chit Chats","Police traps","Accidents","Traffic 
 
 static int alertsUserCanToggle [] = {0,1,2,3,5,7}; // we will let user decide not to show these reports.
 
-#define MAP_SCHEMES 7   
+#define MAP_SCHEMES 7
 static char *map_labels[MAP_SCHEMES] = {"Default", "The Blues", "Mochaccino", "Snow Day", "Twilight", "Tutti-fruiti", "Rosebud"};
 static void *map_values[MAP_SCHEMES]= {"", "1", "2", "3", "4", "5", "6"};
 static void *map_icons[MAP_SCHEMES] = {"schema", "schema1", "schema2", "schema3", "schema4", "schema5", "schema6"};
@@ -99,10 +116,13 @@ void roadmap_map_settings_init(void){
 
 	  initialized = 1;
 	  roadmap_config_declare_enumeration
-         ("user", &RoadMapConfigShowScreenIconsOnTap, NULL, "no", "yes", NULL);
+         ("user", &RoadMapConfigShowScreenIconsOnTap, NULL, "yes", "no", NULL);
 
       roadmap_config_declare_enumeration
          ("user", &RoadMapConfigShowTopBarOnTap, NULL, "no", "yes", NULL);
+
+   roadmap_config_declare_enumeration
+         ("user", &RoadMapConfigAutoShowStreetBar, NULL, "yes", "no", NULL);
 
       roadmap_config_declare_enumeration
          ("user", &RoadMapConfigShowWazers, NULL, "yes", "no", NULL);
@@ -110,10 +130,16 @@ void roadmap_map_settings_init(void){
       roadmap_config_declare_enumeration
          ("user", &RoadMapConfigColorRoads, NULL, "yes", "no", NULL);
 
+      roadmap_config_declare_enumeration
+         ("user", &RoadMapConfigRoadGoodies, NULL, "yes", "no", NULL);
+
       roadmap_config_declare ("user", &RoadMapConfigReportDontShow, "", NULL);
 
       roadmap_config_declare_enumeration
          ("user", &RoadMapConfigShowSpeedCams, NULL, "yes", "no", NULL);
+
+      roadmap_config_declare_enumeration
+         ("user", &RoadMapConfigShowSpeedometer, NULL, "yes", "no", NULL);
 
       roadmap_config_declare_enumeration
          ("preferences", &RoadMapConfigEnableToggleConstruction, NULL, "yes", "no", NULL);
@@ -157,7 +183,7 @@ static int on_map_scheme_select (SsdWidget this, const char *new_value) {
    int i;
 
    for (i = 0; i < MAP_SCHEMES; i++){
-      map_labels[i] = roadmap_lang_get(map_labels[i]);
+      map_labels[i] = (char *)roadmap_lang_get(map_labels[i]);
    }
 
    ssd_generic_icon_list_dialog_show (roadmap_lang_get ("Select map color scheme"),
@@ -198,6 +224,9 @@ void roadmap_map_settings_show(void){
    if (!initialized) {
       roadmap_map_settings_init();
    }
+#ifdef IPHONE
+   roadmap_map_settings_dialog_show();
+#else
 
     if (!ssd_dialog_activate (title, NULL)) {
       SsdWidget dialog;
@@ -307,7 +336,7 @@ void roadmap_map_settings_show(void){
       box = ssd_container_new ("map schem group", NULL, SSD_MAX_SIZE, height,
                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (box, "#000000", "#ffffff");
-      
+
       box2 = ssd_container_new ("map_schem box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                                   SSD_ALIGN_VCENTER);
       ssd_widget_set_color (box2, NULL, NULL);
@@ -331,11 +360,14 @@ void roadmap_map_settings_show(void){
       ssd_text_set_color(text, "#434e6e");
       ssd_widget_add (box, text);
 
+#ifdef TOUCH_SCREEN
       button = ssd_button_new ("edit_button", "", &buttons[0], 2,
                               SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_map_scheme_select);
       ssd_widget_set_click_offsets_ext(button, -300, -10, 300, 10);
       ssd_widget_add(box, button);
-
+#else
+      box->callback = on_map_scheme_select;
+#endif
       ssd_widget_add(box, space(1));
 
       ssd_widget_add (container, box);
@@ -357,6 +389,29 @@ void roadmap_map_settings_show(void){
             roadmap_lang_get ("Show on map"), 16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
        ssd_widget_set_color (box, NULL, NULL);
        ssd_widget_add (dialog, box);
+
+
+       // Show speedometer group
+      box = ssd_container_new ("Show Speedometer Group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+              SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+      ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
+       ssd_widget_set_color (box, "#000000", "#ffffff");
+       box2 = ssd_container_new ("show Speedometer text group", NULL, roadmap_canvas_width()/2, SSD_MIN_SIZE,
+                               SSD_ALIGN_VCENTER);
+      ssd_widget_set_color (box, "#000000", "#ffffff");
+       ssd_widget_add (box2,
+         ssd_text_new ( "Show Speedometer Label",
+                        roadmap_lang_get ("Speedometer"),
+                        -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE ) );
+       ssd_widget_set_color (box2, NULL, NULL);
+      ssd_widget_add(box, box2);
+       ssd_widget_add (box,
+            ssd_checkbox_new ( "ShowSpeedometer", roadmap_map_settings_isEnabled(RoadMapConfigShowSpeedometer)
+            , SSD_ALIGN_RIGHT, NULL,NULL, NULL,CHECKBOX_STYLE_ON_OFF ) );
+
+       ssd_widget_add(box, space(1));
+
+       ssd_widget_add (container, box);
 
        // Show wazers group
 	   box = ssd_container_new ("Show Wazers Group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
@@ -421,8 +476,32 @@ void roadmap_map_settings_show(void){
 
        ssd_widget_add (container, box);
 
-	   // add report options
-	   addShowAlertsToMenu(container);
+       //Road goodies
+       box = ssd_container_new ("Road goodies Group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+               SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+       ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_LTR));
+
+       ssd_widget_set_color (box, "#000000", "#ffffff");
+       box2 = ssd_container_new ("Road goodies text group", NULL, roadmap_canvas_width()/2, SSD_MIN_SIZE,
+                                SSD_ALIGN_VCENTER);
+       ssd_widget_set_color (box2, NULL, NULL);
+        ssd_widget_add (box2,
+          ssd_text_new ( "Road goodies Label",
+                         roadmap_lang_get ("Road goodies"),
+                         -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE ) );
+       ssd_widget_add(box, box2);
+        ssd_widget_add (box,
+             ssd_checkbox_new ( "RoadGoodies", roadmap_map_settings_isEnabled(RoadMapConfigRoadGoodies)
+             , SSD_ALIGN_RIGHT, NULL,NULL, NULL,CHECKBOX_STYLE_ON_OFF ) );
+
+        ssd_widget_add(box, space(1));
+
+        ssd_widget_add (container, box);
+
+       // add report options
+	    addShowAlertsToMenu(container);
+
+
 #if 0
 	   //Display house number
 	   box = ssd_container_new ("Display house numbers", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
@@ -503,13 +582,14 @@ void roadmap_map_settings_show(void){
             else pVal = yesno[1];
          ssd_dialog_set_data ("auto_night_mode", (void *) pVal);
       }
-      
-     } 
+
+     }
      else{
         ssd_dialog_set_value ("map_schem_label_value",roadmap_lang_get(map_labels[roadmap_skin_get_scheme()]));
      }
 	 DialogShowsAgain = 1;
 	 ssd_dialog_draw ();
+#endif //IPHONE
 }
 
 
@@ -553,6 +633,15 @@ static int on_ok( SsdWidget this, const char *new_value){
 
    roadmap_config_set (&RoadMapConfigShowSpeedCams,
                            (const char *)ssd_dialog_get_data ("SpeedCams"));
+
+   roadmap_config_set (&RoadMapConfigShowSpeedometer,
+                           (const char *)ssd_dialog_get_data ("ShowSpeedometer"));
+
+   roadmap_config_set (&RoadMapConfigRoadGoodies,
+                           (const char *)ssd_dialog_get_data ("RoadGoodies"));
+   if (!strcmp((const char *)ssd_dialog_get_data ("RoadGoodies"), "no"))
+      RealtimeBonus_Term();
+
    update_reports_dont_show();
    roadmap_config_save(TRUE);
    DialogShowsAgain = 0;
@@ -591,6 +680,14 @@ BOOL roadmap_map_settings_isShowTopBarOnTap(){
 	return roadmap_map_settings_isEnabled(RoadMapConfigShowTopBarOnTap);
 }
 
+BOOL roadmap_map_settings_isAutoShowStreetBar(){
+	return roadmap_map_settings_isEnabled(RoadMapConfigAutoShowStreetBar);
+}
+
+BOOL roadmap_map_settings_isShowSpeedometer(){
+   return roadmap_map_settings_isEnabled(RoadMapConfigShowSpeedometer);
+}
+
 // return true iff report of given type should be shown.
 BOOL roadmap_map_settings_show_report(int iType){
 	char dontShowReports[100];
@@ -611,6 +708,12 @@ BOOL roadmap_map_settings_show_report(int iType){
 BOOL roadmap_map_settings_color_roads(){
 	return roadmap_map_settings_isEnabled(RoadMapConfigColorRoads);
 }
+
+BOOL roadmap_map_settings_road_goodies(){
+   return roadmap_map_settings_isEnabled(RoadMapConfigRoadGoodies);
+}
+
+
 
 // adds the reports show toggle to the map settings ssd menu
 static void addShowAlertsToMenu(SsdWidget container){
@@ -677,7 +780,37 @@ static void update_reports_dont_show(){
 		}
 	}
 	roadmap_config_set(&RoadMapConfigReportDontShow,newDescriptorData);
+
 	return;
 }
 
+
+int roadmap_map_settings_allowed_alerts(int outAlertsUserCanToggle[]){
+   int i;
+   int count;
+
+   if (!initialized)
+      return 0;
+
+   count = sizeof(alertsUserCanToggle)/sizeof(int);
+
+   for (i = 0; i < count; i++){
+      outAlertsUserCanToggle[i] = alertsUserCanToggle[i];
+   }
+   return count;
+}
+
+void roadmap_map_settings_alert_string(char *outAlertString[]){
+   int i;
+   int count;
+
+   if (!initialized)
+      return;
+
+   count = sizeof(alertsUserCanToggle)/sizeof(int);
+
+   for (i = 0; i <= alertsUserCanToggle[count-1]; i++){
+      outAlertString[i] = AlertString[i];
+   }
+}
 

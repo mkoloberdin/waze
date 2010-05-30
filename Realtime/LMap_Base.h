@@ -38,7 +38,7 @@
 #endif
 
 #elif defined (IPHONE)
-#define	RT_DEVICE_ID							(20)
+#define	RT_DEVICE_ID							(21)
 
 #elif defined (UNDER_CE)
 #ifdef TOUCH_SCREEN

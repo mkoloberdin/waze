@@ -54,6 +54,7 @@
 #include "roadmap_main.h"
 #include "roadmap_message.h"
 #include "roadmap_reminder.h"
+#include "roadmap_object.h"
 
 #include "db/editor_db.h"
 #include "db/editor_point.h"
@@ -72,7 +73,7 @@
 #include "Realtime/RealtimeAlertCommentsList.h"
 #include "Realtime/Realtime.h"
 
-#include "static/editor_dialog.h"
+#include "static/editor_dialog.h" 
 #include "track/editor_track_main.h"
 
 #include "editor_screen.h"
@@ -123,10 +124,11 @@ static char const *PopupMenuItems[] = {
 
 #if EDITOR_ALLOW_LINE_DELETION
    "deleteroads",
-#endif   
+#endif
    "setasdestination",
    "setasdeparture",
    "save_location",
+   "properties",
    NULL,
 };
 #endif
@@ -138,10 +140,14 @@ static RoadMapScreenSubscriber screen_prev_after_refresh = NULL;
 static void editor_screen_update_segments (void) {
 
    if (select_count) {
+#ifndef IPHONE_NATIVE
       editor_segments_properties (SelectedLines, select_count);
+#else
+      ssd_dialog_hide_all(dec_close);
+      editor_street_bar_display (SelectedLines, select_count);
+#endif //IPHONE_NATIVE
    }
 }
-
 
 static void editor_screen_delete_segments (void) {
 
@@ -254,7 +260,7 @@ static void popup_menu_callback (int ret, void *context) {
 #endif
 
 
-static void editor_screen_select_line (const PluginLine *line) {
+void editor_screen_select_line (const PluginLine *line) {
 
    int i;
 
@@ -294,6 +300,9 @@ static int editor_screen_short_click (RoadMapGuiPoint *point) {
    int AlertId;
    int scale;
 
+   if (!roadmap_object_short_ckick_enabled())
+      return 0;
+      
    roadmap_math_to_position (point, &position, 1);
 
    scale = roadmap_math_get_scale(0)/80;
@@ -376,8 +385,8 @@ static int editor_screen_long_click (RoadMapGuiPoint *point) {
 
 	}
 #ifdef SSD
-   if (!roadmap_reminder_feature_enabled())
-      PopupMenuItems[3] = NULL;
+//   if (!roadmap_reminder_feature_enabled())
+//      PopupMenuItems[3] = NULL;
    roadmap_start_popup_menu ("Editor Menu", PopupMenuItems,
                              popup_menu_callback, point);
 #endif

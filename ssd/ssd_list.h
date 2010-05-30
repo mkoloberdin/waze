@@ -24,7 +24,7 @@
 
 #ifndef __SSD_WIDGET_ICON_LIST_H_
 #define __SSD_WIDGET_ICON_LIST_H_
-  
+
 #include "ssd_widget.h"
 typedef int (*SsdListCallback)      (SsdWidget widget, const char *new_value, const void *value);
 typedef int (*SsdListDeleteCallback)(SsdWidget widget, const char *new_value, const void *value);
@@ -36,14 +36,14 @@ SsdWidget ssd_list_new( const char*             name,
                         int                     flags,
                         CB_OnWidgetKeyPressed   on_unhandled_key_press);
 
-void ssd_list_populate( SsdWidget               list, 
-                        int                     count, 
-                        const char**            labels, 
-                        const void**            values, 
-                        const char**            icons, 
-                        const int*              flags, 
-                        SsdListCallback         callback, 
-                        SsdListDeleteCallback   del_callback, 
+void ssd_list_populate( SsdWidget               list,
+                        int                     count,
+                        const char**            labels,
+                        const void**            values,
+                        const char**            icons,
+                        const int*              flags,
+                        SsdListCallback         callback,
+                        SsdListDeleteCallback   del_callback,
                         BOOL                    add_next_button);
 
 SsdWidget   ssd_list_get_first_item(SsdWidget  list);
@@ -61,5 +61,5 @@ void        ssd_list_resize(SsdWidget list, int min_height);
 
 void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels,
                         const void **values, SsdWidget *icons, const int *flags, SsdListCallback callback, SsdListDeleteCallback del_callback, BOOL add_next_button);
-
+SsdWidget ssd_list_get_row(SsdWidget list, int index);
 #endif // __SSD_ICON_WIDGET_LIST_H_

@@ -37,7 +37,7 @@
 #include "roadmap_res.h"
 #include "roadmap_border.h"
 #include "roadmap_skin.h"
-
+#include "roadmap_screen.h"
 #include "ssd_widget.h"
 #include "ssd_text.h"
 #include "ssd_button.h"
@@ -95,6 +95,44 @@ static RoadMapImage create_title_bar_image (RoadMapImage header_image, RoadMapGu
    return image;
 }
 
+/*
+ * Implements direct drawing of the image. Instead of copying and drawing afterwards
+ * AGA
+ */
+#include <time.h>
+static void draw_title_bar_image ( RoadMapImage header_image, RoadMapGuiRect *rect, const RoadMapGuiPoint* pos )
+{
+
+   int width = roadmap_canvas_width ();
+   int num_images;
+   int image_width;
+   RoadMapGuiPoint point, bottom_right_point;
+   int i;
+
+
+#ifdef OPENGL
+   bottom_right_point.x = rect->maxx + 1;
+   bottom_right_point.y = rect->maxy;
+   roadmap_canvas_draw_image_scaled( header_image, pos, &bottom_right_point, 0, IMAGE_NOBLEND );
+#else
+   image_width = roadmap_canvas_image_width(header_image);
+
+   num_images = width / image_width;
+
+   num_images = (rect->maxx/image_width)+1;
+
+   if (header_image)
+   {
+      for ( i=0; i<=num_images; i++ )
+      {
+             point.x = pos->x + i * image_width;
+             point.y = pos->y;
+             roadmap_canvas_draw_image( header_image, &point, 0, IMAGE_NOBLEND );
+       }
+    }
+#endif
+}
+
 
 static void release( SsdWidget widget )
 {
@@ -115,16 +153,20 @@ void draw_title_bar(RoadMapGuiRect *rect){
                                  RES_SKIN|RES_NOCACHE,
                                  "header");
 
+
+   point.x = rect->minx;
+   point.y = rect->miny;
+#if defined( ANDROID ) && defined( OPENGL )
+   draw_title_bar_image( header_image, rect, &point );
+#else
    if ((cached_header_image == NULL) || (cached_width != roadmap_canvas_width())){
       if (cached_header_image != NULL)
          roadmap_canvas_free_image(cached_header_image);
       cached_header_image = create_title_bar_image  (header_image, rect);
       cached_width = roadmap_canvas_width();
    }
-
-   point.x = rect->minx;
-   point.y = rect->miny;
    roadmap_canvas_draw_image (cached_header_image, &point, 0, IMAGE_NORMAL);
+#endif
 }
 
 static void draw_bg(RoadMapGuiRect *rect){
@@ -267,11 +309,6 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    const char* background = widget->bg_color;
 
 
-//   if (((widget->flags & SSD_ROUNDED_CORNERS) && !(widget->flags & SSD_DIALOG_FLOAT)) && !(widget->flags & SSD_ROUNDED_WHITE)){
-//      widget->flags &= ~SSD_ROUNDED_CORNERS;
-//      ssd_widget_set_color(widget, "#000000","#ffffff");
-//   }
-
    if (!(flags & SSD_GET_SIZE)) {
 
 
@@ -295,6 +332,7 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 
   	  	 }
   	  	 else{
+  	  	    if (!(widget->flags & SSD_DIALOG_TRANSPARENT)){
          	roadmap_canvas_select_pen (bg);
          	roadmap_canvas_set_foreground (background);
 
@@ -303,6 +341,7 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
       			rect->maxx -= 10;
             }
          	roadmap_canvas_erase_area (rect);
+  	  	    }
   	  	 }
       }
 
@@ -358,12 +397,18 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 		 	if (widget->flags & SSD_POINTER_MENU){
 
 		 		pointer_type = POINTER_MENU;
+#ifndef OPENGL
 		 		points[2].y -= 17;
+#endif
 		 	}
 
 		 	else if (widget->flags & SSD_POINTER_COMMENT){
-		 		pointer_type = POINTER_COMMNET;
+		 		pointer_type = POINTER_COMMENT;
+#ifdef OPENGL
+		 		points[2].y += 20;		/* The height of the pointer */
+#else
 		 		points[2].y -= 7;
+#endif
 		 	}
 		 	else if (widget->flags & SSD_POINTER_NONE){
 		 		pointer_type = POINTER_NONE;
@@ -404,7 +449,6 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 					position = (RoadMapPosition *)widget->context;
 				}
 			}
-
          	roadmap_display_border(style, header_type, pointer_type, &points[2], &points[0], background, position);
 
 		 }
@@ -484,11 +528,12 @@ static int short_click (SsdWidget widget, const RoadMapGuiPoint *point) {
 	widget->force_click = FALSE;
 
    if (widget->callback) {
+#ifndef IPHONE
       RoadMapSoundList list = roadmap_sound_list_create (0);
       if (roadmap_sound_list_add (list, "click") != -1) {
          roadmap_sound_play_list (list);
       }
-
+#endif //IPHONE
       (*widget->callback) (widget, SSD_BUTTON_SHORT_CLICK);
       return 1;
    }
@@ -543,7 +588,12 @@ static void add_title (SsdWidget w, int flags) {
    title->draw = draw_title;
   }
   else{
-   title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, 22,
+   int height = 24;
+      if ( roadmap_screen_is_hd_screen() )
+      {
+         height = 36;
+      }
+      title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, height,
                               SSD_END_ROW);
   }
 
@@ -569,23 +619,43 @@ static void add_title (SsdWidget w, int flags) {
    		   else
    		      ssd_widget_set_color (text, "#000000", "#ff0000000");
    }
-#if defined(TOUCH_SCREEN) & !defined(ANDROID)
+#if defined(TOUCH_SCREEN)
    if (!( ((flags & SSD_DIALOG_FLOAT)&& !(flags & SSD_DIALOG_TRANSPARENT)) || (flags & SSD_DIALOG_NO_BACK))){
-	   SsdWidget btn =             ssd_button_new ("back", "", back_buttons, 2,
-               SSD_ALIGN_VCENTER, button_callback );
+      SsdWidget btn = NULL;
+#ifndef ANDROID
+      btn = ssd_button_new ("back", "", back_buttons, 2,
+                        SSD_ALIGN_VCENTER, button_callback );
+#endif
 
 
-	   ssd_widget_set_click_offsets_ext( btn, -20, -20, 70, 10 );
 	   if ( ssd_widget_rtl(NULL) )
 	   {
-		   ssd_widget_add (title,text);
-		   ssd_widget_set_flags( btn, SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT );
-		   ssd_widget_add( title, btn );
+         SsdWidget btn2 =             ssd_button_new ("right_titlle_button", "", back_buttons, 2,
+                  SSD_ALIGN_VCENTER, NULL );
+         ssd_widget_add( title, btn2 );
+         ssd_widget_set_click_offsets_ext( btn2, -40, -20, 20, 10 );
+         ssd_widget_hide(btn2);
+	      ssd_widget_add (title,text);
+	      if ( btn != NULL )
+	      {
+	         ssd_widget_set_click_offsets_ext( btn, -20, -20, 70, 10 );
+	         ssd_widget_set_flags( btn, SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT );
+	         ssd_widget_add( title, btn );
+	      }
 	   }
 	   else
 	   {
-		   ssd_widget_add( title, btn );
+         SsdWidget btn2 =             ssd_button_new ("right_titlle_button", "", back_buttons, 2,
+                  SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL );
+         ssd_widget_set_click_offsets_ext( btn2, -40, -20, 20, 10 );
+         ssd_widget_hide(btn2);
+         if ( btn != NULL )
+         {
+            ssd_widget_set_click_offsets_ext( btn, -20, -20, 70, 10 );
+            ssd_widget_add( title, btn );
+         }
 		   ssd_widget_add (title,text);
+         ssd_widget_add( title, btn2 );
 	   }
 
 	}

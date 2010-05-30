@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Auto-fitter types (specification only).                              */
 /*                                                                         */
-/*  Copyright 2003, 2004, 2005 by                                          */
+/*  Copyright 2003, 2004, 2005, 2006, 2007, 2008, 2009 by                  */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -16,20 +16,20 @@
 /***************************************************************************/
 
 
-/***************************************************************************
- *
- *  The auto-fitter is a complete rewrite of the old auto-hinter.
- *  Its main feature is the ability to differentiate between different
- *  scripts in order to apply language-specific rules.
- *
- *  The code has also been compartimentized into several entities that
- *  should make algorithmic experimentation easier than with the old
- *  code.
- *
- *  Finally, we get rid of the Catharon license, since this code is
- *  released under the FreeType one.
- *
- ***************************************************************************/
+  /*************************************************************************
+   *
+   *  The auto-fitter is a complete rewrite of the old auto-hinter.
+   *  Its main feature is the ability to differentiate between different
+   *  scripts in order to apply language-specific rules.
+   *
+   *  The code has also been compartmentized into several entities that
+   *  should make algorithmic experimentation easier than with the old
+   *  code.
+   *
+   *  Finally, we get rid of the Catharon license, since this code is
+   *  released under the FreeType one.
+   *
+   *************************************************************************/
 
 
 #ifndef __AFTYPES_H__
@@ -53,19 +53,26 @@ FT_BEGIN_HEADER
   /*************************************************************************/
   /*************************************************************************/
 
+#define xxAF_USE_WARPER  /* only define to use warp hinting */
 #define xxAF_DEBUG
 
 #ifdef AF_DEBUG
 
-#include <stdio.h>
+#include FT_CONFIG_STANDARD_LIBRARY_H
 
-#define AF_LOG( x )  printf x
+#define AF_LOG( x )  do { if ( _af_debug ) printf x; } while ( 0 )
 
-#else
+extern int    _af_debug;
+extern int    _af_debug_disable_horz_hints;
+extern int    _af_debug_disable_vert_hints;
+extern int    _af_debug_disable_blue_hints;
+extern void*  _af_debug_hints;
 
-#define AF_LOG( x )  do ; while ( 0 )        /* nothing */
+#else /* !AF_DEBUG */
 
-#endif /* AF_DEBUG */
+#define AF_LOG( x )  do { } while ( 0 )        /* nothing */
+
+#endif /* !AF_DEBUG */
 
 
   /*************************************************************************/
@@ -117,6 +124,7 @@ FT_BEGIN_HEADER
 #define AF_ANGLE_PI4  ( AF_ANGLE_PI / 4 )
 
 
+#if 0
   /*
    *  compute the angle of a given 2-D vector
    */
@@ -132,6 +140,23 @@ FT_BEGIN_HEADER
   FT_LOCAL( AF_Angle )
   af_angle_diff( AF_Angle  angle1,
                  AF_Angle  angle2 );
+#endif /* 0 */
+
+
+#define AF_ANGLE_DIFF( result, angle1, angle2 ) \
+  FT_BEGIN_STMNT                                \
+    AF_Angle  _delta = (angle2) - (angle1);     \
+                                                \
+                                                \
+    _delta %= AF_ANGLE_2PI;                     \
+    if ( _delta < 0 )                           \
+      _delta += AF_ANGLE_2PI;                   \
+                                                \
+    if ( _delta > AF_ANGLE_PI )                 \
+      _delta -= AF_ANGLE_2PI;                   \
+                                                \
+    result = _delta;                            \
+  FT_END_STMNT
 
 
   /*************************************************************************/
@@ -178,7 +203,7 @@ FT_BEGIN_HEADER
    *  auto-hinted glyph image.
    */
 
-  typedef enum
+  typedef enum  AF_ScalerFlags_
   {
     AF_SCALER_FLAG_NO_HORIZONTAL = 1,  /* disable horizontal hinting */
     AF_SCALER_FLAG_NO_VERTICAL   = 2,  /* disable vertical hinting   */
@@ -236,10 +261,16 @@ FT_BEGIN_HEADER
    *  used by more than one script.
    */
 
-  typedef enum
+  typedef enum  AF_Script_
   {
     AF_SCRIPT_NONE  = 0,
     AF_SCRIPT_LATIN = 1,
+    AF_SCRIPT_CJK   = 2,
+    AF_SCRIPT_INDIC = 3, 
+#ifdef FT_OPTION_AUTOFIT2
+    AF_SCRIPT_LATIN2,
+#endif
+
     /* add new scripts here.  Don't forget to update the list in */
     /* `afglobal.c'.                                             */
 

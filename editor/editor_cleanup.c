@@ -101,13 +101,14 @@ static int editor_has_relevant_overrides (void) {
 	return 0;
 }
 
-void	editor_cleanup_test (int timestamp) {
+void	editor_cleanup_test (int timestamp, BOOL force) {
 
 	int fips;
 	
-	if (editor_has_relevant_lines (timestamp) ||
-		 editor_has_relevant_markers () ||
-		 editor_has_relevant_overrides ()) {
+	if (!force &&
+       (editor_has_relevant_lines (timestamp) ||
+		  editor_has_relevant_markers () ||
+		  editor_has_relevant_overrides ())) {
 		 	
 		return;
 	}

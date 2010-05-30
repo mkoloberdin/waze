@@ -67,7 +67,8 @@
 #include "roadmap_bar.h"
 #include "roadmap_device_events.h"
 #include "roadmap_androidmenu.h"
-
+#include "roadmap_androidogl.h"
+#include "roadmap_browser.h"
 // Crash handling
 #include <signal.h>
 #include <sigcontext.h>
@@ -81,6 +82,9 @@ time_t timegm(struct tm *tm) { return 0; }
 
 static BOOL sgFirstRun = FALSE;	// The indicator if current application run is after the upgrade (first execution)
 static int sgHandledSignals[] = {SIGSEGV, SIGSTOP, SIGILL, SIGABRT, SIGBUS, SIGFPE, SIGSTKFLT};
+
+static int sgAndroidBuildSdkVersion = -1;
+static char sgAndroidDeviceName[128] = {0};
 
 //======= IO section ========
 typedef enum
@@ -130,7 +134,9 @@ typedef struct ucontext ucontext_t;
 #define MESSAGE_DISPATCHER_TIMEOUT {10, 0} // {sec, nano sec}
 
 #define CRASH_DUMP_ADDR_NUM		200		/* The number of addresses to dump when crash is occured */
-
+#define CRASH_DUMP_ADDR_NUM_ON_SHUTDOWN      20      /* The number of addresses to dump when crash is occured on shutdown
+                                                      * to not blow up the log on each exit
+                                                     */
 #define ROADMAP_MAX_IO 64
 static struct roadmap_main_io RoadMapMainIo[ROADMAP_MAX_IO];
 
@@ -245,7 +251,45 @@ int roadmap_main_key_pressed( int aKeyCode, int aIsSpecial, const char* aUtf8Byt
 	return _KEY_NOT_HANDLED;
 }
 
+/*************************************************************************************************
+ * void roadmap_main_android_os_build_sdk_version( int aVersion )
+ * Sets the current os build sdk version
+ *
+ */
+void roadmap_main_set_build_sdk_version( int aVersion )
+{
+	sgAndroidBuildSdkVersion = aVersion;
+}
 
+/*************************************************************************************************
+ * int roadmap_main_set_build_sdk_version( void )
+ * Gets the current os build sdk version
+ *
+ */
+int roadmap_main_get_build_sdk_version( void )
+{
+	return sgAndroidBuildSdkVersion;
+}
+
+/*************************************************************************************************
+ * void roadmap_main_set_device_name( const char* device_name )
+ * Sets the current device name
+ *
+ */
+void roadmap_main_set_device_name( const char* device_name )
+{
+	strncpy( sgAndroidDeviceName, device_name, sizeof( sgAndroidDeviceName )-1 );
+}
+
+/*************************************************************************************************
+ * const char* roadmap_main_get_device_name( void )
+ * Returns the device name
+ *
+ */
+const char* roadmap_main_get_device_name( void )
+{
+	return sgAndroidDeviceName;
+}
 
 /*************************************************************************************************
  * int LogResult( int aVal, int aVerbose, const char *aStrPrefix)
@@ -366,7 +410,7 @@ static void *roadmap_main_socket_handler( void* aParams )
 	RoadMapIO *io = &data->io;
 	int io_id = data->io_id;
 	// Sockets data
-	int fd = io->os.socket;
+	int fd = roadmap_net_get_fd(io->os.socket);
 	fd_set fdSet;
 	struct timeval selectReadTO = SOCKET_READ_SELECT_TIMEOUT;
 	struct timeval selectWriteTO = SOCKET_WRITE_SELECT_TIMEOUT;
@@ -519,12 +563,19 @@ static const char *roadmap_main_get_signame( int sig )
  */
 static void roadmap_main_termination_handler( int signum, siginfo_t *info, void *secret )
 {
+   static BOOL handling = FALSE;
 	ucontext_t *uc = (ucontext_t *)secret;
 	struct sigcontext* sig_ctx;
 	unsigned long sig_fault_addr = 0xFFFFFFFF;
 	int sig_errno = 0;
 	int sig_code = 0;
 	int i;
+	int addr_num = CRASH_DUMP_ADDR_NUM;
+
+	if ( handling )
+	   return;
+
+	handling = TRUE;
 
 	if ( info )
 	{
@@ -532,6 +583,17 @@ static void roadmap_main_termination_handler( int signum, siginfo_t *info, void 
 		 sig_errno = info->si_errno;
 		 sig_code = info->si_code;
 	}
+
+   /*
+     * AGA NOTE:
+     * Temprorary solution. Prints limited stack on exit crash because of consistent crashes on milestone 2.1
+     * Should be removed after full analysis
+     */
+    if ( ANDR_APP_SHUTDOWN_FLAG )
+    {
+       roadmap_log_raw_data( "!!!! Crash on application shutdown !!!!!! \n" );
+       addr_num = CRASH_DUMP_ADDR_NUM_ON_SHUTDOWN;
+    }
 
 	roadmap_log( ROADMAP_ERROR, "Received signal %s %d. Fault address: %x. Error: %d. Code: %d  \n " \
 			"********************************* STACK DUMP ******************************** ",
@@ -559,7 +621,9 @@ static void roadmap_main_termination_handler( int signum, siginfo_t *info, void 
 					sig_ctx->arm_r10,
 					sig_ctx->arm_fp, sig_ctx->arm_ip, sig_ctx->arm_sp, sig_ctx->arm_lr, sig_ctx->arm_pc,
 					sig_ctx->arm_cpsr, sig_ctx->fault_address, uc->uc_stack.ss_flags, uc->uc_stack.ss_size, uc->uc_stack.ss_sp );
-			roadmap_main_dump_memory( (volatile unsigned long*) sig_ctx->arm_sp, CRASH_DUMP_ADDR_NUM );
+
+	      roadmap_main_dump_memory( (volatile unsigned long*) sig_ctx->arm_sp, addr_num );
+			fflush( NULL );
 		}
 		else
 		{
@@ -603,7 +667,7 @@ static void roadmap_main_signals_setup( void )
 	 */
     new_action.sa_sigaction = roadmap_main_termination_handler;
     sigemptyset (&new_action.sa_mask);
-	new_action.sa_flags = SA_SIGINFO;
+	 new_action.sa_flags = SA_SIGINFO;
 
 	/*
 	 * Set up the action for each signal in set
@@ -617,7 +681,9 @@ static void roadmap_main_signals_setup( void )
 
 void roadmap_main_new ( const char *title, int width, int height )
 {
+
 	roadmap_canvas_new();
+
 	editor_main_set (1);
 }
 
@@ -687,7 +753,9 @@ void roadmap_main_set_input ( RoadMapIO *io, RoadMapInput callback )
 
 	roadmap_log( ROADMAP_DEBUG, "Setting the input for the subsystem : %d\n", io->subsystem );
 
-	fd = io->os.file; // All the same on UNIX.
+   if (io->subsystem == ROADMAP_IO_NET) fd = roadmap_net_get_fd(io->os.socket);
+   else fd = io->os.file; /* All the same on UNIX except sockets. */
+
 	for (i = 0; i < ROADMAP_MAX_IO; ++i)
 	{
 		if ( !IO_VALID( RoadMapMainIo[i].io_id ) )
@@ -722,7 +790,9 @@ void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback )
 
 	roadmap_log( ROADMAP_DEBUG, "Setting the output for the subsystem : %d\n", io->subsystem );
 
-	fd = io->os.file; // All the same on UNIX.
+   if (io->subsystem == ROADMAP_IO_NET) fd = roadmap_net_get_fd(io->os.socket);
+   else fd = io->os.file; /* All the same on UNIX except sockets. */
+
 	for ( i = 0; i < ROADMAP_MAX_IO; ++i )
 	{
 		if ( !IO_VALID( RoadMapMainIo[i].io_id ) )
@@ -771,15 +841,11 @@ RoadMapIO *roadmap_main_output_timedout(time_t timeout) {
 void roadmap_main_remove_input ( RoadMapIO *io )
 {
 	int i;
-	int fd;
-
-	fd = io->os.file;
-	roadmap_log( ROADMAP_DEBUG, "Removing the input for the id : %d. FD: %d", io->subsystem, fd );
 
 	for (i = 0; i < ROADMAP_MAX_IO; ++i)
 	{
 
-	   if ( IO_VALID( RoadMapMainIo[i].io_id ) && ( RoadMapMainIo[i].io.os.file == fd ) )
+	   if ( IO_VALID( RoadMapMainIo[i].io_id ) && roadmap_io_same(&RoadMapMainIo[i].io, io))
 	   {
 			 // Cancel the thread and set is valid to zero
  			 roadmap_log( ROADMAP_DEBUG, "Canceling IO # %d thread %d\n", i, RoadMapMainIo[i].handler_thread );
@@ -796,7 +862,7 @@ void roadmap_main_remove_input ( RoadMapIO *io )
 
 	if ( i == ROADMAP_MAX_IO )
 	{
-	   roadmap_log ( ROADMAP_ERROR, "Can't find input to remove! %d", fd);
+	   roadmap_log ( ROADMAP_ERROR, "Can't find input to remove!" );
 	}
 }
 
@@ -974,7 +1040,6 @@ void roadmap_main_message_dispatcher( int aMsg )
 		int itemId = aMsg & ANDROID_MSG_ID_MASK;
 		roadmap_androidmenu_handler( itemId );
 	}
-
 }
 
 void roadmap_main_set_status (const char *text) {}
@@ -993,10 +1058,20 @@ void roadmap_main_flush (void)
  */
 void roadmap_main_exit (void)
 {
-	roadmap_log( ROADMAP_WARNING, "Exiting the application\n" );
-	ANDR_APP_SHUTDOWN_FLAG = 1;
-	// Pass the control over the shutdown process to the java layer
-	FreeMapNativeManager_ShutDown();
+   if ( !ANDR_APP_SHUTDOWN_FLAG )
+   {
+      roadmap_log( ROADMAP_WARNING, "Exiting the application\n" );
+
+      ANDR_APP_SHUTDOWN_FLAG = 1;
+      // Pass the control over the shutdown process to the java layer
+      FreeMapNativeManager_ShutDown();
+   }
+   /*
+    * AGA NOTE: Not supposed to arrive to this point. We have System.exit() call in Java layer
+    * Just in case that something was wrong we are here
+    *
+    */
+   exit( 0 );
 }
 /*************************************************************************************************
  * roadmap_main_exit()
@@ -1005,22 +1080,27 @@ void roadmap_main_exit (void)
  */
 void roadmap_main_shutdown()
 {
-	roadmap_log( ROADMAP_INFO, "Native shutdown start\n" );
+	roadmap_log( ROADMAP_INFO, "Native shutdown start" );
 	// Free the resources
 	roadmap_start_exit ();
 
 	// Free the canvas resources
-	roadmap_log( ROADMAP_WARNING, "Closing the canvas\n" );
+	roadmap_log( ROADMAP_WARNING, "Closing the canvas" );
+
+#ifdef AGG
 	roadmap_canvas_agg_close();
+#endif
 
 	// Free the JNI resourses
-	roadmap_log( ROADMAP_WARNING, "Freeing the JNI objects\n" ); fflush( stdout );
+	roadmap_log( ROADMAP_WARNING, "Freeing the JNI objects" );
 	CloseJNIObjects();
+
+	roadmap_log( ROADMAP_WARNING, "Closing the IO" );
 
 	// Close the mutexes and conditions
 	roadmap_main_close_IO();
 
-	roadmap_log( ROADMAP_INFO, "Native shutdown end\n" );
+	roadmap_log( ROADMAP_WARNING, "Native shutdown end" );
 }
 
 
@@ -1168,11 +1248,21 @@ static EVirtualKey roadmap_main_back_btn_handler( void )
 
 
 /*************************************************************************************************
+ * void roadmap_main_browser_launcher( RMBrowserContext* context )
+ * Shows the android browser view
+ *
+ */
+static void roadmap_main_browser_launcher( RMBrowserContext* context )
+{
+   FreeMapNativeManager_ShowWebView( context->height, context->top_margin, context->url );
+}
+
+
+   /*************************************************************************************************
  * void roadmap_start_event (int event)
  * Start event hanler
  *
  */
-
 static void roadmap_start_event (int event) {
    switch (event) {
 	   case ROADMAP_START_INIT:
@@ -1181,8 +1271,9 @@ static void roadmap_start_event (int event) {
 		  editor_main_check_map ();
 	#endif
 		  roadmap_device_events_register( on_device_event, NULL);
+		  roadmap_browser_register_launcher( roadmap_main_browser_launcher );
+		  roadmap_browser_register_close( FreeMapNativeManager_HideWebView );
 		  roadmap_main_set_bottom_bar( TRUE );
-
 		  break;
 	   }
    }
@@ -1246,7 +1337,7 @@ void roadmap_main_set_first_run( BOOL value )
 
 BOOL roadmap_horizontal_screen_orientation()
 {
-	return roadmap_canvas_agg_is_landscape();
+	return roadmap_canvas_is_landscape();
 }
 
 void roadmap_main_show_gps_disabled_warning()

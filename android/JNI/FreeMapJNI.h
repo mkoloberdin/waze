@@ -161,7 +161,18 @@ void FreeMapNativeManager_SetIsMenuEnabled( int aEnabled );
 
 void FreeMapNativeManager_Flush();
 
-void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const char* aIcon, int aIsNative );
+void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const char* aIcon,
+		int aIsNative, int aPortraitOrder, int aLandscapeOrder );
+
+void FreeMapNativeCanvas_RequestRender();
+
+void FreeMapNativeManager_SwapBuffersEgl();
+
+int FreeMapNativeManager_IsActive();
+
+void FreeMapNativeManager_HideWebView( void );
+
+void FreeMapNativeManager_ShowWebView( int aHeight, int aTopMargin, const char* aUrl );
 
 void CloseJNIObjects();
 

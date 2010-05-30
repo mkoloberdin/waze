@@ -29,6 +29,7 @@
 #include "roadmap_file.h"
 #include "roadmap_start.h"
 #include "roadmap_lang.h"
+#include "roadmap_screen.h"
 #include "JNI/FreeMapJNI.h"
 
 extern void roadmap_search_menu( void );
@@ -48,6 +49,8 @@ typedef struct
 	char icon_name[ANDROID_MENU_MAX_ICON_NAME_SIZE];		// Name of the icon file
 	// 1 - icon is native(accessed through API), 0 - icon is of the application (file system)
 	int is_icon_native;
+	int portrait_order;									// The order of the item in the portrait mode
+	int landscape_order;								// The order of the item in the landscape mode
 	const RoadMapAction* action;
 
 } android_menu_item;
@@ -158,6 +161,14 @@ static void roadmap_androidmenu_load( const char* data, int size )
 				  item->is_icon_native = atoi( param );
 				  break;
 			  }
+			  case 'O':		// Order
+			  {
+				  GET_MENU_PARAM( param, argv[1], argl[1] );
+				  item->portrait_order = atoi( param );
+				  GET_MENU_PARAM( param, argv[2], argl[2] );
+				  item->landscape_order = atoi( param );
+				  break;
+			  }
 			  case 'L':
 			  {
 				  GET_MENU_PARAM( item->label, argv[1], argl[1] );
@@ -194,7 +205,7 @@ static void roadmap_androidmenu_update()
 	{
 		item = &sgMenuItems[i];
 		WazeMenuManager_AddOptionsMenuItem( item->item_id, roadmap_lang_get( item->label ),
-											item->icon_name, item->is_icon_native  );
+											item->icon_name, item->is_icon_native, item->portrait_order, item->landscape_order  );
 	}
 }
 
@@ -212,6 +223,7 @@ void roadmap_androidmenu_handler( int item_id )
 	{
 		action = sgMenuItems[item_id].action;
 		action->callback();
+		roadmap_screen_redraw();
 	}
 	else
 	{

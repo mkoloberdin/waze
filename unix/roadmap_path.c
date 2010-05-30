@@ -41,7 +41,12 @@
 #include "roadmap_file.h"
 #include "roadmap_path.h"
 
+#ifdef IPHONE
+#include "roadmap_main.h"
+#define HOME_PREFIX ""
+#else
 #define HOME_PREFIX ".waze"
+#endif
 
 typedef struct RoadMapPathRecord *RoadMapPathList;
 
@@ -63,6 +68,9 @@ static RoadMapPathList RoadMapPaths = NULL;
  */
 static const char *RoadMapPathUser[] = {
    "~/"HOME_PREFIX,
+#ifdef IPHONE
+	"+/"HOME_PREFIX,
+#endif //IPHONE
    NULL
 };
 static const char *RoadMapPathUserPreferred = "~/"HOME_PREFIX;
@@ -72,9 +80,17 @@ static const char *RoadMapPathUserPreferred = "~/"HOME_PREFIX;
 static const char *RoadMapPathSkin[] = {
    "~/"HOME_PREFIX"/skins/default/day",
    "~/"HOME_PREFIX"/skins/default",
+#ifdef IPHONE
+	"+/"HOME_PREFIX"/skins/default/day",
+	"+/"HOME_PREFIX"/skins/default",
+#endif //IPHONE
    NULL
 };
-static const char *RoadMapPathSkinPreferred = "~/"HOME_PREFIX"/skins/";
+#ifndef IPHONE
+static const char *RoadMapPathSkinPreferred = "~/"HOME_PREFIX"/skins";
+#else
+static const char *RoadMapPathSkinPreferred = "+/"HOME_PREFIX"/skins";
+#endif //IPHONE
 
 /* The hardcoded path for configuration files (the "config" path).
  * (Note that the user directory (~/.waze) does not appear here
@@ -89,6 +105,9 @@ static const char *RoadMapPathConfig[] = {
 #else
    /* This is for standard Unix configurations. */
    "~/"HOME_PREFIX,
+#ifdef IPHONE
+	"+/"HOME_PREFIX,
+#endif //IPHONE
    "/etc/roadmap",
    "/usr/local/share/roadmap",
    "/usr/share/roadmap",
@@ -113,7 +132,12 @@ static const char *RoadMapPathMaps[] = {
    "/mnt/card/QtPalmtop/share/roadmap",
 #else
    /* This is for standard Unix configurations. */
+#ifndef IPHONE
    "~/"HOME_PREFIX"/maps",
+#else
+   "#/"HOME_PREFIX"/maps",
+	"+/"HOME_PREFIX"/maps",
+#endif //IPHONE
    "/var/lib/roadmap",
    "/usr/lib/roadmap",
 
@@ -129,9 +153,12 @@ static const char *RoadMapPathMapsPreferred =
 #ifdef QWS
                       "/mnt/cf/QtPalmtop/share/roadmap";
 #else
+#ifdef IPHONE
+					"#/"HOME_PREFIX"/maps";
+#else
                       "/var/lib/roadmap";
+#endif //IPHONE
 #endif
-
 
 static char *roadmap_path_expand (const char *item, size_t length);
 
@@ -295,7 +322,11 @@ static const char *roadmap_path_home (void) {
 
    if (RoadMapPathHome == NULL) {
 
+#ifdef IPHONE
+      RoadMapPathHome = strdup((char *) roadmap_main_home_path());
+#else
       RoadMapPathHome = getenv("HOME");
+#endif
 
       if (RoadMapPathHome == NULL) {
          RoadMapPathHome = "";
@@ -304,6 +335,48 @@ static const char *roadmap_path_home (void) {
 
    return RoadMapPathHome;
 }
+
+#ifdef IPHONE
+const char *roadmap_path_bundle (void) {
+	
+	static char RoadMapPathBundle[256];
+   static int initialized = 0;
+   const char *bundle_path;
+	
+	if (!initialized) {
+		
+		bundle_path = roadmap_main_bundle_path();
+		
+		if (bundle_path == NULL) {
+			RoadMapPathBundle[0] = 0;
+      } else {
+         snprintf(RoadMapPathBundle, sizeof(RoadMapPathBundle), bundle_path);
+		}
+	}
+	
+	return RoadMapPathBundle;
+}
+
+const char *roadmap_path_cache (void) {
+	
+	static char RoadMapPathCache[256];
+   static int initialized = 0;
+   const char *cache_path;
+	
+	if (!initialized) {
+		
+		cache_path = roadmap_main_cache_path();
+		
+		if (cache_path == NULL) {
+			RoadMapPathCache[0] = 0;
+      } else {
+         snprintf(RoadMapPathCache, sizeof(RoadMapPathCache), cache_path);
+		}
+	}
+	
+	return RoadMapPathCache;
+}
+#endif //IPHONE
 
 
 const char *roadmap_path_user (void) {
@@ -347,6 +420,10 @@ static char *roadmap_path_expand (const char *item, size_t length) {
    switch (item[0]) {
       case '~': expansion = roadmap_path_home(); item++; length--; break;
       case '&': expansion = roadmap_path_user(); item++; length--; break;
+#ifdef IPHONE
+      case '+': expansion = roadmap_path_bundle(); item++; length--; break;
+      case '#': expansion = roadmap_path_cache(); item++; length--; break;
+#endif //IPHONE
       default:  expansion = "";
    }
    expansion_length = strlen(expansion);
@@ -420,7 +497,8 @@ void roadmap_path_set (const char *name, const char *path) {
             roadmap_path_expand (item, (size_t)(next_item - item));
       }
 
-      if (roadmap_file_exists(NULL, path_list->items[i])) {
+      //AviR patch - do not ignore directories that do not exist
+      if (TRUE /*roadmap_file_exists(NULL, path_list->items[i])*/) {
          ++i;
       } else {
          free (path_list->items[i]);
@@ -509,16 +587,38 @@ const char *roadmap_path_preferred (const char *name) {
 }
 
 
-void roadmap_path_create (const char *path) {
-
-#ifdef IPHONE
-   mkdir(path, 0755);
-#else
-   char command[256];
-
-   snprintf (command, sizeof(command), "mkdir -p %s", path);
-   system (command);
-#endif
+void roadmap_path_create ( const char *path )
+{
+	int res, status, stopFlag = 0;
+	struct stat stat_buffer;
+	char parent_path[512] = {0};
+	char *pNext = parent_path;
+	char delim = '/';
+   
+	strncpy( parent_path, path, 512 );
+   
+	while( !stopFlag )
+	{
+		pNext = strchr( pNext+1, delim );
+		if ( pNext )
+			*pNext = 0;
+		else
+			stopFlag = 1;
+      
+		// Check if exists and make dir if necessary
+		status = stat ( parent_path, &stat_buffer );
+		if ( status )
+		{
+			res = mkdir( parent_path, 0777 );
+			if ( res < 0 && errno != EEXIST )	// Path exists in this case is not an error
+			{
+				roadmap_log( ROADMAP_ERROR, "Error creating path: %s, Error: %d, %s", path, errno, strerror( errno ) );
+				stopFlag = 1;
+			}
+		}
+		if ( pNext )
+			*pNext = delim;
+	}
 }
 
 

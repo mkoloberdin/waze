@@ -37,9 +37,11 @@ import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
 import android.media.AudioManager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -69,27 +71,30 @@ public final class FreeMapAppActivity extends Activity
     {
         /** Called when the activity is first created. */
         super.onCreate(savedInstanceState);
+        // Restrict orientation change until full initialization
+        setRequestedOrientation( ActivityInfo.SCREEN_ORIENTATION_PORTRAIT );
         // Window without the title and status bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         // Sets the volume context to be media ( ringer is the default ) 
         setVolumeControlStream( AudioManager.STREAM_MUSIC ); 
+        // Set the current configuration
+        mOrientation = getResources().getConfiguration().orientation;
         
-        // Log.w( "Waze", "Current process PID " + Process.myPid() + " TID " + Process.myTid() );
+        // Log.w( "Waze", "Current process PID " + Process.myPid() + " TID " + Process.myTid() );        
         // First time activity creation
+        if ( mLayoutMgr == null )
+        {
+        	mLayoutMgr = new WazeLayoutManager( this );
+        }
+        setContentView( mLayoutMgr.getMainLayout() );
+        
         if ( savedInstanceState == null || !FreeMapAppService.isInitialized() )
-        {           
-            // View animator for the view switching
-            mViewAnimator = new ViewAnimator( this );
-            // Construct and show the view
-            mAppView = new FreeMapAppView( this );
-            mViewAnimator.addView( mAppView, WAZE_VIEW_INDEX_MAIN );
-            // FFU: Edit text view
-            mEditTextView = new WazeEditText( this );
-            mViewAnimator.addView( mEditTextView, WAZE_VIEW_INDEX_EDIT );
-    
+        {
+        		mAppView = mLayoutMgr.getAppView();
 	            // Starting the service
+                FreeMapAppService.setUrl( getIntent().getDataString() );
 	            Intent intent = new Intent( this, FreeMapAppService.class );
-	            startService( intent );
+	            startService( intent );	            
 	            FreeMapAppService.StartApp( this, mAppView );
         }
         else
@@ -100,14 +105,14 @@ public final class FreeMapAppActivity extends Activity
                 ( (ViewGroup) mAppView.getParent() ).removeView( mAppView );
         }
         
-        setContentView( mViewAnimator );
-        mViewAnimator.setDisplayedChild( WAZE_VIEW_INDEX_MAIN );
-        
+        // Init the resources provider
+        FreeMapResources.InitContext( this );
+
         mNativeManager = FreeMapAppService.getNativeManager();
         mNativeManager.setAppActivity( this );
         mPowerManager = FreeMapAppService.getPowerManager();
     }
-
+    
     /*************************************************************************************************
      *Returns the status of the battery at the moment
      * 
@@ -126,15 +131,19 @@ public final class FreeMapAppActivity extends Activity
     {
         super.onResume(); 
         
+        mIsRunning = true;
+        
         mAppView.HideSoftInput();
         // Register on the intent providing the battery level inspection
         registerReceiver(mPowerManager, new IntentFilter(
-                Intent.ACTION_BATTERY_CHANGED));
+                Intent.ACTION_BATTERY_CHANGED));        
         // Set the screen timeout
         if ( mNativeManager.getInitializedStatus() )
         {
-            mNativeManager.LoadSystemSettings();
-            mNativeManager.SetBackLightOn();
+        	mNativeManager.SaveSystemSettings();
+            mNativeManager.RestoreAppSettings();
+            WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+            screenMgr.onResume();
         }
     }
 
@@ -146,52 +155,49 @@ public final class FreeMapAppActivity extends Activity
     public void onPause()
     {
         super.onPause();
+        mIsRunning = false;
         if ( mNativeManager.getInitializedStatus() )
         {
-            unregisterReceiver(mPowerManager);
-            
+            WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+            screenMgr.onPause();
+        	unregisterReceiver(mPowerManager);               	
             // Restore the system settings        
-            mNativeManager.RestoreSystemSettings();
-            mNativeManager.StopBackLightOn();
+            mNativeManager.RestoreSystemSettings();            
         }
     }
     /*************************************************************************************************
      * This event override allows control over the keyboard sliding
-     * 
+     *  
      */
-    @Override
+    @Override 
     public void onConfigurationChanged( Configuration newConfig )
     {
 //        Log.i("FreeMapAppActivity", "onConfigurationChanged");
 
-        // Stop the screen draw until the new buffer is ready
-        mAppView.setWillNotDraw(true);
-        mNativeManager.setCanvasBufReady(false);
-        super.onConfigurationChanged(newConfig);
-    }    
-    
-    /*************************************************************************************************
-     * Creates the menu items
-     * 
-     *
-    @Override    
-    public boolean onCreateOptionsMenu( Menu aMenu ) 
-    {
-    	if ( mNativeManager.getInitializedStatus() )
+    	
+//        mAppView.setWillNotDraw(true);
+//        mNativeManager.setCanvasBufReady(false);
+    	// AGA DEBUG
+    	Log.i("WAZE", "Configuration changed: " + newConfig.orientation );
+    	
+    	/* Orientation changed event */
+    	if ( ( mOrientation != newConfig.orientation ) && 
+    			( getRequestedOrientation() == ActivityInfo.SCREEN_ORIENTATION_USER ) )
     	{
-    		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
-    		menuMgr.BuildOptionsMenu( aMenu );
+    		mIsMenuRebuild = true;
+    		mOrientation = newConfig.orientation;
     	}
-    	return true;
-    }
-    */
+        // Stop the screen draw until the new buffer is ready
+    	super.onConfigurationChanged(newConfig);        
+    }    
+
     /*************************************************************************************************
      * Handles the menu selections
      * 
      */
     @Override
     public boolean onOptionsItemSelected( MenuItem item ) 
-    {
+    { 
     	if ( mNativeManager.getInitializedStatus() )
     	{
     		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
@@ -206,17 +212,42 @@ public final class FreeMapAppActivity extends Activity
      */
     @Override
     public boolean onPrepareOptionsMenu( Menu aMenu )
+    {    	
+    	if ( mIsMenuRebuild )
+    	{    		
+    		// Rebuild the menu
+    		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
+    		menuMgr.BuildOptionsMenu( aMenu, mOrientation == Configuration.ORIENTATION_PORTRAIT );
+    		mIsMenuRebuild = false;
+    	}    	
+    	return true;
+    }
+
+    
+    /*************************************************************************************************
+     * Creates the menu for display
+     * 
+     */
+    public boolean  onCreateOptionsMenu ( Menu aMenu )
     {
     	boolean res = false;
+    	mOptMenu = aMenu;		// Save the reference 
     	if ( mNativeManager.getInitializedStatus() )
     	{
     		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
-    		menuMgr.BuildOptionsMenu( aMenu );
+    		menuMgr.BuildOptionsMenu( aMenu, mOrientation == Configuration.ORIENTATION_PORTRAIT );
     		res = true;
     	}
     	return res;
     }
-
+    /*************************************************************************************************
+     * Is the activity is running
+     * 
+     */
+    public boolean IsRunning()
+    {
+        return mIsRunning;
+    }
     /*************************************************************************************************
      * Returns the View animator
      * 
@@ -227,12 +258,20 @@ public final class FreeMapAppActivity extends Activity
     }
     
     /*************************************************************************************************
+     * Returns the Layout manager
+     * 
+     */
+    WazeLayoutManager getLayoutMgr()
+    {
+        return mLayoutMgr;
+    }
+    /*************************************************************************************************
      * Returns the current view reference
      * 
      */
     View getCurrentView()
     {
-    	return mViewAnimator.getCurrentView();
+    	return mAppView;
     }
     /*************************************************************************************************
      *================================= Private interface section =================================
@@ -273,7 +312,7 @@ public final class FreeMapAppActivity extends Activity
 	        dlgBuilder.setNeutralButton( "Ok", new SDCardWarnClickListener() );
 	        AlertDialog dlg = dlgBuilder.create();
 	        dlg.show();
-	
+	        
 	        
 	        bRes = false;
         }  
@@ -289,16 +328,19 @@ public final class FreeMapAppActivity extends Activity
      *================================= Data members section =================================
      * 
      */
+
+    private  WazeLayoutManager	 mLayoutMgr = null;		   // Main layout manager
     private FreeMapAppView       mAppView = null;          // Application view
-    private WazeEditText         mEditTextView = null;     // Edit text view
     private FreeMapNativeManager mNativeManager = null;    // Native manager
     private FreeMapPowerManager  mPowerManager = null;     // Power manager
 
+    private int 				 mOrientation;			   // Screen orientation in that the application works now   
+    private boolean				 mIsMenuRebuild = false;   // Indicates that the menu rebuild is necessary on prepare
+    private Menu				 mOptMenu = null;		   // Reference to the options menu of the application			 
     public static final long INITIAL_HEAP_SIZE = 4096L;
     
-    public static final int WAZE_VIEW_INDEX_MAIN = 0;
-    public static final int WAZE_VIEW_INDEX_EDIT = 1;
-    
+	private boolean 			mIsRunning = false;		  // Indicates if the activity is running.
+
     private ViewAnimator mViewAnimator = null;
     
 //    private static final String LOG_TAG = "FreeMapAppActivity";

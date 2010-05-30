@@ -147,9 +147,12 @@ static void setup_list_rows(ssd_list_data_ptr list)
      next_icon_container = ssd_widget_get (row, "next_icon_container");
 
      if (list->icons == NULL){
+    	 SsdWidget label = ssd_widget_get( row, "label" );
            ssd_widget_hide(icon_container);
            if (next_icon_container)
                ssd_widget_hide(next_icon_container);
+
+           ssd_widget_set_offset( label, 10, 0 );
      }
      else
      {
@@ -186,15 +189,8 @@ static void setup_list_rows(ssd_list_data_ptr list)
                 if (next_icon_container){
                 	SsdWidget button_next;
                 	SsdClickOffsets btn_offsets = {-15, -15, 15, 15 };
-                	const char *next_button_icon[4] = {"list_left", "list_left_s","list_right", "list_right_s"};
-                	if (ssd_widget_rtl(NULL))
-                	{
-	                	button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER, next_button_callback);
-                	}
-	                else
-	                {
-	                	button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[2], 2, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER, next_button_callback);
-	                }
+                	const char *next_button_icon[2] = {"list_left", "list_left_s"};
+                	button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER, next_button_callback);
                 	ssd_widget_set_click_offsets( button_next, &btn_offsets );
          			ssd_widget_add (next_icon_container,  button_next);
          			if (!list->add_next_button)
@@ -285,11 +281,8 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
                 	SsdWidget button_next = ssd_widget_get( next_icon_container, "next_icon" );
                 	if ( button_next == NULL )
                 	{
-						const char *next_button_icon[4] = {"list_left", "list_left_s", "list_right", "list_right_s"};
-						if (ssd_widget_rtl(NULL))
-							button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER, next_button_callback);
-						else
-							button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[2], 2, SSD_ALIGN_VCENTER, next_button_callback);
+						const char *next_button_icon[2] = {"list_left", "list_left_s"};
+						button_next = ssd_button_new ("next_icon","next_icon", &next_button_icon[0], 2, SSD_ALIGN_VCENTER, next_button_callback);
 						ssd_widget_add (next_icon_container,  button_next);
                 	}
          			if (!list->add_next_button)
@@ -656,7 +649,6 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
         ssd_widget_set_pointer_force_click( row );
         ssd_widget_set_color(row, "#000000","#ffffff");
         label = ssd_text_new ("label", "", 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
-        //ssd_widget_set_offset(label, 10, 0);
 
         ssd_widget_set_callback (row, label_callback);
 
@@ -680,7 +672,7 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
          row->short_click = ssd_list_short_click;
          row->long_click  = ssd_list_long_click;
          ssd_widget_add (list_container, row);
-         row->key_pressed     = ListItem_OnKeyPressed;
+         //row->key_pressed     = ListItem_OnKeyPressed; //Avi removed.
          row->data            = data;
          row->context         = (void*)(long)i;
          row->get_input_type  = get_input_type;
@@ -709,12 +701,17 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
    data->num_rows = num_rows;
 }
 
+SsdWidget ssd_list_get_row(SsdWidget list, int index){
+   ssd_list_data_ptr data = (ssd_list_data_ptr) list->data;
+   return data->rows[index];
+}
+
 static void ssd_list_draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    ssd_list_data_ptr data = (ssd_list_data_ptr) widget->data;
 
 #ifdef TOUCH_SCREEN
-      	rect->minx += 2;
-      	rect->miny += 2;
+      	rect->minx += 4;
+      	rect->miny += 4;
       	rect->maxx -= 4;
       	rect->maxy -= 4;
 #endif
@@ -737,6 +734,10 @@ static void ssd_list_draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
          	setup_list_rows(data);
          ssd_dialog_invalidate_tab_order();
       }
+   }
+
+   if ((ssd_dialog_get_focus() == NULL) && (data->num_values > 0)){
+         ssd_dialog_sort_tab_order_current();
    }
 
    (*data->list_container_draw)(widget, rect, flags);

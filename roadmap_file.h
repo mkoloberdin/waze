@@ -118,6 +118,7 @@ void roadmap_file_unmap (RoadMapFileContext *file);
 const char *roadmap_file_unique (const char *base);
 
 int roadmap_file_free_space (const char *path);
+void roadmap_file_rmdir( const char *path, const char *name );
 
 #endif // INCLUDE__ROADMAP_FILE__H
 

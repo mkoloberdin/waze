@@ -55,6 +55,7 @@ typedef struct {
 
 static SplashFiles RoadMapSplashFiles[] = {
 #ifdef IPHONE
+   {"welcome_768_1004", 500, -1,FALSE},
    {"welcome_320_480", 200, -1,FALSE},
    {"welcome_wide_480_320", 200,-1, TRUE},
 #else               
@@ -269,7 +270,7 @@ void roadmap_splash_download_init(void){
 
 //////////////////////////////////////////////////////////////////
 void roadmap_splash_display (void) {
-#ifndef ANDROID
+#if !defined(ANDROID) && !defined(IPHONE)
    int height, width;
    RoadMapImage image;
    RoadMapGuiPoint pos;

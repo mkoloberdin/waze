@@ -25,7 +25,7 @@
 #ifndef INCLUDED__ROADMAP_TYPES__H
 #define INCLUDED__ROADMAP_TYPES__H
 
-#if !defined(_WIN32) || defined(__SYMBIAN32__)
+#if !defined(_WIN32) || defined(__SYMBIAN32__) || defined(ANDROID)
 #ifdef __cplusplus
    #define EXTERN_C extern "C"
 #else

@@ -131,6 +131,9 @@ uIntf *v                /* working area: values in order of bit length */
   uInt z;                       /* number of entries in current table */
 
 
+  /* Make compiler happy */
+  r.base = 0;
+
   /* Generate counts for each bit length */
   p = c;
 #define C0 *p++ = 0;
@@ -363,6 +366,9 @@ z_streamp z             /* for messages */
     if (r == Z_DATA_ERROR)
       z->msg = (char*)"oversubscribed distance tree";
     else if (r == Z_BUF_ERROR) {
+#if 0
+    {
+#endif
 #ifdef PKZIP_BUG_WORKAROUND
       r = Z_OK;
     }

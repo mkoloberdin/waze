@@ -145,6 +145,10 @@ int editor_track_filter_add (GPSFilter *filter,
          (filter->normalized_gps_point.latitude +
          gps_position->latitude) / 2;
 
+   filter->normalized_gps_point.altitude =
+         (filter->normalized_gps_point.altitude +
+         gps_position->altitude) / 2;
+
    filter->normalized_gps_point.speed =
           gps_position->speed;
 
@@ -189,6 +193,10 @@ const RoadMapGpsPosition *editor_track_filter_get (GPSFilter *filter) {
             interpolated_point.latitude =
                (interpolated_point.latitude +
                filter->last_gps_point.latitude) / 2;
+            
+            interpolated_point.altitude =
+               (interpolated_point.altitude +
+               filter->last_gps_point.altitude) / 2;
       }
 
       filter->last_gps_point = interpolated_point;

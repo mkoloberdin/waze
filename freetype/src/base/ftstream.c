@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    I/O stream support (body).                                           */
 /*                                                                         */
-/*  Copyright 2000-2001, 2002, 2004, 2005 by                               */
+/*  Copyright 2000-2001, 2002, 2004, 2005, 2006, 2008 by                   */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -89,6 +89,9 @@
   FT_Stream_Skip( FT_Stream  stream,
                   FT_Long    distance )
   {
+    if ( distance < 0 )
+      return FT_Err_Invalid_Stream_Operation;
+
     return FT_Stream_Seek( stream, (FT_ULong)( stream->pos + distance ) );
   }
 
@@ -212,8 +215,12 @@
     {
       FT_Memory  memory = stream->memory;
 
-
+#ifdef FT_DEBUG_MEMORY
+      ft_mem_free( memory, *pbytes );
+      *pbytes = NULL;
+#else
       FT_FREE( *pbytes );
+#endif
     }
     *pbytes = 0;
   }
@@ -235,10 +242,15 @@
       /* allocate the frame in memory */
       FT_Memory  memory = stream->memory;
 
-
+#ifdef FT_DEBUG_MEMORY
+      /* assume _ft_debug_file and _ft_debug_lineno are already set */
+      stream->base = (unsigned char*)ft_mem_qalloc( memory, count, &error );
+      if ( error )
+        goto Exit;
+#else
       if ( FT_QALLOC( stream->base, count ) )
         goto Exit;
-
+#endif
       /* read it */
       read_bytes = stream->read( stream, stream->pos,
                                  stream->base, count );
@@ -298,8 +310,12 @@
     {
       FT_Memory  memory = stream->memory;
 
-
+#ifdef FT_DEBUG_MEMORY
+      ft_mem_free( memory, stream->base );
+      stream->base = NULL;
+#else
       FT_FREE( stream->base );
+#endif
     }
     stream->cursor = 0;
     stream->limit  = 0;
@@ -691,11 +707,12 @@
   {
     FT_Error  error;
     FT_Bool   frame_accessed = 0;
-    FT_Byte*  cursor = stream->cursor;
-
+    FT_Byte*  cursor;
 
     if ( !fields || !stream )
       return FT_Err_Invalid_Argument;
+
+    cursor = stream->cursor;
 
     error = FT_Err_Ok;
     do

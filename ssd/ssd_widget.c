@@ -61,6 +61,8 @@
 
 static RoadMapGuiPoint PressedPointerPoint = {-1, -1};
 
+static BOOL RecalculateWidgets = FALSE;
+
 // Get child by ID (name)
 // Can return child child...
 SsdWidget ssd_widget_get (SsdWidget child, const char *name) {
@@ -83,7 +85,24 @@ SsdWidget ssd_widget_get (SsdWidget child, const char *name) {
    return NULL;
 }
 
+static BOOL ssd_widget_rect_in_screen(const RoadMapGuiRect *rect){
+    /* the whole rect of the widget will outside the screen when
+     * case1 - it ends before the screen starts (0)
+     * case2 - it begins after the screen ends roadmap_canvas_height
+     * If one of the cases is true for one of the axes, the widget should not be drawn - Return false. Else return true.
+     */
+    int screen_width  = roadmap_canvas_width();
+    int screen_height = roadmap_canvas_height();
 
+    //y axis
+    if ((rect->maxy<=0) || (screen_height<rect->miny))
+        return FALSE;
+
+    if (( rect->maxx<=0 )  || (screen_width<rect->minx))
+        return FALSE;
+
+    return TRUE;
+}
 static void calc_pack_size (SsdWidget w_cur, RoadMapGuiRect *rect,
                             SsdSize *size) {
 
@@ -227,8 +246,8 @@ static void ssd_widget_draw_one (SsdWidget w, int x, int y, int height) {
       if (!w->parent) printf("****** start draw ******\n");
       printf("draw - %s:%s x=%d-%d y=%d-%d\n", w->_typeid, w->name, rect.minx, rect.maxx, rect.miny, rect.maxy);
 #endif
-
-      w->draw(w, &rect, 0);
+      if (!RecalculateWidgets && ssd_widget_rect_in_screen(&rect))
+           w->draw(w, &rect, 0);
 
       if (w->children) ssd_widget_draw (w->children, &rect, w->flags);
    }
@@ -672,7 +691,7 @@ SsdWidget ssd_widget_find_by_pos (SsdWidget widget,
 
    while (widget != NULL) {
 
-	   if ( ssd_widget_contains_point( widget, point, use_offsets ) ) {
+	   if (!(widget->flags & SSD_WIDGET_HIDE) && ssd_widget_contains_point( widget, point, use_offsets ) ) {
 
          return widget;
       }
@@ -1057,8 +1076,22 @@ void ssd_widget_set_size (SsdWidget widget, int width, int height) {
 }
 
 
-void ssd_widget_set_offset (SsdWidget widget, int x, int y) {
+void ssd_widget_move_child_positions(SsdWidget w, int offset_x, int offset_y){
+   SsdWidget child = w->children;
+   if( w->position.x !=0)
+         w->position.x += offset_x;
+   if( w->position.y !=0)
+      w->position.y += offset_y;
 
+   while (child != NULL) {
+
+      ssd_widget_move_child_positions (child, offset_x, offset_y);
+      child = child->next;
+   }
+}
+
+void ssd_widget_set_offset (SsdWidget widget, int x, int y) {
+   ssd_widget_move_child_positions(widget, x - widget->offset_x, y - widget->offset_y);
    widget->offset_x = x;
    widget->offset_y = y;
 }
@@ -1125,14 +1158,18 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    }
    */
 
-   if (w->flags & SSD_DIALOG_FLOAT) {
+   if ((w->flags & SSD_DIALOG_FLOAT) && !(w->flags & SSD_DIALOG_TRANSPARENT)){
       if ((size->width == SSD_MAX_SIZE) && ((max->width >= roadmap_canvas_width()) || (max->width >= roadmap_canvas_height()))){
          if (roadmap_canvas_width() > roadmap_canvas_height())
+#ifdef IPHONE
+            size->width = 320;
+#else
             size->width = roadmap_canvas_height();
+#endif //IPHONE
          else
-            size->width = roadmap_canvas_width();
+            size->width = roadmap_canvas_width()-20;
       }else
-         if (size->width == SSD_MAX_SIZE) size->width = max->width -10;
+         if (size->width == SSD_MAX_SIZE) size->width = max->width -20;
       if (size->height== SSD_MAX_SIZE) size->height= max->height - total_height_below;
 
    } else {
@@ -1140,6 +1177,11 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
       if (size->width == SSD_MAX_SIZE) size->width = max->width;
       if (size->height== SSD_MAX_SIZE) size->height= max->height - total_height_below;
    }
+   
+#ifdef IPHONE_NATIVE
+   if (size->width > 320)
+      size->width = 320;
+#endif //IPHONE
 
    if ((size->height >= 0) && (size->width >= 0)) {
       w->cached_size = *size;
@@ -1378,6 +1420,10 @@ BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point,
    BOOL res;
    ssd_widget_get_size( widget, &size, NULL );
 
+   if (widget->flags & SSD_WIDGET_HIDE) {
+      return FALSE;
+   }
+
    res =
 	   ( ( point->x >= ( widget->position.x + widget->click_offsets.left * use_offsets ) ) &&
 		 ( point->y >= ( widget->position.y + widget->click_offsets.top * use_offsets  ) ) &&
@@ -1579,4 +1625,10 @@ void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent )
 
 
 }
-
+/*
+ * If true the next draw recalculates sizes only
+ */
+SsdWidget ssd_widget_set_recalculate( BOOL value )
+{
+	RecalculateWidgets = value;
+}

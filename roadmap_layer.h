@@ -58,6 +58,11 @@ struct roadmap_canvas_category {
     int declutter;
     int thickness;
 
+    int label_visible;
+    int label_declutter;
+    RoadMapPen label_pen;
+
+
     int delta_thickness[ROADMAP_LAYER_PENS];
     RoadMapPen pen[LAYER_PROJ_AREAS][ROADMAP_LAYER_PENS];
     int in_use[LAYER_PROJ_AREAS][ROADMAP_LAYER_PENS];
@@ -84,6 +89,25 @@ INLINE_DEC int roadmap_layer_is_visible (int layer, int area) {
     return roadmap_math_declutter (category->declutter, area);
 }
 
+INLINE_DEC int roadmap_layer_label_is_visible (int layer, int area) {
+
+    struct roadmap_canvas_category *category = RoadMapCategory + layer;
+
+    if (! category->label_visible) {
+        return 0;
+    }
+    return roadmap_math_declutter (category->label_declutter, area);
+}
+
+
+INLINE_DEC int roadmap_layer_max_pen(void) {
+
+   if (RoadMapMaxUsedPen > 2)
+   	return 2;
+   	
+   return RoadMapMaxUsedPen;
+}
+
 
 INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) {
 
@@ -96,7 +120,7 @@ INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) 
    if (pen_type == -1) {
 
       int i;
-      for (i=RoadMapMaxUsedPen; i>=0; i--) {
+      for (i=roadmap_layer_max_pen() - 1; i>=0; i--) {
 
          if (RoadMapCategory[layer].in_use[area][i])
             return RoadMapCategory[layer].pen[area][i];
@@ -110,13 +134,8 @@ INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) 
    return RoadMapCategory[layer].pen[area][pen_type];
 }
 
-
-INLINE_DEC int roadmap_layer_max_pen(void) {
-
-   if (RoadMapMaxUsedPen > 2)
-   	return 2;
-   	
-   return RoadMapMaxUsedPen;
+INLINE_DEC RoadMapPen roadmap_layer_get_label_pen (int layer) {
+   return RoadMapCategory[layer].label_pen;
 }
 
 
@@ -160,6 +179,7 @@ int  roadmap_layer_visible_lines (int *layers, int size, int pen_type);
 int  roadmap_layer_is_visible (int layer, int area);
 
 RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area);
+RoadMapPen roadmap_layer_get_label_pen (int layer);
 
 void roadmap_layer_adjust (void);
 

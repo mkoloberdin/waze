@@ -1,0 +1,8 @@
+#!/bin/bash
+if [ -f /tmp/.waze_user.bak ] ; then
+	mv /tmp/.waze_user.bak /var/mobile/Library/.waze/user
+fi
+
+if [ -f /tmp/.waze_history.bak ] ; then
+	mv /tmp/.waze_history.bak /var/mobile/Library/.waze/history
+fi

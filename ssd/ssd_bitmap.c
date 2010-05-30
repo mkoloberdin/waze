@@ -23,6 +23,7 @@
  */
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "roadmap.h"
 #include "roadmap_res.h"
@@ -82,6 +83,8 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 
    if ( ( flags & SSD_GET_SIZE ) )
    {
+      rect->maxx = rect->minx + bi->width ;
+      rect->maxy = rect->miny + bi->height;
       return;
    }
 
@@ -162,6 +165,9 @@ SsdWidget ssd_bitmap_new(  const char *name,
    return w;
 }
 
+int ssd_bitmap_height(SsdWidget widget){
+   return widget->size.height;
+}
 
 // Bitmap from image
 SsdWidget ssd_bitmap_image_new(  const char *name,

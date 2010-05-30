@@ -31,6 +31,8 @@
 #include "roadmap_start.h"
 #include "roadmap.h"
 #include "roadmap_androidmain.h"
+#include "roadmap_androidogl.h"
+#include "roadmap_urlscheme.h"
 
 // The JNI object representing the current class
 static android_jni_obj_type gJniObj;
@@ -79,6 +81,12 @@ static android_jni_obj_type gJniObj;
 #define JNI_CALL_FreeMapNativeManager_GetThumbnail               "GetThumbnail"
 #define JNI_CALL_FreeMapNativeManager_GetThumbnail_Sig           "(II[I)I"
 
+#define JNI_CALL_FreeMapNativeManager_ShowWebView               "ShowWebView"
+#define JNI_CALL_FreeMapNativeManager_ShowWebView_Sig           "(II[B)V"
+
+#define JNI_CALL_FreeMapNativeManager_HideWebView               "HideWebView"
+#define JNI_CALL_FreeMapNativeManager_HideWebView_Sig           "()V"
+
 
 extern void roadmap_path_initialize( const char* aCfgPath );
 extern void roadmap_device_backlight_monitor_reset( void );
@@ -89,11 +97,12 @@ extern void roadmap_main_set_first_run( BOOL value );
  * Initializes the application resources path as provided from the Java layer
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
-  ( JNIEnv* aJNIEnv, jobject aJObj, jstring aCfgPath )
+  ( JNIEnv* aJNIEnv, jobject aJObj, jstring aCfgPath, jint aBuildSdkVersion, jstring aDeviceName )
 {
 
 	jboolean isCopy;
 	const char* cfgPath = (*aJNIEnv)->GetStringUTFChars( aJNIEnv, aCfgPath, &isCopy );
+	const char* deviceName = (*aJNIEnv)->GetStringUTFChars( aJNIEnv, aDeviceName, &isCopy );
 
 	roadmap_path_initialize( cfgPath );
 
@@ -103,6 +112,18 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
 	JNI_LOG( ROADMAP_INFO, "Initializing JNI object FreeMapNativeManager" );
 	InitJNIObject( &gJniObj, aJNIEnv, aJObj, "FreeMapNativeManager" );
 
+	roadmap_main_set_build_sdk_version( aBuildSdkVersion );
+
+	roadmap_main_set_device_name( deviceName );
+
+	(*aJNIEnv)->ReleaseStringUTFChars( aJNIEnv, aDeviceName, deviceName );
+
+	roadmap_log( ROADMAP_WARNING, "JNI LIB DEBUG: Version: %s, OS Version: %d. Device: %s. roadmap_start address: 0x%x.\n",
+			roadmap_start_version(),
+			aBuildSdkVersion,
+			roadmap_main_get_device_name(),
+			roadmap_start );
+
 }
 
 /*************************************************************************************************
@@ -111,14 +132,22 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
  *
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_AppStartNTV
-  ( JNIEnv* aJNIEnv, jobject aJObj )
+  ( JNIEnv* aJNIEnv, jobject aJObj, jstring aUrl )
 {
-	roadmap_log( ROADMAP_WARNING, "JNI LIB DEBUG: Version: %s, roadmap_start address: %x. PID: %d, TID: %d\n",
-			roadmap_start_version(),
-			roadmap_start,
-			getpid(),
-			gettid() );
 	roadmap_main_start_init();
+
+	const char* url = NULL;
+	if ( aUrl )
+	{
+	   char query[URL_MAX_LENGTH];
+	   jboolean isCopy;
+		url = (*aJNIEnv)->GetStringUTFChars( aJNIEnv, aUrl, &isCopy );
+		roadmap_urlscheme_remove_prefix( query, url );
+      roadmap_urlscheme_init( query );
+      (*aJNIEnv)->ReleaseStringUTFChars( aJNIEnv, aUrl, url );
+	}
+
+  roadmap_log( ROADMAP_WARNING, "Applicaiton started with URL string: %s", url );
 	roadmap_start(0, NULL);
 }
 
@@ -297,7 +326,7 @@ int FreeMapNativeManager_getBatteryLevel()
 	if ( !mid || !lMthdContext.env )
 	{
 		roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
-		return;
+		return 0;
 	}
 
 	// Calling the method
@@ -530,6 +559,77 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetUpgradeRunNTV
 {
 	roadmap_main_set_first_run( aValue );
 }
+
+
+/*************************************************************************************************
+ * FreeMapNativeManager_HideWebView
+ * Hides android web view inside the dialog
+ *
+ */
+void FreeMapNativeManager_HideWebView( void )
+{
+   android_method_context_type lMthdContext;
+   int retVal = -1;
+   jmethodID mid;
+
+   JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeManager_HideWebView );
+   mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeManager_HideWebView,
+                                                         JNI_CALL_FreeMapNativeManager_HideWebView_Sig );
+   if ( !mid || !lMthdContext.env )
+   {
+       roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+       return retVal;
+   }
+
+      // Calling the method
+   (*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
+}
+/*************************************************************************************************
+ * FreeMapNativeManager_ShowWebView
+ * Shows android web view inside the dialog
+ *
+ */
+void FreeMapNativeManager_ShowWebView( int aHeight, int aTopMargin, const char* aUrl )
+{
+    android_method_context_type lMthdContext;
+    int retVal = -1;
+    jmethodID mid;
+    jbyteArray url;
+      JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeManager_ShowWebView );
+    mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeManager_ShowWebView,
+                                                                            JNI_CALL_FreeMapNativeManager_ShowWebView_Sig );
+    if ( !mid || !lMthdContext.env )
+    {
+        roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+        return retVal;
+    }
+
+    url = (*lMthdContext.env)->NewByteArray( lMthdContext.env, strlen( aUrl ) );
+    (*lMthdContext.env)->SetByteArrayRegion( lMthdContext.env, url, 0, strlen( aUrl ), aUrl );
+
+    // Calling the method
+    (*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid,
+            aHeight, aTopMargin, url );
+}
+
+
+/*************************************************************************************************
+ * Java_com_waze_FreeMapNativeManager_SetBackgroundRunNTV
+ * JNI wrapper for the roadmap_main_set_first_run (will be called from the Java layer)
+ *
+ */JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetBackgroundRunNTV
+( JNIEnv* aJNIEnv, jobject aJObj, jint aValue )
+{
+	if ( aValue )
+	{
+		roadmap_start_app_run_bg();
+	}
+	else
+	{
+		roadmap_start_app_run_fg();
+	}
+}
+
 
 /*************************************************************************************************
  * FreeMapNativeManager_DisposeRefs()

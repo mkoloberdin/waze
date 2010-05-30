@@ -33,10 +33,11 @@
 
 #include "roadmap_gui.h"
 
-#define MAX_CORDING_POINTS 5
+#define MAX_CORDING_POINTS 2
 
 enum { IMAGE_NORMAL,
-       IMAGE_SELECTED
+       IMAGE_SELECTED,
+       IMAGE_NOBLEND
 };
 
 struct roadmap_canvas_pen;
@@ -70,6 +71,14 @@ void roadmap_canvas_get_text_extents
         (const char *text, int size, int *width,
             int *ascent, int *descent, int *can_tilt);
 
+/* This call is used to get the pixel's size of a given text (if it
+ * was going to be drawn on the screen).
+ * It is used to compute the positioning of things on the screen,
+ * according to the current font.
+ */
+void roadmap_canvas_get_formated_text_extents
+        (const char *text, int size, int *width,
+            int *ascent, int *descent, int *can_tilt, int font_type);
 
 /* This call creates a new pen. If the pen already exists,
  * it should not be re-created.
@@ -108,20 +117,29 @@ void roadmap_canvas_erase_area (const RoadMapGuiRect *rect);
  */
 #define ROADMAP_CANVAS_LEFT        0
 #define ROADMAP_CANVAS_RIGHT       1
+#define ROADMAP_CANVAS_MIDDLE      8
 #define ROADMAP_CANVAS_TOP         0
 #define ROADMAP_CANVAS_BOTTOM      2
 #define ROADMAP_CANVAS_CENTER      4
 
-#define ROADMAP_CANVAS_TOPLEFT     (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_LEFT)
-#define ROADMAP_CANVAS_TOPRIGHT    (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_RIGHT)
-#define ROADMAP_CANVAS_BOTTOMRIGHT (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_RIGHT)
-#define ROADMAP_CANVAS_BOTTOMLEFT  (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_LEFT)
+#define ROADMAP_CANVAS_TOPLEFT      (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_LEFT)
+#define ROADMAP_CANVAS_TOPRIGHT     (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_RIGHT)
+#define ROADMAP_CANVAS_BOTTOMRIGHT  (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_RIGHT)
+#define ROADMAP_CANVAS_BOTTOMLEFT   (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_LEFT)
+#define ROADMAP_CANVAS_BOTTOMMIDDLE (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_MIDDLE)
+#define ROADMAP_CANVAS_CENTERRIGHT  (ROADMAP_CANVAS_CENTER|ROADMAP_CANVAS_RIGHT)
+#define ROADMAP_CANVAS_CENTERLEFT   (ROADMAP_CANVAS_CENTER|ROADMAP_CANVAS_LEFT)
+#define ROADMAP_CANVAS_CENTERMIDDLE (ROADMAP_CANVAS_CENTER|ROADMAP_CANVAS_MIDDLE)
 
 #define CANVAS_DRAW_FAST 0x1
 #define CANVAS_NO_ROTATE 0x2
 
 #define CANVAS_COPY_NORMAL 0x1
 #define CANVAS_COPY_BLEND  0x2
+
+#define FONT_TYPE_NORMAL   0x1
+#define FONT_TYPE_BOLD     0x2
+#define FONT_TYPE_OUTLINE  0x4
 
 void roadmap_canvas_draw_string  (RoadMapGuiPoint *position,
                                   int corner,
@@ -132,15 +150,29 @@ void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
                                  int size,
                                  const char *text);
 
+void roadmap_canvas_draw_formated_string_size (RoadMapGuiPoint *position,
+                                                int corner,
+                                                int size,
+                                                int font_type,
+                                                const char *text);
+
 void roadmap_canvas_draw_string_angle (const RoadMapGuiPoint *position,
                                        RoadMapGuiPoint *center,
                                        int angle, int size,
                                        const char *text);
 
+void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
+                                                RoadMapGuiPoint *center,
+                                                int angle, int size, int font_type,
+                                                const char *text);
+
 void roadmap_canvas_draw_multiple_points (int count, RoadMapGuiPoint *points);
 
 void roadmap_canvas_draw_multiple_lines
          (int count, int *lines, RoadMapGuiPoint *points, int fast_draw);
+
+void roadmap_canvas_draw_multiple_tex_lines (int count, int *lines, RoadMapGuiPoint *points, int fast_draw,
+                                             RoadMapImage image, int opposite);
 
 void roadmap_canvas_draw_multiple_polygons
          (int count, int *polygons, RoadMapGuiPoint *points, int filled,
@@ -154,6 +186,7 @@ void roadmap_canvas_draw_rounded_rect(RoadMapGuiPoint *bottom, RoadMapGuiPoint *
 int roadmap_canvas_width (void);
 int roadmap_canvas_height (void);
 
+int roadmap_canvas_is_landscape();
 
 /* This primitive causes the "exposed" drawing buffer to appear on the screen.
  */
@@ -172,6 +205,13 @@ void roadmap_canvas_image_set_mutable (RoadMapImage src);
 void roadmap_canvas_draw_image (RoadMapImage image, const RoadMapGuiPoint *pos,
                                 int opacity, int mode);
 
+void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                int opacity, int mode );
+
+void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+											const RoadMapGuiPoint *pivot_pos, int opacity, int mode );
+
+
 RoadMapImage roadmap_canvas_new_image (int width, int height);
 
 
@@ -184,13 +224,24 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
                                      const RoadMapGuiPoint *position,
                                      int size, const char *text);
 
+void roadmap_canvas_draw_image_formated_text (RoadMapImage image,
+                                     const RoadMapGuiPoint *position,
+                                     int size, const char *text, int font_type);
+
 RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int height, int stride );
 
 void roadmap_canvas_free_image (RoadMapImage image);
 
+int roadmap_canvas_get_generic_screen_type( int width, int height );
+void roadmap_canvas_image_invalidate( RoadMapImage image );
+void roadmap_canvas_unmanaged_list_add( RoadMapImage image );
+void roadmap_canvas_shutdown();
+
 #ifdef IPHONE
 void roadmap_canvas_get_cording_pt (RoadMapGuiPoint points[MAX_CORDING_POINTS]);
 int roadmap_canvas_is_cording();
+void roadmap_canvas_cancel_touches();
+void roadmap_canvas_should_accept_layout (int bAcceptLayout);
 #endif
 
 #endif // INCLUDE__ROADMAP_CANVAS__H

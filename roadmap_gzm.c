@@ -94,7 +94,7 @@ int roadmap_gzm_open (const char *name) {
 	}
 	
 	if (!ROADMAP_FILE_IS_VALID (GzmFile[id].file)) {
-		roadmap_log (ROADMAP_ERROR, "failed to open map file %s", name);
+		roadmap_log (ROADMAP_DEBUG, "failed to open map file %s", name);
 		return -1;
 	}
 	

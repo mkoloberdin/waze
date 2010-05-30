@@ -1,6 +1,7 @@
 /*
  * LICENSE:
  *
+ *   Copyright 2009 Maxim Kalaev
  *   Copyright 2008 PazO
  *
  *   RoadMap is free software; you can redistribute it and/or modify
@@ -21,6 +22,7 @@
 #include <string.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <limits.h>
 #ifndef WIN32
 #include "../roadmap_string.h"
 #endif
@@ -424,6 +426,7 @@ BOOL wst_start_trans__int(
                                        WebServiceMethod,
                                        0,
                                        session->port,
+                                       NET_COMPRESS,
                                        on_socket_connected,
                                        session))
    {
@@ -626,13 +629,13 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
       return trans_failed;
    }
 
-   if( size < 1)
+   if( size < 0)
    {
       roadmap_log( ROADMAP_ERROR, "on_data_received( SOCKET: %d) - 'roadmap_net_receive()' returned %d bytes", session->Socket, size);
       return trans_failed;
    }
 
-   if( !data)
+   if( size > 0 && data == NULL )
    {
       roadmap_log( ROADMAP_ERROR, "on_data_received( SOCKET: %d) - Invalid data (NULL)", session->Socket);
       return trans_failed;
@@ -643,7 +646,6 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
    CB                = &(session->CB);
    http_parser_state = session->http_parser_state;
    res               = trans_failed;   //   Default
-
 
    //   Terminate data with NULL, so it can be processed as string:
    CB->read_size += size;
@@ -657,7 +659,7 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
       res = OnHTTPHeader( CB, &http_parser_state);
 
       //   Done?
-      if( trans_succeeded == res)
+      if( trans_succeeded == res )
          session->http_parser_state = http_parse_completed;
    }
 
@@ -665,18 +667,32 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
    if( http_parse_completed == http_parser_state)
       res = OnCustomResponse( session);
 
-   if( trans_in_progress != res)
-   {
-      roadmap_log(ROADMAP_DEBUG,
-                  "on_data_received() - Finish to process all data; Status: %s",
-                  ((trans_succeeded==res)? "Succeeded": "Failed"));
+   if( res == trans_failed ) {
+      roadmap_log( ROADMAP_DEBUG,
+                   "on_data_received() - Finish to process all data; Status: %s",
+                   "Failed" );
 
-      if( (trans_succeeded != res) && (succeeded == session->rc))
+      if( succeeded == session->rc )
          session->rc = err_failed;
 
-      return res;
+      return trans_failed;
    }
 
+   // If no more data is expected to be received because either
+   //  the last packet has arrived or amount specified by content-length
+   //  has been received:
+   if( size == 0 || CB->data_processed + CB->read_size >= CB->data_size ) {
+	   // Check that no data has left unprocessed: 
+	   if( CB->read_size != CB->read_processed ) {
+		   return trans_failed;
+	   }
+
+	   roadmap_log( ROADMAP_DEBUG,
+	                "on_data_received() - Finish to process all data; Status: %s", "Succeeded" );
+
+	  return trans_succeeded;
+   }
+   
    //   Recycle buffer:
    cyclic_buffer_recycle( CB);
 
@@ -799,42 +815,41 @@ static transaction_result OnHTTPHeader( cyclic_buffer_ptr CB, http_parsing_state
    if( !pHeaderEnd)
       return trans_in_progress;   //   Continue reading...
 
+   // Initialize buffer processed-size:
+   CB->read_processed   = (int)(((size_t)pHeaderEnd  + strlen("\r\n\r\n")) - (size_t)(buffer));
+   CB->data_processed   = 0;        // Out of 'data_size', how much was processed
+   CB->data_size        = INT_MAX;  // Data size is not known, unless content-length header is set:
+
    // Lower case:
-   ToLowerN( (char*)buffer, (size_t)(pHeaderEnd - (char*)buffer));
+   ToLowerN( (char*)buffer, (size_t)(pHeaderEnd - (char*)buffer) );
 
    //   Search for content length:
    pDataSize = strstr( buffer, "content-length:");
-   if( !pDataSize)
-   {
-      roadmap_log( ROADMAP_ERROR, "WST::OnHTTPHeader() - Did not find 'Content-Length:' in response (%s)", buffer);
-      return trans_failed;         //   Quit reading loop
+   if( pDataSize != NULL ) {
+	   //   Move pointer:
+	   pDataSize += strlen("content-length:");
+	   //   Read size:
+	   pDataSize  = ReadIntFromString(
+						 pDataSize,           //   [in]     Source string
+						 "\r\n",              //   [in,opt] Value termination
+						 " ",                 //   [in,opt] Allowed padding
+						 &data_size,    	  //   [out]    Put it here
+						 DO_NOT_TRIM);        //   [in]     Remove additional termination chars
+	
+	   if( !pDataSize || !(*pDataSize)|| !data_size)
+	   {
+		  roadmap_log( ROADMAP_ERROR, "WST::OnHTTPHeader() - Did not find custom-data size value in the response (%s)", buffer);
+		  return trans_failed;      //   Quit reading loop
+	   }
+	
+	   // Update overall expected size of transaction data
+	   CB->data_size = CB->read_processed + data_size; 
+
+	   // Log on findings:
+	   roadmap_log( ROADMAP_DEBUG, "WST::OnHTTPHeader() - Custom data size: %d; Packet: '%s'", data_size, buffer);
+   }else{
+	   roadmap_log( ROADMAP_DEBUG, "WST::OnHTTPHeader() - Did not find 'Content-Length:' in response (%s)", buffer);
    }
-
-   //   Move pointer:
-   pDataSize += strlen("Content-Length:");
-   //   Read size:
-   pDataSize  = ReadIntFromString(
-                     pDataSize,           //   [in]     Source string
-                     "\r\n",              //   [in,opt] Value termination
-                     " ",                 //   [in,opt] Allowed padding
-                     &data_size,    //   [out]    Put it here
-                     DO_NOT_TRIM);        //   [in]     Remove additional termination chars
-
-   if( !pDataSize || !(*pDataSize)|| !data_size)
-   {
-      roadmap_log( ROADMAP_ERROR, "WST::OnHTTPHeader() - Did not find custom-data size value in the response (%s)", buffer);
-      return trans_failed;      //   Quit reading loop
-   }
-
-   // Log on findings:
-   roadmap_log( ROADMAP_DEBUG, "WST::OnHTTPHeader() - Custom data size: %d; Packet: '%s'", data_size, buffer);
-
-   // Update buffer processed-size:
-   CB->read_processed   = (int)(((size_t)pHeaderEnd  + strlen("\r\n\r\n")) - (size_t)(buffer));
-
-   // Set boundreis for the following data processing:
-   CB->data_size        = CB->read_processed + data_size;// Overall expected size of all data
-   CB->data_processed   = 0;                             // Out of 'data_size', how much was processed
 
    (*parser_state) = http_parse_completed;
 
@@ -855,7 +870,7 @@ static transaction_result OnCustomResponse( wst_context_ptr session)
    BOOL                 more_data_needed  = FALSE;
    int                  buffer_size;
    int                  i;
-   roadmap_result			rc						= succeeded;
+   roadmap_result		rc						= succeeded;
 
    assert(session);
    assert(CB);
@@ -873,19 +888,12 @@ static transaction_result OnCustomResponse( wst_context_ptr session)
          break;
       }
    }
-
+   
    //   As long as we have data - keep on parsing:
-   while( (CB->data_processed + CB->read_processed) < CB->data_size)
+   while( CB->read_size > CB->read_processed )
    {
       parser            = NULL;
       more_data_needed  = FALSE;
-
-      //   Do we need to read more bytes?
-      if( CB->read_size <= CB->read_processed)
-      {
-         assert(CB->read_size == CB->read_processed);
-         return trans_in_progress;   //   Continue reading...
-      }
 
       //   Set pointer:
       next = cyclic_buffer_get_unprocessed_data( CB);
@@ -997,10 +1005,9 @@ static transaction_result OnCustomResponse( wst_context_ptr session)
       cyclic_buffer_update_processed_data( CB, next, " ,\t\r\n");
    }
 
-	if( succeeded != session->rc)
-		return trans_failed;
-		 
-   return trans_succeeded;
+
+	assert( CB->read_size == CB->read_processed );
+    return ((succeeded == session->rc) ? trans_in_progress : trans_failed); 
 }
 
 void http_response_status_init( http_response_status* this)

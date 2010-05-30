@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Type 42 objects manager (body).                                      */
 /*                                                                         */
-/*  Copyright 2002, 2003, 2004, 2005 by Roberto Alameda.                   */
+/*  Copyright 2002, 2003, 2004, 2005, 2006, 2007, 2008 by Roberto Alameda. */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
 /*  modified, and distributed under the terms of the FreeType project      */
@@ -55,6 +55,8 @@
 
     error = t42_parse_dict( face, &loader,
                             parser->base_dict, parser->base_len );
+    if ( error )
+      goto Exit;
 
     if ( type1->font_type != 42 )
     {
@@ -186,7 +188,7 @@
       goto Exit;
 
     /* check the face index */
-    if ( face_index != 0 )
+    if ( face_index > 0 )
     {
       FT_ERROR(( "T42_Face_Init: invalid face index\n" ));
       error = T42_Err_Invalid_Argument;
@@ -200,14 +202,21 @@
 
     root->num_glyphs   = type1->num_glyphs;
     root->num_charmaps = 0;
-    root->face_index   = face_index;
+    root->face_index   = 0;
 
-    root->face_flags  = FT_FACE_FLAG_SCALABLE;
-    root->face_flags |= FT_FACE_FLAG_HORIZONTAL;
-    root->face_flags |= FT_FACE_FLAG_GLYPH_NAMES;
+    root->face_flags = FT_FACE_FLAG_SCALABLE    |
+                       FT_FACE_FLAG_HORIZONTAL  |
+                       FT_FACE_FLAG_GLYPH_NAMES;
 
     if ( info->is_fixed_pitch )
       root->face_flags |= FT_FACE_FLAG_FIXED_WIDTH;
+
+    /* We only set this flag if we have the patented bytecode interpreter. */
+    /* There are no known `tricky' Type42 fonts that could be loaded with  */
+    /* the unpatented interpreter.                                         */
+#ifdef TT_CONFIG_OPTION_BYTECODE_INTERPRETER
+    root->face_flags |= FT_FACE_FLAG_HINTER;
+#endif
 
     /* XXX: TODO -- add kerning with .afm support */
 
@@ -259,11 +268,25 @@
     root->available_sizes = 0;
 
     /* Load the TTF font embedded in the T42 font */
-    error = FT_New_Memory_Face( FT_FACE_LIBRARY( face ),
-                                face->ttf_data,
-                                face->ttf_size,
-                                0,
-                                &face->ttf_face );
+    {
+      FT_Open_Args  args;
+
+
+      args.flags       = FT_OPEN_MEMORY;
+      args.memory_base = face->ttf_data;
+      args.memory_size = face->ttf_size;
+
+      if ( num_params )
+      {
+        args.flags     |= FT_OPEN_PARAMS;
+        args.num_params = num_params;
+        args.params     = params;
+      }
+
+      error = FT_Open_Face( FT_FACE_LIBRARY( face ),
+                            &args, 0, &face->ttf_face );
+    }
+
     if ( error )
       goto Exit;
 
@@ -283,9 +306,6 @@
 
     root->underline_position  = (FT_Short)info->underline_position;
     root->underline_thickness = (FT_Short)info->underline_thickness;
-
-    root->internal->max_points   = 0;
-    root->internal->max_contours = 0;
 
     /* compute style flags */
     root->style_flags = 0;
@@ -308,7 +328,7 @@
 
         charmap.face = root;
 
-        /* first of all, try to synthetize a Unicode charmap */
+        /* first of all, try to synthesize a Unicode charmap */
         charmap.platform_id = 3;
         charmap.encoding_id = 1;
         charmap.encoding    = FT_ENCODING_UNICODE;
@@ -372,50 +392,50 @@
     FT_Memory    memory;
 
 
-    if ( face )
-    {
-      type1  = &face->type1;
-      info   = &type1->font_info;
-      memory = face->root.memory;
+    if ( !face )
+      return;
 
-      /* delete internal ttf face prior to freeing face->ttf_data */
-      if ( face->ttf_face )
-        FT_Done_Face( face->ttf_face );
+    type1  = &face->type1;
+    info   = &type1->font_info;
+    memory = face->root.memory;
 
-      /* release font info strings */
-      FT_FREE( info->version );
-      FT_FREE( info->notice );
-      FT_FREE( info->full_name );
-      FT_FREE( info->family_name );
-      FT_FREE( info->weight );
+    /* delete internal ttf face prior to freeing face->ttf_data */
+    if ( face->ttf_face )
+      FT_Done_Face( face->ttf_face );
 
-      /* release top dictionary */
-      FT_FREE( type1->charstrings_len );
-      FT_FREE( type1->charstrings );
-      FT_FREE( type1->glyph_names );
+    /* release font info strings */
+    FT_FREE( info->version );
+    FT_FREE( info->notice );
+    FT_FREE( info->full_name );
+    FT_FREE( info->family_name );
+    FT_FREE( info->weight );
 
-      FT_FREE( type1->charstrings_block );
-      FT_FREE( type1->glyph_names_block );
+    /* release top dictionary */
+    FT_FREE( type1->charstrings_len );
+    FT_FREE( type1->charstrings );
+    FT_FREE( type1->glyph_names );
 
-      FT_FREE( type1->encoding.char_index );
-      FT_FREE( type1->encoding.char_name );
-      FT_FREE( type1->font_name );
+    FT_FREE( type1->charstrings_block );
+    FT_FREE( type1->glyph_names_block );
 
-      FT_FREE( face->ttf_data );
+    FT_FREE( type1->encoding.char_index );
+    FT_FREE( type1->encoding.char_name );
+    FT_FREE( type1->font_name );
+
+    FT_FREE( face->ttf_data );
 
 #if 0
-      /* release afm data if present */
-      if ( face->afm_data )
-        T1_Done_AFM( memory, (T1_AFM*)face->afm_data );
+    /* release afm data if present */
+    if ( face->afm_data )
+      T1_Done_AFM( memory, (T1_AFM*)face->afm_data );
 #endif
 
-      /* release unicode map, if any */
-      FT_FREE( face->unicode_map.maps );
-      face->unicode_map.num_maps = 0;
+    /* release unicode map, if any */
+    FT_FREE( face->unicode_map.maps );
+    face->unicode_map.num_maps = 0;
 
-      face->root.family_name = 0;
-      face->root.style_name  = 0;
-    }
+    face->root.family_name = 0;
+    face->root.style_name  = 0;
   }
 
 
@@ -471,6 +491,43 @@
   }
 
 
+  FT_LOCAL_DEF( FT_Error )
+  T42_Size_Request( T42_Size         size,
+                    FT_Size_Request  req )
+  {
+    T42_Face  face = (T42_Face)size->root.face;
+    FT_Error  error;
+
+
+    FT_Activate_Size( size->ttsize );
+
+    error = FT_Request_Size( face->ttf_face, req );
+    if ( !error )
+      ( (FT_Size)size )->metrics = face->ttf_face->size->metrics;
+
+    return error;
+  }
+
+
+  FT_LOCAL_DEF( FT_Error )
+  T42_Size_Select( T42_Size  size,
+                   FT_ULong  strike_index )
+  {
+    T42_Face  face = (T42_Face)size->root.face;
+    FT_Error  error;
+
+
+    FT_Activate_Size( size->ttsize );
+
+    error = FT_Select_Size( face->ttf_face, (FT_Int)strike_index );
+    if ( !error )
+      ( (FT_Size)size )->metrics = face->ttf_face->size->metrics;
+
+    return error;
+
+  }
+
+
   FT_LOCAL_DEF( void )
   T42_Size_Done( T42_Size  size )
   {
@@ -516,45 +573,6 @@
   T42_GlyphSlot_Done( T42_GlyphSlot slot )
   {
     FT_Done_GlyphSlot( slot->ttslot );
-  }
-
-
-
-  FT_LOCAL_DEF( FT_Error )
-  T42_Size_SetChars( T42_Size    size,
-                     FT_F26Dot6  char_width,
-                     FT_F26Dot6  char_height,
-                     FT_UInt     horz_resolution,
-                     FT_UInt     vert_resolution )
-  {
-    FT_Face   face    = size->root.face;
-    T42_Face  t42face = (T42_Face)face;
-
-
-    FT_Activate_Size( size->ttsize );
-
-    return FT_Set_Char_Size( t42face->ttf_face,
-                             char_width,
-                             char_height,
-                             horz_resolution,
-                             vert_resolution );
-  }
-
-
-  FT_LOCAL_DEF( FT_Error )
-  T42_Size_SetPixels( T42_Size  size,
-                      FT_UInt   pixel_width,
-                      FT_UInt   pixel_height )
-  {
-    FT_Face   face    = size->root.face;
-    T42_Face  t42face = (T42_Face)face;
-
-
-    FT_Activate_Size( size->ttsize );
-
-    return FT_Set_Pixel_Sizes( t42face->ttf_face,
-                               pixel_width,
-                               pixel_height );
   }
 
 

@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    CID objects manager (body).                                          */
 /*                                                                         */
-/*  Copyright 1996-2001, 2002, 2003, 2004, 2005 by                         */
+/*  Copyright 1996-2001, 2002, 2003, 2004, 2005, 2006, 2008 by             */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -152,41 +152,24 @@
   }
 
 
-  FT_LOCAL_DEF( FT_Error )
-  cid_size_reset( FT_Size  cidsize,             /* CID_Size */
-                  FT_UInt  char_width,
-                  FT_UInt  char_height )
+  FT_LOCAL( FT_Error )
+  cid_size_request( FT_Size          size,
+                    FT_Size_Request  req )
   {
-    CID_Size           size  = (CID_Size)cidsize;
-    PSH_Globals_Funcs  funcs = cid_size_get_globals_funcs( size );
-    FT_Error           error = 0;
+    PSH_Globals_Funcs  funcs;
 
-    FT_UNUSED( char_width );
-    FT_UNUSED( char_height );
 
+    FT_Request_Metrics( size->face, req );
+
+    funcs = cid_size_get_globals_funcs( (CID_Size)size );
 
     if ( funcs )
-      error = funcs->set_scale( (PSH_Globals)cidsize->internal,
-                                 cidsize->metrics.x_scale,
-                                 cidsize->metrics.y_scale,
-                                 0, 0 );
-    return error;
-  }
+      funcs->set_scale( (PSH_Globals)size->internal,
+                        size->metrics.x_scale,
+                        size->metrics.y_scale,
+                        0, 0 );
 
-
-  FT_LOCAL_DEF( FT_Error )
-  cid_point_size_reset( FT_Size     size,
-                        FT_F26Dot6  char_width,
-                        FT_F26Dot6  char_height,
-                        FT_UInt     horz_resolution,
-                        FT_UInt     vert_resolution )
-  {
-    FT_UNUSED( char_width );
-    FT_UNUSED( char_height );
-    FT_UNUSED( horz_resolution );
-    FT_UNUSED( vert_resolution );
-
-    return cid_size_reset( size, 0, 0 );
+    return CID_Err_Ok;
   }
 
 
@@ -210,61 +193,61 @@
   FT_LOCAL_DEF( void )
   cid_face_done( FT_Face  cidface )         /* CID_Face */
   {
-    CID_Face   face = (CID_Face)cidface;
-    FT_Memory  memory;
+    CID_Face      face = (CID_Face)cidface;
+    FT_Memory     memory;
+    CID_FaceInfo  cid;
+    PS_FontInfo   info;
 
 
-    if ( face )
+    if ( !face )
+      return;
+
+    cid    = &face->cid;
+    info   = &cid->font_info;
+    memory = cidface->memory;
+
+    /* release subrs */
+    if ( face->subrs )
     {
-      CID_FaceInfo  cid  = &face->cid;
-      PS_FontInfo   info = &cid->font_info;
+      FT_Int  n;
 
 
-      memory = cidface->memory;
-
-      /* release subrs */
-      if ( face->subrs )
+      for ( n = 0; n < cid->num_dicts; n++ )
       {
-        FT_Int  n;
+        CID_Subrs  subr = face->subrs + n;
 
 
-        for ( n = 0; n < cid->num_dicts; n++ )
+        if ( subr->code )
         {
-          CID_Subrs  subr = face->subrs + n;
-
-
-          if ( subr->code )
-          {
-            FT_FREE( subr->code[0] );
-            FT_FREE( subr->code );
-          }
+          FT_FREE( subr->code[0] );
+          FT_FREE( subr->code );
         }
-
-        FT_FREE( face->subrs );
       }
 
-      /* release FontInfo strings */
-      FT_FREE( info->version );
-      FT_FREE( info->notice );
-      FT_FREE( info->full_name );
-      FT_FREE( info->family_name );
-      FT_FREE( info->weight );
-
-      /* release font dictionaries */
-      FT_FREE( cid->font_dicts );
-      cid->num_dicts = 0;
-
-      /* release other strings */
-      FT_FREE( cid->cid_font_name );
-      FT_FREE( cid->registry );
-      FT_FREE( cid->ordering );
-
-      cidface->family_name = 0;
-      cidface->style_name  = 0;
-
-      FT_FREE( face->binary_data );
-      FT_FREE( face->cid_stream );
+      FT_FREE( face->subrs );
     }
+
+    /* release FontInfo strings */
+    FT_FREE( info->version );
+    FT_FREE( info->notice );
+    FT_FREE( info->full_name );
+    FT_FREE( info->family_name );
+    FT_FREE( info->weight );
+
+    /* release font dictionaries */
+    FT_FREE( cid->font_dicts );
+    cid->num_dicts = 0;
+
+    /* release other strings */
+    FT_FREE( cid->cid_font_name );
+    FT_FREE( cid->registry );
+    FT_FREE( cid->ordering );
+
+    cidface->family_name = 0;
+    cidface->style_name  = 0;
+
+    FT_FREE( face->binary_data );
+    FT_FREE( face->cid_stream );
   }
 
 
@@ -341,6 +324,7 @@
       goto Exit;
 
     /* check the face index */
+    /* XXX: handle CID fonts with more than a single face */
     if ( face_index != 0 )
     {
       FT_ERROR(( "cid_face_init: invalid face index\n" ));
@@ -362,9 +346,9 @@
       cidface->num_charmaps = 0;
 
       cidface->face_index = face_index;
-      cidface->face_flags = FT_FACE_FLAG_SCALABLE;
-
-      cidface->face_flags |= FT_FACE_FLAG_HORIZONTAL;
+      cidface->face_flags = FT_FACE_FLAG_SCALABLE   | /* scalable outlines */
+                            FT_FACE_FLAG_HORIZONTAL | /* horizontal data   */
+                            FT_FACE_FLAG_HINTER;      /* has native hinter */
 
       if ( info->is_fixed_pitch )
         cidface->face_flags |= FT_FACE_FLAG_FIXED_WIDTH;
@@ -439,14 +423,13 @@
 
       cidface->ascender  = (FT_Short)( cidface->bbox.yMax );
       cidface->descender = (FT_Short)( cidface->bbox.yMin );
-      cidface->height    = (FT_Short)(
-        ( ( cidface->ascender - cidface->descender ) * 12 ) / 10 );
+
+      cidface->height = (FT_Short)( ( cidface->units_per_EM * 12 ) / 10 );
+      if ( cidface->height < cidface->ascender - cidface->descender )
+        cidface->height = (FT_Short)( cidface->ascender - cidface->descender );
 
       cidface->underline_position  = (FT_Short)info->underline_position;
       cidface->underline_thickness = (FT_Short)info->underline_thickness;
-
-      cidface->internal->max_points   = 0;
-      cidface->internal->max_contours = 0;
     }
 
   Exit:

@@ -107,6 +107,8 @@ int 	roadmap_square_screen_scale_factor (void);
 int 	roadmap_square_current_scale_factor (void);
 int	roadmap_square_scale (int square);
 int 	roadmap_square_at_current_scale (int square);
+void  roadmap_square_unload_all (void);
+int roadmap_square_refresh( int fips, int max_num_tiles, RoadMapCallback tile_loaded_cb );
 
 extern roadmap_db_handler RoadMapSquareHandler;
 extern roadmap_db_handler RoadMapSquareOneHandler;

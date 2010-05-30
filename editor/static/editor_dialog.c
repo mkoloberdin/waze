@@ -436,7 +436,7 @@ static void decode_range (char *street_range,
 #endif
 
 
-static const char *editor_segments_find_city
+const char *editor_segments_find_city
          (int line, int plugin_id, int square) {
 
    int i;

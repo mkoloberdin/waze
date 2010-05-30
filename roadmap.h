@@ -56,28 +56,10 @@ typedef unsigned short      uint16_t;
 #endif
 
 #define  CLIENT_VERSION_MAJOR       (1)
-#define  CLIENT_VERSION_MINOR       (5)
-#define  CLIENT_VERSION_SUB         (2)
-#define  CLIENT_VERSION_CFG         (3)	/* Build number for internal use only */
+#define  CLIENT_VERSION_MINOR       (8)
+#define  CLIENT_VERSION_SUB         (99)
+#define  CLIENT_VERSION_CFG         (101)	/* Build number for internal use only */
 
-#if defined(ANDROID)
-#define TIMESTAMP_START() \
-{ \
-	struct timeval start_time, end_time;	\
-	int delta = -1;				\
-	gettimeofday( &start_time, NULL );
-
-
-#define TIMESTAMP_END( printString, threshold ) \
-	gettimeofday( &end_time, NULL );			\
-	delta = ( end_time.tv_sec * 1000 + end_time.tv_usec / 1000 ) -	\
-	( start_time.tv_sec * 1000 + start_time.tv_usec / 1000 );			\
-	if ( delta > threshold )		\
-	{								\
-		roadmap_log_raw_data_fmt( "#### PROFILING TIMESTAMP. %s. Timeout: %d \n", printString, delta );	\
-	}	\
-}
-#endif
 
 #include "roadmap_types.h"
 #if defined (_WIN32) && !defined (__SYMBIAN32__)
@@ -107,7 +89,13 @@ typedef unsigned short      uint16_t;
 str_out[0] = '0'; \
 sprintf( &str_out[(num_in < 10)], "%d", num_in ); \
 }
+#define SAFE_STR( str ) ( ( str ) ? ( str ) : "NULL" )
 
+
+
+#if defined(ANDROID) && defined(OPENGL)
+#define ANDROID_OGL
+#endif
 
 extern int USING_PHONE_KEYPAD;
 
@@ -177,12 +165,7 @@ static inline void do_assert(char *text) {
 
 #define DEBUG_LEVEL_SET_PATTERN  "2##2"
 
-///[BOOKMARK]:[NOTE] - Set default log level:
-#if(defined _DEBUG || defined DEBUG)
-   #define  DEFAULT_LOG_LEVEL       ROADMAP_MESSAGE_DEBUG
-#else
-   #define  DEFAULT_LOG_LEVEL       ROADMAP_MESSAGE_WARNING
-#endif   // _DEBUG
+#define  DEFAULT_LOG_LEVEL       ROADMAP_MESSAGE_WARNING
 
 #ifdef   WIN32_DEBUG
    ///[BOOKMARK]:[NOTE] - In case of fatal error - halt process and wait for debugger to attach

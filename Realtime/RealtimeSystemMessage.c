@@ -39,18 +39,29 @@
 static RoadMapConfigDescriptor RoadMapConfigLastIdDisplayed =
       ROADMAP_CONFIG_ITEM("System Messages", "Last message ID displayed");
 
+char DEFAULT_TITLE_TEXT_COLOR[] = "#f6a201";
+char DEFAULT_MSG_TEXT_COLOR[] = "#ffffff";
+#define DEFAULT_TITLE_TEXT_SIZE 20
+#define DEFAULT_MSG_TEXT_SIZE   16
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RTSystemMessage_Init( LPRTSystemMessage this)
-{ memset( this, 0, sizeof(RTSystemMessage));}
+{
+   memset( this, 0, sizeof(RTSystemMessage));
+   strncpy(this->titleTextColor, DEFAULT_TITLE_TEXT_COLOR, 16);
+   strncpy(this->msgTextColor, DEFAULT_MSG_TEXT_COLOR, 16);
+   this->titleTextSize = DEFAULT_TITLE_TEXT_SIZE;
+   this->msgTextSize = DEFAULT_MSG_TEXT_SIZE;
+}
 
 void RTSystemMessage_Free( LPRTSystemMessage this)
 {
-   FREE_MEM(this->Title)
-   FREE_MEM(this->Text)
-   FREE_MEM(this->Icon)
+   FREE_MEM(this->title)
+   FREE_MEM(this->msg)
+   FREE_MEM(this->icon)
    RTSystemMessage_Init( this);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -64,10 +75,10 @@ static   int               ItemsCount=  0;
 static int IncrementIndex( int i)
 {
    i++;
-   
+
    if( i < RTSYSTEMMESSAGE_QUEUE_MAXSIZE)
       return i;
-      
+
    return 0;
 }
 
@@ -77,20 +88,20 @@ static int AllocCell()
 
    if( RTSYSTEMMESSAGE_QUEUE_MAXSIZE == ItemsCount)
       return -1;
-   
+
    if( -1 == FirstItem)
    {
       FirstItem = 0;
       ItemsCount= 1;
       return 0;
    }
-   
+
    iNextFreeCell = (FirstItem + ItemsCount);
    ItemsCount++;
 
    if( iNextFreeCell < RTSYSTEMMESSAGE_QUEUE_MAXSIZE)
       return iNextFreeCell;
-      
+
    return (iNextFreeCell - RTSYSTEMMESSAGE_QUEUE_MAXSIZE);
 }
 
@@ -108,24 +119,24 @@ static LPRTSystemMessage AllocSystemMessage()
    int               iCell = AllocCell();
    if( -1 == iCell)
       return NULL;
-   
+
    pCell = RTSystemMessageQueue + iCell;
    RTSystemMessage_Init( pCell);
-   
+
    return pCell;
 }
 
 static BOOL PopOldest( LPRTSystemMessage pSM)
 {
    LPRTSystemMessage pCell;
-   
+
    if( !ItemsCount || (-1 == FirstItem))
    {
       if( pSM)
          RTSystemMessage_Init( pSM);
       return FALSE;
    }
-   
+
    pCell = RTSystemMessageQueue + FirstItem;
 
    if( pSM)
@@ -138,7 +149,7 @@ static BOOL PopOldest( LPRTSystemMessage pSM)
    else
       // Item is NOT being copied; Release item resources:
       RTSystemMessage_Free( pCell);
-   
+
    if( 1 == ItemsCount)
    {
       ItemsCount =  0;
@@ -149,7 +160,7 @@ static BOOL PopOldest( LPRTSystemMessage pSM)
       ItemsCount--;
       FirstItem = IncrementIndex( FirstItem);
    }
-   
+
    return TRUE;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,30 +170,30 @@ static BOOL PopOldest( LPRTSystemMessage pSM)
 void  RTSystemMessageQueue_Push( LPRTSystemMessage this)
 {
    LPRTSystemMessage p;
-   
+
    if( RTSystemMessageQueue_IsFull())
       PopOldest( NULL);
 
    if (!RTSystemMessageQueue_Size())
-      roadmap_main_set_periodic( 60000, RTSystemMessagesDisplay_Timer ); 
+      roadmap_main_set_periodic( 60000, RTSystemMessagesDisplay_Timer );
 
    p = AllocSystemMessage();
-   
-   if (this->Icon != NULL){
-      if (roadmap_res_get(RES_BITMAP,RES_SKIN, this->Icon) == NULL){
-            roadmap_res_download(RES_DOWNLOAD_IMAGE, this->Icon,NULL, "",FALSE,0, NULL, NULL );
+
+   if (this->icon != NULL){
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, this->icon) == NULL){
+            roadmap_res_download(RES_DOWNLOAD_IMAGE, this->icon,NULL, "",FALSE,0, NULL, NULL );
       }
    }
-   
-   (*p) = (*this);     
+
+   (*p) = (*this);
 }
 
 BOOL  RTSystemMessageQueue_Pop ( LPRTSystemMessage this)
-{ 
+{
    BOOL success = PopOldest( this);
    if (!RTSystemMessageQueue_Size())
       roadmap_main_remove_periodic(RTSystemMessagesDisplay_Timer );
-   return success; 
+   return success;
 }
 
 int   RTSystemMessageQueue_Size()
@@ -213,64 +224,90 @@ static int button_callback ( SsdWidget widget, const char *new_value ){
 }
 
 static SsdWidget create_dialog(void){
-   SsdWidget dialog, text, bitmap;
+   SsdWidget title, dialog, text, bitmap, banner;
+   int banner_height = 35;
+   int title_bar_height = SSD_MIN_SIZE;
 
    dialog = ssd_dialog_new ( "SystemMessage", "", NULL,
-           SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|
+           SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
            SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
-   text =  ssd_widget_get(dialog, "title_text");
-   ssd_text_set_color(text, "#f6a201");
-   
+
+
+   if (roadmap_screen_is_hd_screen()){
+      banner_height = 60;
+   }
    ssd_dialog_add_vspace(dialog, 5, SSD_END_ROW);
-   bitmap = ssd_bitmap_new("SystemMessageIcon", "empty_image",SSD_ALIGN_CENTER|SSD_END_ROW);
-   ssd_widget_add(dialog, bitmap);
+   banner = ssd_container_new ("banner", NULL, SSD_MAX_SIZE, banner_height, SSD_END_ROW);
+   ssd_widget_set_color(banner, NULL, NULL);
+   bitmap = ssd_bitmap_new("SystemMessageIcon", "empty_image",SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ALIGN_VCENTER);
+   ssd_widget_add(banner, bitmap);
+   ssd_widget_add(dialog, banner);
+
+   ssd_dialog_add_vspace(dialog, 5, SSD_END_ROW);
+   title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, title_bar_height, SSD_END_ROW);
+   ssd_widget_set_color(title, NULL, NULL);
+   text = ssd_text_new ("title_text", "" , DEFAULT_TITLE_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+   ssd_text_set_color(text, DEFAULT_TITLE_TEXT_COLOR);
+   ssd_widget_add(title, text);
+   ssd_widget_add(dialog, title);
 
 
    ssd_dialog_add_vspace(dialog, 5, SSD_END_ROW);
-   text =  ssd_text_new ("text", "", 16, SSD_ALIGN_CENTER);
-   ssd_text_set_color(text, "#ffffff");
+   text =  ssd_text_new ("text", "", DEFAULT_MSG_TEXT_SIZE, SSD_ALIGN_CENTER|SSD_TEXT_NORMAL_FONT);
+   ssd_text_set_color(text, DEFAULT_MSG_TEXT_COLOR);
    ssd_widget_add (dialog,text);
 
-   ssd_dialog_add_vspace(dialog, 5, SSD_END_ROW);
-   
+   ssd_dialog_add_vspace(dialog, 14, SSD_END_ROW);
+
    ssd_widget_add (dialog,
       ssd_button_label ("confirm", roadmap_lang_get("Ok"),
                         SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
                         SSD_WS_TABSTOP|SSD_END_ROW,
                         button_callback));
 
-   ssd_dialog_add_vspace(dialog, 5, SSD_END_ROW);
+   ssd_dialog_add_vspace(dialog, 10, SSD_END_ROW);
    return dialog;
 }
 
-static void RTSystemMessagesDisplay_Dlg(const char *title, const char *text, const char *icon ){
+static void RTSystemMessagesDisplay_Dlg(const char *title, const char *titleTextColor, int titleTextSize, const char *text, const char *msgTextColor, int msgTextSize, const char *icon ){
    static SsdWidget dialog = NULL;
    if (!dialog){
       dialog = create_dialog();
    }
-   
+
    if (!title){
       ssd_widget_hide(ssd_widget_get(dialog, "title_bar"));
    }
    else{
       ssd_widget_show(ssd_widget_get(dialog, "title_bar"));
    }
-   
+
    if (!icon){
-      ssd_widget_hide(ssd_widget_get(dialog, "SystemMessageIcon"));
+      ssd_widget_hide(ssd_widget_get(dialog, "banner"));
    }
    else{
       if (roadmap_res_get(RES_BITMAP,RES_SKIN, icon) != NULL){
          ssd_bitmap_update(ssd_widget_get(dialog, "SystemMessageIcon"), icon);
-         ssd_widget_show(ssd_widget_get(dialog, "SystemMessageIcon"));
+         ssd_widget_reset_position(ssd_widget_get(dialog, "SystemMessageIcon"));
+         ssd_widget_reset_cache(ssd_widget_get(dialog, "SystemMessageIcon"));
+         ssd_widget_show(ssd_widget_get(dialog, "banner"));
       }
    }
    ssd_text_set_text( ssd_widget_get(dialog, "title_text"), title );
+   ssd_text_set_color(ssd_widget_get(dialog, "title_text"), strdup(titleTextColor));
+   ssd_text_set_font_size(ssd_widget_get(dialog, "title_text"), titleTextSize);
+
+   ssd_widget_reset_position(ssd_widget_get(dialog, "title_bar"));
+   ssd_widget_reset_cache(ssd_widget_get(dialog, "title_bar"));
+   ssd_widget_reset_position(ssd_widget_get(dialog, "title_text"));
+   ssd_widget_reset_cache(ssd_widget_get(dialog, "title_text"));
+
    ssd_text_set_text( ssd_widget_get(dialog, "text"), text );
-   
+   ssd_text_set_color(ssd_widget_get(dialog, "text"), strdup(msgTextColor));
+   ssd_text_set_font_size(ssd_widget_get(dialog, "text"), msgTextSize);
    ssd_dialog_activate("SystemMessage", NULL);
    roadmap_screen_redraw();
-   
+
 }
 
 void RTSystemMessagesDisplay(void){
@@ -279,18 +316,18 @@ void RTSystemMessagesDisplay(void){
       RTSystemMessage_Init(&systemMessage);
       RTSystemMessageQueue_Pop(&systemMessage);
       RTSystemMessagesSetLastMessageDisplayed(systemMessage.iId);
-      
-      RTSystemMessagesDisplay_Dlg(systemMessage.Title, systemMessage.Text,  systemMessage.Icon); 
+
+      RTSystemMessagesDisplay_Dlg(systemMessage.title, systemMessage.titleTextColor, systemMessage.titleTextSize, systemMessage.msg, systemMessage.msgTextColor,systemMessage.msgTextSize, systemMessage.icon);
    }
 }
 
 void RTSystemMessagesInit(void){
-   
-   
+
+
    roadmap_config_declare ("user",
                            &RoadMapConfigLastIdDisplayed,
                            "0", NULL);
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

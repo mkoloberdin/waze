@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Multiple Master font support (body).                                 */
 /*                                                                         */
-/*  Copyright 1996-2001, 2003, 2004 by                                     */
+/*  Copyright 1996-2001, 2003, 2004, 2009 by                               */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -52,7 +52,7 @@
                               *aservice,
                               MULTI_MASTERS );
 
-      if ( aservice )
+      if ( *aservice )
         error = FT_Err_Ok;
     }
 
@@ -174,7 +174,7 @@
 
 
   /* documentation is in ftmm.h */
-  
+
   /* This is exactly the same as the previous function.  It exists for */
   /* orthogonality.                                                    */
 

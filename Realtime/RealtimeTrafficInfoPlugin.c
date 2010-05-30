@@ -38,11 +38,15 @@
 #include "../roadmap_res.h"
 #include "../roadmap_map_settings.h"
 #include "roadmap_screen.h"
+#include "roadmap_tile_status.h"
+#include "roadmap_tile_manager.h"
+#include "roadmap_tile.h"
 
 #include "Realtime.h"
 #include "RealtimeTrafficInfo.h"
 
 static void RealtimeTrafficInfoScreenRepaint (int max_pen);
+static void RealtimeTrafficInfoPaintGeoms (void);
 
 #define TRAFFIC_PEN_WIDTH 4
 #define MAX_SEGEMENTS 2500
@@ -177,12 +181,67 @@ BOOL isDisplayingTrafficInfoOn(){
 		return FALSE;
 }
 
+static RoadMapPosition *spCurrentPaintingLine = NULL;
+
+static void RealtimeTrafficInfoOutlineIterator (int shape, RoadMapPosition *position) {
+
+	*position = spCurrentPaintingLine[shape];	
+}
+
+
+static void RealtimeTrafficInfoPaintGeoms (void) {
+	
+	int i;
+	int iNumInfo = RTTrafficInfo_Count ();
+   int previous_type = -1;
+	
+	for (i = 0; i < iNumInfo; i++) {
+		RoadMapPen previous_pen;
+      
+      RTTrafficInfo *pTrafficInfo = RTTrafficInfo_Get (i);
+      
+      if (pTrafficInfo->iNumGeometryPoints < 2)
+      	continue;
+      	
+		if (!roadmap_math_is_visible (&pTrafficInfo->boundingBox))
+			continue;
+
+      previous_pen = roadmap_canvas_select_pen (pens[pTrafficInfo->iType]);
+      roadmap_canvas_set_thickness (TRAFFIC_PEN_WIDTH);
+      if (previous_pen) {
+    	   roadmap_canvas_select_pen (previous_pen);
+      }
+		if (previous_type != pTrafficInfo->iType)
+	  		roadmap_screen_draw_flush();
+	  		
+	  	previous_type = pTrafficInfo->iType;
+      
+      spCurrentPaintingLine = pTrafficInfo->geometry;
+	  	roadmap_screen_draw_one_line (pTrafficInfo->geometry,
+	                                 pTrafficInfo->geometry + pTrafficInfo->iNumGeometryPoints - 1,
+	                                 0,
+	                                 pTrafficInfo->geometry,
+	                                 1,
+	                                 pTrafficInfo->iNumGeometryPoints - 2,
+	                                 RealtimeTrafficInfoOutlineIterator,
+	                                 &pens[pTrafficInfo->iType],
+	                                 1,
+	                                 -1,
+	                                 NULL,
+	                                 NULL,
+	                                 NULL);
+	   spCurrentPaintingLine =  NULL;
+      
+	}
+}
+
 static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
    int i;
    int iNumLines;
    int width = TRAFFIC_PEN_WIDTH;
    int previous_with = -1;
    int previous_type = -1;
+   int lastRequestedTile = -1;
 
    if (!isDisplayingTrafficInfoOn())
    	return;
@@ -190,6 +249,11 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
    	 return;
 	if (RTTrafficInfo_IsEmpty()) return;
 
+	if (roadmap_square_current_scale_factor() > 1/*roadmap_math_get_zoom () >= 100*/) {
+		RealtimeTrafficInfoPaintGeoms();
+		return;
+	}
+	
    iNumLines = RTTrafficInfo_GetNumLines();
 
 
@@ -199,20 +263,46 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
 		RoadMapPen previous_pen;
       RoadMapPen layer_pen;
 
-		roadmap_square_set_current(pTrafficLine->pluginLine.square);
+		if (!roadmap_math_is_visible (&pTrafficLine->pTrafficInfo->boundingBox))
+			continue;
+			
+		if (!pTrafficLine->isInstrumented) {
 
-		if (!roadmap_layer_is_visible (pTrafficLine->pluginLine.cfcc, 0))
+			if (pTrafficLine->iSquare != lastRequestedTile) {
+				RoadMapArea tileBox;
+				roadmap_tile_edges (pTrafficLine->iSquare, &tileBox.west, &tileBox.east, &tileBox.south, &tileBox.north);
+				if (!roadmap_math_is_visible (&tileBox))
+					continue;
+					
+				if (roadmap_square_version (pTrafficLine->iSquare) < pTrafficLine->iVersion) {
+					roadmap_tile_request (pTrafficLine->iSquare, ROADMAP_TILE_STATUS_PRIORITY_ON_SCREEN, TRUE, NULL);
+					lastRequestedTile = pTrafficLine->iSquare;
+				}
+			}
+			continue;
+		}
+			
+		if (!roadmap_math_is_visible (&pTrafficLine->boundingBox))
 			continue;
 
-		if (!roadmap_math_line_is_visible (&pTrafficLine->positionFrom, &pTrafficLine->positionTo))
+		if (!roadmap_layer_is_visible (pTrafficLine->cfcc, 0))
 			continue;
 
-		layer_pen = roadmap_layer_get_pen (pTrafficLine->pluginLine.cfcc, 0, 0);
+		roadmap_square_set_current(pTrafficLine->iSquare);
 
+
+		layer_pen = roadmap_layer_get_pen (pTrafficLine->cfcc, 0, 0);
+#ifndef ROUTE_ARROWS
       if (layer_pen)
          	width = roadmap_canvas_get_thickness (layer_pen)+2;
       else
          	width = TRAFFIC_PEN_WIDTH;
+#else
+       if (layer_pen)
+          width = roadmap_canvas_get_thickness (layer_pen)*4/5;
+       else
+          width = TRAFFIC_PEN_WIDTH;
+#endif //ROUTE_ARROWS
 
       if (width < TRAFFIC_PEN_WIDTH) {
             width = TRAFFIC_PEN_WIDTH;

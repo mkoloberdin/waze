@@ -22,18 +22,18 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_NativeMsgDispatcherNTV
 /*
  * Class:     com_waze_FreeMapNativeManager
  * Method:    InitNativeManagerNTV
- * Signature: (Ljava/lang/String;)V
+ * Signature: (Ljava/lang/String;ILjava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
-  (JNIEnv *, jobject, jstring);
+  (JNIEnv *, jobject, jstring, jint, jstring);
 
 /*
  * Class:     com_waze_FreeMapNativeManager
  * Method:    AppStartNTV
- * Signature: ()V
+ * Signature: (Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_AppStartNTV
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jstring);
 
 /*
  * Class:     com_waze_FreeMapNativeManager
@@ -66,6 +66,14 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_BackLightMonitorResetN
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetUpgradeRunNTV
   (JNIEnv *, jobject, jbyte);
+
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    SetBackgroundRunNTV
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetBackgroundRunNTV
+  (JNIEnv *, jobject, jint);
 
 #ifdef __cplusplus
 }

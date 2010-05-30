@@ -60,9 +60,12 @@ static RoadMapConfigDescriptor RoadMapNavigateMinMobileSpeedCfg =
                         ROADMAP_CONFIG_ITEM("Navigation", "Min Mobile Knots");
 static RoadMapConfigDescriptor RoadMapNavigateMaxJamSpeedCfg =
                         ROADMAP_CONFIG_ITEM("Navigation", "Max Jam Knots");
+static RoadMapConfigDescriptor RoadMapNavigateMinJamDistanceFromEndCfg =
+                        ROADMAP_CONFIG_ITEM("Navigation", "Min Jam Distance");
 static int RoadMapNavigateMinMobileSpeed = -1;
 static int RoadMapNavigateMaxJamSpeed = -1;
 static int RoadMapNavigateJammedSince = 0;
+static int RoadMapNavigateMinJamDistanceFromEnd = 0;
 
 static RoadMapConfigDescriptor RoadMapNavigateFlag =
                         ROADMAP_CONFIG_ITEM("Navigation", "Enable");
@@ -73,7 +76,7 @@ typedef struct {
    PluginLine next_line;
    int enabled;
    int initialized;
-   
+
 } RoadMapNavigateRoute;
 
 #define ROADMAP_NAVIGATE_ROUTE_NULL \
@@ -101,21 +104,21 @@ static RoadMapNeighbour RoadMapConfirmedLine = ROADMAP_NEIGHBOUR_NULL;
 static RoadMapNeighbour RoadMapNeighbourhood[ROADMAP_NEIGHBOURHOUD];
 
 static void roadmap_navigate_trace (const char *format, PluginLine *line) {
-    
+
     char text[1024];
     PluginStreet street;
     PluginStreetProperties properties;
-    
+
     if (! roadmap_log_enabled (ROADMAP_DEBUG)) return;
 
 #ifdef __SYMBIAN32__
     return;
-#endif    
-    
+#endif
+
     roadmap_plugin_get_street (line, &street);
 
     roadmap_plugin_get_street_properties (line, &properties, 0);
-    
+
     roadmap_message_set ('#', properties.address);
     roadmap_message_set ('N', properties.street);
     roadmap_message_set ('C', properties.city);
@@ -217,7 +220,7 @@ int roadmap_navigate_get_neighbours
 
        focus_point.x += accuracy;
        roadmap_navigate_adjust_focus (&focus, &focus_point);
-       
+
     } else {
 
        accuracy *= 100;
@@ -233,7 +236,7 @@ int roadmap_navigate_get_neighbours
     } else {
        layer_count = roadmap_layer_all_roads (layers, 128);
     }
-    
+
     if (layer_count > 0) {
 
         roadmap_math_set_focus (&focus);
@@ -254,7 +257,7 @@ int roadmap_navigate_get_neighbours
 
 
 void roadmap_navigate_disable (void) {
-    
+
     RoadMapNavigateEnabled = 0;
     roadmap_display_hide ("Approach");
     roadmap_display_hide ("Current Street");
@@ -264,7 +267,7 @@ void roadmap_navigate_disable (void) {
 
 
 void roadmap_navigate_enable  (void) {
-    
+
     RoadMapNavigateEnabled  = 1;
 
     roadmap_config_set (&RoadMapNavigateFlag, "yes");
@@ -405,16 +408,16 @@ int roadmap_navigate_fuzzify
           roadmap_fuzzy_direction (azymuth_with_line, direction, 0);
 
     }
-    
+
     if (symetric || (line_direction == ROUTE_DIRECTION_AGAINST_LINE)) {
        azymuth_against_line = roadmap_math_azymuth (&line->to, &line->from);
        fuzzyfied_direction_against_line =
           roadmap_fuzzy_direction (azymuth_against_line, direction, 0);
     }
- 
+
     if (fuzzyfied_direction_against_line >
           fuzzyfied_direction_with_line) {
-       
+
        fuzzyfied_direction = fuzzyfied_direction_against_line;
        tracked->azymuth = azymuth_against_line;
        tracked->line_direction = ROUTE_DIRECTION_AGAINST_LINE;
@@ -561,7 +564,7 @@ static int roadmap_navigate_find_intersection
     square = roadmap_square_search (&crossing, 0);
 
     if (square != -1) {
-       
+
 	     roadmap_square_set_current (square);
         for (cfcc = ROADMAP_ROAD_FIRST; cfcc <= ROADMAP_ROAD_LAST; ++cfcc) {
 
@@ -656,28 +659,55 @@ static int roadmap_navigate_find_intersection
 static void roadmap_navigate_update_jammed_status (int gps_speed) {
 
 	static int is_mobile = 0;
-	
+
 	if ((!is_mobile) && gps_speed >= RoadMapNavigateMinMobileSpeed) {
-		roadmap_log(ROADMAP_WARNING, "Hit mobility speed");
+		roadmap_log(ROADMAP_INFO, "Hit mobility speed");
 		is_mobile = 1;
 	}
-	
-	if (is_mobile) {	
+
+	if (is_mobile) {
 		if (RoadMapNavigateJammedSince == 0 && gps_speed < RoadMapNavigateMaxJamSpeed) {
 			RoadMapNavigateJammedSince = time (NULL);
-			roadmap_log(ROADMAP_WARNING, "Entering Jam");
+			roadmap_log(ROADMAP_INFO, "Entering Jam");
 		} else if (RoadMapNavigateJammedSince > 0 && gps_speed > RoadMapNavigateMaxJamSpeed) {
 			RoadMapNavigateJammedSince = 0;
-			roadmap_log(ROADMAP_WARNING, "Leaving Jam");
+			roadmap_log(ROADMAP_INFO, "Leaving Jam");
 		}
 	}
 }
 
 
-int roadmap_navigate_is_jammed (void) {
-	
-	return RoadMapNavigateJammedSince;
+int roadmap_navigate_is_jammed (PluginLine *line, int *direction) {
+
+   PluginLine           currentLine;
+   int                  currentDirection;
+   RoadMapGpsPosition   pos_curr;
+   RoadMapPosition      pos_end;
+   int                  distance_to_end;
+
+	if (!RoadMapNavigateJammedSince) {
+      roadmap_log (ROADMAP_DEBUG, "Not in jammed state -- not sending data to server");
+      return 0;
+   }
+   
+   if (-1 == roadmap_navigate_get_current (&pos_curr, &currentLine, &currentDirection)) {
+      roadmap_log (ROADMAP_ERROR, "Don't have current location -- can't decide jammed state");
+      return 0; 
+   }
+          
+   // check if we are close to segment's end point
+   if (ROUTE_DIRECTION_AGAINST_LINE == currentDirection) {
+      roadmap_street_extend_line_ends(&currentLine, &pos_end, NULL, FLAG_EXTEND_FROM, NULL, NULL);
+   } else {
+      roadmap_street_extend_line_ends(&currentLine, NULL, &pos_end, FLAG_EXTEND_TO, NULL, NULL);
+   }
+   distance_to_end = roadmap_math_distance((RoadMapPosition*)&pos_curr, &pos_end);
+   roadmap_log (ROADMAP_DEBUG, "Jammed, distance to end of segment is %d:", distance_to_end);
+   *line = currentLine;
+   *direction = currentDirection;
+   return (distance_to_end > RoadMapNavigateMinJamDistanceFromEnd);
 }
+
 
 
 void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps_time) {
@@ -690,17 +720,18 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
 	int nominated_in_route = 0;
 	RoadMapPosition context_save_pos;
 	int context_save_zoom;
-	
+	static RoadMapPosition last_azymuth_point;
+
 	RoadMapFuzzy best;
 	RoadMapFuzzy second_best;
 	RoadMapFuzzy result;
-	
+
 	static RoadMapTracking candidate;
 	static RoadMapTracking nominated;
 
 	// editor cleanup on first GPS point
 	if (RoadMapLatestGpsTime == 0) {
-		editor_cleanup_test( (int)(gps_time - 3 * 24 * 60 * 60));
+		editor_cleanup_test( (int)(gps_time - 3 * 24 * 60 * 60), FALSE);
 	}
 
 	RoadMapLatestGpsTime = gps_time;
@@ -710,58 +741,61 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
    roadmap_math_set_context ((RoadMapPosition *)gps_position, 20);
 
 	roadmap_square_request_location ((const RoadMapPosition *)gps_position);
-	 
+
    if (gps_position->speed < roadmap_gps_speed_accuracy()) {
 
       RoadMapLatestGpsPosition.speed = gps_position->speed;
 
       if ((RoadMapLatestGpsPosition.latitude == gps_position->latitude) &&
-          (RoadMapLatestGpsPosition.longitude == gps_position->longitude)) 
+          (RoadMapLatestGpsPosition.longitude == gps_position->longitude))
          goto ret;
 
       /* Check if last gps position is valid */
       if (RoadMapLatestGpsPosition.steering == INVALID_STEERING) {
          RoadMapLatestGpsPosition = *gps_position;
+         last_azymuth_point = *(RoadMapPosition*)gps_position;
          roadmap_navigate_set_mobile(gps_position, NULL, 0);
       } else {
-		 if ((time(NULL) - RoadMapLatestUpdate) >= 2) {
-	       int distance = roadmap_math_distance(
-			   (RoadMapPosition *) &RoadMapLatestGpsPosition,
-			   (RoadMapPosition *) gps_position);
+         if ((time(NULL) - RoadMapLatestUpdate) >= 2) {
+            int distance = roadmap_math_distance(
+                                                 (RoadMapPosition *) &RoadMapLatestGpsPosition,
+                                                 (RoadMapPosition *) gps_position);
 
             if (distance > 15) {
                if (RoadMapConfirmedStreet.valid) {
                   RoadMapNeighbour candidate;
 
                   if (!roadmap_plugin_get_distance
-                       ((RoadMapPosition *)gps_position,
-                        &RoadMapConfirmedLine.line,
-                        &candidate) ||
-                       !roadmap_plugin_same_line
-                          (&candidate.line, &RoadMapConfirmedLine.line)) {
+                      ((RoadMapPosition *)gps_position,
+                       &RoadMapConfirmedLine.line,
+                       &candidate) ||
+                      !roadmap_plugin_same_line
+                      (&candidate.line, &RoadMapConfirmedLine.line)) {
                      goto ret;
                   }
 
                   RoadMapLatestGpsPosition.longitude = gps_position->longitude;
                   RoadMapLatestGpsPosition.latitude = gps_position->latitude;
+         			last_azymuth_point = *(RoadMapPosition*)gps_position;
 
                   roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition,
-                        &RoadMapConfirmedLine.intersection,
-                        roadmap_math_azymuth(&RoadMapConfirmedLine.from,
-                           &RoadMapConfirmedLine.to)
-                        );
+                                              &RoadMapConfirmedLine.intersection,
+                                              roadmap_math_azymuth(&RoadMapConfirmedLine.from,
+                                                                   &RoadMapConfirmedLine.to)
+                                              );
 
                   goto ret;
 
                } else {
 
                   int azymuth = roadmap_math_azymuth(
-                        (RoadMapPosition *) &RoadMapLatestGpsPosition,
-                        (RoadMapPosition *) gps_position);
+                                                     (RoadMapPosition *) &RoadMapLatestGpsPosition,
+                                                     (RoadMapPosition *) gps_position);
                   RoadMapLatestGpsPosition = *gps_position;
+         			last_azymuth_point = *(RoadMapPosition*)gps_position;
                   roadmap_navigate_set_mobile (gps_position,
-                        (RoadMapPosition *)gps_position,
-                        azymuth);
+                                               (RoadMapPosition *)gps_position,
+                                               azymuth);
                }
             }
          }
@@ -771,80 +805,98 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
    }
 
 
-   RoadMapLatestGpsPosition = *gps_position;
+   if (RoadMapLatestGpsPosition.steering == INVALID_STEERING) {
+      last_azymuth_point = *(RoadMapPosition*)gps_position;
+		RoadMapLatestGpsPosition.steering = gps_position->steering;
+   } else if (gps_position->speed > roadmap_gps_speed_accuracy() * 2) {
+      last_azymuth_point = *(RoadMapPosition*)&RoadMapLatestGpsPosition;
+		RoadMapLatestGpsPosition.steering = gps_position->steering;
+	} else if (roadmap_math_distance(
+			   		(RoadMapPosition *) &last_azymuth_point,
+			   		(RoadMapPosition *) gps_position) > 20) {
+		RoadMapLatestGpsPosition.steering = roadmap_math_azymuth
+               (&last_azymuth_point, (RoadMapPosition *) gps_position);
+      last_azymuth_point = *(RoadMapPosition*)gps_position;
+   }
+
+   RoadMapLatestGpsPosition.longitude = gps_position->longitude;
+   RoadMapLatestGpsPosition.latitude = gps_position->latitude;
+   RoadMapLatestGpsPosition.altitude = gps_position->altitude;
+   RoadMapLatestGpsPosition.speed = gps_position->speed;
+
 
    if (! RoadMapNavigateEnabled) {
-       
+
       if (strcasecmp
-            (roadmap_config_get(&RoadMapNavigateFlag), "yes") == 0) {
+          (roadmap_config_get(&RoadMapNavigateFlag), "yes") == 0) {
          RoadMapNavigateEnabled = 1;
       } else {
-         roadmap_navigate_set_mobile(gps_position, NULL, 0);
+         roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition, NULL, 0);
          goto ret;
       }
    }
 
-   roadmap_adjust_position (gps_position, &RoadMapLatestPosition);
+   roadmap_adjust_position (&RoadMapLatestGpsPosition, &RoadMapLatestPosition);
 
    if (RoadMapConfirmedStreet.valid) {
 
-       /* We have an existing street match: check it is still valid. */
+      /* We have an existing street match: check it is still valid. */
 
-       RoadMapFuzzy before = RoadMapConfirmedStreet.cur_fuzzyfied;
-       RoadMapFuzzy current_fuzzy;
-       int previous_direction = RoadMapConfirmedStreet.line_direction;
-       RoadMapNeighbour candidate;
+      RoadMapFuzzy before = RoadMapConfirmedStreet.cur_fuzzyfied;
+      RoadMapFuzzy current_fuzzy;
+      int previous_direction = RoadMapConfirmedStreet.line_direction;
+      RoadMapNeighbour candidate;
 
-       if (roadmap_plugin_activate_db
-               (&RoadMapConfirmedLine.line) == -1) {
-           goto ret;
-       }
+      if (roadmap_plugin_activate_db
+          (&RoadMapConfirmedLine.line) == -1) {
+         goto ret;
+      }
 
-       if (!roadmap_plugin_get_distance
-              (&RoadMapLatestPosition,
-               &RoadMapConfirmedLine.line,
-               &candidate) ||
-           !roadmap_plugin_same_line (&candidate.line, &RoadMapConfirmedLine.line)) {
+      if (!roadmap_plugin_get_distance
+          (&RoadMapLatestPosition,
+           &RoadMapConfirmedLine.line,
+           &candidate) ||
+          !roadmap_plugin_same_line (&candidate.line, &RoadMapConfirmedLine.line)) {
 
-           current_fuzzy = 0;
-       } else {
+         current_fuzzy = 0;
+      } else {
 
 			RoadMapConfirmedLine = candidate;
-           current_fuzzy = roadmap_navigate_fuzzify
-                             (&RoadMapConfirmedStreet,
-                              &RoadMapConfirmedStreet,
-                              &RoadMapConfirmedLine,
-                              &RoadMapConfirmedLine,
-                              0,
-                              gps_position->steering);
-       }
+         current_fuzzy = roadmap_navigate_fuzzify
+         (&RoadMapConfirmedStreet,
+          &RoadMapConfirmedStreet,
+          &RoadMapConfirmedLine,
+          &RoadMapConfirmedLine,
+          0,
+          RoadMapLatestGpsPosition.steering);
+      }
 
-       if ((previous_direction == RoadMapConfirmedStreet.line_direction) &&
-           (current_fuzzy >= before) &&
-           roadmap_fuzzy_is_good(current_fuzzy)) {
+      if ((previous_direction == RoadMapConfirmedStreet.line_direction) &&
+          (current_fuzzy >= before) &&
+          roadmap_fuzzy_is_good(current_fuzzy)) {
 
-           RoadMapConfirmedStreet.cur_fuzzyfied = current_fuzzy;
-   
-           if (RoadMapRouteInfo.enabled) {
+         RoadMapConfirmedStreet.cur_fuzzyfied = current_fuzzy;
 
-              RoadMapRouteInfo.callbacks.update
-                          (&RoadMapLatestPosition,
-                           &RoadMapConfirmedLine.line);
+         if (RoadMapRouteInfo.enabled) {
 
-           } else if (!roadmap_navigate_confirm_intersection (gps_position)) {
-               PluginLine p_line;
-               roadmap_navigate_find_intersection (gps_position, &p_line);
-           }
+            RoadMapRouteInfo.callbacks.update
+            (&RoadMapLatestPosition,
+             &RoadMapConfirmedLine.line);
 
-           roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition,
-                 &RoadMapConfirmedLine.intersection,
-                 roadmap_math_azymuth(&RoadMapConfirmedLine.from,
-                       &RoadMapConfirmedLine.to)
-                 );
+         } else if (!roadmap_navigate_confirm_intersection (&RoadMapLatestGpsPosition)) {
+            PluginLine p_line;
+            roadmap_navigate_find_intersection (&RoadMapLatestGpsPosition, &p_line);
+         }
+
+         roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition,
+                                     &RoadMapConfirmedLine.intersection,
+                                     roadmap_math_azymuth(&RoadMapConfirmedLine.from,
+                                                          &RoadMapConfirmedLine.to)
+                                     );
 
 
-           goto ret; /* We are on the same street. */
-       }
+         goto ret; /* We are on the same street. */
+      }
    }
 
    /* We must search again for the best street match. */
@@ -856,55 +908,55 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
    }
 #endif
    count = roadmap_navigate_get_neighbours
-               (&RoadMapLatestPosition, 0, roadmap_fuzzy_max_distance(),
-                3, RoadMapNeighbourhood, ROADMAP_NEIGHBOURHOUD, LAYER_ALL_ROADS);
+   (&RoadMapLatestPosition, 0, roadmap_fuzzy_max_distance(),
+    3, RoadMapNeighbourhood, ROADMAP_NEIGHBOURHOUD, LAYER_ALL_ROADS);
 
 
    second_best = roadmap_fuzzy_false();
    for (i = 0, best = roadmap_fuzzy_false(), found = 0, alt_found = 0; i < count; ++i) {
 
-       result = roadmap_navigate_fuzzify
-                    (&candidate,
-                     &RoadMapConfirmedStreet,
-                     &RoadMapConfirmedLine,
-                     RoadMapNeighbourhood+i,
-                     0,
-                     gps_position->steering);
+      result = roadmap_navigate_fuzzify
+      (&candidate,
+       &RoadMapConfirmedStreet,
+       &RoadMapConfirmedLine,
+       RoadMapNeighbourhood+i,
+       0,
+       RoadMapLatestGpsPosition.steering);
 
 
-       if (RoadMapRouteInfo.enabled &&
-           RoadMapRouteInfo.callbacks.line_in_route(
-              &RoadMapNeighbourhood[i].line,
-              candidate.line_direction)) {
+      if (RoadMapRouteInfo.enabled &&
+          RoadMapRouteInfo.callbacks.line_in_route(
+                                                   &RoadMapNeighbourhood[i].line,
+                                                   candidate.line_direction)) {
 
-          candidate_in_route = 1;
-       } else {
+             candidate_in_route = 1;
+          } else {
 
-          candidate_in_route = 0;
-       }
-        
-       if ((result > best) ||
-             (!nominated_in_route &&
-              candidate_in_route &&
-              roadmap_fuzzy_is_acceptable (result))) {
+             candidate_in_route = 0;
+          }
 
-           if (nominated_in_route && !candidate_in_route) {
-               /* Prefer one of the routing segments */
+      if ((result > best) ||
+          (!nominated_in_route &&
+           candidate_in_route &&
+           roadmap_fuzzy_is_acceptable (result))) {
 
-               if (result > second_best) second_best = result;
-               continue;
-           }
+             if (nominated_in_route && !candidate_in_route) {
+                /* Prefer one of the routing segments */
 
-           alt_found = found;
-           found = i;
-           second_best = best;
-           best = result;
-           nominated = candidate;
-           nominated_in_route = candidate_in_route;
-       } else if (result > second_best) {
-          second_best = result;
-          alt_found =i;
-       }
+                if (result > second_best) second_best = result;
+                continue;
+             }
+
+             alt_found = found;
+             found = i;
+             second_best = best;
+             best = result;
+             nominated = candidate;
+             nominated_in_route = candidate_in_route;
+          } else if (result > second_best) {
+             second_best = result;
+             alt_found =i;
+          }
 
    }
 
@@ -917,111 +969,111 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
 
    if (roadmap_fuzzy_is_acceptable (best)) {
 
-       PluginLine old_line = RoadMapConfirmedLine.line;
+      PluginLine old_line = RoadMapConfirmedLine.line;
 
 
-       if (roadmap_plugin_activate_db
-               (&RoadMapNeighbourhood[found].line) == -1) {
-           goto ret;
-       }
+      if (roadmap_plugin_activate_db
+          (&RoadMapNeighbourhood[found].line) == -1) {
+         goto ret;
+      }
 
-       if (!roadmap_plugin_same_line
-             (&RoadMapConfirmedLine.line, &RoadMapNeighbourhood[found].line)) {
-             int ff=0;
-             ff++;
-       }
+      if (!roadmap_plugin_same_line
+          (&RoadMapConfirmedLine.line, &RoadMapNeighbourhood[found].line)) {
+         int ff=0;
+         ff++;
+      }
 
-       RoadMapConfirmedLine   = RoadMapNeighbourhood[found];
-       RoadMapConfirmedStreet = nominated;
+      RoadMapConfirmedLine   = RoadMapNeighbourhood[found];
+      RoadMapConfirmedStreet = nominated;
 
-       RoadMapConfirmedStreet.valid = 1;
-       RoadMapConfirmedStreet.cur_fuzzyfied = best;
-       INVALIDATE_PLUGIN(RoadMapConfirmedStreet.intersection);
-        
-        
+      RoadMapConfirmedStreet.valid = 1;
+      RoadMapConfirmedStreet.cur_fuzzyfied = best;
+      INVALIDATE_PLUGIN(RoadMapConfirmedStreet.intersection);
 
-       roadmap_display_activate
-          ("Current Street",
-           &RoadMapConfirmedLine.line,
-           NULL,
-           &RoadMapConfirmedStreet.street);
 
-       if (!roadmap_plugin_same_line
-             (&RoadMapConfirmedLine.line, &old_line)) {
 
-           RoadMapConfirmedStreet.entry_fuzzyfied = best;
+      roadmap_display_activate
+      ("Current Street",
+       &RoadMapConfirmedLine.line,
+       NULL,
+       &RoadMapConfirmedStreet.street);
 
-           if (PLUGIN_VALID(old_line)) {
-               roadmap_navigate_trace
-                   ("Quit street %N", &old_line);
-           }
-           roadmap_navigate_trace
-               ("Enter street %N, %C|Enter street %N",
-                &RoadMapConfirmedLine.line);
+      if (!roadmap_plugin_same_line
+          (&RoadMapConfirmedLine.line, &old_line)) {
 
-           roadmap_display_hide ("Approach");
+         RoadMapConfirmedStreet.entry_fuzzyfied = best;
 
-           if (RoadMapRouteInfo.enabled) {
+         if (PLUGIN_VALID(old_line)) {
+            roadmap_navigate_trace
+            ("Quit street %N", &old_line);
+         }
+         roadmap_navigate_trace
+         ("Enter street %N, %C|Enter street %N",
+          &RoadMapConfirmedLine.line);
 
-              RoadMapRouteInfo.current_line = RoadMapConfirmedLine.line;
+         roadmap_display_hide ("Approach");
 
-              RoadMapRouteInfo.callbacks.get_next_line
-                 (&RoadMapConfirmedLine.line,
-                  RoadMapConfirmedStreet.line_direction,
-                  &RoadMapRouteInfo.next_line);
-           }
-       }
+         if (RoadMapRouteInfo.enabled) {
 
-       if (!RoadMapRouteInfo.enabled) {
-          if (gps_position->speed > roadmap_gps_speed_accuracy()) {
-             PluginLine p_line;
-             roadmap_navigate_find_intersection (gps_position, &p_line);
-          }
-       }
+            RoadMapRouteInfo.current_line = RoadMapConfirmedLine.line;
 
-       if (nominated_in_route || !roadmap_fuzzy_is_certain(second_best)) {
-          roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition,
-                &RoadMapConfirmedLine.intersection,
-                 roadmap_math_azymuth(&RoadMapConfirmedLine.from,
-                       &RoadMapConfirmedLine.to)
-                );
-       } else {
-          const RoadMapGpsPosition *gps = roadmap_trip_get_gps_position ("GPS");
-          RoadMapPosition avg_point = RoadMapConfirmedLine.intersection;
-          int steering = RoadMapLatestGpsPosition.steering;
+            RoadMapRouteInfo.callbacks.get_next_line
+            (&RoadMapConfirmedLine.line,
+             RoadMapConfirmedStreet.line_direction,
+             &RoadMapRouteInfo.next_line);
+         }
+      }
 
-          avg_point.longitude = (avg_point.longitude + RoadMapNeighbourhood[alt_found].intersection.longitude) / 2;
-          avg_point.latitude = (avg_point.latitude + RoadMapNeighbourhood[alt_found].intersection.latitude) / 2;
+      if (!RoadMapRouteInfo.enabled) {
+         if (RoadMapLatestGpsPosition.speed > roadmap_gps_speed_accuracy()) {
+            PluginLine p_line;
+            roadmap_navigate_find_intersection (&RoadMapLatestGpsPosition, &p_line);
+         }
+      }
 
-          if (gps) steering = gps->steering;
-          roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition, &avg_point, steering);
-       }
+      if (nominated_in_route || !roadmap_fuzzy_is_certain(second_best)) {
+         roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition,
+                                     &RoadMapConfirmedLine.intersection,
+                                     roadmap_math_azymuth(&RoadMapConfirmedLine.from,
+                                                          &RoadMapConfirmedLine.to)
+                                     );
+      } else {
+         const RoadMapGpsPosition *gps = roadmap_trip_get_gps_position ("GPS");
+         RoadMapPosition avg_point = RoadMapConfirmedLine.intersection;
+         int steering = RoadMapLatestGpsPosition.steering;
+
+         avg_point.longitude = (avg_point.longitude + RoadMapNeighbourhood[alt_found].intersection.longitude) / 2;
+         avg_point.latitude = (avg_point.latitude + RoadMapNeighbourhood[alt_found].intersection.latitude) / 2;
+
+         if (gps) steering = gps->steering;
+         roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition, &avg_point, steering);
+      }
 
    } else {
 
-       if (PLUGIN_VALID(RoadMapConfirmedLine.line)) {
+      if (PLUGIN_VALID(RoadMapConfirmedLine.line)) {
 
-           if (roadmap_plugin_activate_db
-                  (&RoadMapConfirmedLine.line) == -1)
-               goto ret;
+         if (roadmap_plugin_activate_db
+             (&RoadMapConfirmedLine.line) == -1)
+            goto ret;
 
-           roadmap_navigate_trace ("Lost street %N",
-                                   &RoadMapConfirmedLine.line);
-           roadmap_display_hide ("Current Street");
-           roadmap_display_hide ("Approach");
-       }
+         roadmap_navigate_trace ("Lost street %N",
+                                 &RoadMapConfirmedLine.line);
+         roadmap_display_hide ("Current Street");
+         roadmap_display_hide ("Approach");
+      }
 
-       INVALIDATE_PLUGIN(RoadMapConfirmedLine.line);
-       RoadMapConfirmedStreet.valid = 0;
+      INVALIDATE_PLUGIN(RoadMapConfirmedLine.line);
+      RoadMapConfirmedStreet.valid = 0;
 
-       roadmap_navigate_set_mobile(gps_position, NULL, 0);
+      roadmap_navigate_set_mobile(&RoadMapLatestGpsPosition, NULL, 0);
    }
 
    if (RoadMapRouteInfo.enabled) {
 
       RoadMapRouteInfo.callbacks.update
-         (&RoadMapLatestPosition,
-          &RoadMapConfirmedLine.line);
+      (&RoadMapLatestPosition,
+       &RoadMapConfirmedLine.line);
    }
 
 ret:
@@ -1032,10 +1084,13 @@ ret:
 void roadmap_navigate_check_alerts (void) {
 
 	RoadMapGpsPosition gps_position = RoadMapLatestGpsPosition;
-	
+
+   if (RoadMapConfirmedLine.line.line_id == -1)
+      return;
+
 	gps_position.longitude = RoadMapLatestPosition.longitude;
 	gps_position.latitude = RoadMapLatestPosition.latitude;
-	
+
 	roadmap_alerter_check (&gps_position, &RoadMapConfirmedLine.line);
 }
 
@@ -1050,9 +1105,12 @@ void roadmap_navigate_initialize (void) {
         ("preferences", &RoadMapNavigateMinMobileSpeedCfg, "20", NULL);
     roadmap_config_declare
         ("preferences", &RoadMapNavigateMaxJamSpeedCfg, "10", NULL);
+    roadmap_config_declare
+        ("preferences", &RoadMapNavigateMinJamDistanceFromEndCfg, "75", NULL);
 
 	RoadMapNavigateMinMobileSpeed = roadmap_config_get_integer (&RoadMapNavigateMinMobileSpeedCfg);
 	RoadMapNavigateMaxJamSpeed = roadmap_config_get_integer (&RoadMapNavigateMaxJamSpeedCfg);
+   RoadMapNavigateMinJamDistanceFromEnd = roadmap_config_get_integer (&RoadMapNavigateMinJamDistanceFromEndCfg);
 }
 
 
@@ -1060,7 +1118,7 @@ void roadmap_navigate_route (RoadMapNavigateRouteCB callbacks) {
 
 
     static int inside_route = 0;
-    
+
     if (inside_route) {
         roadmap_log (ROADMAP_ERROR, "recursive call to roadmap_navigate_route");
         return; /* avoid recursion */
@@ -1105,11 +1163,11 @@ int roadmap_navigate_get_current (RoadMapGpsPosition *position,
                                   int *direction) {
 
    if (position) *position = RoadMapLatestGpsPosition;
-   
+
    if (!line || !direction) return 0;
 
    if (RoadMapConfirmedStreet.valid) {
-      
+
       *line = RoadMapConfirmedLine.line;
       *direction = RoadMapConfirmedStreet.line_direction;
       return 0;
@@ -1125,5 +1183,5 @@ int roadmap_navigate_get_current (RoadMapGpsPosition *position,
 time_t roadmap_navigate_get_time (void) {
 
 	if (RoadMapLatestGpsTime) return RoadMapLatestGpsTime;
-	return time (NULL);	
+	return time (NULL);
 }

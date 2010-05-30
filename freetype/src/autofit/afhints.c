@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Auto-fitter hinting routines (body).                                 */
 /*                                                                         */
-/*  Copyright 2003, 2004, 2005 by                                          */
+/*  Copyright 2003, 2004, 2005, 2006, 2007, 2009 by                        */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -18,6 +18,7 @@
 
 #include "afhints.h"
 #include "aferrors.h"
+#include FT_INTERNAL_CALC_H
 
 
   FT_LOCAL_DEF( FT_Error )
@@ -53,7 +54,6 @@
     }
 
     segment = axis->segments + axis->num_segments++;
-    FT_ZERO( segment );
 
   Exit:
     *asegment = segment;
@@ -64,6 +64,7 @@
   FT_LOCAL( FT_Error )
   af_axis_hints_new_edge( AF_AxisHints  axis,
                           FT_Int        fpos,
+                          AF_Direction  dir,
                           FT_Memory     memory,
                           AF_Edge      *aedge )
   {
@@ -98,8 +99,16 @@
     edges = axis->edges;
     edge  = edges + axis->num_edges;
 
-    while ( edge > edges && edge[-1].fpos > fpos )
+    while ( edge > edges )
     {
+      if ( edge[-1].fpos < fpos )
+        break;
+
+      /* we want the edge with same position and minor direction */
+      /* to appear before those in the major one in the list     */
+      if ( edge[-1].fpos == fpos && dir == axis->major_dir )
+        break;
+
       edge[0] = edge[-1];
       edge--;
     }
@@ -108,6 +117,7 @@
 
     FT_ZERO( edge );
     edge->fpos = (FT_Short)fpos;
+    edge->dir  = (FT_Char)dir;
 
   Exit:
     *aedge = edge;
@@ -117,7 +127,7 @@
 
 #ifdef AF_DEBUG
 
-#include <stdio.h>
+#include FT_CONFIG_STANDARD_LIBRARY_H
 
   static const char*
   af_dir_str( AF_Direction  dir )
@@ -184,12 +194,39 @@
   }
 
 
+  static const char*
+  af_edge_flags_to_string( AF_Edge_Flags  flags )
+  {
+    static char  temp[32];
+    int          pos = 0;
+
+
+    if ( flags & AF_EDGE_ROUND )
+    {
+      ft_memcpy( temp + pos, "round", 5 );
+      pos += 5;
+    }
+    if ( flags & AF_EDGE_SERIF )
+    {
+      if ( pos > 0 )
+        temp[pos++] = ' ';
+      ft_memcpy( temp + pos, "serif", 5 );
+      pos += 5;
+    }
+    if ( pos == 0 )
+      return "normal";
+
+    temp[pos] = 0;
+
+    return temp;
+  }
+
+
   /* A function to dump the array of linked segments. */
   void
   af_glyph_hints_dump_segments( AF_GlyphHints  hints )
   {
-    AF_Point  points = hints->points;
-    FT_Int    dimension;
+    FT_Int  dimension;
 
 
     for ( dimension = 1; dimension >= 0; dimension-- )
@@ -202,20 +239,21 @@
 
       printf ( "Table of %s segments:\n",
                dimension == AF_DIMENSION_HORZ ? "vertical" : "horizontal" );
-      printf ( "  [ index |  pos |  dir  | link | serif |"
-               " numl | first | start ]\n" );
+      printf ( "  [ index |  pos  |  dir  | link | serif |"
+               " height  | extra | flags    ]\n" );
 
       for ( seg = segments; seg < limit; seg++ )
       {
-        printf ( "  [ %5d | %4d | %5s | %4d | %5d | %4d | %5d | %5d ]\n",
+        printf ( "  [ %5d | %5.2g | %5s | %4d | %5d | %5d | %5d | %s ]\n",
                  seg - segments,
-                 (int)seg->pos,
-                 af_dir_str( seg->dir ),
+                 dimension == AF_DIMENSION_HORZ ? (int)seg->first->ox / 64.0
+                                                : (int)seg->first->oy / 64.0,
+                 af_dir_str( (AF_Direction)seg->dir ),
                  AF_INDEX_NUM( seg->link, segments ),
                  AF_INDEX_NUM( seg->serif, segments ),
-                 (int)seg->num_linked,
-                 seg->first - points,
-                 seg->last - points );
+                 seg->height,
+                 seg->height - ( seg->max_coord - seg->min_coord ),
+                 af_edge_flags_to_string( seg->flags ) );
       }
       printf( "\n" );
     }
@@ -242,27 +280,53 @@
        */
       printf ( "Table of %s edges:\n",
                dimension == AF_DIMENSION_HORZ ? "vertical" : "horizontal" );
-      printf ( "  [ index |  pos |  dir  | link |"
-               " serif | blue | opos  |  pos  ]\n" );
+      printf ( "  [ index |  pos  |  dir  | link |"
+               " serif | blue | opos  |  pos  | flags   ]\n" );
 
       for ( edge = edges; edge < limit; edge++ )
       {
-        printf ( "  [ %5d | %4d | %5s | %4d |"
-                 " %5d |   %c  | %5.2f | %5.2f ]\n",
+        printf ( "  [ %5d | %5.2g | %5s | %4d |"
+                 " %5d |   %c  | %5.2f | %5.2f | %s ]\n",
                  edge - edges,
-                 (int)edge->fpos,
-                 af_dir_str( edge->dir ),
+                 (int)edge->opos / 64.0,
+                 af_dir_str( (AF_Direction)edge->dir ),
                  AF_INDEX_NUM( edge->link, edges ),
                  AF_INDEX_NUM( edge->serif, edges ),
                  edge->blue_edge ? 'y' : 'n',
                  edge->opos / 64.0,
-                 edge->pos / 64.0 );
+                 edge->pos / 64.0,
+                 af_edge_flags_to_string( edge->flags ) );
       }
       printf( "\n" );
     }
   }
 
-#endif /* AF_DEBUG */
+#else /* !AF_DEBUG */
+
+  /* these empty stubs are only used to link the `ftgrid' test program */
+  /* when debugging is disabled                                        */
+
+  void
+  af_glyph_hints_dump_points( AF_GlyphHints  hints )
+  {
+    FT_UNUSED( hints );
+  }
+
+
+  void
+  af_glyph_hints_dump_segments( AF_GlyphHints  hints )
+  {
+    FT_UNUSED( hints );
+  }
+
+
+  void
+  af_glyph_hints_dump_edges( AF_GlyphHints  hints )
+  {
+    FT_UNUSED( hints );
+  }
+
+#endif /* !AF_DEBUG */
 
 
   /* compute the direction value of a given vector */
@@ -270,31 +334,51 @@
   af_direction_compute( FT_Pos  dx,
                         FT_Pos  dy )
   {
-    AF_Direction  dir;
-    FT_Pos        ax = FT_ABS( dx );
-    FT_Pos        ay = FT_ABS( dy );
+    FT_Pos        ll, ss;  /* long and short arm lengths */
+    AF_Direction  dir;     /* candidate direction        */
 
 
-    dir = AF_DIR_NONE;
-
-    /* atan(1/12) == 4.7 degrees */
-
-    /* test for vertical direction */
-    if ( ax * 12 < ay )
+    if ( dy >= dx )
     {
-      dir = dy > 0 ? AF_DIR_UP : AF_DIR_DOWN;
+      if ( dy >= -dx )
+      {
+        dir = AF_DIR_UP;
+        ll  = dy;
+        ss  = dx;
+      }
+      else
+      {
+        dir = AF_DIR_LEFT;
+        ll  = -dx;
+        ss  = dy;
+      }
     }
-    /* test for horizontal direction */
-    else if ( ay * 12 < ax )
+    else /* dy < dx */
     {
-      dir = dx > 0 ? AF_DIR_RIGHT : AF_DIR_LEFT;
+      if ( dy >= -dx )
+      {
+        dir = AF_DIR_RIGHT;
+        ll  = dx;
+        ss  = dy;
+      }
+      else
+      {
+        dir = AF_DIR_DOWN;
+        ll  = dy;
+        ss  = dx;
+      }
     }
+
+    ss *= 14;
+    if ( FT_ABS( ll ) <= FT_ABS( ss ) )
+      dir = AF_DIR_NONE;
 
     return dir;
   }
 
 
   /* compute all inflex points in a given glyph */
+
   static void
   af_glyph_hints_compute_inflections( AF_GlyphHints  hints )
   {
@@ -311,8 +395,8 @@
       AF_Point  end   = point;
       AF_Point  before;
       AF_Point  after;
-      AF_Angle  angle_in, angle_seg, angle_out;
-      AF_Angle  diff_in, diff_out;
+      FT_Pos    in_x, in_y, out_x, out_y;
+      AF_Angle  orient_prev, orient_cur;
       FT_Int    finished = 0;
 
 
@@ -326,10 +410,10 @@
         if ( end == first )
           goto Skip;
 
-      } while ( end->fx == first->fx && end->fy == first->fy );
+        in_x = end->fx - start->fx;
+        in_y = end->fy - start->fy;
 
-      angle_seg = af_angle_atan( end->fx - start->fx,
-                                 end->fy - start->fy );
+      } while ( in_x == 0 && in_y == 0 );
 
       /* extend the segment start whenever possible */
       before = start;
@@ -342,17 +426,21 @@
           if ( before == first )
             goto Skip;
 
-        } while ( before->fx == start->fx && before->fy == start->fy );
+          out_x = start->fx - before->fx;
+          out_y = start->fy - before->fy;
 
-        angle_in = af_angle_atan( start->fx - before->fx,
-                                  start->fy - before->fy );
+        } while ( out_x == 0 && out_y == 0 );
 
-      } while ( angle_in == angle_seg );
+        orient_prev = ft_corner_orientation( in_x, in_y, out_x, out_y );
 
-      first   = start;
-      diff_in = af_angle_diff( angle_in, angle_seg );
+      } while ( orient_prev == 0 );
 
-      /* now, process all segments in the contour */
+      first = start;
+
+      in_x = out_x;
+      in_y = out_y;
+
+      /* now process all segments in the contour */
       do
       {
         /* first, extend current segment's end whenever possible */
@@ -366,19 +454,18 @@
             if ( after == first )
               finished = 1;
 
-          } while ( end->fx == after->fx && end->fy == after->fy );
+            out_x = after->fx - end->fx;
+            out_y = after->fy - end->fy;
 
-          angle_out = af_angle_atan( after->fx - end->fx,
-                                     after->fy - end->fy );
+          } while ( out_x == 0 && out_y == 0 );
 
-        } while ( angle_out == angle_seg );
+          orient_cur = ft_corner_orientation( in_x, in_y, out_x, out_y );
 
-        diff_out = af_angle_diff( angle_seg, angle_out );
+        } while ( orient_cur == 0 );
 
-        if ( ( diff_in ^ diff_out ) < 0 )
+        if ( ( orient_prev + orient_cur ) == 0 )
         {
-          /* diff_in and diff_out have different signs, we have */
-          /* inflection points here...                          */
+          /* we have an inflection point here */
           do
           {
             start->flags |= AF_FLAG_INFLECTION;
@@ -389,10 +476,12 @@
           start->flags |= AF_FLAG_INFLECTION;
         }
 
-        start     = end;
-        end       = after;
-        angle_seg = angle_out;
-        diff_in   = diff_out;
+        start = end;
+        end   = after;
+
+        orient_prev = orient_cur;
+        in_x        = out_x;
+        in_y        = out_y;
 
       } while ( !finished );
 
@@ -455,18 +544,19 @@
   af_glyph_hints_rescale( AF_GlyphHints     hints,
                           AF_ScriptMetrics  metrics )
   {
-    hints->metrics = metrics;
+    hints->metrics      = metrics;
+    hints->scaler_flags = metrics->scaler.flags;
   }
 
 
   FT_LOCAL_DEF( FT_Error )
   af_glyph_hints_reload( AF_GlyphHints  hints,
-                         FT_Outline*    outline )
+                         FT_Outline*    outline,
+                         FT_Bool        get_inflections )
   {
     FT_Error   error   = AF_Err_Ok;
     AF_Point   points;
     FT_UInt    old_max, new_max;
-    AF_Scaler  scaler  = &hints->metrics->scaler;
     FT_Fixed   x_scale = hints->x_scale;
     FT_Fixed   y_scale = hints->y_scale;
     FT_Pos     x_delta = hints->x_delta;
@@ -474,7 +564,6 @@
     FT_Memory  memory  = hints->memory;
 
 
-    hints->scaler_flags = scaler->flags;
     hints->num_points   = 0;
     hints->num_contours = 0;
 
@@ -534,6 +623,9 @@
     hints->x_delta = x_delta;
     hints->y_delta = y_delta;
 
+    hints->xmin_delta = 0;
+    hints->xmax_delta = 0;
+
     points = hints->points;
     if ( hints->num_points == 0 )
       goto Exit;
@@ -543,10 +635,14 @@
       AF_Point  point_limit = points + hints->num_points;
 
 
-      /* compute coordinates & Bezier flags */
+      /* compute coordinates & Bezier flags, next and prev */
       {
-        FT_Vector*  vec = outline->points;
-        char*       tag = outline->tags;
+        FT_Vector*  vec           = outline->points;
+        char*       tag           = outline->tags;
+        AF_Point    first         = points;
+        AF_Point    end           = points + outline->contours[0];
+        AF_Point    prev          = end;
+        FT_Int      contour_index = 0;
 
 
         for ( point = points; point < point_limit; point++, vec++, tag++ )
@@ -567,39 +663,17 @@
           default:
             point->flags = 0;
           }
-        }
-      }
 
-      /* compute `next' and `prev' */
-      {
-        FT_Int    contour_index;
-        AF_Point  prev;
-        AF_Point  first;
-        AF_Point  end;
-
-
-        contour_index = 0;
-
-        first = points;
-        end   = points + outline->contours[0];
-        prev  = end;
-
-        for ( point = points; point < point_limit; point++ )
-        {
           point->prev = prev;
-          if ( point < end )
+          prev->next  = point;
+          prev        = point;
+
+          if ( point == end )
           {
-            point->next = point + 1;
-            prev        = point;
-          }
-          else
-          {
-            point->next = first;
-            contour_index++;
-            if ( point + 1 < point_limit )
+            if ( ++contour_index < outline->n_contours )
             {
-              end   = points + outline->contours[contour_index];
               first = point + 1;
+              end   = points + outline->contours[contour_index];
               prev  = end;
             }
           }
@@ -623,24 +697,36 @@
 
       /* compute directions of in & out vectors */
       {
+        AF_Point      first  = points;
+        AF_Point      prev   = NULL;
+        FT_Pos        in_x   = 0;
+        FT_Pos        in_y   = 0;
+        AF_Direction  in_dir = AF_DIR_NONE;
+
+
         for ( point = points; point < point_limit; point++ )
         {
-          AF_Point  prev;
           AF_Point  next;
-          FT_Pos    in_x, in_y, out_x, out_y;
+          FT_Pos    out_x, out_y;
 
 
-          prev   = point->prev;
-          in_x   = point->fx - prev->fx;
-          in_y   = point->fy - prev->fy;
+          if ( point == first )
+          {
+            prev   = first->prev;
+            in_x   = first->fx - prev->fx;
+            in_y   = first->fy - prev->fy;
+            in_dir = af_direction_compute( in_x, in_y );
+            first  = prev + 1;
+          }
 
-          point->in_dir = (FT_Char)af_direction_compute( in_x, in_y );
+          point->in_dir = (FT_Char)in_dir;
 
-          next   = point->next;
-          out_x  = next->fx - point->fx;
-          out_y  = next->fy - point->fy;
+          next  = point->next;
+          out_x = next->fx - point->fx;
+          out_y = next->fy - point->fy;
 
-          point->out_dir = (FT_Char)af_direction_compute( out_x, out_y );
+          in_dir         = af_direction_compute( out_x, out_y );
+          point->out_dir = (FT_Char)in_dir;
 
           if ( point->flags & ( AF_FLAG_CONIC | AF_FLAG_CUBIC ) )
           {
@@ -649,27 +735,26 @@
           }
           else if ( point->out_dir == point->in_dir )
           {
-            AF_Angle  angle_in, angle_out, delta;
-
-
             if ( point->out_dir != AF_DIR_NONE )
               goto Is_Weak_Point;
 
-            angle_in  = af_angle_atan( in_x, in_y );
-            angle_out = af_angle_atan( out_x, out_y );
-            delta     = af_angle_diff( angle_in, angle_out );
-
-            if ( delta < 2 && delta > -2 )
+            if ( ft_corner_is_flat( in_x, in_y, out_x, out_y ) )
               goto Is_Weak_Point;
           }
           else if ( point->in_dir == -point->out_dir )
             goto Is_Weak_Point;
+
+          in_x = out_x;
+          in_y = out_y;
+          prev = point;
         }
       }
     }
 
-    /* compute inflection points */
-    af_glyph_hints_compute_inflections( hints );
+    /* compute inflection points --                 */
+    /* disabled due to no longer perceived benefits */
+    if ( 0 && get_inflections )
+      af_glyph_hints_compute_inflections( hints );
 
   Exit:
     return error;
@@ -712,46 +797,64 @@
   af_glyph_hints_align_edge_points( AF_GlyphHints  hints,
                                     AF_Dimension   dim )
   {
-    AF_AxisHints  axis       = & hints->axis[dim];
-    AF_Edge       edges      = axis->edges;
-    AF_Edge       edge_limit = edges + axis->num_edges;
-    AF_Edge       edge;
+    AF_AxisHints  axis          = & hints->axis[dim];
+    AF_Segment    segments      = axis->segments;
+    AF_Segment    segment_limit = segments + axis->num_segments;
+    AF_Segment    seg;
 
 
-    for ( edge = edges; edge < edge_limit; edge++ )
+    if ( dim == AF_DIMENSION_HORZ )
     {
-      /* move the points of each segment     */
-      /* in each edge to the edge's position */
-      AF_Segment  seg = edge->first;
-
-
-      do
+      for ( seg = segments; seg < segment_limit; seg++ )
       {
-        AF_Point  point = seg->first;
+        AF_Edge   edge = seg->edge;
+        AF_Point  point, first, last;
 
 
+        if ( edge == NULL )
+          continue;
+
+        first = seg->first;
+        last  = seg->last;
+        point = first;
         for (;;)
         {
-          if ( dim == AF_DIMENSION_HORZ )
-          {
-            point->x      = edge->pos;
-            point->flags |= AF_FLAG_TOUCH_X;
-          }
-          else
-          {
-            point->y      = edge->pos;
-            point->flags |= AF_FLAG_TOUCH_Y;
-          }
+          point->x      = edge->pos;
+          point->flags |= AF_FLAG_TOUCH_X;
 
-          if ( point == seg->last )
+          if ( point == last )
+            break;
+
+          point = point->next;
+
+        }
+      }
+    }
+    else
+    {
+      for ( seg = segments; seg < segment_limit; seg++ )
+      {
+        AF_Edge   edge = seg->edge;
+        AF_Point  point, first, last;
+
+
+        if ( edge == NULL )
+          continue;
+
+        first = seg->first;
+        last  = seg->last;
+        point = first;
+        for (;;)
+        {
+          point->y      = edge->pos;
+          point->flags |= AF_FLAG_TOUCH_Y;
+
+          if ( point == last )
             break;
 
           point = point->next;
         }
-
-        seg = seg->edge_next;
-
-      } while ( seg != edge->first );
+      }
     }
   }
 
@@ -845,6 +948,25 @@
           min = 0;
           max = edge_limit - edges;
 
+#if 1
+          /* for small edge counts, a linear search is better */
+          if ( max <= 8 )
+          {
+            FT_UInt  nn;
+
+            for ( nn = 0; nn < max; nn++ )
+              if ( edges[nn].fpos >= u )
+                break;
+
+            if ( edges[nn].fpos == u )
+            {
+              u = edges[nn].pos;
+              goto Store_Point;
+            }
+            min = nn;
+          }
+          else
+#endif
           while ( min < max )
           {
             mid  = ( max + min ) >> 1;
@@ -906,6 +1028,8 @@
     AF_Point  p;
     FT_Pos    delta = ref->u - ref->v;
 
+    if ( delta == 0 )
+      return;
 
     for ( p = p1; p < ref; p++ )
       p->u = p->v + delta;
@@ -1024,53 +1148,76 @@
 
     for ( ; contour < contour_limit; contour++ )
     {
+      AF_Point  first_touched, last_touched;
+
+
       point       = *contour;
       end_point   = point->prev;
       first_point = point;
 
-      while ( point <= end_point && !( point->flags & touch_flag ) )
-        point++;
-
-      if ( point <= end_point )
+      /* find first touched point */
+      for (;;)
       {
-        AF_Point  first_touched = point;
-        AF_Point  cur_touched   = point;
+        if ( point > end_point )  /* no touched point in contour */
+          goto NextContour;
 
+        if ( point->flags & touch_flag )
+          break;
 
         point++;
-        while ( point <= end_point )
+      }
+
+      first_touched = point;
+      last_touched  = point;
+
+      for (;;)
+      {
+        FT_ASSERT( point <= end_point &&
+                   ( point->flags & touch_flag ) != 0 );
+
+        /* skip any touched neighbhours */
+        while ( point < end_point && ( point[1].flags & touch_flag ) != 0 )
+          point++;
+
+        last_touched = point;
+
+        /* find the next touched point, if any */
+        point ++;
+        for (;;)
         {
-          if ( point->flags & touch_flag )
-          {
-            /* we found two successive touched points; we interpolate */
-            /* all contour points between them                        */
-            af_iup_interp( cur_touched + 1, point - 1,
-                           cur_touched, point );
-            cur_touched = point;
-          }
+          if ( point > end_point )
+            goto EndContour;
+
+          if ( ( point->flags & touch_flag ) != 0 )
+            break;
+
           point++;
         }
 
-        if ( cur_touched == first_touched )
-        {
-          /* this is a special case: only one point was touched in the */
-          /* contour; we thus simply shift the whole contour           */
-          af_iup_shift( first_point, end_point, cur_touched );
-        }
-        else
-        {
-          /* now interpolate after the last touched point to the end */
-          /* of the contour                                          */
-          af_iup_interp( cur_touched + 1, end_point,
-                         cur_touched, first_touched );
-
-          /* if the first contour point isn't touched, interpolate */
-          /* from the contour start to the first touched point     */
-          if ( first_touched > points )
-            af_iup_interp( first_point, first_touched - 1,
-                           cur_touched, first_touched );
-        }
+        /* interpolate between last_touched and point */
+        af_iup_interp( last_touched + 1, point - 1,
+                       last_touched, point );
       }
+
+    EndContour:
+      /* special case: only one point was touched */
+      if ( last_touched == first_touched )
+      {
+        af_iup_shift( first_point, end_point, first_touched );
+      }
+      else /* interpolate the last part */
+      {
+        if ( last_touched < end_point )
+          af_iup_interp( last_touched + 1, end_point,
+                         last_touched, first_touched );
+
+        if ( first_touched > points )
+          af_iup_interp( first_point, first_touched - 1,
+                         last_touched, first_touched );
+      }
+
+    NextContour:
+      ;
     }
 
     /* now save the interpolated values back to x/y */
@@ -1086,5 +1233,32 @@
     }
   }
 
+
+#ifdef AF_USE_WARPER
+
+  FT_LOCAL_DEF( void )
+  af_glyph_hints_scale_dim( AF_GlyphHints  hints,
+                            AF_Dimension   dim,
+                            FT_Fixed       scale,
+                            FT_Pos         delta )
+  {
+    AF_Point  points       = hints->points;
+    AF_Point  points_limit = points + hints->num_points;
+    AF_Point  point;
+
+
+    if ( dim == AF_DIMENSION_HORZ )
+    {
+      for ( point = points; point < points_limit; point++ )
+        point->x = FT_MulFix( point->fx, scale ) + delta;
+    }
+    else
+    {
+      for ( point = points; point < points_limit; point++ )
+        point->y = FT_MulFix( point->fy, scale ) + delta;
+    }
+  }
+
+#endif /* AF_USE_WARPER */
 
 /* END */

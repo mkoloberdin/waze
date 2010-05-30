@@ -3,7 +3,7 @@
 #
 
 
-# Copyright 1996-2000, 2002, 2003, 2004, 2005 by
+# Copyright 1996-2000, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 by
 # David Turner, Robert Wilhelm, and Werner Lemberg.
 #
 # This file is part of the FreeType project, and may only be used, modified,
@@ -21,8 +21,6 @@
 #   BASE_EXT_OBJ: A list of base layer extensions, i.e., components found
 #                 in `freetype/src/base' which are not compiled within the
 #                 base layer proper.
-#
-# BASE_H is defined in freetype.mk to simplify the dependency rules.
 
 
 BASE_COMPILE := $(FT_COMPILE) $I$(subst /,$(COMPILER_SEP),$(SRC_DIR)/base)
@@ -32,7 +30,10 @@ BASE_COMPILE := $(FT_COMPILE) $I$(subst /,$(COMPILER_SEP),$(SRC_DIR)/base)
 #
 #   ftsystem, ftinit, and ftdebug are handled by freetype.mk
 #
-BASE_SRC := $(BASE_DIR)/ftapi.c    \
+# All files listed here should be included in `ftbase.c' (for a `single'
+# build).
+#
+BASE_SRC := $(BASE_DIR)/ftadvanc.c \
             $(BASE_DIR)/ftcalc.c   \
             $(BASE_DIR)/ftdbgmem.c \
             $(BASE_DIR)/ftgloadr.c \
@@ -44,24 +45,20 @@ BASE_SRC := $(BASE_DIR)/ftapi.c    \
             $(BASE_DIR)/fttrigon.c \
             $(BASE_DIR)/ftutil.c
 
+
+ifneq ($(ftmac_c),)
+  BASE_SRC += $(BASE_DIR)/$(ftmac_c)
+endif
+
+BASE_H := $(BASE_DIR)/ftbase.h
+
 # Base layer `extensions' sources
 #
-# An extension is added to the library file (.a or .lib) as a separate
-# object.  It will then be linked to the final executable only if one of its
-# symbols is used by the application.
+# An extension is added to the library file as a separate object.  It is
+# then linked to the final executable only if one of its symbols is used by
+# the application.
 #
-BASE_EXT_SRC := $(BASE_DIR)/ftbitmap.c \
-                $(BASE_DIR)/ftbbox.c   \
-                $(BASE_DIR)/ftbdf.c    \
-                $(BASE_DIR)/ftglyph.c  \
-                $(BASE_DIR)/ftmm.c     \
-                $(BASE_DIR)/ftotval.c  \
-                $(BASE_DIR)/ftpfr.c    \
-                $(BASE_DIR)/ftstroke.c \
-                $(BASE_DIR)/ftsynth.c  \
-                $(BASE_DIR)/fttype1.c  \
-                $(BASE_DIR)/ftwinfnt.c \
-                $(BASE_DIR)/ftxf86.c
+BASE_EXT_SRC := $(patsubst %,$(BASE_DIR)/%,$(BASE_EXTENSIONS))
 
 # Default extensions objects
 #
@@ -86,13 +83,13 @@ BASE_SRC_S := $(BASE_DIR)/ftbase.c
 
 # Base layer - single object build
 #
-$(BASE_OBJ_S): $(BASE_SRC_S) $(BASE_SRC) $(FREETYPE_H)
+$(BASE_OBJ_S): $(BASE_SRC_S) $(BASE_SRC) $(FREETYPE_H) $(BASE_H)
 	$(BASE_COMPILE) $T$(subst /,$(COMPILER_SEP),$@ $(BASE_SRC_S))
 
 
 # Multiple objects build + extensions
 #
-$(OBJ_DIR)/%.$O: $(BASE_DIR)/%.c $(FREETYPE_H)
+$(OBJ_DIR)/%.$O: $(BASE_DIR)/%.c $(FREETYPE_H) $(BASE_H)
 	$(BASE_COMPILE) $T$(subst /,$(COMPILER_SEP),$@ $<)
 
 

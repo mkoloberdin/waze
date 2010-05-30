@@ -45,6 +45,10 @@
 #include "ssd/ssd_generic_list_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 
+#ifdef IPHONE
+#include "roadmap_list_menu.h"
+#endif //IPHONE
+
 #include "Realtime/Realtime.h"
 #include "Realtime/RealtimeDefs.h"
 
@@ -60,7 +64,7 @@ typedef enum {
 
 static RoadmapFoursquareRequestType gsRequestType = ROADMAP_FOURSQUARE_NONE;
 
-#define     ROADMAP_FOURSQUARE_MAX_VENUE_COUNT        10
+#define     ROADMAP_FOURSQUARE_MAX_VENUE_COUNT        50
 #define     FOURSQUARE_VENUES_LIST_NAME               "VenuesList"
 #define     FOURSQUARE_REQUEST_TIMEOUT                15000
 
@@ -143,7 +147,7 @@ BOOL roadmap_foursquare_initialize(void) {
 static void request_time_out (void){
    roadmap_main_remove_periodic(request_time_out);
    ssd_progress_msg_dialog_hide();
-   roadmap_messagebox("Error", "Could not connect with Foursquare. Try again later.");
+   roadmap_messagebox("Oops", "Could not connect with Foursquare. Try again later.");
 }
 
 static void delayed_show_progress (void){
@@ -172,9 +176,9 @@ BOOL roadmap_foursquare_logged_in(void) {
 /////////////////////////////////////////////////////////////////////////////////////
 static void roadmap_foursquare_login_failed(int status) {
    if (status == 701)
-      roadmap_messagebox("Error", "Updating your foursquare account details failed. Please ensure you entered the correct user name and password");
+      roadmap_messagebox("Oops", "Updating your foursquare account details failed. Please ensure you entered the correct user name and password");
    else
-      roadmap_messagebox("Error", "Could not connect with Foursquare. Try again later.");
+      roadmap_messagebox("Oops", "Could not connect with Foursquare. Try again later.");
    roadmap_foursquare_set_logged_in (FALSE);
 }
 
@@ -266,7 +270,7 @@ static void foursquare_pw_empty(void){
 /////////////////////////////////////////////////////////////////////////////////////
 static void foursquare_network_error(void){
    roadmap_main_remove_periodic (foursquare_network_error);
-   roadmap_messagebox("Error", roadmap_lang_get("There is no network connection. Updating your Foursquare account details failed."));
+   roadmap_messagebox("Oops", roadmap_lang_get("There is no network connection. Updating your Foursquare account details failed."));
    roadmap_foursquare_set_logged_in (FALSE);
    //roadmap_foursquare_login_dialog();
 }
@@ -281,10 +285,15 @@ void roadmap_foursquare_login (const char *user_name, const char *password) {
    BOOL success;
 
    gsRequestType = ROADMAP_FOURSQUARE_LOGIN;
+#ifdef IPHONE
+   delayed_show_progress();
+#else
    roadmap_main_set_periodic(100, delayed_show_progress);
+#endif //IPHONE
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
 
-   success = Realtime_FoursquareConnect(user_name, password, roadmap_foursquare_is_tweet_login_enabled());
+   success = Realtime_FoursquareConnect(user_name, password,
+         roadmap_foursquare_is_tweet_login_enabled() && roadmap_twitter_logged_in());
    if (!success) {
       roadmap_main_remove_periodic(request_time_out);
       ssd_progress_msg_dialog_hide();
@@ -450,7 +459,7 @@ static void create_login_dialog(void) {
 
    SsdWidget dialog;
    SsdWidget group;
-   SsdWidget box;
+   SsdWidget box, box2;
    SsdWidget bitmap;
    int width;
    int tab_flag = SSD_WS_TABSTOP;
@@ -527,13 +536,19 @@ static void create_login_dialog(void) {
    box = ssd_container_new("Tweet toggles group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS
                   | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+
    group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
          SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
    ssd_widget_set_color(group, "#000000", "#ffffff");
 
-   ssd_widget_add(group, ssd_text_new("Send_login_label", roadmap_lang_get(
+   box2 = ssd_container_new ("box2", NULL, (2*roadmap_canvas_width())/3, SSD_MIN_SIZE,
+                            SSD_ALIGN_VCENTER);
+   ssd_widget_set_color (box2, NULL, NULL);
+
+   ssd_widget_add(box2, ssd_text_new("Send_login_label", roadmap_lang_get(
          "Am checking out this integration"), -1, SSD_TEXT_LABEL
          | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   ssd_widget_add(group, box2);
 
    ssd_widget_add(group, ssd_checkbox_new("FoursquareSendLogin", TRUE,
          SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
@@ -543,9 +558,13 @@ static void create_login_dialog(void) {
 
    group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
          SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
-   ssd_widget_add(group, ssd_text_new("Send_waze_badge_label", roadmap_lang_get(
+   box2 = ssd_container_new ("box2", NULL, (2*roadmap_canvas_width())/3, SSD_MIN_SIZE,
+                            SSD_ALIGN_VCENTER);
+   ssd_widget_set_color (box2, NULL, NULL);
+   ssd_widget_add(box2, ssd_text_new("Send_waze_badge_label", roadmap_lang_get(
          "Have unlocked the Roadwarrior Badge"), -1, SSD_TEXT_LABEL
          | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   ssd_widget_add(group, box2);
 
    ssd_widget_add(group, ssd_checkbox_new("FoursquareSendBadgeUnlock", TRUE,
          SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
@@ -591,17 +610,25 @@ static void create_address (FoursquareVenue*   venue, FoursquareCheckin* checkin
 static int on_venue_item_selected(SsdWidget widget, const char* selection,const void *value, void* context)
 {
    int index = (int)value;
+#ifdef IPHONE_NATIVE
+   index -= 10;
+#endif //IPHONE_NATIVE
 
    gsRequestType = ROADMAP_FOURSQUARE_CHECKIN;
 
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
+#ifdef IPHONE
+   delayed_show_progress();
+#else
    roadmap_main_set_periodic(100, delayed_show_progress);
+#endif //IPHONE
 
    create_address (&gsVenuesList[index], &gsCheckInInfo);
 
    ssd_dialog_hide_all(dec_close);
 
-   Realtime_FoursquareCheckin(gsVenuesList[index].sId, roadmap_foursquare_is_tweet_badge_enabled());
+   Realtime_FoursquareCheckin(gsVenuesList[index].sId,
+         roadmap_foursquare_is_tweet_badge_enabled() && roadmap_twitter_logged_in());
 
    return 1;
 }
@@ -618,25 +645,27 @@ void roadmap_foursquare_venues_list (void) {
 
    for (i = 0; i < gsVenuesCount; i++) {
       results[i] = gsVenuesList[i].sDescription;
+#ifdef IPHONE_NATIVE
+      indexes[i] = (void*)(i+10);
+#else
       indexes[i] = (void*)i;
+#endif
       icons[i] = "foursquare_checkin";
    }
 
 #ifdef IPHONE_NATIVE
-   roadmap_list_menu_generic(roadmap_lang_get(FOURSQUARE_VENUES_TITLE),
-                             venuesCount,
+   roadmap_list_menu_generic(roadmap_lang_get(FOURSQUARE_TITLE),
+                             gsVenuesCount,
                              results,
                              (const void **)indexes,
                              icons,
                              NULL,
-                             0,
+                             NULL,
                              on_venue_item_selected,
                              NULL,
                              NULL,
                              NULL,
-                             NULL,
                              60,
-                             0,
                              0);
 #else
    ssd_generic_icon_list_dialog_show(roadmap_lang_get(FOURSQUARE_VENUES_TITLE),
@@ -658,7 +687,10 @@ void roadmap_foursquare_venues_list (void) {
 }
 
 static void create_description (FoursquareVenue*   venue) {
-   sprintf(venue->sDescription, "%s\n%s, %s", venue->sName, venue->sAddress, venue->sCity);
+   if (strlen(venue->sZip) <= 3) //filter non-valid zip codes like '-1', ' ' etc
+      snprintf(venue->sDescription, sizeof(venue->sDescription), "%s\n%s, %s", venue->sName, venue->sAddress, venue->sCity);
+   else
+      snprintf(venue->sDescription, sizeof(venue->sDescription), "%s\n%s, %s, %s", venue->sName, venue->sAddress, venue->sCity, venue->sZip);
 }
 
 
@@ -768,6 +800,9 @@ static const char* parse_search_results(roadmap_result* rc, int NumParams, const
    if (!(*pData) || count == 0) {
       roadmap_log(ROADMAP_DEBUG, "Foursquare - received empty venues list");
       ssd_dialog_hide_all(dec_close);
+#ifdef IPHONE_NATIVE
+      roadmap_main_show_root(1);
+#endif //IPHONE_NATIVE
       roadmap_messagebox_timeout("Foursquare", "We can't find anything nearby.", 5);
       return pData;
    }
@@ -870,16 +905,17 @@ static const char* parse_search_results(roadmap_result* rc, int NumParams, const
       }
 
       //   7.   zip
-      pData = ReadIntFromString(
-                           pData,            //   [in]      Source string
-                           ",",              //   [in,opt]   Value termination
-                           NULL,             //   [in,opt]   Allowed padding
-                           &venue.iZip,      //   [out]      Put it here
-                           1);               //   [in]      Remove additional termination CHARS
+      iBufferSize = ROADMAP_FOURSQUARE_ZIP_MAX_SIZE;
+      pData       = ExtractNetworkString(
+                     pData,               // [in]     Source string
+                     venue.sZip,          // [out,opt]Output buffer
+                     &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                     ",",                 // [in]     Array of chars to terminate the copy operation
+                     1);                  // [in]     Remove additional termination chars
 
       if( !pData || !(*pData))
       {
-         roadmap_log( ROADMAP_ERROR, "Foursquare - parse_search_results(): Failed to read venue zip=%d", venue.iZip);
+         roadmap_log( ROADMAP_ERROR, "Foursquare - parse_search_results(): Failed to read venue zip=%s", venue.sZip);
          (*rc) = err_parser_unexpected_data;
          return NULL;
       }
@@ -972,11 +1008,11 @@ const char* roadmap_foursquare_response(int status, roadmap_result* rc, int NumP
             break;
          case ROADMAP_FOURSQUARE_SEARCH:
             roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (search) - Command failed (status= %d)", status );
-            roadmap_messagebox ("Error", "Could not connect with Foursquare. Try again later.");
+            roadmap_messagebox ("Oops", "Could not connect with Foursquare. Try again later.");
             break;
          case ROADMAP_FOURSQUARE_CHECKIN:
             roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (checkin) - Command failed (status= %d)", status );
-            roadmap_messagebox ("Error", "Could not connect with Foursquare. Try again later.");
+            roadmap_messagebox ("Oops", "Could not connect with Foursquare. Try again later.");
            break;
          default:
             roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (unknown) - Command failed (status= %d)", status );
@@ -1021,11 +1057,11 @@ void roadmap_foursquare_request_failed (roadmap_result status) {
          break;
       case ROADMAP_FOURSQUARE_SEARCH:
          roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (search) - network failed failed (status= %d)", status );
-         roadmap_messagebox ("Error", "Could not connect with Foursquare. Try again later.");
+         roadmap_messagebox ("Oops", "Could not connect with Foursquare. Try again later.");
          break;
       case ROADMAP_FOURSQUARE_CHECKIN:
          roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (checkin) - network failed (status= %d)", status );
-         roadmap_messagebox ("Error", "Could not connect with Foursquare. Try again later.");
+         roadmap_messagebox ("Oops", "Could not connect with Foursquare. Try again later.");
         break;
       default:
          roadmap_log( ROADMAP_ERROR, "roadmap_foursquare_response (unknown) - network failed (status= %d)", status );
@@ -1036,12 +1072,19 @@ void roadmap_foursquare_request_failed (roadmap_result status) {
 #ifndef IPHONE_NATIVE
 /////////////////////////////////////////////////////////////////////////////////////
 void roadmap_foursquare_checkedin_dialog(void) {
+   char text[256];
+
    roadmap_main_remove_periodic(roadmap_foursquare_checkedin_dialog);
 
    if (!ssd_dialog_activate(FOURSQUARE_CHECKEDIN_DIALOG_NAME, NULL)) {
       create_checkedin_dialog();
       ssd_dialog_activate(FOURSQUARE_CHECKEDIN_DIALOG_NAME, NULL);
    }
+
+   ssd_dialog_set_value("Checkin message lablel", gsCheckInInfo.sCheckinMessage);
+   ssd_dialog_set_value("Checkin address", gsCheckInInfo.sAddress);
+   snprintf(text, sizeof(text), "%s %s", roadmap_lang_get("Points:"), gsCheckInInfo.sScorePoints);
+   ssd_dialog_set_value("Checkin points", text);
 
    roadmap_screen_redraw();
 }
@@ -1096,7 +1139,11 @@ void roadmap_foursquare_checkin(void) {
    gsVenuesCount = 0;
 
    roadmap_main_set_periodic(FOURSQUARE_REQUEST_TIMEOUT, request_time_out);
+#ifdef IPHONE
+   delayed_show_progress();
+#else
    roadmap_main_set_periodic(100, delayed_show_progress);
+#endif //IPHONE
    coordinates = roadmap_trip_get_position( "Location" );
    Realtime_FoursquareSearch((RoadMapPosition *)coordinates);
 }

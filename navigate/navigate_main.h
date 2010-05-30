@@ -32,6 +32,12 @@
 #include "roadmap_line.h"
 #include "roadmap.h"
 
+typedef struct {
+   int hours;
+   int minutes;
+   int seconds;
+}timeStruct;
+
 enum NavigateInstr {
    TURN_LEFT = 0,
    TURN_RIGHT,
@@ -100,9 +106,10 @@ void navigation_guidance_on(void);
 void navigation_guidance_off(void);
 void navigate_main_set (int status);
 int  navigate_main_calc_route (void);
+int navigate_main_route (void);
 void navigate_main_on_route (int flags, int length, int track_time,
 									  NavigateSegment *segments, int num_segment, int num_instrumented,
-									  RoadMapPosition *outline_points, int num_outline_points);
+									  RoadMapPosition *outline_points, int num_outline_points, const char *description, BOOL show_message);
 
 void navigate_main_screen_repaint (int max_pen);
 
@@ -125,6 +132,7 @@ BOOL navigate_main_ETA_enabled();
 BOOL navgiate_main_voice_guidance_enabled();
 int navigate_main_state(void);
 void navigate_menu(void);
+BOOL navigate_main_is_calculating_route(void);
 
 void navigate_main_list(void);
 int  navigate_main_is_list_displaying(void);
@@ -133,8 +141,21 @@ void navigate_main_list_hide(void);
 void navigate_main_update_route (int num_instrumented);
 void navigate_main_on_suggest_reroute (int reroute_segment, int time_before, int time_after);
 void navigate_main_on_segment_ver_mismatch (void);
-void navigate_main_set_outline(RoadMapPosition *outline_points, int num_outline_points, int alt_id);
+void navigate_main_set_outline(int num, RoadMapPosition *outline_points, int num_outline_points, int alt_id, BOOL alt_routes);
 
 int navigate_main_reload_data (void);
+
+timeStruct navigate_main_get_current_time();
+timeStruct navigate_main_calculate_eta(timeStruct cur, timeStruct timeToDest);
+void navigate_main_get_distance_str(int distance_to_destination, char *str, int sizeof_str, char *unit_str, int sizeof_unit_str);
+
+BOOL navigate_main_nav_resumed(void);
+
+void navigate_main_set_route(int alt_id);
+const RoadMapPosition *navigate_main_get_src_position(void);
+
+int navigate_main_alt_routes_display(void);
+int navigate_main_is_alt_routes(void);
+
 #endif /* INCLUDE__NAVIGATE_MAIN__H */
 

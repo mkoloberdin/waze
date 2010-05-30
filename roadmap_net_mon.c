@@ -48,14 +48,18 @@ static int NumConnections;
 static time_t LastActivityTime = 0;
 static const char *LastErrorText = "";
 static ROADMAP_NET_MON_STATE CurrentState = NET_MON_DISABLED;
-extern RoadMapConfigDescriptor RoadMapConfigNetMonitorActivated;
+
+static RoadMapConfigDescriptor RoadMapConfigNetMonitorEnabled =
+                        ROADMAP_CONFIG_ITEM("Network", "Monitor Enabled");
+static BOOL RoadMapNetMonEnabled = FALSE;
+
 static void periodic_callack (void) {
 
-   if(
+   if( RoadMapNetMonEnabled == FALSE || (
 #ifndef   _WIN32
       (CurrentState == NET_MON_IDLE) &&
 #endif   // _WIN32
-         ((time(NULL) - LastActivityTime) > ACTIVITY_TIMEOUT_SEC)) {
+         ((time(NULL) - LastActivityTime) > ACTIVITY_TIMEOUT_SEC)) ) {
 
       roadmap_message_unset('!');
       LastActivityTime = 0;
@@ -66,12 +70,15 @@ static void periodic_callack (void) {
 
 // returns true iff we want to show monitor messages to the user
 static BOOL show_net_mon(){
-	return  roadmap_config_match(&RoadMapConfigNetMonitorActivated, "yes");
+	return  RoadMapNetMonEnabled;
 }
 
 static void update_activity (void) {
-   if (!LastActivityTime) roadmap_main_set_periodic (1000, periodic_callack);
-   LastActivityTime = time(NULL);   
+   if ( RoadMapNetMonEnabled )
+   {
+      if (!LastActivityTime) roadmap_main_set_periodic (1000, periodic_callack);
+      LastActivityTime = time(NULL);
+   }
    //roadmap_screen_mark_redraw ();
 }
 
@@ -81,6 +88,7 @@ static void update_activity (void) {
  * module is started.
  */
 void roadmap_net_mon_start (void) {
+
    assert (CurrentState == NET_MON_DISABLED || CurrentState == NET_MON_OFFLINE);
    CurrentState = NET_MON_START;
    if(show_net_mon())
@@ -90,14 +98,42 @@ void roadmap_net_mon_start (void) {
 }
 
 
+/*
+ * Has to be called after the geo config in order to be able to determine
+ * the proper default values for the net monitor ( Israel - true )
+ *
+ */
+void roadmap_net_mon_initialize (void) {
+
+   const char* netmon_enabled_default = roadmap_lang_rtl() ? "yes" : "no";
+   /*
+    * Initialize the network monitor status. In Israel the default is true.
+    */
+   roadmap_config_declare
+      ( "user", &RoadMapConfigNetMonitorEnabled, netmon_enabled_default, NULL );
+   RoadMapNetMonEnabled = roadmap_config_match( &RoadMapConfigNetMonitorEnabled, "yes" );
+}
+
 /* Called after the connection module is shutdown
  */
 void roadmap_net_mon_destroy (void) {
+   const char* netmon_cfg_value = RoadMapNetMonEnabled ? "yes" : "no";
    assert (CurrentState != NET_MON_DISABLED);
    CurrentState = NET_MON_DISABLED;
+   // Network monitor enabled configuration value
+   roadmap_config_set( &RoadMapConfigNetMonitorEnabled, netmon_cfg_value );
    //roadmap_screen_mark_redraw ();
 }
 
+void roadmap_net_mon_set_enabled( BOOL is_enabled )
+{
+   RoadMapNetMonEnabled = is_enabled;
+}
+
+BOOL roadmap_net_mon_get_enabled( void )
+{
+   return RoadMapNetMonEnabled;
+}
 
 /* Called when a new connection is about to be opened
  */
@@ -106,8 +142,8 @@ void roadmap_net_mon_connect (void) {
    if ( CurrentState == NET_MON_OFFLINE ) { return; } //  connect means nothing in this case
    CurrentState = NET_MON_CONNECT;
    NumConnections++;
-   if(show_net_mon())
-  		 roadmap_message_set('!', roadmap_lang_get("Connecting..."));
+//   if(show_net_mon())
+//  		 roadmap_message_set('!', roadmap_lang_get("Connecting..."));
    update_activity();
 }
 
@@ -115,8 +151,8 @@ void roadmap_net_mon_connect (void) {
 /* Called after a connection is closed
  */
 void roadmap_net_mon_disconnect (void) {
-   assert (CurrentState != NET_MON_DISABLED);
-   if ( CurrentState == NET_MON_OFFLINE ) { return; } //  disconnect means nothing in this case
+//   assert (CurrentState != NET_MON_DISABLED);
+   if ( CurrentState == NET_MON_OFFLINE || CurrentState == NET_MON_DISABLED ) { return; } //  disconnect means nothing in this case
    assert (NumConnections);
    NumConnections--;
    if (NumConnections == 0) CurrentState = NET_MON_IDLE;
@@ -183,7 +219,7 @@ size_t roadmap_net_mon_get_count (void) {
    return RecvBytesCount + SendBytesCount;
 }
 
-/* Called when user chose not to connect 
+/* Called when user chose not to connect
  */
 void roadmap_net_mon_offline (void) {
    CurrentState = NET_MON_OFFLINE;

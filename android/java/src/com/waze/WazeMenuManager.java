@@ -33,12 +33,9 @@ package com.waze;
 
 import java.lang.reflect.Field;
 
-import android.graphics.drawable.BitmapDrawable;
-import android.graphics.drawable.Drawable;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.R;
 
 public final class WazeMenuManager
 {
@@ -59,34 +56,24 @@ public final class WazeMenuManager
     /*************************************************************************************************
      * Builds the options menu layout
      */
-	public void BuildOptionsMenu( Menu aMenu )
+	public void BuildOptionsMenu( Menu aMenu, boolean aIsPortrait )
 	{
 		MenuItem item = null;		
+		int order = 0;
+		aMenu.clear();
 		
 		try 
 		{
-			if ( ( mMenuItemCount > 0 ) && !mIsInitialized )
+			if ( ( mMenuItemCount > 0 ) /* && !mIsInitialized */ )
 			{
 				int i;
-				Drawable icon;
 				for ( i = 0; i < mMenuItemCount; ++i )
 				{
-					
-					item = aMenu.add( 0, mMenuItems[i].item_id, 0, mMenuItems[i].item_label );
+					order = aIsPortrait ? mMenuItems[i].portrait_order : mMenuItems[i].landscape_order;
+					item = aMenu.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
 					if ( mMenuItems[i].icon_name != null )					
 					{
-						if ( mMenuItems[i].is_native == 1 )
-						{
-							Field icon_field = R.drawable.class.getField( mMenuItems[i].icon_name );
-							int icon_id = icon_field.getInt( null );
-							item.setIcon( icon_id );
-						}
-						else
-						{
-							icon = BitmapDrawable.createFromPath( FreeMapResources.GetSkinsPath() + mMenuItems[i].icon_name );
-							item.setIcon( icon );
-						}
-						
+						item.setIcon( mMenuItems[i].icon_id );
 					}
 				}
 				mIsInitialized = true;	
@@ -99,7 +86,7 @@ public final class WazeMenuManager
 			ex.printStackTrace();
 		}
 	}
-
+	
     /*************************************************************************************************
      * Handles the button pressed event
      */
@@ -112,24 +99,46 @@ public final class WazeMenuManager
     /*************************************************************************************************
      * Adds a new item to menu 
      */
-	public void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native )
+	public void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native, int portrait_order, int landscape_order )
 	{
 		WazeMenuItem item = new WazeMenuItem();
 		
 		item.item_id = aItemId;
 		item.item_label = new String ( aLabel );
-		
-		if ( aIcon != null )
-		{
-			item.icon_name = new String( aIcon );
-		}
-		else
-		{
-			item.icon_name = null;
-		}
+		item.portrait_order = portrait_order;
+		item.landscape_order = landscape_order;
 		item.is_native = is_icon_native;
 		
-		mMenuItems[mMenuItemCount] = item;
+		try 
+		{
+			if ( aIcon != null )
+			{
+				Field icon_field;
+				item.icon_name = new String( aIcon );
+				if ( item.is_native == 1 )
+				{
+					icon_field = android.R.drawable.class.getField( item.icon_name );
+				}
+				else
+				{
+					icon_field = R.drawable.class.getField( item.icon_name );
+//					Drawable icon = BitmapDrawable.createFromPath( FreeMapResources.GetSkinsPath() + item.icon_name );
+//					item.icon = icon;
+				}
+				int icon_id = icon_field.getInt( null );
+				item.icon_id = icon_id;
+			}
+			else
+			{
+				item.icon_name = null;
+			}
+		}
+		catch( Exception ex )
+		{
+			Log.w( "WAZE", "Error while building the menu" + ex.getMessage() );
+			ex.printStackTrace();
+		}
+	    mMenuItems[mMenuItemCount] = item;
 		
 		mMenuItemCount++;
 	}
@@ -144,7 +153,11 @@ public final class WazeMenuManager
     	public int item_id;
     	public String item_label;
     	public String icon_name;
+//    	Drawable icon;		// For custom
+    	int icon_id;		// For native 
     	public int is_native;    	
+    	public int portrait_order;
+    	public int landscape_order;
     }
 	
 	
@@ -169,24 +182,7 @@ public final class WazeMenuManager
 	
 	private boolean mIsInitialized = false;
 	
-	public static final int WAZE_OPT_MENU_DRIVE_TO_ID = 0;
-	public static final String WAZE_OPT_MENU_DRIVE_TO_STRING = "Drive to";
-	
-	public static final int WAZE_OPT_MENU_REPORT_ID = 1;
-	public static final String WAZE_OPT_MENU_REPORT_STRING = "Report";
-	
-	public static final int WAZE_OPT_MENU_ME_ON_MAP_ID = 2;
-	public static final String WAZE_OPT_MENU_ME_ON_MAP_STRING = "Me on map";
-	
-	public static final int WAZE_OPT_MENU_EVENTS_ID = 3;
-	public static final String WAZE_OPT_MENU_EVENTS_STRING = "Events";
-
-	public static final int WAZE_OPT_MENU_SETTINGS_ID = 4;
-	public static final String WAZE_OPT_MENU_SETTINGS_STRING = "Settings";
-	
 	public static final int NATIVE_MSG_CATEGORY_MENU = 0x080000;
-	
-	
 	
 	private FreeMapNativeManager mNativeManager;
 

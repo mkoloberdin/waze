@@ -73,8 +73,8 @@ static const char *RoadMapPathUserPreferred = "/data/data/com.waze";
 
 /* Skins directories */
 static const char *RoadMapPathSkin[] = {
-   "/sdcard/waze/skins/default/day",
    "/sdcard/waze/skins/default",
+   "/sdcard/waze/skins/default/day",
    NULL
 };
 

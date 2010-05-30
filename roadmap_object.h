@@ -94,5 +94,9 @@ typedef void (*RoadMapObjectMonitor) (RoadMapDynamicString id);
 RoadMapObjectMonitor roadmap_object_register_monitor
                            (RoadMapObjectMonitor monitor);
 
+void roadmap_object_disable_short_click(void);
+void roadmap_object_enable_short_click(void);
+BOOL roadmap_object_short_ckick_enabled(void);
+
 #endif // INCLUDE__ROADMAP_OBJECT__H
 

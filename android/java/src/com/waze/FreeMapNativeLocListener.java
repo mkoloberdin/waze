@@ -153,8 +153,7 @@ public final class FreeMapNativeLocListener implements LocationListener
         lNativeLoc.mLatitude = (int) Math.round(aLocation.getLatitude()
                 * (double) mFixedPointFactor);
 
-        lNativeLoc.mAltitude = (int) Math.round(aLocation.getAltitude()
-                * (double) mFixedPointFactor);
+        lNativeLoc.mAltitude = (int) Math.round( aLocation.getAltitude() );
 
         lNativeLoc.mGpsTime = (int) (aLocation.getTime() / 1000); // Time in
         // seconds
@@ -173,7 +172,7 @@ public final class FreeMapNativeLocListener implements LocationListener
         int isCellData = 0;
         double hdop;
         if ( aLoc == null )
-            return;
+            return;        
         
         NativeLocation loc = GetNativeLocation( aLoc );
         

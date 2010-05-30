@@ -30,6 +30,8 @@
 #include "../Realtime/Realtime.h"
 #include "../roadmap_math.h"
 #include "../roadmap_lang.h"
+#include "../roadmap_res.h"
+#include "../roadmap_res_download.h"
 
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
@@ -56,6 +58,14 @@ static RoadMapConfigDescriptor   s_web_service_ls_provider =
 static RoadMapConfigDescriptor   s_web_service_ls_provider_label =
 									ROADMAP_CONFIG_ITEM( LSR_WEBSVC_CFG_TAB,
 														     LSR_WEBSVC_PROVIDER_LABEL );
+
+static RoadMapConfigDescriptor   s_web_service_ls_provider_icon =
+                           ROADMAP_CONFIG_ITEM( LSR_WEBSVC_CFG_TAB,
+                                               LSR_WEBSVC_PROVIDER_ICON );
+
+static RoadMapConfigDescriptor   s_web_service_ls_provider_logo =
+                           ROADMAP_CONFIG_ITEM( LSR_WEBSVC_CFG_TAB,
+                                               LSR_WEBSVC_PROVIDER_LOGO );
 
 static wst_parser data_parser[] =
 {
@@ -195,8 +205,11 @@ BOOL local_candidate_build_address_string( address_candidate* this)
       }
    }
 
+#ifndef IPHONE   
    if (has_phone)
        snprintf( this->address + strlen(this->address), ADSR_ADDRESS_MAX_SIZE-strlen(this->address), "\n%s", this->phone);
+#endif //IPHONE
+
    add_distance_to_address_string(this);
 
 
@@ -231,6 +244,16 @@ BOOL local_search_init()
       roadmap_config_declare( LSR_WEBSVC_CFG_FILE,
                               &s_web_service_ls_provider_label,
                               LSR_WEBSVC_DEFAULT_PROVIDER_LABEL,
+                              NULL );
+      // Local search provider icon
+      roadmap_config_declare( LSR_WEBSVC_CFG_FILE,
+                              &s_web_service_ls_provider_icon,
+                              LSR_WEBSVC_DEFAULT_PROVIDER_ICON,
+                              NULL );
+      // Local search provider logo
+      roadmap_config_declare( LSR_WEBSVC_CFG_FILE,
+                              &s_web_service_ls_provider_logo,
+                              LSR_WEBSVC_DEFAULT_PROVIDER_LOGO,
                               NULL );
 
 
@@ -267,13 +290,23 @@ void local_search_term()
 const char* local_search_get_provider( void )
 {
 	const char * provider = roadmap_config_get( &s_web_service_ls_provider );
-    return provider;
+   return provider;
 }
 
 const char* local_search_get_provider_label( void )
 {
-	const char * provider_lbl = roadmap_config_get( &s_web_service_ls_provider_label );
-    return provider_lbl;
+   static char provider_lbl[LSR_PROVIDER_LABEL_MAX_SIZE];
+   
+	/* Setting the label */
+	strncpy_safe( provider_lbl, roadmap_config_get( &s_web_service_ls_provider_label ), LSR_PROVIDER_LABEL_MAX_SIZE );
+   
+	/* Make upper case */
+	if ( ( provider_lbl[0] >=97 ) && ( provider_lbl[0] <= 122 ) )
+	{
+		provider_lbl[0] -= 32;
+	}
+
+   return provider_lbl;
 }
 
 /*
@@ -281,20 +314,23 @@ const char* local_search_get_provider_label( void )
  */
 const char* local_search_get_icon_name( void )
 {
-	static char icon_name[ADSR_ICON_NAME_MAX_SIZE];
-	const char* icon_suffix = local_search_get_provider();
-	/*
-	 * AGA NOTE: Temporary solution !!!!!
-	 * If not google - return generic
-	 */
-	 if ( strcmp( icon_suffix, "google") != 0 )
-	 {
-		 icon_suffix = LSR_GENERIC_PROVIDER_NAME;
-	 }
-
-	 snprintf( icon_name,  ADSR_ICON_NAME_MAX_SIZE, "search_local_%s", icon_suffix );
-
-	return icon_name;
+   static BOOL download_requested = FALSE;
+   const char * provider_icon = roadmap_config_get( &s_web_service_ls_provider_icon );
+   /*
+    * If there is no matching icon - ask download and show generic
+    */
+   if ( roadmap_res_get( RES_BITMAP, RES_SKIN, provider_icon ) == NULL )
+   {
+      roadmap_log( ROADMAP_DEBUG, "There is no matching provider icon: %s. Provider: %s",
+            provider_icon, local_search_get_provider() );
+      if ( !download_requested )
+      {
+         roadmap_res_download( RES_DOWNLOAD_IMAGE, provider_icon, NULL, "", TRUE, 0, NULL, NULL );
+         download_requested = TRUE;
+      }
+      provider_icon = LSR_GENERIC_PROVIDER_ICON;
+   }
+   return provider_icon;
 }
 
 /*
@@ -302,20 +338,21 @@ const char* local_search_get_icon_name( void )
  */
 const char* local_search_get_logo_name( void )
 {
-	static char logo_name[ADSR_ICON_NAME_MAX_SIZE];
-	const char* logo_suffix = local_search_get_provider();
-	/*
-	 * AGA NOTE: Temporary solution !!!!!
-	 * If not google - return generic
-	 */
-	 if ( strcmp( logo_suffix, "google") != 0 )
-	 {
-		 logo_suffix = LSR_GENERIC_PROVIDER_NAME;
-	 }
-
-	 snprintf( logo_name,  ADSR_ICON_NAME_MAX_SIZE, "ls_logo_%s", logo_suffix );
-
-	return logo_name;
+   static BOOL download_requested = FALSE;
+   const char * provider_logo = roadmap_config_get( &s_web_service_ls_provider_logo );
+   /*
+    * If there is no matching icon - ask download and show generic
+    */
+   if ( roadmap_res_get( RES_BITMAP, RES_SKIN, provider_logo ) == NULL )
+   {
+      if ( !download_requested )
+      {
+         roadmap_res_download( RES_DOWNLOAD_IMAGE, provider_logo, NULL, "", TRUE, 0, NULL, NULL );
+         download_requested = TRUE;
+      }
+      provider_logo = LSR_GENERIC_PROVIDER_LOGO;
+   }
+   return provider_logo;
 }
 
 // q=beit a&mobile=true&max_results=10&longtitude=10.943983489&latitude=23.984398
@@ -332,11 +369,6 @@ roadmap_result local_search_resolve_address(
 		   context, cbOnAddressResolved, address, custom_query );
 }
 
-
-const char* local_search()
-{
-
-}
 
 // Callback:   on_local_option
 //

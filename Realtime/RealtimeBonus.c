@@ -37,28 +37,29 @@
 #include "../roadmap_ticker.h"
 #include "../roadmap_res.h"
 #include "../roadmap_messagebox.h"
-#include "../roadmap_twitter.h"
+#include "../roadmap_social.h"
 #include "../editor/editor_points.h"
 #include "../editor/editor_screen.h"
 #include "../roadmap_res_download.h"
+#include "../roadmap_map_settings.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_container.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_bitmap.h"
 #include "ssd/ssd_popup.h"
-#include "ssd/ssd_button.h" 
-
+#include "ssd/ssd_button.h"
 #include "Realtime.h"
 #include "RealtimeBonus.h"
-
+#include "../roadmap_math.h"
 static RTBonusTable gBonusTable;
 
 #define ANIMATION_SOUND "bonus"
-
-roadmap_alert_providor RoadmapRealTimeMapbonusnsProvidor = { "RealTimeAlerts", RealtimeBonus_Count,
+#define MINIMUM_DISTANCE_TO_CHECK 5
+roadmap_alert_provider RoadmapRealTimeMapbonusnsProvider = { "RealTimeBonus", RealtimeBonus_Count,
       RealtimeBonus_Get_Id, RealtimeBonus_Get_Position, RealtimeBonus_Get_Speed, NULL, NULL, NULL,
       RealtimeBonus_Get_Distance, NULL, RealtimeBonus_Is_Alertable, NULL, NULL, NULL,
-      RealtimeBonus_Check_Same_Street, RealtimeBonus_HandleEvent };
+      RealtimeBonus_Check_Same_Street, RealtimeBonus_HandleEvent, RealtimeBonus_is_square_dependent,
+      RealtimeBonus_get_location_info, RealtimeBonus_distance_check,RealtimeBonus_get_priority};
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static void Play_Animation_Sound (void) {
@@ -77,8 +78,9 @@ void RealtimeBonus_Animate_Pacman (void) {
    static char pacman_name[50];
    static int index = 1;
    static int repeat = 0;
-   
-   if ( (index == 5) && (repeat == 2)) {
+
+#ifndef J2ME
+   if ( (index == 5) && (repeat == 8)) {
       roadmap_main_remove_periodic (RealtimeBonus_Animate_Pacman);
       editor_screen_set_override_car (NULL);
       index = 1;
@@ -95,9 +97,10 @@ void RealtimeBonus_Animate_Pacman (void) {
       sprintf (pacman_name, "pacman%d", index);
       editor_screen_set_override_car (pacman_name);
    }
-   
+
    if (index == 2)
       roadmap_main_set_periodic (300, RealtimeBonus_Animate_Pacman);
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -111,6 +114,9 @@ void RealtimeBonus_Record_Init (RTBonus *pbonus) {
    pbonus->iRadius = 0;
    pbonus->pIconName = NULL;
    pbonus->sGUIID[0] = 0;
+   pbonus->location_info.line_id = -1;
+   pbonus->location_info.square_id = ALERTER_SQUARE_ID_UNINITIALIZED;
+   pbonus->location_info.time_stamp = -1;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -120,7 +126,7 @@ int RealtimeBonus_Count (void) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeBonus_IsEmpty (void) {
-   
+
    return (0 == gBonusTable.iCount);
 }
 
@@ -128,9 +134,9 @@ BOOL RealtimeBonus_IsEmpty (void) {
 RTBonus *RealtimeBonus_Get_Record (int index) {
    if (index >= RealtimeBonus_Count ())
       return NULL;
-   
+
    return gBonusTable.bonus[index];
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -140,9 +146,9 @@ RTBonus *RealtimeBonus_Get (int iID) {
       if (gBonusTable.bonus[i] && gBonusTable.bonus[i]->iID == iID)
          return RealtimeBonus_Get_Record (i);
    }
-   
+
    return NULL;
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,6 +158,7 @@ void RealtimeBonus_RemoveFromTable (int iID) {
       if (gBonusTable.bonus[i] && gBonusTable.bonus[i]->iID == iID) {
          free (gBonusTable.bonus[i]);
          gBonusTable.bonus[i] = NULL;
+         gBonusTable.iCount--;
          return;
       }
    }
@@ -161,7 +168,7 @@ void RealtimeBonus_RemoveFromTable (int iID) {
 BOOL RealtimeBonus_Exists (int iID) {
    if (NULL == RealtimeBonus_Get (iID))
       return FALSE;
-   
+
    return TRUE;
 }
 
@@ -170,7 +177,7 @@ static int on_close (SsdWidget widget, const char *new_value) {
    if (ssd_dialog_is_currently_active () && (!strcmp (ssd_dialog_currently_active_name (),
                   "BonusPopUPDlg")))
       ssd_dialog_hide_current (dec_close);
-   
+
    return 0;
 }
 
@@ -192,35 +199,35 @@ void RealtimeBonus_PopUp (int iID) {
    RTBonus *pbonus = RealtimeBonus_Get (iID);
    const char *title;
    int width;
-   
+
    if (!pbonus)
       return;
 
    if (ssd_dialog_is_currently_active () && (!strcmp (ssd_dialog_currently_active_name (),
                   "BonusPopUPDlg")))
       ssd_dialog_hide_current (dec_cancel);
-   
+
    if (pbonus->iType == BONUS_TYPE_POINTS){
       title = roadmap_lang_get ("Bonus points");
    }
    else if (pbonus->iType == BONUS_TYPE_TREASURE){
       title = roadmap_lang_get ("Treasure chest");
    }
-   
+
    popup = ssd_popup_new ("BonusPopUPDlg", title, NULL,
                   SSD_MAX_SIZE, SSD_MIN_SIZE, &pbonus->position, SSD_POINTER_LOCATION
                                  | SSD_ROUNDED_BLACK | SSD_HEADER_BLACK);
-   
+
    spacer = ssd_container_new ("space", "", SSD_MIN_SIZE, 5, SSD_END_ROW);
    ssd_widget_set_color (spacer, NULL, NULL);
    ssd_widget_add (popup, spacer);
-   
+
    container = ssd_container_new ("IconCon", "", 50, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
    ssd_widget_set_color (container, NULL, NULL);
    icon = ssd_bitmap_new ("bonusIcon", pbonus->pIconName, SSD_ALIGN_VCENTER | SSD_ALIGN_CENTER);
    ssd_widget_add (container, icon);
    ssd_widget_add (popup, container);
-   
+
    if (pbonus->iType == BONUS_TYPE_POINTS){
       snprintf (msg, sizeof(msg), "%d %s", pbonus->iNumPoints, roadmap_lang_get ("points!"));
    }
@@ -230,29 +237,29 @@ void RealtimeBonus_PopUp (int iID) {
       else
          snprintf (msg, sizeof(msg), "%s", roadmap_lang_get ("There may be presents in this treasure chest! You'll know when you drive over it. Note: You need to be a registered user in order to receive the gift inside. Register in 'Settings > Profile'"));
    }
-   
+
    if (roadmap_canvas_width() > roadmap_canvas_height())
-      width = roadmap_canvas_height() - 70;
+      width = roadmap_canvas_height() - 90;
    else
-      width = roadmap_canvas_width() - 70;      
+      width = roadmap_canvas_width() - 90;
    container = ssd_container_new ("IconCon", "", width, SSD_MIN_SIZE, 0);
    ssd_widget_set_color (container, NULL, NULL);
    text = ssd_text_new ("PointsTxt", msg, 16, SSD_END_ROW);
    ssd_text_set_color (text, "#ffffff");
    ssd_widget_add (container, text);
    ssd_widget_add (popup, container);
-   
+
 #ifdef TOUCH_SCREEN
    spacer = ssd_container_new ("space", "", SSD_MIN_SIZE, 5, SSD_END_ROW);
    ssd_widget_set_color (spacer, NULL, NULL);
    ssd_widget_add (popup, spacer);
-   
+
    button = ssd_button_label ("Close_button", roadmap_lang_get ("Close"), SSD_ALIGN_CENTER,
                   on_close);
    ssd_widget_add (popup, button);
 #endif //TOUCH_SCREEN
    ssd_dialog_activate ("BonusPopUPDlg", NULL);
-   
+
    if (!roadmap_screen_refresh ()) {
       roadmap_screen_redraw ();
    }
@@ -270,20 +277,20 @@ static void OnbonusShortClick (const char *name,
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int onBonusAdd (RTBonus *pApdon) {
    RoadMapGpsPosition Pos;
-   
+
    RoadMapDynamicString Group = roadmap_string_new ("BonusPoints");
    RoadMapDynamicString GUI_ID = roadmap_string_new (pApdon->sGUIID);
    RoadMapDynamicString Name = roadmap_string_new (pApdon->sGUIID);
    RoadMapDynamicString Sprite = roadmap_string_new ("Bonus");
    RoadMapDynamicString Image = roadmap_string_new (pApdon->pIconName);
    roadmap_object_add (Group, GUI_ID, Name, Sprite, Image);
-   
+
    Pos.longitude = pApdon->position.longitude;
    Pos.latitude = pApdon->position.latitude;
    Pos.altitude = 0;
    Pos.speed = 0;
    Pos.steering = 0;
-   
+
    roadmap_object_move (GUI_ID, &Pos);
    roadmap_object_set_action (GUI_ID, OnbonusShortClick);
    roadmap_string_release (Group);
@@ -316,19 +323,31 @@ void RealtimeBonus_CreateGUIID (RTBonus *pbonus) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeBonus_Add (RTBonus *pbonus) {
    int index;
-   
+   int i;
+
+
+   if (!roadmap_map_settings_road_goodies())
+      return TRUE;
+
    // Full?
-   if (MAX_ADD_ONS == gBonusTable.iCount)
+   if (MAX_ADD_ONS == gBonusTable.iCount){
+      roadmap_log( ROADMAP_ERROR, "RealtimeBonus_Add() - Failed (Table is full)");
       return FALSE;
+   }
+
 
    if (RealtimeBonus_Exists (pbonus->iID))
       RealtimeBonus_Delete(pbonus->iID);
 
-   if (RealtimeBonus_IsEmpty ())
-      roadmap_alerter_register (&RoadmapRealTimeMapbonusnsProvidor);
-   
-   index = gBonusTable.iCount;
-   
+
+   for (i = 0; i < MAX_ADD_ONS; i++) {
+      if (gBonusTable.bonus[i] == NULL) {
+         index = i;
+         break;
+      }
+   }
+
+
    gBonusTable.bonus[index] = calloc (1, sizeof(RTBonus));
    RealtimeBonus_Record_Init (gBonusTable.bonus[index]);
    gBonusTable.bonus[index]->iID = pbonus->iID;
@@ -342,7 +361,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus) {
    gBonusTable.bonus[index]->collected = FALSE;
    RealtimeBonus_CreateGUIID (gBonusTable.bonus[index]);
    gBonusTable.iCount++;
-   
+
    if (roadmap_res_get(RES_BITMAP,RES_SKIN, gBonusTable.bonus[index]->pIconName) == NULL){
       roadmap_res_download(RES_DOWNLOAD_IMAGE, gBonusTable.bonus[index]->pIconName,NULL, "",FALSE,0, on_resource_downloaded, NULL );
    }
@@ -359,7 +378,7 @@ BOOL RealtimeBonus_Delete (int iID) {
 
    if (pbonus->pIconName)
       free (pbonus->pIconName);
-   
+
    onBonusDelete (pbonus);
    RealtimeBonus_RemoveFromTable (iID);
    return TRUE;
@@ -375,12 +394,12 @@ int RealtimeBonus_HandleEvent (int iID) {
    RTBonus *pbonus = RealtimeBonus_Get (iID);
    if (!pbonus)
       return TRUE;
-   
+
    if (pbonus->collected)
       return TRUE;
-   
+
    pbonus->collected = TRUE;
-   
+
    if ((pbonus->iType == BONUS_TYPE_TREASURE) && Realtime_is_random_user()){
       roadmap_messagebox_timeout("", roadmap_lang_get ("There may be presents in this treasure chest but you need to be a registered user in order to get them. Register in 'Settings > Profile'"), 10);
       return TRUE;
@@ -389,14 +408,49 @@ int RealtimeBonus_HandleEvent (int iID) {
    roadmap_log( ROADMAP_DEBUG, "Yeahhh Collecting a gift id=%d)", iID);
    Play_Animation_Sound ();
    RealtimeBonus_Animate_Pacman ();
-   Realtime_CollectBonus(iID, pbonus->iToken, roadmap_twitter_is_munching_enabled());
+   Realtime_CollectBonus(iID, pbonus->iToken,
+         roadmap_twitter_is_munching_enabled() && roadmap_twitter_logged_in(),
+         roadmap_facebook_is_munching_enabled() && roadmap_facebook_logged_in());
    onBonusDelete(pbonus);
-   return TRUE; 
+   return TRUE;
 }
+
+BOOL RealtimeBonus_is_square_dependent(void){
+	return FALSE;
+}
+
+roadmap_alerter_location_info *  RealtimeBonus_get_location_info(int record){
+   RTBonus *pbonus = RealtimeBonus_Get_Record (record);
+   if (!pbonus)
+      return NULL;
+   return &(pbonus->location_info);
+}
+
+int RealtimeBonus_get_priority(void){
+	return ALERTER_PRIORITY_HIGH;
+}
+
+BOOL RealtimeBonus_distance_check(RoadMapPosition gps_pos){
+	static RoadMapPosition last_checked_position = {0,0};
+	int distance;
+	if(!last_checked_position.latitude){ // first time
+		last_checked_position = gps_pos;
+		return TRUE;
+	}
+
+	distance = roadmap_math_distance(&gps_pos, &last_checked_position);
+	if (distance < MINIMUM_DISTANCE_TO_CHECK)
+		return FALSE;
+	else{
+		last_checked_position = gps_pos;
+		return TRUE;
+	}
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealtimeBonus_CollectedPointsConfirmed(int iID, int iType, int iPoints, BOOL bHasGift, BOOL bIsBigPrize, const char *gift){
-   
+
    if (iType == BONUS_TYPE_POINTS){
       if (iPoints != 0){
          roadmap_log( ROADMAP_DEBUG, "RealtimeBonus_CollectedPointsRes() - (id =%d, points = %d)", iID, iPoints);
@@ -445,7 +499,7 @@ unsigned int RealtimeBonus_Get_Speed (int index) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealtimeBonus_Get_Id (int index) {
    RTBonus *pbonus = RealtimeBonus_Get_Record (index);
-   
+
    if (pbonus != NULL)
       return pbonus->iID;
    else
@@ -463,10 +517,10 @@ void RealtimeBonus_Get_Position (int index, RoadMapPosition *position, int *stee
 
    position->longitude = pbonus->position.longitude;
    position->latitude = pbonus->position.latitude;
-   
+
    if (!steering)
       return;
-   
+
    *steering = 0;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -483,7 +537,7 @@ const char *RealtimeBonus_Get_Icon_Name (int iID) {
    if (!pbonus)
       return NULL;
    return pbonus->pIconName;
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -491,15 +545,15 @@ int RealtimeBonus_Get_Token (int iID) {
    RTBonus *pbonus = RealtimeBonus_Get (iID);
    if (!pbonus)
       return -1;
-   
+
    return pbonus->iToken;
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealtimeBonus_Get_Distance (int index) {
    RTBonus *pbonus = RealtimeBonus_Get_Record (index);
-   
+
    if (pbonus != NULL)
       return pbonus->iRadius;
    else
@@ -510,9 +564,9 @@ int RealtimeBonus_Get_NumberOfPoints (int iID) {
    RTBonus *pbonus = RealtimeBonus_Get (iID);
    if (!pbonus)
       return -1;
-   
+
    return pbonus->iNumPoints;
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -523,6 +577,11 @@ int RealtimeBonus_Is_Alertable (int index) {
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeBonus_Init (void) {
    int i;
+   static BOOL registered_provider = FALSE;
+   if(!registered_provider){
+   		registered_provider = TRUE;
+   		roadmap_alerter_register (&RoadmapRealTimeMapbonusnsProvider);
+   }
    gBonusTable.iCount = 0;
    for (i = 0; i < MAX_ADD_ONS; i++) {
       gBonusTable.bonus[i] = NULL;
@@ -533,14 +592,18 @@ void RealtimeBonus_Init (void) {
 void RealtimeBonus_Term (void) {
    int i;
    RTBonus * pbonus;
-   
+
    for (i = 0; i < RealtimeBonus_Count (); i++) {
       pbonus = RealtimeBonus_Get_Record (i);
-      if (pbonus)
+
+      if (pbonus){
+         onBonusDelete(pbonus);
          free (pbonus);
+      }
+
       gBonusTable.bonus[i] = NULL;
    }
-   
+
    gBonusTable.iCount = 0;
-   
+
 }

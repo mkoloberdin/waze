@@ -447,11 +447,15 @@ int roadmap_locator_load_tile (int index) {
    if (! rc) {
 
 		if (RoadMapActiveMap >= 0) {
-			void *data;
+			void *data = NULL;
 			int length;
 			
 			if (0 == roadmap_gzm_get_section (RoadMapActiveMap, index, &data, &length)) {
-   			rc = roadmap_db_open_mem (RoadMapActiveCounty, index, RoadMapTileModel, data, length);
+				rc = roadmap_db_open_mem (RoadMapActiveCounty, index, RoadMapTileModel, data, length);
+			}
+
+			if( data ) {
+				free( data );
 			}
 		}
 		

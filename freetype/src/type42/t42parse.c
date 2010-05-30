@@ -4,7 +4,8 @@
 /*                                                                         */
 /*    Type 42 font parser (body).                                          */
 /*                                                                         */
-/*  Copyright 2002, 2003, 2004, 2005 by Roberto Alameda.                   */
+/*  Copyright 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 by            */
+/*  Roberto Alameda.                                                       */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
 /*  modified, and distributed under the terms of the FreeType project      */
@@ -49,6 +50,8 @@
                    T42_Loader  loader );
 
 
+  /* as Type42 fonts have no Private dict,         */
+  /* we set the last argument of T1_FIELD_XXX to 0 */
   static const
   T1_FieldRec  t42_keywords[] = {
 
@@ -57,39 +60,46 @@
 #undef  T1CODE
 #define T1CODE        T1_FIELD_LOCATION_FONT_INFO
 
-    T1_FIELD_STRING( "version",            version )
-    T1_FIELD_STRING( "Notice",             notice )
-    T1_FIELD_STRING( "FullName",           full_name )
-    T1_FIELD_STRING( "FamilyName",         family_name )
-    T1_FIELD_STRING( "Weight",             weight )
-    T1_FIELD_NUM   ( "ItalicAngle",        italic_angle )
-    T1_FIELD_BOOL  ( "isFixedPitch",       is_fixed_pitch )
-    T1_FIELD_NUM   ( "UnderlinePosition",  underline_position )
-    T1_FIELD_NUM   ( "UnderlineThickness", underline_thickness )
+    T1_FIELD_STRING( "version",            version,             0 )
+    T1_FIELD_STRING( "Notice",             notice,              0 )
+    T1_FIELD_STRING( "FullName",           full_name,           0 )
+    T1_FIELD_STRING( "FamilyName",         family_name,         0 )
+    T1_FIELD_STRING( "Weight",             weight,              0 )
+    T1_FIELD_NUM   ( "ItalicAngle",        italic_angle,        0 )
+    T1_FIELD_BOOL  ( "isFixedPitch",       is_fixed_pitch,      0 )
+    T1_FIELD_NUM   ( "UnderlinePosition",  underline_position,  0 )
+    T1_FIELD_NUM   ( "UnderlineThickness", underline_thickness, 0 )
+
+#undef  FT_STRUCTURE
+#define FT_STRUCTURE  PS_FontExtraRec
+#undef  T1CODE
+#define T1CODE        T1_FIELD_LOCATION_FONT_EXTRA
+
+    T1_FIELD_NUM   ( "FSType",             fs_type,             0 )
 
 #undef  FT_STRUCTURE
 #define FT_STRUCTURE  T1_FontRec
 #undef  T1CODE
 #define T1CODE        T1_FIELD_LOCATION_FONT_DICT
 
-    T1_FIELD_KEY  ( "FontName",    font_name )
-    T1_FIELD_NUM  ( "PaintType",   paint_type )
-    T1_FIELD_NUM  ( "FontType",    font_type )
-    T1_FIELD_FIXED( "StrokeWidth", stroke_width )
+    T1_FIELD_KEY  ( "FontName",    font_name,    0 )
+    T1_FIELD_NUM  ( "PaintType",   paint_type,   0 )
+    T1_FIELD_NUM  ( "FontType",    font_type,    0 )
+    T1_FIELD_FIXED( "StrokeWidth", stroke_width, 0 )
 
 #undef  FT_STRUCTURE
 #define FT_STRUCTURE  FT_BBox
 #undef  T1CODE
 #define T1CODE        T1_FIELD_LOCATION_BBOX
 
-    T1_FIELD_BBOX("FontBBox", xMin )
+    T1_FIELD_BBOX("FontBBox", xMin, 0 )
 
-    T1_FIELD_CALLBACK( "FontMatrix",  t42_parse_font_matrix )
-    T1_FIELD_CALLBACK( "Encoding",    t42_parse_encoding )
-    T1_FIELD_CALLBACK( "CharStrings", t42_parse_charstrings )
-    T1_FIELD_CALLBACK( "sfnts",       t42_parse_sfnts )
+    T1_FIELD_CALLBACK( "FontMatrix",  t42_parse_font_matrix, 0 )
+    T1_FIELD_CALLBACK( "Encoding",    t42_parse_encoding,    0 )
+    T1_FIELD_CALLBACK( "CharStrings", t42_parse_charstrings, 0 )
+    T1_FIELD_CALLBACK( "sfnts",       t42_parse_sfnts,       0 )
 
-    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0 }
+    { 0, T1_FIELD_LOCATION_CID_INFO, T1_FIELD_TYPE_NONE, 0, 0, 0, 0, 0, 0 }
   };
 
 
@@ -391,7 +401,7 @@
           break;
         }
 
-        /* check whether we've found an entry */
+        /* check whether we have found an entry */
         if ( ft_isdigit( *cur ) || only_immediates )
         {
           FT_Int  charcode;
@@ -431,7 +441,11 @@
           }
         }
         else
+        {
           T1_Skip_PS_Token( parser );
+          if ( parser->root.error )
+            return;
+        }
 
         T1_Skip_Spaces( parser );
       }
@@ -465,7 +479,7 @@
   }
 
 
-  typedef enum
+  typedef enum  T42_Load_Status_
   {
     BEFORE_START,
     BEFORE_TABLE_DIR,
@@ -488,7 +502,7 @@
 
     FT_Long     n, string_size, old_string_size, real_size;
     FT_Byte*    string_buf = NULL;
-    FT_Bool     alloc      = 0;
+    FT_Bool     allocated  = 0;
 
     T42_Load_Status  status;
 
@@ -543,7 +557,7 @@
         if ( FT_REALLOC( string_buf, old_string_size, string_size ) )
           goto Fail;
 
-        alloc = 1;
+        allocated = 1;
 
         parser->root.cursor = cur;
         (void)T1_ToBytes( parser, string_buf, string_size, &real_size, 1 );
@@ -553,6 +567,14 @@
 
       else if ( ft_isdigit( *cur ) )
       {
+        if ( allocated )
+        {
+          FT_ERROR(( "t42_parse_sfnts: "
+                     "can't handle mixed binary and hex strings!\n" ));
+          error = T42_Err_Invalid_File_Format;
+          goto Fail;
+        }
+
         string_size = T1_ToInt( parser );
 
         T1_Skip_PS_Token( parser );             /* `RD' */
@@ -570,9 +592,23 @@
         }
       }
 
+      if ( !string_buf )
+      {
+        FT_ERROR(( "t42_parse_sfnts: invalid data in sfnts array!\n" ));
+        error = T42_Err_Invalid_File_Format;
+        goto Fail;
+      }
+
       /* A string can have a trailing zero byte for padding.  Ignore it. */
       if ( string_buf[string_size - 1] == 0 && ( string_size % 2 == 1 ) )
         string_size--;
+
+      if ( !string_size )
+      {
+        FT_ERROR(( "t42_parse_sfnts: invalid string!\n" ));
+        error = T42_Err_Invalid_File_Format;
+        goto Fail;
+      }
 
       for ( n = 0; n < string_size; n++ )
       {
@@ -623,6 +659,7 @@
             status         = OTHER_TABLES;
             face->ttf_size = ttf_size;
 
+            /* there are no more than 256 tables, so no size check here */
             if ( FT_REALLOC( face->ttf_data, 12 + 16 * num_tables,
                              ttf_size + 1 ) )
               goto Fail;
@@ -651,7 +688,7 @@
     parser->root.error = error;
 
   Exit:
-    if ( alloc )
+    if ( allocated )
       FT_FREE( string_buf );
   }
 
@@ -1071,7 +1108,7 @@
             if ( !name )
               continue;
 
-            if ( cur[0] == name[0]                                  && 
+            if ( cur[0] == name[0]                                  &&
                  len == (FT_PtrDist)ft_strlen( (const char *)name ) &&
                  ft_memcmp( cur, name, len ) == 0                   )
             {

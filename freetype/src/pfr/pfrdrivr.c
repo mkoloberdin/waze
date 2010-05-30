@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    FreeType PFR driver interface (body).                                */
 /*                                                                         */
-/*  Copyright 2002, 2003, 2004 by                                          */
+/*  Copyright 2002, 2003, 2004, 2006, 2008 by                              */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -66,10 +66,16 @@
                    FT_Pos   *anadvance )
   {
     PFR_Face  face  = (PFR_Face)pfrface;
-    FT_Error  error = PFR_Err_Bad_Argument;
+    FT_Error  error = PFR_Err_Invalid_Argument;
 
 
     *anadvance = 0;
+
+    if ( !gindex )
+      goto Exit;
+
+    gindex--;
+
     if ( face )
     {
       PFR_PhyFont  phys = &face->phy_font;
@@ -82,6 +88,7 @@
       }
     }
 
+  Exit:
     return error;
   }
 
@@ -190,13 +197,17 @@
     pfr_slot_init,
     pfr_slot_done,
 
-    0,                  /* FT_Size_ResetPointsFunc */
-    0,                  /* FT_Size_ResetPixelsFunc */
+#ifdef FT_CONFIG_OPTION_OLD_INTERNALS
+    ft_stub_set_char_sizes,
+    ft_stub_set_pixel_sizes,
+#endif
     pfr_slot_load,
 
     pfr_get_kerning,
     0,                  /* FT_Face_AttachFunc      */
-    0                   /* FT_Face_GetAdvancesFunc */
+    0,                   /* FT_Face_GetAdvancesFunc */
+    0,                  /* FT_Size_RequestFunc */
+    0,                  /* FT_Size_SelectFunc  */
   };
 
 

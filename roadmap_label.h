@@ -35,7 +35,8 @@ int roadmap_label_add (const RoadMapGuiPoint *point, int angle,
                        int featuresize, const PluginLine *line);
 
 int roadmap_label_add_place (const RoadMapGuiPoint *point, int angle,
-                             int featuresize_sq, const char *name);
+                             int featuresize_sq, const char *name, int category,
+                             BOOL multi_row);
 
 void roadmap_label_activate (void);
 int roadmap_label_initialize (void);

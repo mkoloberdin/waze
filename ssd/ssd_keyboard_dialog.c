@@ -64,7 +64,7 @@ static RMNativeKBParams s_gNativeKBParams = {  _native_kb_type_default, 1, _nati
 
 static int btn_callback( SsdWidget widget, const char *new_value );
 static void set_note_widget( const char* note, int entry_width );
-static void set_label_widget( const char* label, int entry_width, int label_width );
+static void set_label_widget( const char* label, int entry_width, int entry_height, int label_width );
 
 extern void ssd_keyboard_set_value_index( SsdWidget kb, int index);
 extern int  ssd_keyboard_get_value_index( SsdWidget   kb);
@@ -291,7 +291,6 @@ void ssd_show_keyboard_dialog(const char*       title,
 	ssd_show_keyboard_dialog_ext( title, value, NULL, NULL, cbOnDone, context, 0 );
 }
 
-
 void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top of the dialog */
 								   const char*       value,		/* Value in the edit box */
 								   const char*       label,
@@ -300,6 +299,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 								   void*             context,
 								   int kb_dlg_flags )
 {
+#ifndef IPHONE
    SsdWidget edit = NULL;
    SsdWidget ecnt = NULL;
    SsdWidget kb   = NULL;
@@ -369,15 +369,14 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
       ssd_dialog_add_vspace( box, SSD_KB_DLG_FIELDS_VSPACE, 0 );
 
       ecnt = ssd_container_new( s_editcnt_name, NULL, entry_width, entry_height, SSD_CONTAINER_TXT_BOX|SSD_WS_TABSTOP );
-      ssd_widget_set_color(ecnt, NULL, NULL);
-      edit = ssd_text_new     ( s_editbox_name, "", 18, SSD_ALIGN_VCENTER );
+	  ssd_widget_set_color(ecnt, NULL, NULL);
+      edit = ssd_text_new     ( s_editbox_name, "", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
       ssd_text_set_input_type ( edit, inputtype_free_text);
       ssd_text_set_readonly   ( edit, FALSE);
       //   Delegate the 'on key pressed' event to the child edit-box:
       ecnt->key_pressed = on_key_pressed__delegate_to_editbox;
 
       ssd_widget_add( ecnt, edit );
-      ssd_widget_add( ecnt, ssd_bitmap_new("cursor", "cursor", SSD_ALIGN_VCENTER ) );
 #ifdef TOUCH_SCREEN
       ssd_dialog_add_hspace( box, SSD_KB_DLG_FIELDS_HOFFSET-1, 0 );
 #endif
@@ -477,7 +476,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    }
 #endif
    /* Label handling for the edit box */
-   set_label_widget( label, entry_width, label_width );
+   set_label_widget( label, entry_width, entry_height, label_width );
 
    /* Note handling for the edit box */
    set_note_widget( note, entry_width );
@@ -489,9 +488,12 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 
    ssd_widget_set_focus_highlight( ecnt, FALSE );
    ssd_widget_set_focus_highlight( edit, FALSE );
-   ssd_dialog_draw ();
 
    ssd_dialog_set_focus( ecnt );
+
+   ssd_dialog_draw ();
+
+#endif //IPHONE
 }
 /***********************************************************
  *  Adjusts the widgets according to the note data and
@@ -520,13 +522,9 @@ static void set_note_widget( const char* note, int entry_width )
  *  Adjusts the widgets according to the label data and
  *    width parameters of the label and entry
  */
-static void set_label_widget( const char* label, int entry_width, int label_width )
+static void set_label_widget( const char* label, int entry_width, int entry_height, int label_width )
 {
-	int entry_height = 40;
 	SsdWidget ecnt;
-#ifndef TOUCH_SCREEN
-	entry_height = 23;
-#endif
 	ecnt = ssd_widget_get( s_dialog, s_editcnt_name);
 	if ( label == NULL )
 	{

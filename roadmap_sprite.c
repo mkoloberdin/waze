@@ -468,7 +468,7 @@ void roadmap_sprite_initialize (void) {
       RoadMapSpriteDefault = roadmap_sprite_search ("Default");
    }
 
-      
+
    /* Allocate the space required to draw any configured sprite: */
 
    RoadMapSpritePointCount = roadmap_sprite_maxpoint (RoadMapSpriteDefault);

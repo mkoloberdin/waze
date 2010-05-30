@@ -58,6 +58,11 @@
 #include "ssd/ssd_text.h"
 #endif
 
+#ifdef IPHONE
+#include "roadmap_main.h"
+#include "roadmap_editbox.h"
+#endif //IPHONE
+
 #include "update_range.h"
 
 #ifdef _WIN32
@@ -118,7 +123,7 @@ static int extract_field(const char *note, const char *field_name,
 
 
 
-static int update_range_export(int marker,
+int update_range_export(int marker,
                                const char **name,
                                const char **description,
                                const char  *keys[ED_MARKER_MAX_ATTRS],
@@ -181,7 +186,7 @@ static int update_range_export(int marker,
 }
 
 
-static int update_range_verify(int marker,
+int update_range_verify(int marker,
                                unsigned char *flags,
                                const char **note) {
 
@@ -295,6 +300,17 @@ static void update_range (const char *updated_left, const char *updated_right,
 
 }
 
+void update_range_with_pos (const char *updated_left, const char *updated_right,
+                          const char *city, const char *street,
+                                   RoadMapGpsPosition current_pos,
+                                   RoadMapPosition    current_fixed_pos) {
+
+   CurrentGpsPoint = current_pos;
+   CurrentFixedPosition = current_fixed_pos;
+   update_range (updated_left, updated_right,
+                 city, street);
+}
+
 #ifdef SSD
 static BOOL keyboard_callback(int         exit_code, 
                               const char* value,
@@ -302,6 +318,10 @@ static BOOL keyboard_callback(int         exit_code,
 {
    SsdWidget button = (SsdWidget)context;
 
+#ifdef IPHONE
+	roadmap_main_show_root(NO);
+#endif //IPHONE
+	
    if( dec_ok != exit_code)
         return TRUE;
 
@@ -310,6 +330,8 @@ static BOOL keyboard_callback(int         exit_code,
    } else {
       ssd_widget_set_value (button->parent, UPDATE_RIGHT, value);
    }
+	
+	roadmap_screen_redraw();
 
    return TRUE;
 }
@@ -342,7 +364,7 @@ static int button_callback (SsdWidget widget, const char *new_value) {
    }
 
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE)
     ShowEditbox(title, "",
             keyboard_callback, (void *)widget, EEditBoxStandard | EEditBoxNumeric );
 #else
@@ -620,11 +642,15 @@ void update_range_dialog(void) {
    PluginLine line;
    RoadMapNeighbour result;
    int direction;
+	
 
    if (roadmap_navigate_get_current
          (&CurrentGpsPoint, &line, &direction) == -1) {
 
       roadmap_messagebox ("Error", "Can't find current street.");
+#ifdef IPHONE
+	   roadmap_main_show_root(1);
+#endif //IPHONE
       return;
    }
 
@@ -635,8 +661,15 @@ void update_range_dialog(void) {
         ((RoadMapPosition *)&CurrentGpsPoint, &line, &result)) {
 
       roadmap_messagebox ("Error", "Can't find a road near point.");
+#ifdef IPHONE
+	   roadmap_main_show_root(1);
+#endif //IPHONE 
       return;
    }
+	
+#ifdef IPHONE
+	roadmap_main_show_root(0);
+#endif //IPHONE
 
    CurrentFixedPosition = result.intersection;
 

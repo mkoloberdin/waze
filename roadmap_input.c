@@ -47,7 +47,7 @@ static void roadmap_input_shift_to_next_line (RoadMapInputContext *context,
    while ((*from < ' ') && (from < data_end)) ++from;
 
    if (from > context->data) {
-         
+
       context->cursor -= (int)(from - context->data);
 
       if (context->cursor <= 0) {
@@ -100,7 +100,7 @@ int roadmap_input (RoadMapInputContext *context) {
                           context->data + context->cursor,
                           sizeof(context->data) - context->cursor - 1);
 
-      if (received < 0) {
+      if (received <= 0) {
 
          /* We lost that connection. */
          roadmap_log (ROADMAP_INFO, "lost %s", context->title);

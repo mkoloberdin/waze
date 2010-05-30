@@ -28,7 +28,7 @@
 
 #include "roadmap_tile_manager.h"
 #include "roadmap_tile_storage.h"
-
+#include "roadmap_math.h"
 #include "roadmap.h"
 #include "roadmap_tile_status.h"
 #include "roadmap_httpcopy_async.h"
@@ -45,13 +45,18 @@
 #include "roadmap_street.h"
 #include "roadmap_tile.h"
 #include "roadmap_config.h"
+#include "roadmap_warning.h"
+#include "roadmap_lang.h"
+#include "roadmap_map_download.h"
+#include "ssd/ssd_progress_msg_dialog.h"
+#include "navigate/navigate_main.h"
 
 #if defined(__SYMBIAN32__) || defined(J2ME)
 #define	TM_MAX_CONCURRENT		1
 #elif defined(IPHONE) || defined(ANDROID) || defined(_WIN32)
-#define	TM_MAX_CONCURRENT		3
+#define	TM_MAX_CONCURRENT		6
 #else
-#define	TM_MAX_CONCURRENT		1
+#define	TM_MAX_CONCURRENT		3
 #endif
 
 #define TM_MAX_QUEUE						256
@@ -96,6 +101,8 @@ static int								QueueSize = 0;
 static RoadMapCallback				NextLoginCallback = NULL;
 static RoadMapTileCallback			TileCallback = NULL;
 static int								ActiveLoadingSession = 0;
+static int                       TilesRefreshProgressCount = 0;         // Currently updated tiles count
+static int                       TilesRefreshTotalCount = -1;           // Total number of tiles to be updated
 
 static RoadMapConfigDescriptor 	LastLoadingSessionCfg =
                         ROADMAP_CONFIG_ITEM("Tiles", "Last Session");
@@ -108,7 +115,10 @@ static void load_next_tile (void);
 static void queue_tile (int index, int push, RoadMapCallback on_loaded);
 static void roadmap_tile_manager_login_cb (void);
 static void on_connection_failure (ConnectionContext *conn);
-
+#ifndef INLINE_DEC
+#define INLINE_DEC static
+#endif //INLINE_DEC
+INLINE_DEC void tile_refresh_cb( int tile_id );
 static void init_loading_session (void) {
 
 	int last_session;
@@ -181,6 +191,7 @@ static void http_cb_error (void *context, int connection_failure, const char *fo
    va_start (ap, format);
    vsnprintf (err_string, 1024, format, ap);
    va_end (ap);
+
    if (connection_failure) {
 		roadmap_log (ROADMAP_ERROR, "Connection error on tile %d: %s", conn->tile_index, err_string);
    } else {
@@ -192,7 +203,15 @@ static void http_cb_error (void *context, int connection_failure, const char *fo
 		conn->tile_data = NULL;
 	}
 
+	// Update the refresh progress also in case of error on tile
+   tile_refresh_cb( conn->tile_index );
+
 	if (connection_failure) {
+	   // The callback responsibility to "null" the context in case of failure
+	   // The memory is deallocated out of this function
+	   // The timeout value is irrelevant in case of known failure
+	   conn->http_context  = NULL;
+	   conn->time_out = 0;
 		on_connection_failure (conn);
 		return;
 	}
@@ -222,7 +241,7 @@ static void http_cb_done (void *context,char *last_modified) {
 	time_t t2;
 	int rc;
 
-   t1 = NOPH_System_currentTimeMillis();
+	t1 = NOPH_System_currentTimeMillis();
    unloaded = roadmap_locator_unload_tile (tile_index);
    t2 = NOPH_System_currentTimeMillis();
    //printf("http_cb_done: unload %dms\n", t2 - t1);
@@ -249,6 +268,9 @@ static void http_cb_done (void *context,char *last_modified) {
 
    t2 = NOPH_System_currentTimeMillis();
    //printf("http_cb_done: load %dms\n", t2 - t1);
+
+   // Tiles refresh progress (if active)
+   tile_refresh_cb( tile_index );
 
    load_next_tile ();
 
@@ -556,4 +578,88 @@ void roadmap_tile_reset_session (void) {
 	roadmap_config_set_integer (&LastLoadingSessionCfg, (int)time (NULL));
 	roadmap_config_save (0);
 	ActiveLoadingSession = 0;
+}
+
+
+/*
+ * Warning progress callback
+ */
+static BOOL tile_load_progress_warn( char* warn_string )
+{
+   BOOL res = FALSE;
+   if ( TilesRefreshTotalCount > 0 )
+   {
+      int percentage = ( TilesRefreshProgressCount * 100 ) / TilesRefreshTotalCount;
+      snprintf ( warn_string, ROADMAP_WARNING_MAX_LEN, "%s: %d%%%%", roadmap_lang_get ( "Refreshing map tiles" ),
+               percentage );
+      res = TRUE;
+   }
+   else
+   {
+      roadmap_warning_unregister( tile_load_progress_warn );
+      res = FALSE;
+   }
+
+   return res;
+}
+
+/*
+ * Callback executed upon subsequent tile download
+ */
+INLINE_DEC void tile_refresh_cb( int tile_id )
+{
+   if ( TilesRefreshTotalCount < 0 )
+      return;
+
+   if ( ++TilesRefreshProgressCount >= TilesRefreshTotalCount )
+   {
+      TilesRefreshTotalCount = -1;
+      TilesRefreshProgressCount = 0;
+      roadmap_screen_refresh();
+   }
+
+   roadmap_log( ROADMAP_DEBUG, "Updated %d tiles of %d", TilesRefreshProgressCount, TilesRefreshTotalCount );
+}
+
+/*
+ * Tiles refresh interface
+ */
+void roadmap_tile_refresh_all( void )
+{ 
+   const char * wzm_file;
+   int fips = roadmap_locator_active();
+
+   if ( TilesRefreshTotalCount >= 0 )
+   {
+      roadmap_log( ROADMAP_WARNING, "Previous 'refresh tiles' request still in progress." );
+      return;
+   }
+
+   roadmap_log( ROADMAP_DEBUG, "Refreshing all the tiles" );
+   ssd_progress_msg_dialog_show( roadmap_lang_get( "Removing old tiles..." ) );
+   if ( !roadmap_screen_refresh() )
+      roadmap_screen_redraw();
+
+   /*
+    * Removing the old tiles from disk
+    */
+   navigate_main_stop_navigation();
+   roadmap_locator_close (fips);
+   wzm_file = roadmap_map_download_build_file_name( fips );
+   roadmap_file_remove( wzm_file, NULL );
+
+   roadmap_tile_remove_all( fips );
+   ssd_progress_msg_dialog_hide();
+   if ( roadmap_locator_activate( fips ) != ROADMAP_US_OK )
+      roadmap_log( ROADMAP_ERROR, "Problem activating locator" );
+
+   /*
+    * Requesting the tiles
+    */
+   TilesRefreshProgressCount = 0;
+   TilesRefreshTotalCount = -1;
+   roadmap_warning_register( tile_load_progress_warn, "refreshmap" );
+
+   TilesRefreshTotalCount = roadmap_square_refresh( fips, TM_MAX_QUEUE, NULL );
+   roadmap_log( ROADMAP_WARNING, "Going to update %d tiles", TilesRefreshTotalCount );
 }

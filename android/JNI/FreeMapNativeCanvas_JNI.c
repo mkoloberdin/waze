@@ -30,7 +30,9 @@
 #include "FreeMapNativeCanvas_JNI.h"
 #include "FreeMapJNI.h"
 #include "roadmap_androidcanvas.h"
+#include "roadmap_device_events.h"
 #include "roadmap_androidmain.h"
+#include "roadmap_screen.h"
 #include <string.h>
 
 // The JNI object representing the current class
@@ -41,13 +43,25 @@ static jintArray gBufObj = 0;
 #define JNI_CALL_FreeMapNativeCanvas_RefreshScreen 			"RefreshScreen"
 #define JNI_CALL_FreeMapNativeCanvas_RefreshScreen_Sig 		"()V"
 
-extern void roadmap_canvas_set_properties( int aWidth, int aHeight, int aPixelFormat );
-extern void roadmap_canvas_agg_mouse_pressed( int aX, int aY );
-extern void roadmap_canvas_agg_mouse_released( int aX, int aY );
-extern void roadmap_canvas_agg_mouse_moved( int aX, int aY );
+#define JNI_CALL_FreeMapNativeCanvas_SwapBuffersEgl 			"SwapBuffersEgl"
+#define JNI_CALL_FreeMapNativeCanvas_SwapBuffersEgl_Sig 		"()V"
+
+#define JNI_CALL_FreeMapNativeCanvas_RequestRender 			"RequestRender"
+#define JNI_CALL_FreeMapNativeCanvas_RequestRender_Sig 		"(Z)V"
+
+#define JNI_CALL_FreeMapNativeManager_IsActive 			"IsActive"
+#define JNI_CALL_FreeMapNativeManager_IsActive_Sig 			"()I"
+
+
+
+extern void roadmap_canvas_init( int aWidth, int aHeight, int aPixelFormat );
+extern void roadmap_canvas_mouse_pressed( int aX, int aY );
+extern void roadmap_canvas_mouse_released( int aX, int aY );
+extern void roadmap_canvas_mouse_moved( int aX, int aY );
 extern void roadmap_canvas_new();
 extern int roadmap_main_time_interval( int aCallIndex, int aPrintFlag );
-
+extern void roadmap_canvas_prepare();
+extern void roadmap_canvas_prepare_main_context( void );
 /*************************************************************************************************
  * Java_com_waze_FreeMapNativeCanvas_InitCanvasNTV
  * Initializes the FreeMapNativeCanvas class JNI object.
@@ -62,35 +76,96 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_InitCanvasNTV
 }
 
 
+
+
 /*************************************************************************************************
  * Java_com_waze_FreeMapNativeCanvas_CanvasConfigureNTV
  * Initializes the FreeMapNativeCanvas class JNI object.
   *
  */
 JNIEXPORT void JNICALL JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasConfigureNTV
-  ( JNIEnv* aJNIEnv, jobject aJObj, jint aWidth, jint aHeight, jint aPixelFormat, jintArray aJCanvas )
+  ( JNIEnv* aJNIEnv, jobject aJObj, jint aWidth, jint aHeight, jint aPixelFormat )
 {
     JNI_LOG( ROADMAP_INFO, "Configuring the canvas " );
-	// Set the properties for the agg
-	roadmap_canvas_set_properties( ( int ) aWidth , ( int ) aHeight, ( int ) aPixelFormat );
-	// Deallocation of the previous object
-	if ( gBufObj )
-		DisposeCustomJNIObject( &gJniObj, gBufObj );
-	// Allocation of the global reference
-	gBufObj = (*aJNIEnv)->NewGlobalRef( aJNIEnv, aJCanvas );
+
+
+    // Set the properties for the canvas
+    roadmap_canvas_init( ( int ) aWidth , ( int ) aHeight, ( int ) aPixelFormat );
 }
 
+/*************************************************************************************************
+ * Java_com_waze_FreeMapNativeCanvas_CanvasOrientationUpdateNTV
+ * Notifies on the orientation change event
+  *
+ */
+JNIEXPORT void JNICALL JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasOrientationUpdateNTV
+  ( JNIEnv* aJNIEnv, jobject aJObj )
+{
+    JNI_LOG( ROADMAP_INFO, "Canvas orientation has changed" );
+
+    roadmap_log( ROADMAP_WARNING, "AGA DEBUG Handling orientation change ... " );
+
+    roadmap_device_event_notification( device_event_window_orientation_changed );
+
+}
 /*************************************************************************************************
  * Java_com_waze_FreeMapNativeCanvas_ForceNewCanvasNTV
  * Force creation of the new canvas
  *
  */
-JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_ForceNewCanvasNTV
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CreateCanvasNTV
 ( JNIEnv* aJNIEnv, jobject aJObj )
 {
-	roadmap_canvas_new();
+	 roadmap_canvas_new();
 }
 
+#ifdef OPENGL
+
+/*************************************************************************************************
+ * Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
+ * Actual rendering of the scene
+ *
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
+( JNIEnv* aJNIEnv, jobject aJObj )
+{
+	static int first_time = 1;
+	if ( 1 || first_time )
+	{
+		roadmap_canvas_prepare();
+		first_time = 0;
+	}
+//	roadmap_screen_repaint_now_cb();
+}
+
+/*************************************************************************************************
+ * FreeMapNativeCanvas_RequestRender()
+ * Signals the java layer with the refresh
+ *
+ */
+void FreeMapNativeCanvas_RequestRender()
+{
+	android_method_context_type lMthdContext;
+	jmethodID mid;
+	int* lArrPtr;
+	roadmap_android_canvas_type *lCanvasPtr;
+	JNIEnv *env;
+	jboolean is_wait = 1;
+
+	JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeCanvas_RequestRender );
+	mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeCanvas_RequestRender,
+															JNI_CALL_FreeMapNativeCanvas_RequestRender_Sig );
+
+	if ( !mid || !lMthdContext.env )
+	{
+		roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+		return;
+	}
+
+	// Calling the method
+	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid, is_wait );
+}
+#else
 /*************************************************************************************************
  * FreeMapNativeCanvas_RefreshScreen()
  * Signals the java layer with the refresh
@@ -115,6 +190,7 @@ void FreeMapNativeCanvas_RefreshScreen()
 	}
 
 	// Getting the canvas pointer
+
 	GetAndrCanvas( &lCanvasPtr );
 
 	// Checking the buffer
@@ -123,7 +199,6 @@ void FreeMapNativeCanvas_RefreshScreen()
 		roadmap_log( ROADMAP_WARNING, "The native canvas is still not initialized!" );
 		return;
 	}
-
 	env = lMthdContext.env;
 
 	/* Critical section */
@@ -141,6 +216,10 @@ void FreeMapNativeCanvas_RefreshScreen()
 	// Calling the method
 	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
 }
+#endif
+
+
+
 
 /*************************************************************************************************
  * Java_com_waze_FreeMapNativeCanvas_KeyDownHandlerNTV()
@@ -170,7 +249,7 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MousePressedNTV
 ( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
 {
     JNI_LOG( ROADMAP_DEBUG, "Mouse pressed event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_agg_mouse_pressed( aX, aY );
+	roadmap_canvas_mouse_pressed( aX, aY );
 }
 
 /*************************************************************************************************
@@ -182,7 +261,7 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseReleasedNTV
 ( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
 {
     JNI_LOG( ROADMAP_DEBUG, "Mouse released event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_agg_mouse_released( aX, aY );
+	roadmap_canvas_mouse_released( aX, aY );
 }
 
 /*************************************************************************************************
@@ -194,7 +273,19 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseMovedNTV
 ( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
 {
     JNI_LOG( ROADMAP_DEBUG, "Mouse moved event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_agg_mouse_moved( aX, aY );
+	roadmap_canvas_mouse_moved( aX, aY );
+}
+
+/*************************************************************************************************
+ * Java_com_waze_FreeMapNativeCanvas_MouseMovedNTV()
+ * JNI wrapper for the roadmap_canvas_prepare (will be called from the Java layer)
+ *
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasPrepareNTV
+( JNIEnv *aJNIEnv, jobject aJObj )
+{
+	JNI_LOG( ROADMAP_DEBUG, "The canvas prepare is called" );
+	roadmap_canvas_prepare_main_context();
 }
 
 /*************************************************************************************************
@@ -211,5 +302,56 @@ void FreeMapNativeCanvas_DisposeRefs()
 }
 
 
+/*************************************************************************************************
+ * int FreeMapNativeManager_IsActive()
+ * Returns the current battery level
+ *
+ */
+int FreeMapNativeManager_IsActive()
+{
+	int retVal;
+	android_method_context_type lMthdContext;
+	jmethodID mid;
+	JNIEnv* env;
+	JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeManager_IsActive );
+
+	mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeManager_IsActive,
+															JNI_CALL_FreeMapNativeManager_IsActive_Sig );
+	if ( !mid || !lMthdContext.env )
+	{
+		roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+		return;
+	}
+
+	// Calling the method
+	retVal = (*lMthdContext.env)->CallIntMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
+
+	return retVal;
+}
 
 
+
+/*************************************************************************************************
+ * void FreeMapNativeManager_SwapBuffersEgl()
+ * Causes the main loop run
+ *
+ */
+void FreeMapNativeManager_SwapBuffersEgl()
+{
+	android_method_context_type lMthdContext;
+	jmethodID mid;
+	JNIEnv* env;
+	JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeCanvas_SwapBuffersEgl );
+
+	mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeCanvas_SwapBuffersEgl,
+																JNI_CALL_FreeMapNativeCanvas_SwapBuffersEgl_Sig );
+	if ( !mid || !lMthdContext.env )
+	{
+		roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+		return;
+	}
+
+	// Calling the method
+	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
+
+}

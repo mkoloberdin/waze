@@ -58,14 +58,29 @@
 #include "Realtime/RealtimeOffline.h"
 
 #define MAX_MSGS 10
+#define MAX_SIZEOF_RESPONSE_MSG 100
 #define MIN_FREE_SPACE 5000 //Free space in KB
 
 static int SyncProgressItems;
 static int SyncProgressCurrentItem;
 static int SyncProgressTarget;
 static int SyncProgressLoaded;
+static int SyncUploadNumMessages = 0;
+static char SyncUploadMessages[MAX_MSGS][MAX_SIZEOF_RESPONSE_MSG];
+
 static char SyncProgressLabel[100];
 
+static int upload_file_size_callback( void *context, int aSize );
+static void upload_progress_callback( void *context, int aLoaded );
+static void upload_error_callback( void *context);
+static void upload_done( void *context, const char *format, ... );
+
+
+typedef struct tag_upload_context{
+	char * full_path;
+	char ** files;
+	char ** cursor;
+}upload_context;
 
 BOOL download_warning_fn ( char* dest_string ) {
      
@@ -94,7 +109,6 @@ static int roadmap_download_request (int size) {
    SyncProgressCurrentItem++;
    return 1;
 }
-
 
 static void roadmap_download_error (const char *format, ...) {
 
@@ -136,6 +150,13 @@ static RoadMapDownloadCallbacks SyncDownloadCallbackFunctions = {
    roadmap_download_error
 };
 
+static EditorUploadCallbacks gUploadCallbackFunctions =
+{
+upload_file_size_callback,
+upload_progress_callback,
+upload_error_callback,
+upload_done
+};
 
 const char *editor_sync_get_export_path (void) {
 
@@ -143,7 +164,11 @@ const char *editor_sync_get_export_path (void) {
 	static int initialized = 0; 
 	
 	if (!initialized) {
+#ifdef IPHONE
+      roadmap_path_format (path, sizeof (path), roadmap_path_preferred("maps"), "queue");
+#else
 		roadmap_path_format (path, sizeof (path), roadmap_db_map_path (), "queue");
+#endif //IPHONE
 	   roadmap_path_create (path);
 	   initialized = 1;
 	}
@@ -188,12 +213,14 @@ static int count_upload_files(void) {
 }
 
 
-static int sync_do_upload (char *messages[MAX_MSGS], int *num_msgs) {
 
+static int sync_do_upload () {
    char **files;
    char **cursor;
    const char* directory = editor_sync_get_export_path();
    int count;
+   upload_context *  context;
+   char * full_path;
 
    files = roadmap_path_list (directory, ".wud");
 
@@ -202,35 +229,39 @@ static int sync_do_upload (char *messages[MAX_MSGS], int *num_msgs) {
       count++;
    }
 
+   //
+   cursor = files;
+	count = 0;
+	//
+
+	context= malloc(sizeof(upload_context));
+	context->cursor = cursor;
+	context->files = files;
+	full_path = roadmap_path_join( directory, *cursor );
+	context->full_path = full_path;
+
+
    SyncProgressItems = count;
-   SyncProgressCurrentItem = 0;
-   *num_msgs = 0;
+   SyncProgressCurrentItem = 1;
+   SyncProgressLoaded = 0;
+   SyncUploadNumMessages = 0;
 
-   for (cursor = files; *cursor != NULL; ++cursor) {
-      
-      char full_name[512];
-		int res;
-      
-      roadmap_path_format (full_name, sizeof (full_name), directory, *cursor);
-      res = editor_upload_auto (full_name, &SyncDownloadCallbackFunctions,
-                                    messages + *num_msgs, NULL, NULL);
+   // this starts the async sending sequence. Further progress is done through the callbacks.
+	if (  editor_upload_auto( full_path, &gUploadCallbackFunctions, NULL, NULL ,(void *)context) )
+	{
+	  roadmap_log( ROADMAP_ERROR, "File upload error, couldn't start sync socket connect. for file %s ", full_path);
+	  roadmap_path_free(full_path);
+	  roadmap_path_list_free (files);
+	  free(context);
+	  return 0;
+	}
 
-      if (res == 0) {
-         roadmap_file_remove (NULL, full_name);
-         if (messages[*num_msgs] != NULL) (*num_msgs)++;
-      }
-
-      if (*num_msgs == MAX_MSGS) break;
-   }
-
-   roadmap_path_list_free (files);
-
-   return 0;
+   return 1;
 }
+
 
 void editor_sync_upload (void) {
    int res;
-   char *messages[MAX_MSGS];
    int num_msgs = 0;
    
    if (count_upload_files() == 0)
@@ -244,7 +275,9 @@ void editor_sync_upload (void) {
    
    roadmap_warning_register (download_warning_fn, "edtsync");
    
-   res = sync_do_upload (messages, &num_msgs);
+#ifndef J2ME
+   res = sync_do_upload ();
+#endif
    
    roadmap_warning_unregister (download_warning_fn);
 }
@@ -287,7 +320,9 @@ int export_sync (void) {
    roadmap_main_flush ();
 
    Realtime_OfflineClose ();
-   res = sync_do_upload (messages, &num_msgs);
+#ifndef J2ME
+   res = sync_do_upload ();
+#endif
 	Realtime_OfflineOpen (editor_sync_get_export_path (),
 								 editor_sync_get_export_name ());
 
@@ -333,11 +368,13 @@ int export_sync (void) {
 	navigate_graph_clear (-1);
 	
    roadmap_main_flush ();
+#ifndef J2ME
    res = editor_download_update_map (&SyncDownloadCallbackFunctions);
 
    if (res == -1) {
       roadmap_messagebox ("Download Error", roadmap_lang_get("Error downloading map update"));
    }
+#endif
 
    for (i=0; i<num_msgs; i++) {
       roadmap_messagebox ("Info", messages[i]);
@@ -347,5 +384,87 @@ int export_sync (void) {
    roadmap_warning_unregister (download_warning_fn);
 
    return 0;
+}
+
+
+static int upload_file_size_callback( void *context, int aSize ) {
+	SyncProgressTarget = aSize;
+	return 1;
+}
+
+static void upload_progress_callback( void *context, int aLoaded ){
+	//upload_context *  uContext = (upload_context *)context;
+	//roadmap_log(ROADMAP_ERROR,"sent %d bytes of file %s",aLoaded,uContext->full_path);
+	if ((SyncProgressLoaded > aLoaded) || !aLoaded || !SyncProgressItems) {
+	      SyncProgressLoaded = aLoaded;
+	} else {
+
+		if (SyncProgressLoaded == aLoaded) {
+			return;
+
+		} else if ((aLoaded < SyncProgressTarget) &&
+				(100 * (aLoaded - SyncProgressLoaded) / SyncProgressTarget) < 5) {
+			return;
+		}
+
+		SyncProgressLoaded = aLoaded;
+	}
+}
+
+
+static void upload_error_callback( void *context) {
+	upload_context *  uContext = (upload_context *)context;
+	roadmap_path_list_free(uContext->files);
+	roadmap_path_free(uContext->full_path);
+	free(uContext);
+}
+
+/*
+ * Called once one file was sent successfully. Starts the sending of the next file, if there is one.
+ */
+static void upload_done( void *context, const char *format, ... ) {
+	upload_context *  uContext = (upload_context *)context;
+	char msg[MAX_SIZEOF_RESPONSE_MSG];
+	va_list ap;
+	char ** new_cursor;
+	char * new_full_path;
+
+	if(format){
+		va_start(ap, format);
+		vsnprintf(msg,sizeof(msg),format,ap);
+		va_end(ap);
+		roadmap_log(ROADMAP_DEBUG,"done uploading file : %s. Received response : %s",*uContext->cursor,msg);
+		strncpy(SyncUploadMessages[SyncUploadNumMessages], msg, MAX_SIZEOF_RESPONSE_MSG);
+	}
+
+	SyncProgressCurrentItem ++ ;
+	SyncProgressLoaded = 0;
+	SyncUploadNumMessages  ++;
+
+	new_cursor = (uContext->cursor)+1;
+	roadmap_file_remove(NULL, uContext->full_path); // remove the previous file
+
+	if( (*new_cursor == NULL )  || ( SyncUploadNumMessages == MAX_MSGS ) ) {
+		roadmap_path_list_free(uContext->files);
+		roadmap_log(ROADMAP_DEBUG, "finished uploading editor_sync files");
+
+	}else{
+		upload_context * new_context;
+		new_full_path = roadmap_path_join( editor_sync_get_export_path(), *new_cursor );
+		new_context= malloc(sizeof(upload_context));
+		new_context->cursor = new_cursor;
+		new_context->files = uContext->files;
+		new_context->full_path = new_full_path;
+		if ( editor_upload_auto( new_full_path, &gUploadCallbackFunctions, NULL, NULL ,(void *)new_context) )
+		{
+		  roadmap_log( ROADMAP_ERROR, "File upload error, couldn't start sync socket connect. for file %s ", new_full_path);
+		  roadmap_path_free(new_full_path);
+		  roadmap_path_list_free (new_context->files);
+		  free(new_context);
+		}
+	}
+
+	roadmap_path_free(uContext->full_path);
+	free(uContext);
 }
 

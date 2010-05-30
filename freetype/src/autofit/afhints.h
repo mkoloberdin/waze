@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    Auto-fitter hinting routines (specification).                        */
 /*                                                                         */
-/*  Copyright 2003, 2004, 2005 by                                          */
+/*  Copyright 2003, 2004, 2005, 2006, 2007, 2008 by                        */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -21,6 +21,7 @@
 
 #include "aftypes.h"
 
+#define xxAF_SORT_SEGMENTS
 
 FT_BEGIN_HEADER
 
@@ -29,7 +30,7 @@ FT_BEGIN_HEADER
   *  script analysis routines (until now).
   */
 
-  typedef enum
+  typedef enum  AF_Dimension_
   {
     AF_DIMENSION_HORZ = 0,  /* x coordinates,                    */
                             /* i.e., vertical segments & edges   */
@@ -43,7 +44,7 @@ FT_BEGIN_HEADER
 
   /* hint directions -- the values are computed so that two vectors are */
   /* in opposite directions iff `dir1 + dir2 == 0'                      */
-  typedef enum
+  typedef enum  AF_Direction_
   {
     AF_DIR_NONE  =  4,
     AF_DIR_RIGHT =  1,
@@ -55,7 +56,7 @@ FT_BEGIN_HEADER
 
 
   /* point hint flags */
-  typedef enum
+  typedef enum  AF_Flags_
   {
     AF_FLAG_NONE = 0,
 
@@ -86,7 +87,7 @@ FT_BEGIN_HEADER
 
 
   /* edge hint flags */
-  typedef enum
+  typedef enum  AF_Edge_Flags_
   {
     AF_EDGE_NORMAL = 0,
     AF_EDGE_ROUND  = 1 << 0,
@@ -125,6 +126,7 @@ FT_BEGIN_HEADER
     FT_Short    pos;         /* position of segment                 */
     FT_Short    min_coord;   /* minimum coordinate of segment       */
     FT_Short    max_coord;   /* maximum coordinate of segment       */
+    FT_Short    height;      /* the hinted segment height           */
 
     AF_Edge     edge;        /* the segment's parent edge           */
     AF_Segment  edge_next;   /* link to next segment in parent edge */
@@ -133,6 +135,7 @@ FT_BEGIN_HEADER
     AF_Segment  serif;       /* primary segment for serifs */
     FT_Pos      num_linked;  /* number of linked segments  */
     FT_Pos      score;       /* used during stem matching  */
+    FT_Pos      len;         /* used during stem matching  */
 
     AF_Point    first;       /* first point in edge segment             */
     AF_Point    last;        /* last point in edge segment              */
@@ -169,6 +172,9 @@ FT_BEGIN_HEADER
     FT_Int        num_segments;
     FT_Int        max_segments;
     AF_Segment    segments;
+#ifdef AF_SORT_SEGMENTS
+    FT_Int        mid_segments;
+#endif
 
     FT_Int        num_edges;
     FT_Int        max_edges;
@@ -206,11 +212,32 @@ FT_BEGIN_HEADER
                                      /* implementations          */
     AF_ScriptMetrics  metrics;
 
+    FT_Pos            xmin_delta;    /* used for warping */
+    FT_Pos            xmax_delta;
+    
   } AF_GlyphHintsRec;
 
 
 #define AF_HINTS_TEST_SCALER( h, f )  ( (h)->scaler_flags & (f) )
 #define AF_HINTS_TEST_OTHER( h, f )   ( (h)->other_flags  & (f) )
+
+
+#ifdef AF_DEBUG
+
+#define AF_HINTS_DO_HORIZONTAL( h )                                     \
+          ( !_af_debug_disable_horz_hints                            && \
+            !AF_HINTS_TEST_SCALER( h, AF_SCALER_FLAG_NO_HORIZONTAL ) )
+
+#define AF_HINTS_DO_VERTICAL( h )                                     \
+          ( !_af_debug_disable_vert_hints                          && \
+            !AF_HINTS_TEST_SCALER( h, AF_SCALER_FLAG_NO_VERTICAL ) )
+
+#define AF_HINTS_DO_ADVANCE( h )                                \
+          !AF_HINTS_TEST_SCALER( h, AF_SCALER_FLAG_NO_ADVANCE )
+
+#define AF_HINTS_DO_BLUES( h )  ( !_af_debug_disable_blue_hints )
+
+#else /* !AF_DEBUG */
 
 #define AF_HINTS_DO_HORIZONTAL( h )                                \
           !AF_HINTS_TEST_SCALER( h, AF_SCALER_FLAG_NO_HORIZONTAL )
@@ -220,6 +247,10 @@ FT_BEGIN_HEADER
 
 #define AF_HINTS_DO_ADVANCE( h )                                \
           !AF_HINTS_TEST_SCALER( h, AF_SCALER_FLAG_NO_ADVANCE )
+
+#define AF_HINTS_DO_BLUES( h )  1
+
+#endif /* !AF_DEBUG */
 
 
   FT_LOCAL( AF_Direction )
@@ -235,6 +266,7 @@ FT_BEGIN_HEADER
   FT_LOCAL( FT_Error)
   af_axis_hints_new_edge( AF_AxisHints  axis,
                           FT_Int        fpos,
+                          AF_Direction  dir,
                           FT_Memory     memory,
                           AF_Edge      *edge );
 
@@ -254,7 +286,8 @@ FT_BEGIN_HEADER
 
   FT_LOCAL( FT_Error )
   af_glyph_hints_reload( AF_GlyphHints  hints,
-                         FT_Outline*    outline );
+                         FT_Outline*    outline,
+                         FT_Bool        get_inflections );
 
   FT_LOCAL( void )
   af_glyph_hints_save( AF_GlyphHints  hints,
@@ -272,10 +305,24 @@ FT_BEGIN_HEADER
   af_glyph_hints_align_weak_points( AF_GlyphHints  hints,
                                     AF_Dimension   dim );
 
+#ifdef AF_USE_WARPER
+  FT_LOCAL( void )
+  af_glyph_hints_scale_dim( AF_GlyphHints  hints,
+                            AF_Dimension   dim,
+                            FT_Fixed       scale,
+                            FT_Pos         delta );
+#endif
+
   FT_LOCAL( void )
   af_glyph_hints_done( AF_GlyphHints  hints );
 
 /* */
+
+#define AF_SEGMENT_LEN( seg )          ( (seg)->max_coord - (seg)->min_coord )
+
+#define AF_SEGMENT_DIST( seg1, seg2 )  ( ( (seg1)->pos > (seg2)->pos )   \
+                                           ? (seg1)->pos - (seg2)->pos   \
+                                           : (seg2)->pos - (seg1)->pos )
 
 
 FT_END_HEADER

@@ -53,6 +53,10 @@
 #include "Realtime/RealtimeAlerts.h"
 #include "Realtime/RealtimeTrafficInfo.h"
 
+#ifdef IPHONE
+#include "iphone/cost_preferences.h"
+#endif //IPHONE
+
 #define PENALTY_NONE  0
 #define PENALTY_SMALL 1
 #define PENALTY_AVOID 2
@@ -433,7 +437,7 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
       ("user", &CostAvoidTollRoadsCfg, NULL, "no", "yes", NULL);
-
+   
    roadmap_config_declare_enumeration
       ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
 
@@ -514,8 +518,11 @@ int navigate_cost_isPalestinianOptionEnabled(){
 
 static void on_close_dialog (int exit_code, void* context){
 #ifdef TOUCH_SCREEN
-	if (exit_code == dec_ok)
+	if (exit_code == dec_ok){
 		save_changes();
+		if (navigate_main_state() == 0)
+		   navigate_main_calc_route ();
+	}
 #endif
 }
 static const char *yesno_label[2];
@@ -609,9 +616,11 @@ static void create_ssd_dialog (void) {
                          (const char **)trails_label,
                          (const void **)trails_value,
                          SSD_ALIGN_RIGHT, NULL));
-   ssd_widget_add(box, space(1));
-   ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_add (container, box);
+   ssd_widget_add (dialog, container);
+   
+   container = ssd_container_new ("conatiner", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
    box = ssd_container_new ("samestreet group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
@@ -714,7 +723,7 @@ static void create_ssd_dialog (void) {
 }
 
 void cost_preferences (void) {
-
+#ifndef IPHONE
    const char *value;
    int avoid_trails;
 
@@ -758,6 +767,9 @@ void cost_preferences (void) {
    else if (avoid_trails == AVOID_ALL_DIRT_ROADS) value = trails_value[1];
    else value = trails_value[2];
    ssd_dialog_set_data ("avoidtrails", (void *) value);
+#else
+	cost_preferences_show();
+#endif //IPHONE
 
 
 }
@@ -787,12 +799,15 @@ static void on_option_selected(  BOOL              made_selection,
       case nc_cm_recalculate:
       	save_changes();
       	ssd_dialog_hide_current(dec_close);
-      	navigate_main_calc_route ();
+      	 if (navigate_main_state() == 0)
+      	    navigate_main_calc_route ();
          break;
 
       case nc_cm_save:
          save_changes();
-         ssd_dialog_hide_current(dec_close);
+         ssd_dialog_hide_all(dec_close);
+         if (navigate_main_state() == 0)
+            navigate_main_calc_route ();
          break;
 
 
@@ -809,7 +824,10 @@ static void on_option_selected(  BOOL              made_selection,
 
 static int on_save(SsdWidget widget, const char *new_value, void *context){
    save_changes();
-   ssd_dialog_hide_current(dec_close);
+   ssd_dialog_hide_all(dec_close);
+   if (navigate_main_state() == 0)
+      navigate_main_calc_route ();
+
 }
 ///////////////////////////////////////////////////////////////////////////////////////////
 static int on_options(SsdWidget widget, const char *new_value, void *context)

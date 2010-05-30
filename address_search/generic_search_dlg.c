@@ -257,7 +257,7 @@ SsdWidget create_input_container()
    ssd_widget_add(ecnt, bitmap);
 
    edit = ssd_text_new     (  GSD_IC_EDITBOX_NAME,
-                              "", 18, SSD_ALIGN_VCENTER);
+                              "", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
 
 
    btn  = ssd_button_label (  GSD_IC_BUTTON_NAME,
@@ -276,7 +276,6 @@ SsdWidget create_input_container()
    ssd_widget_add(icnt, space);
 
    ssd_widget_add( ecnt, edit);
-   ssd_widget_add(ecnt, ssd_bitmap_new("cursor", "cursor",SSD_ALIGN_VCENTER));
    ssd_widget_add( icnt, ecnt );
    space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE|SSD_END_ROW);
    ssd_widget_set_color (space, NULL,NULL);
@@ -438,8 +437,12 @@ void generic_search_dlg_show( search_types   type,
 	  }
    }
    roadmap_input_type_set_mode( inputtype_free_text );
-   ssd_dialog_draw ();
+
+   ssd_dialog_activate( dlg_name, NULL );
+
    ssd_dialog_set_focus( edit_cont );
+
+   ssd_dialog_draw ();
 }
 
 /* Top space for the editbox handler. Updates the top space depending on the portrait landscape */

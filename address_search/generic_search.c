@@ -40,11 +40,16 @@
 #include "../Realtime/Realtime.h"
 #include "../ssd/ssd_keyboard_dialog.h"
 
+#ifdef IPHONE
+#include "roadmap_editbox.h"
+#endif //IPHONE
+
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 extern void navigate_main_stop_navigation();
 extern int main_navigator( const RoadMapPosition *point,
                            address_info_ptr       ai);
+extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 
 static CB_OnAddressResolved      s_cbOnAddressResolved= NULL;
@@ -115,6 +120,9 @@ static void address_append_current_location( char* buffer)
 }
 
 void generic_address_add(address_candidate ac){
+   if (s_results_count == ADSR_MAX_RESULTS)
+      return;
+
    s_results[s_results_count++] = ac;
 }
 static const char* address__prepare_query( const char* address, const char* custom_query )
@@ -191,6 +199,8 @@ roadmap_result generic_search_resolve_address(
 
    query = address__prepare_query( address, custom_query );
    s_results_count = 0;
+   
+   roadmap_log (ROADMAP_INFO, "Local search query: %s", query);
 
    // Perform WebService Transaction:
    if( wst_start_trans( websvc,
@@ -242,9 +252,16 @@ BOOL on_favorites_name( int         exit_code,
                               roadmap_lang_get( "ERROR: Invalid name specified"));
       else
       {
+         RoadMapPosition coordinates;
+         coordinates.latitude = atoi(favorites_address_info[5]);
+         coordinates.longitude = atoi(favorites_address_info[6]);
+         Realtime_TripServer_CreatePOI(name, &coordinates, TRUE);
+
          favorites_address_info[ ahi_name] = strdup( name);
          roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);
-
+#ifdef IPHONE
+         roadmap_main_show_root(0);
+#endif //IPHONE
          ssd_dialog_hide_all( dec_close);
 
          if( !roadmap_screen_refresh())
@@ -261,7 +278,7 @@ BOOL on_favorites_name( int         exit_code,
 void generic_search_add_to_favorites()
 {
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
    ShowEditbox(roadmap_lang_get("Name"), "",
             on_favorites_name, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
 #else

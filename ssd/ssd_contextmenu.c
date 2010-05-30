@@ -179,6 +179,22 @@ void ssd_contextmenu_show_item__by_action_name(
    }
 }
 
+void ssd_contextmenu_set_separator(
+                                 ssd_contextmenu_ptr  this,
+                                 const char*          name)
+{
+   int i;
+
+   for( i=0; i<this->item_count; i++)
+   {
+      ssd_cm_item_ptr item = this->item + i;
+
+         if( item->action && !strcmp( item->action->name, name))
+         {
+            item->flags |= CONTEXT_MENU_FLAG_SEPERATOR;
+         }
+   }
+}
 void ssd_contextmenu_delete( ssd_contextmenu_ptr this, BOOL delete_labels)
 {
    int i;
@@ -231,7 +247,7 @@ static void exit_context_menu( BOOL made_selection, ssd_cm_item_ptr item)
    ssd_contextmenu_ptr  menu     = s_ctx.menu;
    SsdOnContextMenu     on_menu  = s_ctx.callback;
    void*                context  = s_ctx.context;
-   /* exit menu if 
+   /* exit menu if
     * 1. no selection was made - this is a normal exit command (initiated for instance when the back button is pressed)
     * 2. a selection was made, and a close on selection flag exists
    */
@@ -435,20 +451,28 @@ static int get_new_container_y_offset(
    int   activator_offset;
    int   zero_y;
    int   new_offset_y;
+   int height = new_size->height+20;
 
    zero_y            = -cur_size->height;
    activator_offset  = (int)(((double)s_text_height * (selected_item + 1))+0.5);
-   new_cnt_position_y= cur_pos->y - (new_size->height/2) + activator_offset;
-   new_offset_y      = zero_y + activator_offset - (new_size->height/2);
+   new_cnt_position_y= cur_pos->y - (height/2) + activator_offset;
+   new_offset_y      = zero_y + activator_offset - (height/2);
 
    if( new_cnt_position_y < TITLE_BAR_HEIGHT)
       new_offset_y = zero_y - cur_pos->y + TITLE_BAR_HEIGHT;
    else
-      if( canvas_height < (new_cnt_position_y + new_size->height))
+      if( canvas_height < (new_cnt_position_y + height))
       {
          //int cur_y_end = cur_pos->y + cur_size->height + single_corner_height;
          int cur_far_from_edge = canvas_height - cur_pos->y;
-         new_offset_y = zero_y + cur_far_from_edge - new_size->height;
+         new_offset_y = zero_y + cur_far_from_edge - height;
+         new_cnt_position_y= cur_pos->y - (height/2) + activator_offset;
+         if( canvas_height < (new_cnt_position_y + height))
+         {
+            //int cur_y_end = cur_pos->y + cur_size->height + single_corner_height;
+            int cur_far_from_edge = canvas_height - cur_pos->y;
+            new_offset_y = zero_y + cur_far_from_edge - height;
+         }
       }
 
    return new_offset_y;
@@ -795,8 +819,15 @@ static void alloc_rows( SsdWidget            menu_cnt,
             ssd_widget_add(row, sep);
          }
 #else
-        if( item->icon)
-        {
+         if (item->flags & CONTEXT_MENU_FLAG_SEPERATOR ){
+            SsdWidget sep;
+            sep = ssd_separator_new("sep", SSD_ALIGN_BOTTOM);
+            ssd_widget_set_offset(sep, 0, 3);
+            ssd_widget_add(row, sep);
+         }
+         
+         if( item->icon)
+         {
             SsdWidget     button;
             const char*   small_row_bitmap[2];
             SsdWidget     image_container;
@@ -814,11 +845,13 @@ static void alloc_rows( SsdWidget            menu_cnt,
             ssd_widget_add(image_container,button);
             ssd_widget_add(row,image_container);
         }
+         
 
          label= ssd_text_new( "label",
                               "",
                               CONTEXT_MENU_FONT_SIZE,
                               SSD_ALIGN_VCENTER);
+         ssd_widget_set_offset(label, 0, -3);
          ssd_widget_add( row, label);
 #endif
 
@@ -898,6 +931,7 @@ static void initialize_rows(  SsdWidget            menu_cnt,
    int         container_width;
    int         container_height;
    int         font_size = CONTEXT_MENU_FONT_SIZE;
+   const char*   small_row_bitmap[2] = {0};
 
    if( SSD_CONTEXTMENU_SIMPLE_LIST & flags)
       font_size = CONTEXT_MENU_SIMPLE_LIST_FONT_SIZE;
@@ -924,7 +958,7 @@ static void initialize_rows(  SsdWidget            menu_cnt,
 
       // Calc space needed for longest string:
       roadmap_canvas_get_text_extents( longest_string, font_size, &text_width, &text_ascent, &text_descent, NULL);
-      text_width = (int)((double)text_width * 1.2F) + 20;
+      text_width = (int)((double)text_width * 1.2F) + 15;
    }
    else
       text_width = s_requested_size;
@@ -942,6 +976,7 @@ static void initialize_rows(  SsdWidget            menu_cnt,
 
       if( !(CONTEXT_MENU_FLAG_HIDDEN & menu->item[i].flags))
       {
+         SsdWidget button;
 #ifdef TOUCH_SCREEN
          if( SSD_CONTEXTMENU_SIMPLE_LIST & flags)
             ssd_widget_set_size  ( item->row, text_width, s_text_height);
@@ -961,6 +996,12 @@ static void initialize_rows(  SsdWidget            menu_cnt,
          ssd_widget_set_size  ( item->row, text_width , s_text_height);
 #endif
          ssd_widget_set_value ( item->row, "label", item->label);
+         small_row_bitmap[0] = item->icon;
+         button = ssd_widget_get( item->row, "row_bitmap" );
+         if ( button )
+         {
+            ssd_button_change_icon( button, (const char**) small_row_bitmap, 1 );
+         }
          ssd_widget_show      ( item->row);
          used_rows_count++;
       }
@@ -1088,6 +1129,9 @@ static void on_device_event( device_event event, void* context)
    if( device_event_window_orientation_changed == event){
       s_ctx.recalc_pos = TRUE;
 
+      s_canvas_size.height = 0;
+      s_canvas_size.width = 0;
+
       if (!roadmap_screen_refresh())
          roadmap_screen_redraw();
 
@@ -1196,7 +1240,7 @@ void ssd_context_menu_show(int                  x,
    {
        s_canvas_size.width   = roadmap_canvas_width();
 #ifdef TOUCH_SCREEN
-       s_canvas_size.height  = roadmap_canvas_height() ;
+       s_canvas_size.height  = roadmap_canvas_height() - roadmap_bar_top_height() - 5;
 #else
        if (is_screen_wide())
           s_canvas_size.height  = roadmap_canvas_height() - roadmap_bar_bottom_height();

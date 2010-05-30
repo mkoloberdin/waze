@@ -56,7 +56,7 @@ static FILE *sgLogFile = NULL;
 #endif   // FREEZE_ON_FATAL_ERROR
 
 #define ROADMAP_LOG_STACK_SIZE 256
-#define MAX_SIZE_LOG_FILE 10000 // 10 megabytes for now 
+#define MAX_SIZE_LOG_FILE 10000 // 10 megabytes for now
 #define TO_KEEP_LOG_SIZE 1000 // keep the last megabyte
 
 static const char *RoadMapLogStack[ROADMAP_LOG_STACK_SIZE];
@@ -158,7 +158,7 @@ const char *roadmap_log_access_mode()
 #else
    //return ("w");
 #endif
-   
+
 }
 
 const char *roadmap_log_path()
@@ -179,7 +179,7 @@ const char *roadmap_log_path()
 #else
    //return ("file:///e:/FreeMap");
 #endif
-}   
+}
 
 const char *roadmap_log_filename()
 {
@@ -203,10 +203,10 @@ static void roadmap_log_one (struct roadmap_message_descriptor *category,
                              va_list ap) {
 
 
-#ifdef _WIN32
+#if (defined (_WIN32) && !defined (__SYMBIAN32__))
 SYSTEMTIME st;
 #endif
-int i;   
+int i;
 struct tm *tms;
 time_t now;
 char year[5], month[5], day[5];
@@ -215,7 +215,6 @@ tms = localtime( &now );
 GET_2_DIGIT_STRING( tms->tm_mday, day );
 GET_2_DIGIT_STRING( tms->tm_mon+1, month );	// Zero based from January
 GET_2_DIGIT_STRING( tms->tm_year-100, year ); // Year from 1900
-
 
 #ifdef J2ME
    fprintf (file, "%d %c%s %s, line %d ",
@@ -331,7 +330,7 @@ void roadmap_log (int level, const char *source, int line, const char *format, .
 
       if ((sgLogFile == NULL) && (!open_file_attemped)) {
          open_file_attemped = 1;
-
+         
          sgLogFile = roadmap_file_fopen (roadmap_log_path(),
                                          roadmap_log_filename(),
                                          roadmap_log_access_mode());
@@ -434,6 +433,7 @@ BOOL roadmap_log_raw_data_fmt( const char *format, ... )
 {
 	va_list ap;
 	BOOL ret_val = FALSE;
+
 	if ( sgLogFile && format )
 	{
 		va_start( ap, format );
@@ -467,19 +467,19 @@ void roadmap_log_init(){
       path = roadmap_path_user();
       name = "postmortem";
 #endif
-    
+
 	fileSize = roadmap_file_length(path,name);
 	if (fileSize > 0 ){ // file exists
 		if(fileSize>MAX_SIZE_LOG_FILE){
 		   FILE * LogFile = roadmap_file_fopen(path,name,"sa+");
 		   FILE * tempLogFile = roadmap_file_fopen(path,"temp_log_file.txt","sa+");
 		   fseek(LogFile, 0, SEEK_END-TO_KEEP_LOG_SIZE);
-		   fgets (lineFromLog,300, LogFile );  
+		   fgets (lineFromLog,300, LogFile );
 		   while (1){
 		   	    fgets (lineFromLog,300, LogFile );
 		   	    if(feof(LogFile))
 		   	    	break;
-		   		fputs (lineFromLog,tempLogFile ); 
+		   		fputs (lineFromLog,tempLogFile );
 		   }
 		   fclose(LogFile);
 		   fclose(tempLogFile);

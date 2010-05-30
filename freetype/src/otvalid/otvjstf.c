@@ -4,7 +4,7 @@
 /*                                                                         */
 /*    OpenType JSTF table validation (body).                               */
 /*                                                                         */
-/*  Copyright 2004 by                                                      */
+/*  Copyright 2004, 2007 by                                                */
 /*  David Turner, Robert Wilhelm, and Werner Lemberg.                      */
 /*                                                                         */
 /*  This file is part of the FreeType project, and may only be used,       */
@@ -31,8 +31,8 @@
 #define FT_COMPONENT  trace_otvjstf
 
 
-#define JstfPriority  otv_JstfPriority_validate, "JstfPriority"
-#define JstfLookup    otv_GPOS_subtable_validate, ""
+#define JstfPriorityFunc  otv_JstfPriority_validate
+#define JstfLookupFunc    otv_GPOS_subtable_validate
 
   /* uses valid->extra1 (GSUB lookup count) */
   /* uses valid->extra2 (GPOS lookup count) */
@@ -69,7 +69,7 @@
     table_size = 20;
 
     valid->extra1 = gsub_lookup_count;
-    
+
     OTV_OPTIONAL_OFFSET( ShrinkageEnableGSUB );
     OTV_SIZE_CHECK( ShrinkageEnableGSUB );
     if ( ShrinkageEnableGSUB )
@@ -222,7 +222,7 @@
     OTV_LIMIT_CHECK( 6 );
 
     if ( FT_NEXT_ULONG( p ) != 0x10000UL )      /* Version */
-      FT_INVALID_DATA;
+      FT_INVALID_FORMAT;
 
     JstfScriptCount = FT_NEXT_USHORT( p );
 

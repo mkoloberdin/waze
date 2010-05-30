@@ -28,6 +28,7 @@
 
 #include "../roadmap_sound.h"
 #include "../ssd/ssd_widget.h"
+#include "../src/roadmap_alerter.h"
 // Alerts types
 #define RT_ALERT_TYPE_CHIT_CHAT			   0
 #define RT_ALERT_TYPE_POLICE				   1
@@ -50,6 +51,9 @@
 #define RT_ALERT_DESCRIPTION_MAXSIZE      200
 #define RT_ALERT_IMAGEID_MAXSIZE		      100
 #define RT_ALERT_USERNM_MAXSIZE 			   100
+
+#define RT_ALERT_RES_TITLE_MAX_SIZE       64
+#define RT_ALERT_RES_TEXT_MAX_SIZE        512
 
 #define RT_ALERTS_PROGRESS_DLG_NAME		"Alert progress dialog"
 
@@ -75,6 +79,13 @@ typedef enum alert_sort_method
    sort_recency
 }  alert_sort_method;
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Filter alerts
+typedef enum alert_filter
+{
+   filter_none,
+   filter_on_route
+}  alert_filter;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //	Comment
@@ -143,9 +154,20 @@ typedef struct
     int iNumComments;
     BOOL bAlertByMe;
     BOOL bPingWazer;
+    roadmap_alerter_location_info location_info;
     RTAlertCommentsEntry *Comment;
+    BOOL bAlertIsOnRoute;
 
 } RTAlert;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Alert Res
+typedef struct
+{
+   int  iPoints;
+   char title[RT_ALERT_RES_TITLE_MAX_SIZE];
+   char msg[RT_ALERT_RES_TEXT_MAX_SIZE];
+} RTAlertRes;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 //	Runtime Alert Table
@@ -247,6 +269,7 @@ int  RTAlerts_Get_Minimize_State(void);
 void RTAlerts_Minimized_Alert_Dialog(void);
 void RTAlerts_Resert_Minimized(void);
 void RTAlerts_report_map_problem(void);
+void RTAlerts_ShowProgressDlg(void);
 void RTAlerts_CloseProgressDlg(void);
 void RTAlerts_Download_Image( int alertId );
 void RTAlerts_add_comment_stars(SsdWidget container,  RTAlertComment *pAlertComment);
@@ -254,4 +277,9 @@ const char * RTAlerts_Get_Stars_Icon(int starNum);
 void RTAlerts_update_stars(SsdWidget container,  RTAlert *Alert);
 void RTAlerts_Set_Ignore_Max_Distance(BOOL ignore);
 void RTAlerts_show_space_before_desc( SsdWidget containter, RTAlert *pAlert );
+int RTAlertsGetMapProblems (int **outMapProblems, char **outMapProblemsOption[]);
+
+BOOL RTAlerts_isByMe(int iId);
+BOOL RTAlerts_isAlertOnRoute(int iId);
+
 #endif	//	__REALTIME_ALERT_H__

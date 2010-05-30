@@ -226,17 +226,9 @@ void editor_points_display_new_points_timed(int points, int seconds, int event){
       TimerCallback = NULL;
    }
    roadmap_ticker_set_last_event(event);
-   if (!roadmap_screen_refresh())
-     roadmap_screen_redraw();
+   roadmap_screen_redraw();
    roadmap_main_set_periodic (seconds * 1000, timer_cb);
    TimerCallback = timer_cb;
 }
-
-void editor_points_ViewMyPoints(void){
-   roadmap_ticker_set_suppress_hide(TRUE);
-   editor_points_display_new_points_timed(-1,SECONDS_TO_POPUP_POINTS*1000,default_event);
-   roadmap_main_set_periodic(SECONDS_TO_POPUP_POINTS*1000,roadmap_ticker_supress_hide);
-}
-
 
 

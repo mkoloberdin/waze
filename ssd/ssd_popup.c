@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "roadmap.h"
+#include "roadmap_screen.h"
 #include "ssd_dialog.h"
 #include "ssd_container.h"
 #include "ssd_button.h"
@@ -95,7 +96,7 @@ SsdWidget ssd_popup_new (const char *name,
     ssd_widget_set_click_offsets( header, &sgPopUpCloseOffsets );
 
 #ifdef IPHONE
-    text_size = 18;
+      text_size = 18;
 #endif
 	text = ssd_text_new("popuup_text", title, text_size, SSD_END_ROW|SSD_ALIGN_VCENTER);
 	ssd_widget_set_color(text,"#f6a201", NULL);
@@ -104,7 +105,7 @@ SsdWidget ssd_popup_new (const char *name,
 
    ssd_widget_add(header, text);
 #else
-   ssd_widget_add(header, text);
+      ssd_widget_add(header, text);
 #endif
 
 

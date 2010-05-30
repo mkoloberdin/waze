@@ -83,7 +83,7 @@ int roadmap_navigate_retrieve_line_force_name
          int route, int fake_from, int fake_to,
          RoadMapPosition *force_from, RoadMapPosition *force_to);
 
-int roadmap_navigate_is_jammed (void);
+int roadmap_navigate_is_jammed (PluginLine *line, int *direction);
 
 void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps_time);
 

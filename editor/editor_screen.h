@@ -45,6 +45,7 @@ void editor_screen_set (int status);
 void editor_screen_update_fips (int fips);
 void editor_screen_repaint (int max_pen);
 void editor_screen_reset_selected (void);
+void editor_screen_select_line (const PluginLine *line);
 void report_accident_at_screen_point(void);
 void report_accident_opposite_side_at_screen_point(void);
 

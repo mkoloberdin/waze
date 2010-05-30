@@ -32,7 +32,7 @@
 #include "roadmap_tile_manager.h"
 #include "roadmap_tile_status.h"
 #include "roadmap_messagebox.h"
-#include "roadmap_twitter.h"
+#include "roadmap_social.h"
 #include "Realtime/Realtime.h"
 
 #define	MAX_RESULTS		10
@@ -100,18 +100,34 @@ static void free_result (int iresult)
 {
 	if (RoutingContext.result[iresult].geometry.points) {
 		free (RoutingContext.result[iresult].geometry.points);
+		RoutingContext.result[iresult].geometry.points = NULL;
 	}
 	if (RoutingContext.result[iresult].description) {
 		free (RoutingContext.result[iresult].description);
+		RoutingContext.result[iresult].description = NULL;
 	}
+
+	RoutingContext.result[iresult].geometry.valid_points = 0;
 	RoutingContext.result[iresult].alt_id = 0;
 }
+
+static void clear_result (int iresult)
+{
+   RoutingContext.result[iresult].geometry.points = NULL;
+   RoutingContext.result[iresult].description = NULL;
+   RoutingContext.result[iresult].geometry.valid_points = 0;
+   RoutingContext.result[iresult].alt_id = 0;
+}
+
 
 static void navigate_route_free_context (void)
 {
 	int i;
 
-	if (RoutingContext.route.segments) free (RoutingContext.route.segments);
+	if (RoutingContext.route.segments) {
+	   free (RoutingContext.route.segments);
+	   RoutingContext.route.segments = NULL;
+	}
 	for (i = 0; i < MAX_RESULTS; i++) {
 		free_result (i);
 	}
@@ -229,6 +245,12 @@ static void instrument_segments (int initial)
 	int i;
 	BOOL is_version_mismatch = FALSE;
 
+   if (RoutingContext.route.num_received < 
+       RoutingContext.route.num_segments) {
+      roadmap_log (ROADMAP_DEBUG, "Skipping segment instrumentation because not all segments have been received yet");
+      return;
+   }
+   
 	if (initial) {
 		request_first_tiles ();
 	}
@@ -289,9 +311,7 @@ static void instrument_segments (int initial)
 			//roadmap_log (ROADMAP_DEBUG, "total %d/%d instrumented, requesting tile %d(%08x)", RoutingContext.route.num_instrumented, max_instrumented, segment->square, segment->square);
 			//roadmap_tile_request (segment->square, 0, instrument_segments_cb);
 			if (initial) {
-				roadmap_log (ROADMAP_DEBUG, "Requesting tile %d", segment->square);
-				roadmap_log (ROADMAP_DEBUG, " has time %d", square_time);
-				roadmap_log (ROADMAP_DEBUG, " need time %d",update_time);
+				roadmap_log (ROADMAP_DEBUG, "Requesting tile %d, has time %d, need time %d", segment->square, square_time, update_time);
 				request_tile (segment->square, 0);
 			}
 			continue;
@@ -552,7 +572,7 @@ static int verify_alt_id (const char **data, roadmap_result *rc)
 
 static void routing_error (const char *description)
 {
-	roadmap_messagebox_timeout("Error", description, 5);
+	roadmap_messagebox_timeout("Oops", description, 5);
 
 	if (RoutingContext.callbacks->on_results) {
 		RoutingContext.callbacks->on_results (RoutingContext.route_rc, 0, NULL);
@@ -623,12 +643,13 @@ const char *on_routing_response_code (/* IN  */   const char*       data,
 
 	if (RoutingContext.callbacks->on_rc) {
 		RoutingContext.callbacks->on_rc (RoutingContext.route_rc, RoutingContext.rc, description);
+
+		if (RoutingContext.rc != 200) {
+	      //TODO move all error handling to RoutingContext.callbacks->on_rc
+	      routing_error (description);
+	   }
 	}
 
-	if (RoutingContext.rc != 200) {
-		//TODO move all error handling to RoutingContext.callbacks->on_rc
-		routing_error (description);
-	}
 
    // Fix [out] param:
    (*rc) = succeeded;
@@ -792,7 +813,7 @@ const char *on_routing_response (/* IN  */   const char*       data,
    	}
 
    	bool_size = sizeof (bool_string);
-   	data = ExtractString (data, bool_string, &bool_size, ",\n", 1);
+   	data = ExtractString (data, bool_string, &bool_size, ",", 1);
 	   if (!data) {
 	      roadmap_log (ROADMAP_ERROR, "on_routing_response() - Failed to read attribute value");
 	      return NULL;
@@ -805,9 +826,15 @@ const char *on_routing_response (/* IN  */   const char*       data,
    	nattrs--;
    }
 
-   data = EatChars (data, "\r\n", TRIM_ALL_CHARS);
+   // Origin: 0 = routing (normal), 1 = trip (personal)
+   data = ReadIntFromString(  data,                      //   [in]      Source string
+                              ",\r\n",                   //   [in,opt]  Value termination
+                              NULL,                      //   [in,opt]  Allowed padding
+                              &curr_result->origin,      //   [out]     Output value
+                              TRIM_ALL_CHARS);           //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
    if (!data) {
-      roadmap_log (ROADMAP_ERROR, "on_routing_response() - illegal characters at end of line");
+      roadmap_log (ROADMAP_ERROR, "on_routing_response() - Failed to read 'Origin'");
       return NULL;
    }
 
@@ -1303,6 +1330,7 @@ void navigate_route_request (const PluginLine *from_line,
                              const char *to_city,
                              const char *to_state,
                              int   twitter_mode,
+                             int   facebook_mode,
                              int flags,
                              int trip_id,
                              int max_routes,
@@ -1321,13 +1349,6 @@ void navigate_route_request (const PluginLine *from_line,
 	BOOL bRes;
 
 	if (flags & RECALC_ROUTE) {
-
-		if (RoutingContext.rc == 0) {
-
-			// still waiting for response
-			return;
-		}
-
 		navigate_route_clear_context ();
 	} else {
 
@@ -1476,10 +1497,9 @@ void navigate_route_request (const PluginLine *from_line,
 								  option_types,				          //iOptionNumeral
 								  option_values,					       //bOptionValue
 								  twitter_mode,                      //iTwitterLevel
-	//SRUL: TEMP PATCH: DON'T REROUTE
-									FALSE);
-								  //(flags & RECALC_ROUTE) ? TRUE : FALSE);
-	//END PATCH
+								  facebook_mode,                     //iFacebookLevel
+								  (flags & RECALC_ROUTE) ? TRUE : FALSE	//bReRoute
+								  );
 
 	if (!bRes) {
 		RoutingContext.rc = 500;
@@ -1508,7 +1528,9 @@ void navigate_route_select (int alt_id)
 
 	if (iresult > 0) {
 		RoutingContext.result[0] = RoutingContext.result[iresult];
+		clear_result(iresult);
 	}
+
 
 	// send selection to server
 	Realtime_SelectRoute (RoutingContext.route_id, alt_id);

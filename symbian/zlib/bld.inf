@@ -1,0 +1,12 @@
+//
+// libssd for the symbian platform
+//
+
+PRJ_PLATFORMS
+WINSCW ARMV5 GCCE
+
+PRJ_MMPFILES
+zlib.mmp
+
+PRJ_EXPORTS
+

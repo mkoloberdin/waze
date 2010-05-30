@@ -86,6 +86,7 @@ struct RoadMapContext_t {
 
 extern struct RoadMapContext_t RoadMapContext;
 
+typedef void (*RoadMapUnitChangeCallback) (void);
 
 #if defined(FORCE_INLINE) || defined(DECLARE_ROADMAP_MATH)
 #if !defined(INLINE_DEC)
@@ -248,7 +249,7 @@ void roadmap_math_unproject   (RoadMapGuiPoint *point);
 void roadmap_math_rotate_coordinates (int count, RoadMapGuiPoint *points);
 void roadmap_math_counter_rotate_coordinate (RoadMapGuiPoint *point);
 
-void roadmap_math_rotate_point (RoadMapGuiPoint *points,
+void roadmap_math_rotate_point (RoadMapGuiPoint *point,
                                 RoadMapGuiPoint *center, int angle);
 
 void roadmap_math_rotate_object
@@ -323,10 +324,17 @@ int  roadmap_math_get_zoom (void);
 
 BOOL roadmap_math_is_metric(void);
 
+int  roadmap_math_area_contains(RoadMapArea *a, RoadMapArea *b) ;
+void roadmap_math_screen_edges (RoadMapArea *area);
+
 #ifdef IPHONE
 float roadmap_math_get_angle (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1);
 float roadmap_math_get_diagonal (RoadMapGuiPoint *point0, RoadMapGuiPoint *point1);
 #endif
+
+RoadMapUnitChangeCallback roadmap_math_register_unit_change_callback (RoadMapUnitChangeCallback cb);
+
+void roadmap_math_set_min_zoom(int zoom);
 
 #endif // INCLUDED__ROADMAP_MATH__H
 
