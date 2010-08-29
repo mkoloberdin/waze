@@ -1,4 +1,4 @@
-/* roadmap_welcome_wizard.c - First time settup wizard
+   /* roadmap_welcome_wizard.c - First time settup wizard
  *
  * LICENSE:
  *
@@ -48,6 +48,7 @@
 #include "ssd/ssd_list.h"
 #include "ssd/ssd_entry.h"
 #include "ssd/ssd_checkbox.h"
+#include "ssd/ssd_contextmenu.h"
 #include "Realtime/Realtime.h"
 #include "Realtime/RealtimeDefs.h"
 #include "Realtime/RealtimeAlerts.h"
@@ -57,8 +58,26 @@
    #include "ssd/ssd_keyboard.h"
 #endif //TOUCH_SCREEN
 
+// Context menu:
+typedef enum welcome_wizard_context_menu_items
+{
+   ww_skip,
+   ww_sign_in,
+   ww_cancel,
+   ww_cm__count,
+   ww_cm__invalid
 
+}  welcome_wizard_context_menu_items;
 
+// Context menu:
+static ssd_cm_item      context_menu_items[] =
+{
+   SSD_CM_INIT_ITEM  ( "Not now",        ww_skip),
+   SSD_CM_INIT_ITEM  ( "Sign in",        ww_sign_in),
+   SSD_CM_INIT_ITEM  ( "Cancel",         ww_cancel),
+};
+static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( context_menu_items);
+static   BOOL           g_context_menu_is_active= FALSE;
 
 //disclaimer texts ( see disclaimer.h )
 static char * DISCLAIMER_ENG[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] =
@@ -69,7 +88,7 @@ static char * DISCLAIMER_ESP[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PAR
 				{{ DIS_ESP_0_0,DIS_ESP_0_0,"","","",""},{DIS_ESP_1_0,DIS_ESP_1_1,DIS_ESP_1_2,DIS_ESP_1_3,
 				   DIS_ESP_1_4,DIS_ESP_1_5,DIS_ESP_1_6}};
 
-static char * DISCLAIMER_HEB[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] = 
+static char * DISCLAIMER_HEB[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] =
 				{{ DIS_HEB_0_0,DIS_HEB_0_1,"","","",""},{DIS_HEB_1_0,DIS_HEB_1_1,DIS_HEB_1_2,DIS_HEB_1_3,
 				   DIS_HEB_1_4,DIS_HEB_1_5,DIS_HEB_1_6}};
 
@@ -213,7 +232,7 @@ static void add_address_to_history( int category,
    address[ahi_latitude] = strdup(temp);
    sprintf(temp, "%d", position->longitude);
    address[ahi_longtitude] = strdup(temp);
-
+   address[ahi_synced] = "false";
    roadmap_history_add( category, address);
    roadmap_history_save();
 }
@@ -222,7 +241,7 @@ static void add_address_to_history( int category,
 static SsdWidget space(int height){
    SsdWidget space;
 
-#if (defined(WIN32))
+#if (defined(_WIN32))
    height = height / 2;
 #endif
    space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, height, SSD_WIDGET_SPACE|SSD_END_ROW);
@@ -324,7 +343,7 @@ static int twitter_button_callback (SsdWidget widget, const char *new_value) {
      roadmap_twitter_set_username(username);
      roadmap_twitter_set_password(password);
      roadmap_config_save(TRUE);
-     Realtime_TwitterConnect(ssd_dialog_get_value("TwitterUserName"), ssd_dialog_get_value("TwitterPassword"));
+     Realtime_TwitterConnect(ssd_dialog_get_value("TwitterUserName"), ssd_dialog_get_value("TwitterPassword"),roadmap_twitter_is_signup_enabled());
      end_dialog();
    }
 
@@ -420,6 +439,7 @@ void welcome_wizard_twitter_dialog(void){
    ssd_widget_add (box, space(10));
 
 #else //TOUCH_SCREEN
+
    ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Next"));
    ssd_widget_set_left_softkey_callback   ( dialog, on_softkey_next_twitter);
 #endif //TOUCH_SCREEN
@@ -482,17 +502,15 @@ static int on_list_item_selected_work(SsdWidget widget, const char *new_value, c
 
    position.latitude =   (int)selection->latitude*1000000;
    position.longitude =   (int)selection->longtitude*1000000;
-   success = Realtime_TripServer_CreatePOI(roadmap_lang_get("Work"), &position, TRUE);
-   if (success){
-      roadmap_history_declare ('F', 7);
-         add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                           selection->city,
-                           selection->street,
-                           get_house_number__str( selection->house),
-                           ADDRESS_HISTORY_STATE,
-                           roadmap_lang_get("Work"),
-                           &position);
-   }
+   roadmap_history_declare( ADDRESS_FAVORITE_CATEGORY, ahi__count);
+   add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                     selection->city,
+                     selection->street,
+                     get_house_number__str( selection->house),
+                     ADDRESS_HISTORY_STATE,
+                     roadmap_lang_get("Work"),
+                     &position);
+   success = roadmap_trip_server_create_poi(roadmap_lang_get("Work"), &position, TRUE);
    welcome_wizard_twitter_dialog();
    return 0;
 }
@@ -769,18 +787,16 @@ static int on_list_item_selected_home(SsdWidget widget, const char *new_value, c
 
    position.latitude =   (int)(selection->latitude*1000000);
    position.longitude =   (int)(selection->longtitude*1000000);
-   success = Realtime_TripServer_CreatePOI(roadmap_lang_get("Home"), &position, TRUE);
-   if (success){
-         roadmap_history_declare ('F', 7);
+   add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                            selection->city,
+                            selection->street,
+                            get_house_number__str( selection->house),
+                            ADDRESS_HISTORY_STATE,
+                            roadmap_lang_get("Home"),
+                            &position);
+   success = roadmap_trip_server_create_poi(roadmap_lang_get("Home"), &position, TRUE);
+   roadmap_history_declare( ADDRESS_FAVORITE_CATEGORY, ahi__count);
 
-         add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                           selection->city,
-                           selection->street,
-                           get_house_number__str( selection->house),
-                           ADDRESS_HISTORY_STATE,
-                           roadmap_lang_get("Home"),
-                           &position);
-   }
    workaddress_dialog();
    return 0;
 }
@@ -1178,7 +1194,7 @@ static int welcome_buttons_callback (SsdWidget widget, const char *new_value) {
 #else //TOUCH_SCREEN
 
 int intro_screen_left_key_callback (SsdWidget widget, const char *new_value, void *context) {
-   return 1;  // do nothing if clicked left key, no back possible. 
+   return 1;  // do nothing if clicked left key, no back possible.
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -1276,7 +1292,7 @@ static int callGlobalCallback (SsdWidget widget, const char *new_value, void *co
 	ssd_dialog_hide_all(dec_close);
 	if (gCallback)
 	   (*gCallback)();
-	
+
 	return 1;
 }
 
@@ -1334,12 +1350,19 @@ static void create_intro_screen(){
 static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *new_value) {
 
    if (!strcmp(widget->name, "Accept")){
+#ifdef _WIN32
+         const char *age_restriction_checkbox   = ssd_dialog_get_data( "age_restriction_checkbox" );
+         BOOL  bAgeRestrictionAccepted = !strcmp( age_restriction_checkbox, "yes" );
+         if (!bAgeRestrictionAccepted){
+            return 0;
+         }
+#endif
          set_terms_accepted();
          if (is_show_intro_screen())
-         	create_intro_screen(); 
-         else 
+         	create_intro_screen();
+         else
          	callGlobalCallback(NULL, NULL, NULL);
-         return 1;  
+         return 1;
    }
    else if (!strcmp(widget->name, "Decline")){
       roadmap_main_exit();
@@ -1362,10 +1385,10 @@ static void on_dialog_closed_terms_of_use( int exit_code, void* context){
 static int terms_of_use_accepted (SsdWidget widget, const char *new_value, void *context) {
   	set_terms_accepted();
     if (is_show_intro_screen())
-         create_intro_screen(); 
-    else 
-         callGlobalCallback(NULL, NULL, NULL); 
-    return 1;  
+         create_intro_screen();
+    else
+         callGlobalCallback(NULL, NULL, NULL);
+    return 1;
 }
 /////////////////////////////////////////////////////////////////////
 static int terms_of_use_declined (SsdWidget widget, const char *new_value, void *context){
@@ -1474,6 +1497,8 @@ static void add_disclaimer_texts(SsdWidget group, int tab_flag){
 void term_of_use_dialog(void){
    SsdWidget   dialog;
    SsdWidget   group;
+   SsdWidget   age_group;
+   SsdWidget   label_cnt;
    int         width = roadmap_canvas_width() - 20;
    int         tab_flag = 0;
 
@@ -1497,7 +1522,21 @@ void term_of_use_dialog(void){
 
    add_disclaimer_texts(group, tab_flag);
 
-
+#ifdef _WIN32
+   age_group = ssd_container_new ("Age restriction group", NULL, SSD_MAX_SIZE,
+             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+   ssd_widget_set_color ( age_group, NULL, NULL );
+   ssd_dialog_add_hspace( age_group, 5, 0 );
+   ssd_widget_add (age_group,
+         ssd_checkbox_new ("age_restriction_checkbox", FALSE,  0, NULL,NULL,NULL,CHECKBOX_STYLE_DEFAULT));
+   label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
+   ssd_widget_set_color ( label_cnt, NULL,NULL );
+   ssd_dialog_add_hspace( label_cnt, 5, 0 );
+   ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get ("I certify that i am over the age of 13"), 14, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER ) );
+   ssd_widget_add ( age_group, label_cnt );
+   ssd_widget_add (group, age_group);
+   ssd_widget_add (group, space(15));
+#endif
 
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group,
@@ -1603,6 +1642,64 @@ static int personalize_signin_callback( SsdWidget widget, const char *new_value 
 	return 1;
 }
 
+///////////////////////////////////////////////////////////////////////////////////////////
+static void on_option_selected(  BOOL              made_selection,
+                                 ssd_cm_item_ptr   item,
+                                 void*             context)
+{
+   welcome_wizard_context_menu_items   selection;
+
+   g_context_menu_is_active = FALSE;
+
+   if( !made_selection)
+      return;
+
+   selection = (welcome_wizard_context_menu_items)item->id;
+
+   switch( selection)
+   {
+
+      case ww_skip:
+         set_first_time_no();
+         ssd_dialog_hide_current(dec_close);
+         break;
+
+      case ww_sign_in:
+         roadmap_login_details_dialog_show_un_pw();
+         break;
+
+      case ww_cancel:
+         g_context_menu_is_active = FALSE;
+         roadmap_screen_refresh ();
+         break;
+
+      default:
+         break;
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+static int on_options(SsdWidget widget, const char *new_value, void *context)
+{
+   int menu_x;
+   if  (ssd_widget_rtl (NULL))
+      menu_x = SSD_X_SCREEN_RIGHT;
+   else
+      menu_x = SSD_X_SCREEN_LEFT;
+
+   ssd_context_menu_show(  menu_x,              // X
+                           SSD_Y_SCREEN_BOTTOM, // Y
+                           &context_menu,
+                           on_option_selected,
+                           NULL,
+                           dir_default,
+                           0,
+                           TRUE);
+
+   g_context_menu_is_active = TRUE;
+}
+
+
 void roadmap_welcome_personalize_dialog( void ){
    SsdWidget dialog;
    SsdWidget group;
@@ -1639,7 +1736,7 @@ void roadmap_welcome_personalize_dialog( void ){
 
 #ifdef TOUCH_SCREEN
    ssd_widget_add (group, space(10));
-#endif   
+#endif
 
 
    ssd_dialog_add_vspace( group, 5, 0 );
@@ -1677,8 +1774,8 @@ void roadmap_welcome_personalize_dialog( void ){
    ssd_button_label ("Personalize", roadmap_lang_get ("Personalize"),
                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER, personalize_buttons_callback));
 #else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Not now"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_skip_welcome);
+   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Options"));
+   ssd_widget_set_left_softkey_callback   ( dialog, on_options);
 
    ssd_widget_set_right_softkey_text      ( dialog, roadmap_lang_get("Personalize"));
    ssd_widget_set_right_softkey_callback  ( dialog, on_personalize);

@@ -209,7 +209,7 @@ void cost_preferences_show (void) {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
 }
 

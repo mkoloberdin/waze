@@ -245,12 +245,12 @@ static void instrument_segments (int initial)
 	int i;
 	BOOL is_version_mismatch = FALSE;
 
-   if (RoutingContext.route.num_received < 
+   if (RoutingContext.route.num_received <
        RoutingContext.route.num_segments) {
       roadmap_log (ROADMAP_DEBUG, "Skipping segment instrumentation because not all segments have been received yet");
       return;
    }
-   
+
 	if (initial) {
 		request_first_tiles ();
 	}
@@ -1360,7 +1360,7 @@ void navigate_route_request (const PluginLine *from_line,
 	RoutingContext.pos_src = *from_pos;
 	RoutingContext.pos_dst = *to_pos;
 
-	if (from_line){
+	if (from_line && (from_line->line_id != -1)){
 	   roadmap_square_set_current (from_line->square);
 	   roadmap_line_points (from_line->line_id, &line_from_point, &line_to_point);
 

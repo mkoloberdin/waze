@@ -59,7 +59,7 @@ void roadmap_term_of_use(RoadMapCallback callback);
 
 #ifdef IPHONE
 void roadmap_welcome_personalize_later_dialog();
-void welcome_wizard_twitter_dialog(int showIntro);
+void welcome_wizard_twitter_dialog(int afterCreate);
 BOOL roadmap_welcome_wizard_is_first_time(void);
 #endif //IPHONE
 

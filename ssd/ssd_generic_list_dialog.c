@@ -91,7 +91,8 @@ void ssd_generic_list_dialog_show(const char*            title,
    SsdWidget list;
    int flags = 0;
 
-#ifdef OPENGL
+#if defined (OPENGL) || defined (WM6)
+
    /*
     * Borders are fast in OPENGL
     */

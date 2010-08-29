@@ -88,6 +88,14 @@
 #else
 #define  RT_CFG_PRM_REFRAT_Default     	("0.5")
 #endif
+#define  RT_CFG_PRM_KEEP_ALIVE_RATE_Var            RTPrm_KeepAliveRate
+#define  RT_CFG_PRM_KEEP_ALIVE_RATE_Name           ("Keep-alive rate (minutes)")
+#define  RT_CFG_PRM_KEEP_ALIVE_Default             ("5.0")
+
+#define  RT_CFG_PRM_KEEP_ALIVE_RATE_iMin           (0.1F)
+#define  RT_CFG_PRM_KEEP_ALIVE_RATET_iMax          (90.F)
+#define  RT_CFG_PRM_KEEP_ALIVE_RATET_iDef          (5.F)
+
 #define  RT_CFG_PRM_HIRESREFRAT_Var    	RTPrm_HiResRefreshRate
 #define  RT_CFG_PRM_HIRESREFRAT_Name   	("Hi-Res Refresh rate (minutes)")
 #define  RT_CFG_PRM_HIRESREFRAT_Default	("0.25")
@@ -147,6 +155,11 @@ const char*  RT_CFG_GetWebServiceAddress();
 #define  RT_CFG_PRM_IN_DUMP_OFFLINE_Var      RTPrm_InDumpOffline
 #define  RT_CFG_PRM_IN_DUMP_OFFLINE_Name     ("In Dump Offline")
 
+// Is Newbie
+#define  RT_CFG_PRM_IS_NEWBIE_Var      RTPrm_isNewbie
+#define  RT_CFG_PRM_IS_NEWBIE_Name     ("is Newbie")
+#define  RT_CFG_PRM__IS_NEWBIE_Default ("1")
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -164,6 +177,7 @@ typedef enum tagERTVisabilityGroup
    VisGrp_Invisible = 1,
    VisGrp_NickName,
    VisGrp_Anonymous,
+   VisGrp_FacebookNickName,
 
    VisGrp__count,
    VisGrp__invalid
@@ -178,11 +192,17 @@ typedef enum tagERTVisabilityReport
 
    VisRep_Anonymous = 1,
    VisRep_NickName ,
+   VisRep_FacebookNickName ,
 
    VisRep__count,
    VisRep__invalid
 
 }  ERTVisabilityReport;
+
+#define Visability_FacebookNameEnabled    0x04
+#define Visability_FacebookPicEnabled     0x08
+#define Visability_FacebookNameFriends    0x10
+#define Visability_FacebookPicFriends     0x20
 
 const char*          ERTVisabilityGroup_to_string  ( ERTVisabilityGroup e);
 ERTVisabilityGroup   ERTVisabilityGroup_from_string( const char* szE);

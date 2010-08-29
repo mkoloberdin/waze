@@ -24,8 +24,7 @@
 #ifndef __ROADMAP_IPHONELIST_MENU__H
 #define __ROADMAP_IPHONELIST_MENU__H
 
-typedef UIView *(*ViewForCellCallback) (void *value, CGRect viewRect, UIView *cellView);
-
+typedef void (*ViewForCellCallback) (void *value, CGRect viewRect, UIView *parentView);
 
 void roadmap_list_menu_custom_refresh (void*                  list,
                                        const char*            title,
@@ -38,7 +37,8 @@ void roadmap_list_menu_custom_refresh (void*                  list,
                                        ViewForCellCallback    custom_view_callback,
                                        void*                  context, 
                                        int                    list_height,
-                                       BOOL                   add_next_button);
+                                       BOOL                   add_next_button,
+                                       list_menu_empty_message* empty_message);
 
 void* roadmap_list_menu_custom (const char*           title,
                                 int                   count,
@@ -50,7 +50,8 @@ void* roadmap_list_menu_custom (const char*           title,
                                 ViewForCellCallback   custom_view_callback,
                                 void*                 context, 
                                 int                   list_height,
-                                BOOL                  add_next_button);
+                                BOOL                  add_next_button,
+                                list_menu_empty_message* empty_message);
 
 
 
@@ -59,6 +60,8 @@ void* roadmap_list_menu_custom (const char*           title,
    int                     exit_code;
    int                     tableHeight;
 	NSMutableArray				*dataArray;
+   UIScrollView            *emptyListView;
+   RoadMapCallback         emptyListCb;
 	struct {
 		PFN_ON_ITEM_SELECTED on_item_selected;
 		PFN_ON_ITEM_SELECTED on_item_deleted;
@@ -70,7 +73,8 @@ void* roadmap_list_menu_custom (const char*           title,
 }
 
 @property (nonatomic) PFN_ON_DIALOG_CLOSED		dismissListCallback;
-@property (nonatomic, retain) NSMutableArray	*dataArray;
+@property (nonatomic, retain) NSMutableArray    *dataArray;
+@property (nonatomic, retain) UIView            *emptyListView;
 
 - (void) activateSimpleWithName:(const char           *)name
                    andItemsFile:(const char           *) items_file
@@ -94,7 +98,8 @@ void* roadmap_list_menu_custom (const char*           title,
           andDetailButtonCallback:(SsdSoftKeyCallback)detail_button_callback
                     andListHeight:(int)list_height
                andAddDetailButton:(int)add_next_button
-                       andRefresh:(BOOL)refresh;
+                       andRefresh:(BOOL)refresh
+                         andEmpty:(list_menu_empty_message*)empty_message;
 
 - (void) activateCustomWithTitle:(const char*)title
                         andCount:(int)count
@@ -107,7 +112,8 @@ void* roadmap_list_menu_custom (const char*           title,
                       andContext:(void*)context
                    andListHeight:(int)list_height
               andAddDetailButton:(BOOL)add_next_button
-                      andRefresh:(BOOL)refresh;
+                      andRefresh:(BOOL)refresh
+                        andEmpty:(list_menu_empty_message*)empty_message;
 
 @end
 

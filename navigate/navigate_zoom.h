@@ -27,7 +27,8 @@
 
 void navigate_zoom_update (int distance,
                            int distance_to_prev,
-                           int distance_to_next);
+                           int distance_to_next,
+                           int current_road_type);
 
 int navigate_zoom_get_scale (void);
 

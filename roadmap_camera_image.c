@@ -194,7 +194,7 @@ BOOL roadmap_camera_image_download( const char* image_id,  void* context_cb, Ima
     	download_cache_add( image_path );
     	// The file exists - no need to download
     	download_cb( context_cb, 0, image_path );
-    	free( image_path );
+    	roadmap_path_free( image_path );
     }
     else
     {
@@ -338,7 +338,7 @@ static void download_done_callback( void *context_cb, char *last_modified )
 
 	// Deallocate the download context
 	free( context->data );
-	free( context->image_path );
+	roadmap_path_free( context->image_path );
 	free( context );
 }
 
@@ -523,7 +523,7 @@ static BOOL roadmap_camera_image_uploader( RoadMapDownloadCallbacks *callbacks,
     else
     {
     	roadmap_log( ROADMAP_WARNING, "File upload error on socket connect %s", full_path );
-    	free( full_path );
+    	roadmap_path_free( full_path );
     	free( ctx );
     	res = FALSE;
     }
@@ -645,7 +645,7 @@ static void upload_error_callback( void *context ){
 	upload_context *  ctx = (upload_context *)context;
 	roadmap_log(ROADMAP_ERROR,"error in uploading image : %s",ctx->full_path);
 	(*ctx->cb ) (ctx->context);
-	free(ctx->full_path);
+	roadmap_path_free(ctx->full_path);
    free(ctx);
 }
 
@@ -677,7 +677,7 @@ static void upload_done( void *context, const char *format, ...){
 		(*ctx->cb) (ctx->context);
 	}
 
-	free(ctx->full_path);
+	roadmap_path_free(ctx->full_path);
 	free(ctx);
 }
 

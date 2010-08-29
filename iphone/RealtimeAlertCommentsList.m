@@ -49,6 +49,7 @@
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "roadmap_mood.h"
+#include "roadmap_social_image.h"
 #include "roadmap_path.h"
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
@@ -63,10 +64,56 @@
 #include "iphoneRealtimeAlertCommentsList.h"
 
 #define MAX_COMMENTS_ENTRIES 100
-#define ABUSE_TAG 1
+
+enum tags {
+   ABUSE_TAG = 1,
+   CONTENT_TAG,
+   MOOD_TAG,
+   PICTURE_TAG,
+   ALERT_TAG
+};
+
+typedef struct {
+   void *delegate;
+   int   alert;
+   int   comment;
+} comments_list_context;
 
 
+static CommentsListView *gCommentsView = NULL;
 
+
+///////////////////////////////////////////////////////////////////////////////////////////
+static void image_download_cb ( void* context, int status, RoadMapImage image ){
+   comments_list_context* list_context = (comments_list_context*)context;
+   if (list_context->delegate &&
+       list_context->delegate == (void *)gCommentsView &&
+       status == 0) {
+      [gCommentsView setImage:image alert:list_context->alert comment:list_context->comment];
+      free(list_context);
+   }
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+static void set_download_delegate (CommentsListView *commentsView) {
+   if (gCommentsView != commentsView)
+      gCommentsView = commentsView;
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////
+static void image_download (int alert, int comment, void* delegate) {
+   comments_list_context* list_context;
+   list_context = malloc( sizeof( comments_list_context ) );
+   roadmap_check_allocated(list_context);
+   list_context->delegate = delegate;
+   list_context->alert = alert;
+   list_context->comment = comment;
+   
+   set_download_delegate(delegate);
+   roadmap_social_image_download( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, alert, comment, SOCIAL_IMAGE_SIZE_SQUARE, list_context, image_download_cb );
+}
+
+   
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void report_abuse_confirm_dlg_callback(int exit_code, void *context){
    CommentsListView *commentsView;
@@ -98,19 +145,225 @@ int RealtimeAlertCommentsList(int iAlertId)
 ///////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////
 @implementation CommentsListView
-@synthesize alertId;
+
+- (void) resizeButton:(UIButton *)button byMe:(BOOL)by_me showPic:(BOOL)show_pic bSelected:(BOOL)selected yPos:(int)y_pos
+{
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   iphoneLabel *label;
+   UIImageView *imageView;
+   UIView *view;
+   CGRect rect;
+   int x_margin;
+   int height, width;
+   int pic_width;
+   UIButton *abuseBtn = (UIButton *)[scrollView viewWithTag:ABUSE_TAG];
 
 
+   label = (iphoneLabel *)[button viewWithTag:CONTENT_TAG];
+   
+   if (!by_me) {
+      //left side bubble
+      x_margin = 25;
+   } else {
+      //right side bubble
+      x_margin = 5;
+   }
+   if (show_pic) {
+      pic_width = 50;
+   } else {
+      pic_width = 20;
+   }
+   
+   if (selected)
+      pic_width += abuseBtn.bounds.size.width + 10;
+
+   rect = CGRectMake(x_margin, 5, scrollView.bounds.size.width - 10 - 25 - 20 - pic_width, minCommentHeight - 10);
+   //label.backgroundColor = [UIColor redColor];
+   label.frame = rect;
+   
+   [label sizeToFit];
+   height = label.bounds.size.height + 10;
+   if (height < minCommentHeight) {
+      rect = label.frame;
+      rect.size.height = minCommentHeight - 10;
+      label.frame = rect;
+      height = minCommentHeight;
+   }
+   
+   width = 45 + label.bounds.size.width + pic_width;
+   
+   if (!by_me)
+      rect = CGRectMake(5, y_pos, width, height);
+   else
+      rect = CGRectMake(scrollView.bounds.size.width - 5 - width,
+                                                        y_pos, width, height);
+   button.frame = rect;
+   
+   //show picture
+   if (show_pic){
+      view = (UIView *)[button viewWithTag:PICTURE_TAG];
+      rect = CGRectMake(button.bounds.size.width - (30-x_margin) - pic_width - 2,
+                        button.bounds.size.height - 8 - 50 - 2,
+                        50 +2, 50 +2);
+      view.frame = rect;
+      view.hidden = NO;
+   }
+   
+   //show mood
+   imageView = (UIImageView *)[button viewWithTag:MOOD_TAG];
+   rect = CGRectMake(button.bounds.size.width - (30-x_margin) - pic_width - 2 - 12,
+                     button.bounds.size.height - 1 - imageView.bounds.size.height,
+                     imageView.bounds.size.width, imageView.bounds.size.height);
+   [imageView setFrame:rect];
+}
+
+- (void) resizeViews
+{
+   UIButton *button;
+   iphoneLabel *label;
+   UIImage *image;
+   UIImage *leftImage = NULL;
+   UIImage *leftImageSel = NULL;
+   CGRect rect;
+   CGFloat viewPosY;
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   int iCount = 0;
+   RTAlert *alert;
+   RTAlertCommentsEntry *CommentEntry;
+   BOOL showAbuse = FALSE;
+   UIButton *abuseBtn = (UIButton *)[scrollView viewWithTag:ABUSE_TAG];
+   
+   image = roadmap_iphoneimage_load("comments_left");
+   leftImage = [image stretchableImageWithLeftCapWidth:50 topCapHeight:50];
+   [image release];
+   image = roadmap_iphoneimage_load("comments_left_sel");
+   leftImageSel = [image stretchableImageWithLeftCapWidth:50 topCapHeight:50];
+   [image release];
+   
+   viewPosY = 5;
+   
+   alert = RTAlerts_Get_By_ID(alertId);
+   
+   button = (UIButton *)[scrollView viewWithTag:ALERT_TAG];
+   [self resizeButton:button byMe:alert->bAlertByMe showPic:alert->bShowFacebookPicture bSelected:FALSE yPos:viewPosY];
+   viewPosY += button.bounds.size.height + 10;
+  
+   CommentEntry = alert->Comment;
+   
+   while (iCount < MAX_COMMENTS_ENTRIES && (CommentEntry != NULL))
+   {
+      button = (UIButton *)[scrollView viewWithTag:iCount + 100];
+
+      [self resizeButton:button
+                    byMe:CommentEntry->comment.bCommentByMe 
+                  showPic:CommentEntry->comment.bShowFacebookPicture
+               bSelected:(iCount == selectedComment)
+                    yPos:viewPosY];
+      
+      if (selectedComment == iCount) {
+         [button setBackgroundImage:leftImageSel forState:UIControlStateNormal];
+         showAbuse = TRUE;
+         rect = button.frame;
+         CGRect btnRect = abuseBtn.frame;
+         btnRect.origin.y = (rect.origin.y + (rect.size.height - btnRect.size.height) /2);
+         btnRect.origin.x = rect.origin.x + rect.size.width - 10 - btnRect.size.width;
+         if (btnRect.origin.x > scrollView.bounds.size.width - abuseBtn.bounds.size.width - 5)
+            btnRect.origin.x = scrollView.bounds.size.width - abuseBtn.bounds.size.width - 5;
+         abuseBtn.frame = btnRect;
+      } else {
+         if (!CommentEntry->comment.bCommentByMe)
+            [button setBackgroundImage:leftImage forState:UIControlStateNormal];
+      }
+      
+      viewPosY += button.bounds.size.height + 10;
+      
+      iCount++;
+      CommentEntry = CommentEntry->next;
+   }
+   
+   button = (UIButton *)[scrollView viewWithTag:iCount + 100];
+   label = (iphoneLabel *)[button viewWithTag:CONTENT_TAG];
+   
+   //right side bubble
+   rect = CGRectMake(5, 5, 170, minCommentHeight - 10);
+   //label.backgroundColor = [UIColor redColor];
+   label.frame = rect;
+   rect = CGRectMake(scrollView.bounds.size.width - 205, viewPosY, 200, minCommentHeight);
+   button.frame = rect;
+   viewPosY += button.bounds.size.height + 10;
+   
+   if (showAbuse) {
+      
+   } else {
+   }
+   
+   scrollView.contentSize = CGSizeMake (scrollView.bounds.size.width, viewPosY + 10);
+}
+
+- (void) setImage:(RoadMapImage)image alert:(int)alert_id comment:(int)comment_id
+{
+   UIButton *button;
+   UIImageView *pictureImage;
+   unsigned char* image_buf;
+   int buf_size;
+
+   if (alert_id != alertId ||
+       comment_id > RTAlerts_Get_By_ID(alertId)->iNumComments) {
+      roadmap_log (ROADMAP_DEBUG, "Wrong image received (alert id: %d ; comment id: %d) current alert id: %d and comment count: %d",
+                   alert_id, comment_id, alertId, RTAlerts_Get_By_ID(alertId)->iNumComments);
+      return;
+   }
+   
+   buf_size = roadmap_canvas_buf_from_image(image, &image_buf);
+   if (!image_buf) {
+      roadmap_log(ROADMAP_WARNING, "Empty image buffer");
+      return;
+   }
+   
+   int width = roadmap_canvas_image_width(image);
+   int height = roadmap_canvas_image_height(image);
+   
+   // Copy the buffer to UIImage
+   CGDataProviderRef provider = CGDataProviderCreateWithData(NULL, image_buf, buf_size, NULL);
+   int bitsPerComponent = 8;
+   int bitsPerPixel = 32;
+   int bytesPerRow = 4*width;
+   CGColorSpaceRef colorSpaceRef = CGColorSpaceCreateDeviceRGB();
+   CGBitmapInfo bitmapInfo = kCGBitmapByteOrderDefault | kCGImageAlphaLast;
+   CGColorRenderingIntent renderingIntent = kCGRenderingIntentDefault;
+   CGImageRef imageRef = CGImageCreate(width, height, bitsPerComponent, bitsPerPixel, bytesPerRow, colorSpaceRef, bitmapInfo, provider, NULL, NO, renderingIntent);
+   
+   UIImage *img_uncached = [UIImage imageWithCGImage:imageRef];
+   UIImage *img = [UIImage imageWithData: UIImagePNGRepresentation(img_uncached)]; //force cache
+   
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   if (comment_id == -1)
+      button = (UIButton *)[scrollView viewWithTag:ALERT_TAG];
+   else
+      button = (UIButton *)[scrollView viewWithTag:comment_id + 99];
+   
+   if (!button) {
+      roadmap_log (ROADMAP_WARNING, "Could not find button to update");
+      return;
+   }
+   
+   pictureImage = (UIImageView *)[[[button viewWithTag:PICTURE_TAG] subviews] objectAtIndex:0];
+   pictureImage.image = img;
+   
+   CGDataProviderRelease(provider);
+   CGImageRelease(imageRef);
+   free(image_buf);
+}
 
 - (void) onShowAlert
 {
-   RTAlerts_Popup_By_Id([alertId intValue]);
+   RTAlerts_Popup_By_Id(alertId, FALSE);
 	roadmap_main_show_root(NO);
 }
 
 - (void) onAddComment
 {
-	real_time_post_alert_comment_by_id([alertId intValue]);
+	real_time_post_alert_comment_by_id(alertId);
 }
 
 - (int) getCommentFromCount: (int) count
@@ -119,7 +372,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    RTAlertCommentsEntry *CommentEntry;
    int i;
    
-   alert = RTAlerts_Get_By_ID([alertId intValue]);
+   alert = RTAlerts_Get_By_ID(alertId);
    CommentEntry = alert->Comment;
    
    for (i = 0; i < count; i++) {
@@ -135,10 +388,10 @@ int RealtimeAlertCommentsList(int iAlertId)
 - (void) onReportAbuseConfirmed
 {
    UIButton *abuseBtn;
-   if (abusedComment > 0)
-      Realtime_ReportAbuse([alertId intValue], abusedComment);
+   if (selectedComment > 0)
+      Realtime_ReportAbuse(alertId, selectedComment);
    
-   abusedComment = -1;
+   selectedComment = -1;
    abuseBtn = (UIButton *)[self.view viewWithTag:ABUSE_TAG];
    abuseBtn.hidden = YES;
 }
@@ -148,44 +401,51 @@ int RealtimeAlertCommentsList(int iAlertId)
    ssd_confirm_dialog_custom (roadmap_lang_get("Report abuse"), roadmap_lang_get("Reports by several users will disable this user from reporting"), FALSE,report_abuse_confirm_dlg_callback, self, roadmap_lang_get("Report"), roadmap_lang_get("Cancel")) ;
 }
 
-- (void) onToggleAbuse: (id) commentButton
+- (void) onSelectComment: (id) commentButtonId
 {
    CGRect rect, btnRect;
    UIButton *abuseBtn;
-   int commentId = ((UIView *)commentButton).tag;   
+   UIButton *commentBtn = (UIButton *)commentButtonId;
+   int commentId = commentBtn.tag -100;   
    
    abuseBtn = (UIButton *)[self.view viewWithTag:ABUSE_TAG];
    
-   if (commentId == abusedComment) {
-      if (abuseBtn.hidden == NO)
+   if (commentId == selectedComment) {
          abuseBtn.hidden = YES;
-      else
-         abuseBtn.hidden = NO;
+      selectedComment = -1;
    } else {
-      abusedComment = commentId;
-      rect = ((UIView *)commentButton).frame;
+      selectedComment = commentId;
+      rect = commentBtn.frame;
       btnRect = abuseBtn.frame;
       btnRect.origin.y = (rect.origin.y + (rect.size.height - btnRect.size.height) /2);
       btnRect.origin.x = rect.origin.x + rect.size.width + 10;
+      if (btnRect.origin.x > self.view.bounds.size.width - abuseBtn.bounds.size.width - 5)
+         btnRect.origin.x = self.view.bounds.size.width - abuseBtn.bounds.size.width - 5;
       abuseBtn.frame = btnRect;
       abuseBtn.hidden = NO;
    }
+   /*
+   [UIView beginAnimations:NULL context:NULL];
+   [UIView setAnimationDuration:0.5f];
+   [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+   */
+   [self resizeViews];
+   /*
+   [UIView commitAnimations];
+    */
 }
 
-- (void)drawContent
+- (void)createContent
 {
    UIScrollView *scrollView = (UIScrollView *) self.view;
-   int viewCount = [[scrollView subviews] count];
-   for (int i = 0; i < viewCount; ++i) {
-      [[[scrollView subviews] objectAtIndex:0] removeFromSuperview];
-   }
-   
    int SavedZoom = -1;
    RoadMapPosition SavedPosition;
    UIImage *image = NULL;
    UIImage *leftImage = NULL;
+   UIImage *leftImageSel = NULL;
    UIImage *rightImage = NULL;
    UIImageView *imageView = NULL;
+   UIView *view;
    RTAlert *alert;
    NSString *title;
    NSString *content;
@@ -218,31 +478,20 @@ int RealtimeAlertCommentsList(int iAlertId)
    image = roadmap_iphoneimage_load("comments_left");
    leftImage = [image stretchableImageWithLeftCapWidth:50 topCapHeight:50];
    [image release];
+   image = roadmap_iphoneimage_load("comments_left_sel");
+   leftImageSel = [image stretchableImageWithLeftCapWidth:50 topCapHeight:50];
+   [image release];
    image = roadmap_iphoneimage_load("comments_right");
-   rightImage = [image stretchableImageWithLeftCapWidth:50 topCapHeight:10];
+   rightImage = [image stretchableImageWithLeftCapWidth:50 topCapHeight:50];
    [image release];
-   
-   //abuse button
-   button = [UIButton buttonWithType:UIButtonTypeCustom];
-   button.tag = ABUSE_TAG;
-   abusedComment = -1;
-   button.hidden = YES;
-   image = roadmap_iphoneimage_load("button_report_abuse");
-   [button setBackgroundImage:image forState:UIControlStateNormal];
-   [image release];
-   image = roadmap_iphoneimage_load("button_report_abuse_down");
-   [button setBackgroundImage:image forState:UIControlStateHighlighted];
-   [image release];
-   [button sizeToFit];
-   [button addTarget:self action:@selector(onReportAbuse) forControlEvents:UIControlEventTouchUpInside];
-   [scrollView addSubview:button];
+   minCommentHeight = leftImage.size.height;
    
    
    detail_str[0] = 0;
    
    /////////////
    //show alert
-   alert = RTAlerts_Get_By_ID([alertId intValue]);
+   alert = RTAlerts_Get_By_ID(alertId);
    position.longitude = alert->iLongitude;
    position.latitude = alert->iLatitude;
    
@@ -250,8 +499,13 @@ int RealtimeAlertCommentsList(int iAlertId)
    //Set detail string
    
    //Add desc
+   
+   //snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+   //         - strlen(detail_str), "%s - %s", alert->sAlertType, alert->sLocationStr);
+   
+   if (alert->sDescription && alert->sDescription[0])
    snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-            - strlen(detail_str), "%s", alert->sDescription);
+               - strlen(detail_str), "%s\n", alert->sDescription);
    
    //Show time of report
    now = time(NULL);
@@ -261,11 +515,11 @@ int RealtimeAlertCommentsList(int iAlertId)
    
    if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
       snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-               - strlen(detail_str),"\n%s",
+               - strlen(detail_str),"%s",
                roadmap_lang_get("Updated "));
    else
       snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-               - strlen(detail_str),"\n%s",
+               - strlen(detail_str),"%s",
                roadmap_lang_get("Reported "));
    
    
@@ -339,59 +593,82 @@ int RealtimeAlertCommentsList(int iAlertId)
    snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
             - strlen(detail_str), roadmap_lang_get("%s %s Away"), dist_str, roadmap_lang_get(unit_str));
    
-   //Create the report frame
-   image = roadmap_iphoneimage_load("comments_alert");
-   if (image) {
-      rect = CGRectMake((scrollView.bounds.size.width - image.size.width)/2, viewPosY,
-                        [image size].width, [image size].height);
+   
+   
       button = [UIButton buttonWithType:UIButtonTypeCustom];
-      [button setFrame:rect];
-      [button setBackgroundImage:[image stretchableImageWithLeftCapWidth:15 topCapHeight:15]
-                        forState:UIControlStateNormal];
       [button addTarget:self action:@selector(onShowAlert) forControlEvents:UIControlEventTouchUpInside];
-      [image release];
-      [scrollView addSubview:button];
+   if (!alert->bAlertByMe) {
+      image = leftImage;
+   } else {
+      image = rightImage;
    }
    
-   //Set title	
-   title = [NSString stringWithUTF8String:(" %s",alert->sLocationStr)];
-   rect = button.frame;
-   rect.size.width -= 10;
-   rect.size.height = (rect.size.height - 10) /3;
-   rect.origin.x += 5;
-   rect.origin.y += 5;
-   label = [[iphoneLabel alloc] initWithFrame:rect];
-   [label setText:title];
-   [label setTextColor:[UIColor redColor]];
-   [scrollView addSubview:label];
-   [label release];
+   [button setBackgroundImage:image
+                     forState:UIControlStateNormal];
+   button.tag = ALERT_TAG;
+   [scrollView addSubview:button];
    
-   //Set details
+   /*
+   //comment description
+   snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
+            - strlen(CommentStr), "%s%s",
+            CommentEntry->comment.sDescription, "\n");
+   
+   comment_time = (time_t)CommentEntry->comment.i64ReportTime;
+   //add time stamp
+   snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
+            - strlen(CommentStr), "%s ",
+            roadmap_time_get_hours_minutes(comment_time));
+   
+   snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
+            - strlen(CommentStr), " %s %s", roadmap_lang_get("by"),
+            CommentEntry->comment.sPostedBy);
+   */
+   
    content = [NSString stringWithUTF8String:detail_str];
-   rect = button.frame;
-   rect.size.width -= 10;
-   rect.size.height = (button.frame.size.height - 10)* 2/3;
-   rect.origin.x += 5;
-   rect.origin.y += 5 + (button.frame.size.height - 10) /3;
-   label = [[iphoneLabel alloc] initWithFrame:rect];
+   label = [[iphoneLabel alloc] initWithFrame:CGRectZero];
    [label setText:content];
    [label setNumberOfLines:0];
    [label setLineBreakMode:UILineBreakModeWordWrap];
-   [label setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin];
-   old_size = [label frame].size;
-   [label sizeToFit];
-   if (old_size.width > [label frame].size.width) {
-      rect = [label frame];
-      rect.size.width = old_size.width;
-      [label setFrame:rect];
-   }
-   rect = [button frame];
-   rect.size.height += [label bounds].size.height - old_size.height;
-   [button setFrame:rect];
-   [scrollView addSubview:label];
+   [label setBackgroundColor:[UIColor clearColor]];
+   label.tag = CONTENT_TAG;
+   label.autoresizesSubviews = YES;
+   label.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin;
+   [button addSubview:label];
    [label release];
    
-   viewPosY += button.frame.origin.y + button.frame.size.height + 5;
+   //picture
+   view = [[UIView alloc] initWithFrame:CGRectZero];
+   view.tag = PICTURE_TAG;
+   view.backgroundColor = [UIColor whiteColor];
+   view.hidden = YES;
+   [button addSubview:view];
+   [view release];
+   image = roadmap_iphoneimage_load("facebook_default_image");
+   imageView = [[UIImageView alloc] initWithImage:image];
+   rect = imageView.frame;
+   rect.origin.x = 1;
+   rect.origin.y = 1;
+   imageView.frame = rect;
+   [view addSubview:imageView];
+   [imageView release];
+   if (alert->bShowFacebookPicture){
+      //TODO: load real image here
+      //roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, alert->iID, CommentEntry->comment.iID,  SOCIAL_IMAGE_SIZE_SQUARE, facebook_image );
+      image_download( alert->iID, -1, self);
+   }
+   
+   //mood
+   mood_str = roadmap_mood_to_string(alert->iMood);
+   image = roadmap_iphoneimage_load(mood_str);
+   roadmap_path_free(mood_str);
+   if (image) {
+      imageView = [[UIImageView alloc] initWithImage:image];
+      [image release];
+      imageView.tag = MOOD_TAG;
+      [button addSubview:imageView];
+      [imageView release];
+   }
    
    /////////////
    //show comments
@@ -403,50 +680,19 @@ int RealtimeAlertCommentsList(int iAlertId)
    {
       CommentStr[0] = 0;
       
+      button = [UIButton buttonWithType:UIButtonTypeCustom];
+      
       if (!CommentEntry->comment.bCommentByMe) {
          image = leftImage;
+         [button addTarget:self action:@selector(onSelectComment:) forControlEvents:UIControlEventTouchUpInside];
       } else {
          image = rightImage;
       }
       
-      
-      //imageView = [[UIImageView alloc] initWithImage:image];
-      button = [UIButton buttonWithType:UIButtonTypeCustom];
-      
       [button setBackgroundImage:image
                         forState:UIControlStateNormal];
-      
-      rect.size = image.size;
-      rect.origin.y = viewPosY;
-      rect.origin.x = 5;
-      if (!CommentEntry->comment.bCommentByMe) {
-         //left side bubble
-         commentRect = rect;
-         commentRect.origin.x += 25.0f;
-         commentRect.size.height -= 10;
-         
-         [button addTarget:self action:@selector(onToggleAbuse:) forControlEvents:UIControlEventTouchUpInside];
-         button.tag = CommentEntry->comment.iID;
-      } else {
-         //right side bubble
-         rect.origin.x = scrollView.frame.size.width - image.size.width -5.0f;
-         commentRect = rect;
-         commentRect.origin.x += 5.0f;
-         commentRect.size.height -= 10;
-      }
-      commentRect.origin.y += 5;
-      commentRect.size.width -= 30;
-      
-      //[imageView setFrame:rect];
-      //[scrollView addSubview:imageView];
-      [button setFrame:rect];
+      button.tag = iCount + 100;
       [scrollView addSubview:button];
-      //[imageView release];
-      
-      
-      //viewPosY += imageView.frame.size.height + 5;
-      viewPosY += button.frame.size.height + 5;
-      
       
       //comment description
       snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
@@ -465,34 +711,50 @@ int RealtimeAlertCommentsList(int iAlertId)
       
       
       content = [NSString stringWithUTF8String:CommentStr];
-      label = [[iphoneLabel alloc] initWithFrame:commentRect];
+      label = [[iphoneLabel alloc] initWithFrame:CGRectZero];
       [label setText:content];
-      [label setNumberOfLines:2];
+      [label setNumberOfLines:0];
       [label setLineBreakMode:UILineBreakModeWordWrap];
-      [label setAdjustsFontSizeToFitWidth:YES];
-      [label setMinimumFontSize:6.0f];
       [label setBackgroundColor:[UIColor clearColor]];
-      [scrollView addSubview:label];
+      label.tag = CONTENT_TAG;
+      label.autoresizesSubviews = YES;
+      label.autoresizingMask = UIViewAutoresizingFlexibleBottomMargin;
+      [button addSubview:label];
       [label release];
       
-      //show mood
+      //picture
+      view = [[UIView alloc] initWithFrame:CGRectZero];
+      view.tag = PICTURE_TAG;
+      view.backgroundColor = [UIColor whiteColor];
+      view.hidden = YES;
+      [button addSubview:view];
+      [view release];
+      image = roadmap_iphoneimage_load("facebook_default_image");
+      imageView = [[UIImageView alloc] initWithImage:image];
+      rect = imageView.frame;
+      rect.origin.x = 1;
+      rect.origin.y = 1;
+      imageView.frame = rect;
+      [view addSubview:imageView];
+      [imageView release];
+      
+      if (CommentEntry->comment.bShowFacebookPicture){
+         //TODO: load real image here
+         //roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, alert->iID, CommentEntry->comment.iID,  SOCIAL_IMAGE_SIZE_SQUARE, facebook_image );
+         image_download( alert->iID, CommentEntry->comment.iID, self);
+      }
+      
+      //mood
       mood_str = roadmap_mood_to_string(CommentEntry->comment.iMood);
       image = roadmap_iphoneimage_load(mood_str);
       roadmap_path_free(mood_str);
       if (image) {
          imageView = [[UIImageView alloc] initWithImage:image];
          [image release];
-         rect = imageView.frame;
-         rect.origin.y = commentRect.origin.y + commentRect.size.height - 1 - rect.size.height;
-         if (!roadmap_lang_rtl())
-            rect.origin.x = commentRect.origin.x + commentRect.size.width - 1 - rect.size.width;
-         else
-            rect.origin.x = commentRect.origin.x + 1;
-         [imageView setFrame:rect];
-         [scrollView addSubview:imageView];
+         imageView.tag = MOOD_TAG;
+         [button addSubview:imageView];
          [imageView release];
       }
-      
       
       iCount++;
       CommentEntry = CommentEntry->next;
@@ -502,26 +764,13 @@ int RealtimeAlertCommentsList(int iAlertId)
    //Add comment button
    image = rightImage;
    CommentStr[0] = 0;
-   rect.size = image.size;
-   rect.origin.y = viewPosY;
-   rect.origin.x = 5;
-   
-   //right side bubble
-   rect.origin.x = scrollView.frame.size.width - rect.size.width -5.0f;
-   commentRect = rect;
-   commentRect.origin.x += 5.0f;
-   commentRect.size.height -= 10;
-   commentRect.origin.y += 5;
-   commentRect.size.width -= 30;
    
    button = [UIButton buttonWithType:UIButtonTypeCustom];
-   [button setFrame:rect];
+   [button addTarget:self action:@selector(onAddComment) forControlEvents:UIControlEventTouchUpInside];
    [button setBackgroundImage:image
                      forState:UIControlStateNormal];
-   [button addTarget:self action:@selector(onAddComment) forControlEvents:UIControlEventTouchUpInside];
+   button.tag = iCount + 100;
    [scrollView addSubview:button];
-   
-   viewPosY += button.frame.size.height + 5;
    
    //comment description
    snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
@@ -529,22 +778,30 @@ int RealtimeAlertCommentsList(int iAlertId)
             roadmap_lang_get("Add a comment"));
    
    content = [NSString stringWithUTF8String:CommentStr];
-   
-   label = [[iphoneLabel alloc] initWithFrame:commentRect];
+   label = [[iphoneLabel alloc] initWithFrame:CGRectZero];
    [label setText:content];
-   [label setNumberOfLines:2];
+   [label setNumberOfLines:0];
    [label setLineBreakMode:UILineBreakModeWordWrap];
-   [label setAdjustsFontSizeToFitWidth:YES];
-   [label setMinimumFontSize:6.0f];
    [label setBackgroundColor:[UIColor clearColor]];
-   [scrollView addSubview:label];
+   label.tag = CONTENT_TAG;
+   [button addSubview:label];
    [label release];
    
    
-   UINavigationBar *nav = [[self navigationController] navigationBar];
-   if (viewPosY < roadmap_main_get_mainbox_height() - [nav bounds].size.height + 1)
-      viewPosY = roadmap_main_get_mainbox_height() - [nav bounds].size.height + 1;
-   [scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+   //abuse button
+   button = [UIButton buttonWithType:UIButtonTypeCustom];
+   button.tag = ABUSE_TAG;
+   selectedComment = -1;
+   button.hidden = YES;
+   image = roadmap_iphoneimage_load("button_report_abuse");
+   [button setBackgroundImage:image forState:UIControlStateNormal];
+   [image release];
+   image = roadmap_iphoneimage_load("button_report_abuse_down");
+   [button setBackgroundImage:image forState:UIControlStateHighlighted];
+   [image release];
+   [button sizeToFit];
+   [button addTarget:self action:@selector(onReportAbuse) forControlEvents:UIControlEventTouchUpInside];
+   [scrollView addSubview:button];
 }
 
 
@@ -554,18 +811,17 @@ int RealtimeAlertCommentsList(int iAlertId)
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
    roadmap_device_event_notification( device_event_window_orientation_changed);
-   //[self drawContent];
 }
 
 
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
-   [self drawContent];
+   [self resizeViews];
 }
 
 
 - (void)viewWillAppear:(BOOL)animated
 {
-	[self drawContent];
+	[self resizeViews];
    
    [super viewWillAppear:animated];
 }
@@ -575,23 +831,24 @@ int RealtimeAlertCommentsList(int iAlertId)
 {
    UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
    [scrollView setBackgroundColor:roadmap_main_table_color()];
+   scrollView.alwaysBounceVertical = YES;
    
    self.view = scrollView;
    [scrollView release];
    
    [self setTitle: [NSString stringWithUTF8String:roadmap_lang_get("Comments")]];
    
-   alertId = [[NSNumber alloc] initWithInt:iAlertId];
-   abusedComment = -1;
+   alertId = iAlertId;
+   selectedComment = -1;
+   
+   [self createContent];
    
    roadmap_main_push_view(self);
 }
 
 - (void)dealloc
 {	
-   [alertId release];
-   
-   
+   set_download_delegate(NULL);
    [super dealloc];
 }
 

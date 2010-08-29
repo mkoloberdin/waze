@@ -49,6 +49,7 @@ SsdWidget create_quick_search_menu();
 void search_menu_search_history(void);
 void search_menu_search_favorites(void);
 void search_menu_search_address(void);
+void search_menu_single_search(void);
 void search_menu_search_local(void);
 void search_menu_my_saved_places(void);
 #ifdef IPHONE_NATIVE

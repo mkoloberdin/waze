@@ -21,6 +21,7 @@
 #ifndef  __ADDRESS_SEARCH_DEFS_H__
 #define  __ADDRESS_SEARCH_DEFS_H__
 
+#include "../roadmap_history.h"
 #define  ADSR_WEBSVC_CFG_FILE          ("preferences")
 #define  ADSR_WEBSVC_CFG_TAB           ("Address Search")
 #define  ADSR_WEBSVC_ADDRESS           ("Web-Service Address")
@@ -38,6 +39,11 @@
 #define  LSR_WEBSVC_DEFAULT_PROVIDER_LOGO      ("ls_logo_google")
 #define  LSR_WEBSVC_DEFAULT_PROVIDER           ("google")
 #define  LSR_WEBSVC_DEFAULT_ADDRESS   			("")
+
+#define  SSR_WEBSVC_CFG_FILE          ("preferences")
+#define  SSR_WEBSVC_CFG_TAB           ("Single Search")
+#define  SSR_WEBSVC_ADDRESS           ("Web-Service Address")
+#define  SSR_WEBSVC_DEFAULT_ADDRESS   ("")
 
 #define  LSR_GENERIC_PROVIDER_NAME           ("generic")
 #define  LSR_GENERIC_PROVIDER_ICON           ("ls_icon_generic")
@@ -59,7 +65,7 @@
                                           12 /* house number */   )
 #define  ADSR_ADDRESS_MIN_SIZE         (2)
 #define  LSR_ADDRESS_MIN_SIZE         (2)
-#define  ADSR_MAX_RESULTS              (13)
+#define  ADSR_MAX_RESULTS              (20)
 
 #define  ADDRESS_STRING_MAX_SIZE          (112)
 #define  ADDRESS_HISTORY_CATEGORY         ('A')
@@ -70,11 +76,14 @@
 #define  LSR_MENU_NAME_SUFFIX             ("local search")
 #define  LSR_PROVIDER_LABEL_MAX_SIZE      (128)
 
+#define ADDRESS_CANDIDATE_TYPE_ADRESS 1
+#define ADDRESS_CANDIDATE_TYPE_LS     2
 // Definitions for 'roadmap_history.h' API
 typedef enum tag_search_type
 {
    search_address,
    search_local,
+   single_search,
    __search_types_count
 }  search_types;
 
@@ -89,24 +98,9 @@ typedef struct tag_address_info
 }  address_info, *address_info_ptr;
 
 
-// Definitions for 'roadmap_history.h' API
-typedef enum tag_address_history_item
-{
-   ahi_house_number,
-   ahi_street,
-   ahi_city,
-   ahi_state,
-   ahi_name,
-   ahi_latitude,
-   ahi_longtitude,
-
-   ahi__count,
-   ahi__invalid
-
-}  address_history_item;
-
 typedef struct tag_address_candidate
 {
+   int type;
    double   longtitude;
    double   latitude;
    char     state [ADSR_STATE_STRING_MAX_SIZE   + 1];

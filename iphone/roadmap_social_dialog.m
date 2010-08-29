@@ -42,6 +42,7 @@
 #include "widgets/iphoneCellSwitch.h"
 #include "widgets/iphoneTableHeader.h"
 #include "widgets/iphoneTableFooter.h"
+#include "roadmap_checklist.h"
 #include "roadmap_factory.h"
 #include "roadmap_start.h"
 #include "roadmap_social.h"
@@ -49,26 +50,24 @@
 #include "roadmap_iphoneimage.h"
 #include "ssd_progress_msg_dialog.h"
 #include "roadmap_device_events.h"
-#include "roadmap_browser.h"
 #include "roadmap_social_dialog.h"
 
 static const char*   titleTwitter = "Twitter";
 static const char*   titleFacebook = "Facebook";
 
 
-static int isTwitterModified  = 0;
-
-
 enum IDs {
-	ID_TWITTER_USERNAME = 1,
-	ID_TWITTER_PASSWORD,
-   ID_TWITTER_SEND_REPORTS,
-   ID_TWITTER_DESTINATION_ENABLED,
-   ID_TWITTER_DESTINATION_CITY,
-   ID_TWITTER_DESTINATION_FULL,
-   ID_TWITTER_SEND_MUNCHING,
+	ID_SOCIAL_USERNAME = 1,
+	ID_SOCIAL_PASSWORD,
+   ID_SOCIAL_SEND_REPORTS,
+   ID_SOCIAL_DESTINATION_ENABLED,
+   ID_SOCIAL_DESTINATION_CITY,
+   ID_SOCIAL_DESTINATION_FULL,
+   ID_SOCIAL_SEND_MUNCHING,
    ID_FACEBOOK_CONNECT,
-   ID_FACEBOOK_DISCONNECT
+   ID_FACEBOOK_DISCONNECT,
+   ID_FACEBOOK_SHOW_NAME,
+   ID_FACEBOOK_SHOW_PICTURE
 };
 
 #define MAX_IDS 25
@@ -77,8 +76,87 @@ enum IDs {
 static char gsTwitterUsername[256];
 static char gsTwitterPassword[256];
 
-static TwitterDialog *gs_FacebookDialog = NULL;
+static SocialDialog *gs_FacebookDialog = NULL;
+static RoadMapCallback id_callbacks[MAX_IDS];
+static const char *gsPrivacyLabels[3];
 
+static void init_labels(void) {
+   static BOOL initialized = FALSE;
+   
+   if (initialized)
+      return;
+   
+   gsPrivacyLabels[0] = strdup(roadmap_lang_get("Don't show"));
+   gsPrivacyLabels[1] = strdup(roadmap_lang_get("To friends only"));
+   gsPrivacyLabels[2] = strdup(roadmap_lang_get("To everyone"));
+   
+   initialized = TRUE;
+}
+
+static void fb_name_callback (int value, int group) {
+   roadmap_facebook_set_show_name(value);
+   //if (value == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED)
+      
+   roadmap_main_pop_view(YES);
+}
+
+static void fb_picture_callback (int value, int group) {
+   roadmap_facebook_set_show_picture(value);
+   
+   roadmap_main_pop_view(YES);
+}
+
+static void show_privacy_options(BOOL picture_privacy) {
+   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+	NSMutableArray *groupArray = NULL;
+   NSMutableDictionary *dict = NULL;
+   NSString *text;
+   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+   RoadMapChecklist *privacyView;
+   int i;
+   int show_mode;
+   
+   if (picture_privacy)
+      show_mode = roadmap_facebook_get_show_picture();
+   else
+      show_mode = roadmap_facebook_get_show_name();
+   
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   for (i = 0; i < 3; ++i) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:roadmap_lang_get(gsPrivacyLabels[i])];
+      [dict setValue:text forKey:@"text"];
+      
+      if (show_mode == i) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+   }
+   [dataArray addObject:groupArray];
+   
+   if (picture_privacy) {
+      text = [NSString stringWithUTF8String:roadmap_lang_get ("Show picture")];
+      privacyView = [[RoadMapChecklist alloc] 
+                     activateWithTitle:text andData:dataArray andHeaders:NULL
+                     andCallback:fb_picture_callback andHeight:60 andFlags:0];
+   } else {
+      text = [NSString stringWithUTF8String:roadmap_lang_get ("Show name")];
+      privacyView = [[RoadMapChecklist alloc] 
+                     activateWithTitle:text andData:dataArray andHeaders:NULL
+                     andCallback:fb_name_callback andHeight:60 andFlags:0];
+   }
+   
+   
+}
+
+static void show_fb_name (void) {
+   show_privacy_options(FALSE);
+}
+
+static void show_fb_picture (void) {
+   show_privacy_options(TRUE);   
+}
 
 void roadmap_facebook_refresh_connection (void) {
    if (gs_FacebookDialog)
@@ -93,12 +171,14 @@ void roadmap_facebook_setting_dialog(void) {
    if (gs_FacebookDialog)
       return;
    
-	gs_FacebookDialog = [[TwitterDialog alloc] initWithStyle:UITableViewStyleGrouped];
+   init_labels();
+   
+	gs_FacebookDialog = [[SocialDialog alloc] initWithStyle:UITableViewStyleGrouped];
 	[gs_FacebookDialog showFacebook];
 }
 
 void roadmap_twitter_setting_dialog(void) {
-	TwitterDialog *dialog = [[TwitterDialog alloc] initWithStyle:UITableViewStyleGrouped];
+	SocialDialog *dialog = [[SocialDialog alloc] initWithStyle:UITableViewStyleGrouped];
 	[dialog showTwitter];
 }
 
@@ -107,13 +187,15 @@ void roadmap_twitter_setting_dialog(void) {
 
 //////////////////////////////////////////////////////
 //////////////////////////////////////////////////////
-@implementation TwitterDialog
+@implementation SocialDialog
 @synthesize dataArray;
 @synthesize headersArray;
 @synthesize footersArray;
 
 - (id)initWithStyle:(UITableViewStyle)style
 {	
+   int i;
+   
 	self =  [super initWithStyle:style];
 
 	dataArray = [[NSMutableArray arrayWithCapacity:1] retain];
@@ -123,6 +205,13 @@ void roadmap_twitter_setting_dialog(void) {
    strncpy_safe(gsTwitterUsername, roadmap_twitter_get_username(), sizeof (gsTwitterUsername));
    strncpy_safe(gsTwitterPassword, roadmap_twitter_get_password(), sizeof (gsTwitterPassword));
 	
+   isTwitterModified = FALSE;
+   isPrivacyModified = FALSE;
+   
+   for (i=0; i < MAX_IDS; ++i) {
+      id_callbacks[i] = NULL;
+   }
+   
 	return self;
 }
 
@@ -135,7 +224,7 @@ void roadmap_twitter_setting_dialog(void) {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -161,6 +250,23 @@ void roadmap_twitter_setting_dialog(void) {
    roadmap_device_event_notification( device_event_window_orientation_changed);
 }
 
+- (void)viewWillAppear:(BOOL)animated
+{
+   UITableView *tableView = [self tableView];
+   iphoneCell *cell;
+   
+   cell = (iphoneCell *)[tableView viewWithTag:ID_FACEBOOK_SHOW_NAME];
+   if (cell){
+      cell.rightLabel.text = [NSString stringWithUTF8String:gsPrivacyLabels[roadmap_facebook_get_show_name()]];
+      [cell setNeedsLayout];
+   }
+   
+   cell = (iphoneCell *)[tableView viewWithTag:ID_FACEBOOK_SHOW_PICTURE];
+   if (cell){
+      cell.rightLabel.text = [NSString stringWithUTF8String:gsPrivacyLabels[roadmap_facebook_get_show_picture()]];
+      [cell setNeedsLayout];
+   }
+}
 
 - (void) onClose
 {
@@ -178,12 +284,12 @@ void roadmap_twitter_setting_dialog(void) {
    iphoneCell *cell = NULL;
    cell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"cell"] autorelease];
    cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("City & state only")];
-   [cell setTag:ID_TWITTER_DESTINATION_CITY];
+   [cell setTag:ID_SOCIAL_DESTINATION_CITY];
    [groupArray addObject:cell];
    
    cell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"cell"] autorelease];
    cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("House #, Street, City, State")];
-   [cell setTag:ID_TWITTER_DESTINATION_FULL];
+   [cell setTag:ID_SOCIAL_DESTINATION_FULL];
    [groupArray addObject:cell];
    
    if (reloadTable) {
@@ -219,13 +325,14 @@ void roadmap_twitter_setting_dialog(void) {
    }
 }
 
-- (void) populateTwitterData
+- (void) populateSocialData
 {
 	NSMutableArray *groupArray = NULL;
    iphoneTableHeader *header = NULL;
    iphoneTableFooter *footer = NULL;
 	iphoneCellEdit *editCell = NULL;
 	iphoneCellSwitch *swCell = NULL;
+   iphoneCell *callbackCell = NULL;
    iphoneCell *cell = NULL;
    UIImage *image = NULL;
 	
@@ -278,7 +385,7 @@ void roadmap_twitter_setting_dialog(void) {
       editCell = [[[iphoneCellEdit alloc] initWithFrame:CGRectZero reuseIdentifier:@"editCell"] autorelease];
       [editCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get("UserName")]];
       [editCell setText:[NSString stringWithUTF8String:roadmap_twitter_get_username()]];
-      [editCell setTag:ID_TWITTER_USERNAME];
+      [editCell setTag:ID_SOCIAL_USERNAME];
       [editCell setDelegate:self];
       [groupArray addObject:editCell];
       
@@ -286,7 +393,7 @@ void roadmap_twitter_setting_dialog(void) {
       editCell = [[[iphoneCellEdit alloc] initWithFrame:CGRectZero reuseIdentifier:@"editCell"] autorelease];
       [editCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get("Password")]];
       [editCell setText:[NSString stringWithUTF8String:roadmap_twitter_get_password()]];
-      [editCell setTag:ID_TWITTER_PASSWORD];
+      [editCell setTag:ID_SOCIAL_PASSWORD];
       [editCell setDelegate:self];
       [editCell setPassword: YES];
       [groupArray addObject:editCell];
@@ -298,6 +405,42 @@ void roadmap_twitter_setting_dialog(void) {
    [footer release];
 	
 	[dataArray addObject:groupArray];
+   
+   //Facebook details
+   if (!isTwitter) {
+      groupArray = [NSMutableArray arrayWithCapacity:1];
+      
+      header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
+      [header setText:"My Facebook details:"];
+      [headersArray addObject:header];
+      [header release];
+      
+      //show name
+      callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+      [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+      [callbackCell setTag:ID_FACEBOOK_SHOW_NAME];
+      id_callbacks[ID_FACEBOOK_SHOW_NAME] = show_fb_name;
+      callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Show name")];
+      callbackCell.rightLabel.text = [NSString stringWithUTF8String:gsPrivacyLabels[roadmap_facebook_get_show_name()]];
+      [groupArray addObject:callbackCell];
+      
+      //show picture
+      callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+      [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+      [callbackCell setTag:ID_FACEBOOK_SHOW_PICTURE];
+      id_callbacks[ID_FACEBOOK_SHOW_PICTURE] = show_fb_picture;
+      callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Show picture")];
+      callbackCell.rightLabel.text = [NSString stringWithUTF8String:gsPrivacyLabels[roadmap_facebook_get_show_picture()]];
+      [groupArray addObject:callbackCell];
+      
+      footer = [[iphoneTableFooter alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
+      [footer setText:""];
+      [footersArray addObject:footer];
+      [footer release];
+      
+      [dataArray addObject:groupArray];
+   }
+   
    
    //group #2
    groupArray = [NSMutableArray arrayWithCapacity:1];
@@ -312,7 +455,7 @@ void roadmap_twitter_setting_dialog(void) {
 	
    //send reports
 	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_TWITTER_SEND_REPORTS];
+	[swCell setTag:ID_SOCIAL_SEND_REPORTS];
 	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
                      ("My road reports")]];
 	[swCell setDelegate:self];
@@ -335,7 +478,7 @@ void roadmap_twitter_setting_dialog(void) {
 	
    //send destination
 	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_TWITTER_DESTINATION_ENABLED];
+	[swCell setTag:ID_SOCIAL_DESTINATION_ENABLED];
 	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
                      ("My destination and ETA")]];
 	[swCell setDelegate:self];
@@ -361,7 +504,7 @@ void roadmap_twitter_setting_dialog(void) {
       
       //send munching
       swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-      [swCell setTag:ID_TWITTER_SEND_MUNCHING];
+      [swCell setTag:ID_SOCIAL_SEND_MUNCHING];
       [swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
                         ("My road munching")]];
       [swCell setDelegate:self];
@@ -384,7 +527,7 @@ void roadmap_twitter_setting_dialog(void) {
 {
    isTwitter = TRUE;
    
-	[self populateTwitterData];
+	[self populateSocialData];
 
 	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(titleTwitter)]];
    
@@ -430,7 +573,7 @@ void roadmap_twitter_setting_dialog(void) {
 {
    isTwitter = FALSE;
    
-	[self populateTwitterData];
+	[self populateSocialData];
    
 	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(titleFacebook)]];
    
@@ -443,24 +586,25 @@ void roadmap_twitter_setting_dialog(void) {
    
 	
 	roadmap_main_push_view (self);
-   
-   roadmap_facebook_check_login();
 }
 
 - (void)dealloc
 {
 	int success;
 	if (isTwitterModified) {
-		success = Realtime_TwitterConnect(gsTwitterUsername, gsTwitterPassword);
+		success = Realtime_TwitterConnect(gsTwitterUsername, gsTwitterPassword, roadmap_twitter_is_signup_enabled());
       if (success) //TODO: add error message if network error
          roadmap_twitter_set_logged_in (TRUE);
-		isTwitterModified = 0;
+		isTwitterModified = FALSE;
 	}
    
    if (!isTwitter)
       facebook_dialog_closing();
       
-	
+	if (isPrivacyModified) {
+      roadmap_facebook_send_permissions();
+      isPrivacyModified = FALSE;
+   }
 	[dataArray release];
    [headersArray release];
    [footersArray release];
@@ -511,15 +655,15 @@ void roadmap_twitter_setting_dialog(void) {
    }
    
 	switch (tag) {
-		case ID_TWITTER_SEND_REPORTS:
+      case ID_SOCIAL_SEND_REPORTS:
 			swCell = (iphoneCellSwitch *) cell;
          [swCell setState:is_sending_enabled animated:FALSE];
 			break;
-      case ID_TWITTER_DESTINATION_ENABLED:
+      case ID_SOCIAL_DESTINATION_ENABLED:
          swCell = (iphoneCellSwitch *) cell;
          [swCell setState:(destination_mode != ROADMAP_SOCIAL_DESTINATION_MODE_DISABLED) animated:FALSE];
 			break;
-      case ID_TWITTER_DESTINATION_CITY:
+      case ID_SOCIAL_DESTINATION_CITY:
          if (destination_mode == ROADMAP_SOCIAL_DESTINATION_MODE_CITY) {
             if (accessoryView) {
 					cell.accessoryView = accessoryView;
@@ -531,7 +675,7 @@ void roadmap_twitter_setting_dialog(void) {
 				cell.accessoryView = NULL;
          }
          break;
-      case ID_TWITTER_DESTINATION_FULL:
+      case ID_SOCIAL_DESTINATION_FULL:
          if (destination_mode == ROADMAP_SOCIAL_DESTINATION_MODE_FULL) {
             if (accessoryView) {
 					cell.accessoryView = accessoryView;
@@ -543,7 +687,7 @@ void roadmap_twitter_setting_dialog(void) {
 				cell.accessoryView = NULL;
          }
          break;
-      case ID_TWITTER_SEND_MUNCHING:
+      case ID_SOCIAL_SEND_MUNCHING:
          swCell = (iphoneCellSwitch *) cell;
          [swCell setState:is_munching_enabled animated:FALSE];
 		default:
@@ -559,15 +703,21 @@ void roadmap_twitter_setting_dialog(void) {
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
 	int tag = [[tableView cellForRowAtIndexPath:indexPath] tag];
    
+   if (id_callbacks[tag]) {
+      isPrivacyModified = TRUE;
+		(*id_callbacks[tag])();
+      return;
+	}
+   
 	switch (tag) {
-      case ID_TWITTER_DESTINATION_CITY:
+      case ID_SOCIAL_DESTINATION_CITY:
          if (isTwitter)
             roadmap_twitter_set_destination_mode(ROADMAP_SOCIAL_DESTINATION_MODE_CITY);
          else
             roadmap_facebook_set_destination_mode(ROADMAP_SOCIAL_DESTINATION_MODE_CITY);
          [tableView reloadData];
          break;
-      case ID_TWITTER_DESTINATION_FULL:
+      case ID_SOCIAL_DESTINATION_FULL:
          if (isTwitter)
             roadmap_twitter_set_destination_mode(ROADMAP_SOCIAL_DESTINATION_MODE_FULL);
          else
@@ -575,7 +725,7 @@ void roadmap_twitter_setting_dialog(void) {
          [tableView reloadData];
          break;
       case ID_FACEBOOK_CONNECT:
-         roadmap_facebook_connect();
+         roadmap_facebook_connect(FALSE);
          break;
       case ID_FACEBOOK_DISCONNECT:
          roadmap_facebook_disconnect();
@@ -628,19 +778,19 @@ void roadmap_twitter_setting_dialog(void) {
 	int tag = [view tag];
 
 	switch (tag) {
-		case ID_TWITTER_USERNAME:
+		case ID_SOCIAL_USERNAME:
 			roadmap_twitter_set_username([[textField text] UTF8String]);
          strncpy_safe(gsTwitterUsername, [[textField text] UTF8String], sizeof (gsTwitterUsername));
          roadmap_twitter_enable_sending();
          [tableView reloadData];
-			isTwitterModified = 1;
+			isTwitterModified = TRUE;
 			break;
-		case ID_TWITTER_PASSWORD:
+		case ID_SOCIAL_PASSWORD:
 			roadmap_twitter_set_password([[textField text] UTF8String]);
          strncpy_safe(gsTwitterPassword, [[textField text] UTF8String], sizeof (gsTwitterPassword));
          roadmap_twitter_enable_sending();
          [tableView reloadData];
-			isTwitterModified = 1;
+			isTwitterModified = TRUE;
 			break;
 		default:
 			break;
@@ -678,13 +828,13 @@ void roadmap_twitter_setting_dialog(void) {
    
    if (isTwitter) {
       switch (tag) {
-         case ID_TWITTER_SEND_REPORTS:
+         case ID_SOCIAL_SEND_REPORTS:
             if ([view getState])
                roadmap_twitter_enable_sending();
             else
                roadmap_twitter_disable_sending();
             break;
-         case ID_TWITTER_DESTINATION_ENABLED:
+         case ID_SOCIAL_DESTINATION_ENABLED:
             if ([view getState]) {
                roadmap_twitter_set_destination_mode(ROADMAP_SOCIAL_DESTINATION_MODE_CITY);
                [self showDestination:TRUE];
@@ -693,7 +843,7 @@ void roadmap_twitter_setting_dialog(void) {
                [self hideDestination:TRUE];
             }
             break;
-         case ID_TWITTER_SEND_MUNCHING:
+         case ID_SOCIAL_SEND_MUNCHING:
             if ([view getState])
                roadmap_twitter_enable_munching();
             else
@@ -704,13 +854,13 @@ void roadmap_twitter_setting_dialog(void) {
       }
    } else { //Facebook
       switch (tag) {
-         case ID_TWITTER_SEND_REPORTS:
+         case ID_SOCIAL_SEND_REPORTS:
             if ([view getState])
                roadmap_facebook_enable_sending();
             else
                roadmap_facebook_disable_sending();
             break;
-         case ID_TWITTER_DESTINATION_ENABLED:
+         case ID_SOCIAL_DESTINATION_ENABLED:
             if ([view getState]) {
                roadmap_facebook_set_destination_mode(ROADMAP_SOCIAL_DESTINATION_MODE_CITY);
                [self showDestination:TRUE];
@@ -719,7 +869,7 @@ void roadmap_twitter_setting_dialog(void) {
                [self hideDestination:TRUE];
             }
             break;
-         case ID_TWITTER_SEND_MUNCHING:
+         case ID_SOCIAL_SEND_MUNCHING:
             if ([view getState])
                roadmap_facebook_enable_munching();
             else

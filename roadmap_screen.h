@@ -63,7 +63,6 @@ void roadmap_screen_move_center (int dy);
 void roadmap_screen_toggle_view_mode (void);
 void roadmap_screen_set_view(int view_mode);
 void roadmap_screen_restore_view(void);
-int  roadmap_screen_get_view_mdode(void);
 void roadmap_screen_toggle_orientation_mode (void);
 void roadmap_screen_set_orientation_fixed (void);
 void roadmap_screen_set_orientation_dynamic (void);
@@ -71,6 +70,7 @@ void roadmap_screen_increase_horizon (void);
 void roadmap_screen_decrease_horizon (void);
 int roadmap_screen_get_orientation_mode (void);
 int roadmap_screen_get_view_mode (void);
+int roadmap_screen_get_nonogl_view_mode (void);
 
 void roadmap_screen_rotate (int delta);
 
@@ -200,5 +200,9 @@ BOOL roadmap_screen_get_background_run( void );
 void roadmap_screen_shade_bg(void);
 void roadmap_screen_flush_lines_and_points(void);
 
+void roadmap_screen_set_animating( BOOL value );
+
+#define isViewModeAny3D()	\
+((RoadMapScreenViewMode == VIEW_MODE_3D) || (RoadMapScreenOGLViewMode == VIEW_MODE_3D))
 
 #endif // INCLUDE__ROADMAP_SCREEN__H

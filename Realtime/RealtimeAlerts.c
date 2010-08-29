@@ -51,10 +51,15 @@
 #include "../roadmap_softkeys.h"
 #include "../roadmap_social.h"
 #include "../editor/db/editor_street.h"
-#include "roadmap_camera_image.h"
-#include "roadmap_jpeg.h"
-
+#include "../roadmap_camera_image.h"
+#include "../roadmap_jpeg.h"
+#include "../roadmap_res_download.h"
+#include "../roadmap_social_image.h"
 #include "../navigate/navigate_main.h"
+#include "../roadmap_map_settings.h"
+#include "../roadmap_general_settings.h"
+#include "../roadmap_groups.h"
+#include "../roadmap_message_ticker.h"
 
 #include "RealtimeAlerts.h"
 #include "RealtimeAlertsList.h"
@@ -64,21 +69,21 @@
 #include "RealtimePrivacy.h"
 #include "Realtime.h"
 
-#include "ssd/ssd_dialog.h"
-#include "ssd/ssd_container.h"
-#include "ssd/ssd_checkbox.h"
-#include "ssd/ssd_contextmenu.h"
-#include "ssd/ssd_text.h"
-#include "ssd/ssd_choice.h"
-#include "ssd/ssd_button.h"
-#include "ssd/ssd_menu.h"
-#include "ssd/ssd_keyboard_dialog.h"
-#include "ssd/ssd_bitmap.h"
-#include "ssd/ssd_button.h"
-#include "ssd/ssd_entry.h"
-#include "ssd/ssd_popup.h"
-#include "ssd/ssd_progress_msg_dialog.h"
-#include "ssd/ssd_confirm_dialog.h"
+#include "../ssd/ssd_dialog.h"
+#include "../ssd/ssd_container.h"
+#include "../ssd/ssd_checkbox.h"
+#include "../ssd/ssd_contextmenu.h"
+#include "../ssd/ssd_text.h"
+#include "../ssd/ssd_choice.h"
+#include "../ssd/ssd_button.h"
+#include "../ssd/ssd_menu.h"
+#include "../ssd/ssd_keyboard_dialog.h"
+#include "../ssd/ssd_bitmap.h"
+#include "../ssd/ssd_button.h"
+#include "../ssd/ssd_entry.h"
+#include "../ssd/ssd_popup.h"
+#include "../ssd/ssd_progress_msg_dialog.h"
+#include "../ssd/ssd_confirm_dialog.h"
 
 #ifdef IPHONE
 #include "iphone/roadmap_list_menu.h"
@@ -97,12 +102,13 @@ static BOOL gTimerActive;
 static BOOL gPopAllTimerActive;
 static BOOL gCentered;
 static int gState =STATE_NONE;
+static int gGroupState =STATE_OLD;
 static int gSavedZoom = -1;
 static RoadMapPosition gSavedPosition;
 static const char *gSavedFocus = NULL;
 static int gMinimizeState = -1;
 static int gPopUpType = -1;
-
+static int gDisplayClearedTimeStamp = 0;
 static int gMapProblems[MAX_MAP_PROBLEM_COUNT] ; // will hold the list of map problems
 static int gMapProblemsCount = 0 ; // will hold the number of map problems
 static BOOL gMapProblemsInit = FALSE;
@@ -132,15 +138,15 @@ static void RTAlerts_Timer(void);
 static void RTAlerts_ReleaseImagePath(void);
 static void OnAlertAdd(RTAlert *pAlert);
 static void OnAlertRemove(void);
-static void create_ssd_dialog(RTAlert *pAlert);
 static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert);
 static void RTAlerts_popup_PingWazer(RTAlert *pAlert);
 static void RTAlerts_Comment_PopUp_Hide(void);
 static void RTAlerts_popup_alert(int alertId, int iCenterAround);
 static void RTAlerts_Show_Image( int alertId, RoadMapImage image );
 static void RTinitMapProblems(void);
-static void RTAlerts_get_reported_by_string( RTAlert *pAlert, char* buf, int buf_len );
 static void report_abuse(void);
+static void CreateAlertObject(RTAlert *pAlert);
+static void DeleteAlertObject(RTAlert *pAlert);
 
 #define CENTER_NONE				-1
 #define CENTER_ON_ALERT       1
@@ -194,18 +200,12 @@ typedef struct
 	int alertId;
 } ImageDownloadCbContext;
 
-// Builds the icon name according to the presence of the image attachmet
-#define RTALERT_MAPICON_ATTACH( dest_buf, pAlert, name ) \
-{	\
-	strcpy( dest_buf, name );	\
-	if ( pAlert->sImageIdStr[0] ) \
-		strcat( dest_buf, "_attach" );	\
-}
 
 typedef struct tag_upload_context{
 	int iType;
 	char* desc;
 	int iDirection;
+	char *group;
 }upload_Image_context;
 
 
@@ -261,6 +261,9 @@ void RTAlerts_Alert_Init(RTAlert *pAlert)
     pAlert->bAlertByMe = FALSE;
     pAlert->bAlertIsOnRoute = FALSE;
     pAlert->bPingWazer = FALSE;
+    pAlert->iReportedElapsedTime = 0;
+    pAlert->iDisplayTimeStamp = 0;
+    pAlert->iGroupRelevance = GROUP_RELEVANCE_NONE;
     memset(pAlert->sReportedBy, 0, RT_ALERT_USERNM_MAXSIZE);
     memset(pAlert->sDescription, 0, RT_ALERT_DESCRIPTION_MAXSIZE);
     memset(pAlert->sLocationStr, 0, RT_ALERT_LOCATION_MAX_SIZE);
@@ -268,11 +271,26 @@ void RTAlerts_Alert_Init(RTAlert *pAlert)
     memset(pAlert->sImageIdStr, 0, RT_ALERT_IMAGEID_MAXSIZE);
     memset(pAlert->sStreetStr, 0, RT_ALERT_LOCATION_MAX_SIZE);
     memset(pAlert->sCityStr, 0, RT_ALERT_LOCATION_MAX_SIZE);
+    memset(pAlert->sAddOnName,0, sizeof(pAlert->sAddOnName));
+    memset(pAlert->sAlertType,0, sizeof(pAlert->sAlertType));
+
+    pAlert->pMenuAddOnName = NULL;
+    pAlert->pMapAddOnName = NULL;
+    pAlert->pIconName = NULL;
+    pAlert->pMapIconName = NULL;
+    pAlert->pAlertTitle = NULL;
+
     pAlert->iNumComments = 0;
     pAlert->Comment = NULL;
     pAlert->location_info.line_id = -1;
     pAlert->location_info.square_id = ALERTER_SQUARE_ID_UNINITIALIZED;
     pAlert->location_info.time_stamp = -1;
+    memset(pAlert->sFacebookName, 0, RT_ALERT_FACEBOOK_USERNM_MAXSIZE);
+    memset(pAlert->sGroup, 0, RT_ALERT_GROUP_MAXSIZE);
+    memset(pAlert->sGroupIcon, 0, RT_ALERT_GROUP_ICON_MAXSIZE);
+    pAlert->bShowFacebookPicture = FALSE;
+    pAlert->iGroupRelevance = GROUP_RELEVANCE_NONE;
+
 }
 
 /**
@@ -293,6 +311,7 @@ void RTAlerts_Init()
         gAlertsTable.alert[i] = NULL;
 
     gAlertsTable.iCount = 0;
+    gAlertsTable.iGroupCount = 0;
 
     gIdleScrolling = FALSE;
     gIterator = 0;
@@ -337,6 +356,16 @@ int RTAlerts_Count(void)
     return gAlertsTable.iCount;
 }
 
+/**
+ * The number of group relevant alerts currently in the table
+ * @param None
+ * @return the number of alerts
+ */
+int RTAlerts_GroupCount(void)
+{
+    return gAlertsTable.iGroupCount;
+}
+
 
 /**
  * The STRING of alerts currently in the table
@@ -350,7 +379,17 @@ const char * RTAlerts_Count_Str(void)
    return &text[0];
 }
 
-
+/**
+ * The STRING of group relevant alerts currently in the table
+ * @param None
+ * @return string with number of alerts
+ */
+const char * RTAlerts_GroupCount_Str(void)
+{
+   static char text[20];
+   snprintf(text, sizeof(text), "%d",gAlertsTable.iGroupCount);
+   return &text[0];
+}
 /**
  * Checks whether the alerts table is empty
  * @param None
@@ -403,7 +442,23 @@ void RTAlerts_Clear_All()
     for (i=0; i<gAlertsTable.iCount; i++)
     {
         pAlert = RTAlerts_Get(i);
+      //DeleteAlertObject(pAlert);
         RTAlerts_Delete_All_Comments(pAlert);
+        if (pAlert->pAlertTitle)
+           free(pAlert->pAlertTitle);
+
+        if (pAlert->pIconName)
+            free(pAlert->pIconName);
+
+        if (pAlert->pMapIconName)
+            free(pAlert->pMapIconName);
+
+        if (pAlert->pMapAddOnName)
+            free(pAlert->pMapAddOnName);
+
+        if (pAlert->pMenuAddOnName)
+            free(pAlert->pMenuAddOnName);
+
         free(pAlert);
         gAlertsTable.alert[i] = NULL;
     }
@@ -411,6 +466,7 @@ void RTAlerts_Clear_All()
     OnAlertRemove();
 
     gAlertsTable.iCount = 0;
+    gAlertsTable.iGroupCount = 0;
 
 }
 
@@ -514,7 +570,7 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
 	 // in case the only alert is mine. set the state to old.
 	 if ((RTAlerts_Is_Empty())&& (pAlert->bAlertByMe))
 	 	gState = STATE_OLD;
-
+   
     gAlertsTable.alert[gAlertsTable.iCount] = calloc(1, sizeof(RTAlert));
     if (gAlertsTable.alert[gAlertsTable.iCount] == NULL)
     {
@@ -523,28 +579,57 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
     }
 
     RTAlerts_Alert_Init(gAlertsTable.alert[gAlertsTable.iCount]);
-    gAlertsTable.alert[gAlertsTable.iCount]->iLatitude = pAlert->iLatitude;
-    gAlertsTable.alert[gAlertsTable.iCount]->iLongitude = pAlert->iLongitude;
-    gAlertsTable.alert[gAlertsTable.iCount]->iID = pAlert->iID;
-    gAlertsTable.alert[gAlertsTable.iCount]->iType = pAlert->iType;
-    gAlertsTable.alert[gAlertsTable.iCount]->iSubType = pAlert->iSubType;
-    gAlertsTable.alert[gAlertsTable.iCount]->iSpeed = pAlert->iSpeed;
-    gAlertsTable.alert[gAlertsTable.iCount]->iReportTime
-            = pAlert->iReportTime;
-    gAlertsTable.alert[gAlertsTable.iCount]->bAlertByMe = pAlert->bAlertByMe;
-    gAlertsTable.alert[gAlertsTable.iCount]->bAlertIsOnRoute = pAlert->bAlertIsOnRoute;
-    gAlertsTable.alert[gAlertsTable.iCount]->bPingWazer = pAlert->bPingWazer;
-    gAlertsTable.alert[gAlertsTable.iCount]->iRank = pAlert->iRank;
-    gAlertsTable.alert[gAlertsTable.iCount]->iMood = pAlert->iMood;
 
-    strncpy(gAlertsTable.alert[gAlertsTable.iCount]->sDescription,
-            pAlert->sDescription, RT_ALERT_DESCRIPTION_MAXSIZE);
-    strncpy(gAlertsTable.alert[gAlertsTable.iCount]->sReportedBy,
-            roadmap_lang_get(pAlert->sReportedBy), RT_ALERT_USERNM_MAXSIZE);
+    *gAlertsTable.alert[gAlertsTable.iCount]   = (*pAlert);
+
+
+
+    if (pAlert->sAlertType[0] != 0){
+       char temp_title[RT_ALERTS_MAX_TITLE_NAME];
+       char temp_icon[RT_ALERTS_MAX_ICON_NAME];
+
+       snprintf(temp_title, RT_ALERTS_MAX_TITLE_NAME, "%s%s", ALERT_TITLE_PREFIX, pAlert->sAlertType);
+       gAlertsTable.alert[gAlertsTable.iCount]->pAlertTitle = strdup(temp_title);
+
+       snprintf(temp_icon, RT_ALERTS_MAX_ICON_NAME, "%s%s", ALERT_ICON_PREFIX, pAlert->sAlertType);
+       gAlertsTable.alert[gAlertsTable.iCount]->pIconName = strdup(temp_icon);
+
+       snprintf(temp_icon, RT_ALERTS_MAX_ICON_NAME, "%s%s", ALERT_PIN_PREFIX, pAlert->sAlertType);
+       gAlertsTable.alert[gAlertsTable.iCount]->pMapIconName = strdup(temp_icon);
+    }
+
+
+    if (pAlert->sAddOnName[0] != 0){
+       char temp_addon[RT_ALERTS_MAX_ADD_ON_NAME];
+       snprintf(temp_addon, RT_ALERTS_MAX_ADD_ON_NAME, "%s%s", ALERT_PIN_ADDON_PREFIX, pAlert->sAddOnName);
+       gAlertsTable.alert[gAlertsTable.iCount]->pMapAddOnName = strdup(temp_addon);
+
+       snprintf(temp_addon, RT_ALERTS_MAX_ADD_ON_NAME, "%s%s", ALERT_ICON_ADDON_PREFIX, pAlert->sAddOnName);
+       gAlertsTable.alert[gAlertsTable.iCount]->pMenuAddOnName = strdup(temp_addon);
+    }
+
+    if ((gAlertsTable.alert[gAlertsTable.iCount]->pIconName) && (roadmap_res_get(RES_BITMAP,RES_SKIN, gAlertsTable.alert[gAlertsTable.iCount]->pIconName) == NULL)){
+       roadmap_res_download(RES_DOWNLOAD_IMAGE, gAlertsTable.alert[gAlertsTable.iCount]->pIconName,NULL, "",FALSE, 0, NULL, NULL );
+    }
+
+    if ((gAlertsTable.alert[gAlertsTable.iCount]->pMapIconName) && (roadmap_res_get(RES_BITMAP,RES_SKIN, gAlertsTable.alert[gAlertsTable.iCount]->pMapIconName) == NULL)){
+       roadmap_res_download(RES_DOWNLOAD_IMAGE, gAlertsTable.alert[gAlertsTable.iCount]->pMapIconName,NULL, "",FALSE, 0, NULL, NULL );
+    }
+
+    if ((gAlertsTable.alert[gAlertsTable.iCount]->pMenuAddOnName) && (roadmap_res_get(RES_BITMAP,RES_SKIN, gAlertsTable.alert[gAlertsTable.iCount]->pMenuAddOnName) == NULL)){
+        roadmap_res_download(RES_DOWNLOAD_IMAGE, gAlertsTable.alert[gAlertsTable.iCount]->pMenuAddOnName,NULL, "",FALSE, 0, NULL, NULL );
+    }
+
+    if ((gAlertsTable.alert[gAlertsTable.iCount]->pMapAddOnName) && (roadmap_res_get(RES_BITMAP,RES_SKIN, gAlertsTable.alert[gAlertsTable.iCount]->pMapAddOnName) == NULL)){
+        roadmap_res_download(RES_DOWNLOAD_IMAGE, gAlertsTable.alert[gAlertsTable.iCount]->pMapAddOnName,NULL, "",FALSE, 0, NULL, NULL );
+    }
+
+    if ((gAlertsTable.alert[gAlertsTable.iCount]->sGroupIcon[0] != 0) && (roadmap_res_get(RES_BITMAP,RES_SKIN, gAlertsTable.alert[gAlertsTable.iCount]->sGroupIcon) == NULL)){
+        roadmap_res_download(RES_DOWNLOAD_IMAGE, gAlertsTable.alert[gAlertsTable.iCount]->sGroupIcon,NULL, "",FALSE, 0, NULL, NULL );
+    }
 
     position.longitude = pAlert->iLongitude;
     position.latitude = pAlert->iLatitude;
-
 
     if (pAlert->sLocationStr[0] == 0){
 
@@ -581,22 +666,14 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
       	              "%s, %s", street, city);
       }
     }
-    else{
-    	strcpy(gAlertsTable.alert[gAlertsTable.iCount]->sLocationStr, pAlert->sLocationStr);
-    }
 
     if (pAlert->sNearStr[0] != 0){
     	sprintf (gAlertsTable.alert[gAlertsTable.iCount]->sLocationStr + strlen(gAlertsTable.alert[gAlertsTable.iCount]->sLocationStr), " %s %s", 			roadmap_lang_get("Near"), pAlert->sNearStr);
     }
 
-    if ( pAlert->sImageIdStr[0] != 0 )
-    {
-        strncpy( gAlertsTable.alert[gAlertsTable.iCount]->sImageIdStr, pAlert->sImageIdStr, RT_ALERT_IMAGEID_MAXSIZE+1 );
-    }
 
     gAlertsTable.alert[gAlertsTable.iCount]->iSquare = iSquare;
     gAlertsTable.alert[gAlertsTable.iCount]->iLineId = iLineId;
-    gAlertsTable.alert[gAlertsTable.iCount]->iDirection = pAlert->iDirection;
 
     if (pAlert->iDirection == RT_ALERT_OPPSOITE_DIRECTION)
     {
@@ -604,10 +681,6 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
         while (iDirection > 360)
             iDirection -= 360;
         gAlertsTable.alert[gAlertsTable.iCount]->iAzymuth = iDirection;
-    }
-    else
-    {
-        gAlertsTable.alert[gAlertsTable.iCount]->iAzymuth = pAlert->iAzymuth;
     }
 
     if (iLineId != -1){
@@ -629,7 +702,17 @@ BOOL RTAlerts_Add(RTAlert *pAlert)
         	gAlertsTable.alert[gAlertsTable.iCount]->iNode2 = line_to_point;
     	}
     }
+
+    if (gAlertsTable.alert[gAlertsTable.iCount]->iGroupRelevance != GROUP_RELEVANCE_NONE ){
+       gAlertsTable.iGroupCount++;
+       if (!gAlertsTable.alert[gAlertsTable.iCount]->bAlertByMe)
+          gGroupState = STATE_NEW;
+
+       gAlertsTable.alert[gAlertsTable.iCount]->iDisplayTimeStamp = time(NULL);
+    }
+
     gAlertsTable.iCount++;
+
     OnAlertAdd(gAlertsTable.alert[gAlertsTable.iCount-1]);
     return TRUE;
 }
@@ -647,8 +730,10 @@ void RTAlerts_Comment_Init(RTAlertComment *comment)
     comment->iRank = 0;
     comment->iMood = 0;
     comment->bCommentByMe = FALSE;
+    comment->bShowFacebookPicture = FALSE;
     memset(comment->sPostedBy, 0, RT_ALERT_USERNM_MAXSIZE);
     memset(comment->sDescription, 0, RT_ALERT_DESCRIPTION_MAXSIZE);
+    memset(comment->sFacebookName, 0, RT_ALERT_FACEBOOK_USERNM_MAXSIZE);
 }
 
 /**
@@ -694,18 +779,11 @@ BOOL RTAlerts_Comment_Add(RTAlertComment *Comment)
     if (Comment->sDescription[0] == 0)
     	return TRUE;
 
+   if (pAlert->iNumComments == 0)
+      DeleteAlertObject(pAlert);
+   
     CommentEntry = calloc(1, sizeof(RTAlertCommentsEntry));
-    CommentEntry->comment.iID = Comment->iID;
-    CommentEntry->comment.iAlertId = Comment->iAlertId;
-    CommentEntry->comment.i64ReportTime = Comment->i64ReportTime;
-    CommentEntry->comment.bCommentByMe = Comment->bCommentByMe;
-    CommentEntry->comment.bDisplay = Comment->bDisplay;
-    CommentEntry->comment.iMood = Comment->iMood;
-    CommentEntry->comment.iRank = Comment->iRank;
-    strncpy(CommentEntry->comment.sDescription, Comment->sDescription,
-    			RT_ALERT_DESCRIPTION_MAXSIZE);
-    strncpy(CommentEntry->comment.sPostedBy, roadmap_lang_get(Comment->sPostedBy),
-    			RT_ALERT_USERNM_MAXSIZE);
+    CommentEntry->comment = (*Comment);
 
     CommentEntry->previous = NULL;
     CommentEntry->next = NULL;
@@ -736,6 +814,8 @@ BOOL RTAlerts_Comment_Add(RTAlertComment *Comment)
 
 
     pAlert->iNumComments++;
+   if (pAlert->iNumComments == 1)
+      CreateAlertObject(pAlert);
     if (Comment->bDisplay){
        if (!Comment->bCommentByMe){
           if (pAlert->bAlertByMe || bCommentedByMe){
@@ -769,7 +849,6 @@ void RTAlerts_Delete_All_Comments(RTAlert *pAlert)
             current = new_current;
         }
     }
-
 }
 
 /**
@@ -789,7 +868,27 @@ BOOL RTAlerts_Remove(int iID)
 
     if (gAlertsTable.alert[gAlertsTable.iCount-1]->iID == iID)
     {
+      DeleteAlertObject(gAlertsTable.alert[gAlertsTable.iCount-1]);
         RTAlerts_Delete_All_Comments(gAlertsTable.alert[gAlertsTable.iCount-1]);
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->pAlertTitle)
+           free(gAlertsTable.alert[gAlertsTable.iCount-1]->pAlertTitle);
+
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->pIconName)
+            free(gAlertsTable.alert[gAlertsTable.iCount-1]->pIconName);
+
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->pMapIconName)
+            free(gAlertsTable.alert[gAlertsTable.iCount-1]->pMapIconName);
+
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->pMapAddOnName)
+            free(gAlertsTable.alert[gAlertsTable.iCount-1]->pMapAddOnName);
+
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->pMenuAddOnName)
+            free(gAlertsTable.alert[gAlertsTable.iCount-1]->pMenuAddOnName);
+
+        if (gAlertsTable.alert[gAlertsTable.iCount-1]->iGroupRelevance != GROUP_RELEVANCE_NONE ){
+              gAlertsTable.iGroupCount--;
+        }
+
         free(gAlertsTable.alert[gAlertsTable.iCount-1]);
         bFound = TRUE;
     }
@@ -805,7 +904,15 @@ BOOL RTAlerts_Remove(int iID)
             {
                 if (gAlertsTable.alert[i]->iID == iID)
                 {
+               DeleteAlertObject(gAlertsTable.alert[i]);
                     RTAlerts_Delete_All_Comments(gAlertsTable.alert[i]);
+
+                    if ((gAlertsTable.alert[i]->iGroupRelevance != GROUP_RELEVANCE_NONE ))
+                       gAlertsTable.iGroupCount--;
+
+                    if (gAlertsTable.iGroupCount == 0)
+                       gGroupState = STATE_OLD;
+
                     free(gAlertsTable.alert[i]);
                     gAlertsTable.alert[i] = gAlertsTable.alert[i+1];
                     bFound = TRUE;
@@ -922,6 +1029,21 @@ int RTAlerts_Get_Type_By_Id(int iId)
 }
 
 /**
+ * Get the type of an Alert
+ * @param record - The Record number in the table
+ * @return The type of Alert
+ */
+const char* RTAlerts_Get_GroupName_By_Id(int iId)
+{
+
+    RTAlert *pAlert = RTAlerts_Get_By_ID(iId);
+    if (pAlert != NULL)
+        return pAlert->sGroup;
+    else
+        return NULL;
+}
+
+/**
  * Get the ID of an Alert
  * @param record - The Record number in the table
  * @return The id of Alert, -1 the record does not exist
@@ -955,6 +1077,22 @@ char * RTAlerts_Get_LocationStr(int record)
 
 }
 
+/**
+ * Get the Location string of an Alert
+ * @param ID - The Alert ID
+ * @return The location string of the Alert, NULL if the record does not exist
+ */
+char * RTAlerts_Get_LocationStrByID(int Id)
+{
+    RTAlert *pAlert = RTAlerts_Get_By_ID(Id);
+    assert(pAlert != NULL);
+
+    if (pAlert != NULL)
+        return pAlert->sLocationStr;
+    else
+        return "";
+
+}
 /**
  * Get the speed of an Alert
  * @param record - The Record number in the table
@@ -1003,77 +1141,56 @@ RoadMapAlert * RTAlerts_Get_Alert(int record)
  * @param has_comment - The alert with comment or not
  * @return the icon name, NULL if the alert is not found or type unknown
  */
-const char * RTAlerts_Get_IconByType(int iAlertType, BOOL has_comments)
+const char * RTAlerts_Get_IconByType(RTAlert *pAlert, int iAlertType, BOOL has_comments)
 {
 
     switch (iAlertType)
     {
 
    case RT_ALERT_TYPE_POLICE:
-        if (!has_comments)
-            return "real_time_police_icon";
-        else
-            return "real_time_police_with_comments";
+        return "alert_icon_police";
         break;
 
     case RT_ALERT_TYPE_ACCIDENT:
-        if (!has_comments)
-            return "real_time_accident_icon";
-        else
-            return "real_time_accident_with_comments";
+        return "alert_icon_accident";
         break;
 
     case RT_ALERT_TYPE_CHIT_CHAT:
-        if (!has_comments)
-            return "real_time_chit_chat_icon";
-        else
-            return "real_time_chit_chat_with_comments";
+        return "alert_icon_chit_chat";
         break;
 
     case RT_ALERT_TYPE_TRAFFIC_JAM:
-        if (!has_comments)
-            return "real_time_traffic_jam_icon";
-        else
-            return "real_time_trafficjam_with_comments";
+        return "alert_icon_traffic_jam";
         break;
 
     case RT_ALERT_TYPE_TRAFFIC_INFO:
-        if (!has_comments)
-            return "real_time_traffic_info_icon";
-        else
-            return "real_time_traffic_info_icon";
+        return "alert_icon_traffic_info";
         break;
 
     case RT_ALERT_TYPE_HAZARD:
-        if (!has_comments)
-            return "real_time_hazard_icon";
-        else
-            return "real_time_hazard_icon_with_comments";
+        return "alert_icon_hazard";
         break;
 
     case RT_ALERT_TYPE_OTHER:
-        if (!has_comments)
-            return "real_time_other_icon";
-        else
-            return "real_time_other_icon_with_comments";
+        return "alert_icon_other";
         break;
 
     case RT_ALERT_TYPE_CONSTRUCTION:
-        if (!has_comments)
-            return "road_construction";
-        else
-            return "road_construction_with_comments";
+        return "alert_icon_road_construction";
         break;
 
     case RT_ALERT_TYPE_PARKING:
-        if (!has_comments)
-            return "parking_user";
-        else
-            return "parking_with_comments";
+        return "alert_icon_parking";
         break;
 
+    case RT_ALERT_TYPE_DYNAMIC:
+       if (pAlert && pAlert->pIconName)
+          return pAlert->pIconName;
+       else
+          return "alert_icon_chit_chat";
+
     default:
-        return "real_time_chit_chat_icon";
+        return "alert_icon_chit_chat";
     }
 }
 
@@ -1086,32 +1203,33 @@ const char * RTAlerts_Get_IconByType(int iAlertType, BOOL has_comments)
 int RTAlerts_Get_TypeByIconName(const char *icon_name)
 {
 
-		if (!strcmp(icon_name, "real_time_police_icon") || !strcmp(icon_name, "real_time_police_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_police"))
             return RT_ALERT_TYPE_POLICE;
 
-		if (!strcmp(icon_name, "real_time_accident_icon") || !strcmp(icon_name, "real_time_accident_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_accident"))
             return RT_ALERT_TYPE_ACCIDENT;
 
-		if (!strcmp(icon_name, "real_time_chit_chat_icon") || !strcmp(icon_name, "real_time_chit_chat_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_chit_chat"))
             return RT_ALERT_TYPE_CHIT_CHAT;
 
-		if (!strcmp(icon_name, "real_time_traffic_jam_icon") || !strcmp(icon_name, "real_time_trafficjam_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_traffic_jam"))
             return RT_ALERT_TYPE_TRAFFIC_JAM;
 
-		if (!strcmp(icon_name, "real_time_traffic_info_icon") )
+		if (!strcmp(icon_name, "alert_icon_traffic_info") )
             return RT_ALERT_TYPE_TRAFFIC_INFO;
 
-		if (!strcmp(icon_name, "real_time_hazard_icon") || !strcmp(icon_name, "real_time_hazard_icon_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_hazard"))
             return RT_ALERT_TYPE_HAZARD;
 
-		if (!strcmp(icon_name, "real_time_other_icon") || !strcmp(icon_name, "real_time_other_icon_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_other"))
             return RT_ALERT_TYPE_OTHER;
 
-		if (!strcmp(icon_name, "road_construction") || !strcmp(icon_name, "road_construction_with_comments"))
+		if (!strcmp(icon_name, "alert_icon_road_construction"))
             return RT_ALERT_TYPE_CONSTRUCTION;
 
-      if (!strcmp(icon_name, "parking_user") || !strcmp(icon_name, "parking_with_comments"))
+      if (!strcmp(icon_name, "alert_icon_parking"))
             return RT_ALERT_TYPE_PARKING;
+
 
       else
     	    return RT_ALERT_TYPE_CHIT_CHAT;
@@ -1131,7 +1249,7 @@ const char * RTAlerts_Get_Icon(int alertId)
     if (pAlert == NULL)
         return NULL;
 
-	return RTAlerts_Get_IconByType(pAlert->iType, (pAlert->iNumComments != 0));
+	return RTAlerts_Get_IconByType(pAlert, pAlert->iType, (pAlert->iNumComments != 0));
 }
 
 /**
@@ -1151,35 +1269,42 @@ const char * RTAlerts_Get_Map_Icon(int alertId)
     switch (pAlert->iType)
     {
     case RT_ALERT_TYPE_POLICE:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "police_on_map" );
+       strcpy( icon_name,  "alert_pin_police" );
     	break;
 
     case RT_ALERT_TYPE_ACCIDENT:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "accident_on_map" );
+       strcpy( icon_name,  "alert_pin_accident" );
         break;
 
     case RT_ALERT_TYPE_CHIT_CHAT:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "chit_chat_on_map" );
+       strcpy( icon_name,  "alert_pin_chit_chat" );
         break;
 
     case RT_ALERT_TYPE_TRAFFIC_JAM:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "loads_on_map" );
+       strcpy( icon_name,  "alert_pin_loads" );
         break;
 
     case RT_ALERT_TYPE_HAZARD:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "hazard_on_map" );
+       strcpy( icon_name,  "alert_pin_hazard" );
     	break;
 
     case RT_ALERT_TYPE_PARKING:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "parking_on_map" );
+       strcpy( icon_name,  "alert_pin_parking" );
         break;
 
     case RT_ALERT_TYPE_OTHER:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "other_on_map" );
+       strcpy( icon_name,  "alert_pin_other" );
         break;
 
     case RT_ALERT_TYPE_CONSTRUCTION:
-    	RTALERT_MAPICON_ATTACH( icon_name, pAlert, "road_construction_on_map" );
+       strcpy( icon_name,  "alert_pin_road_construction" );
+        break;
+
+    case RT_ALERT_TYPE_DYNAMIC:
+        if (pAlert->pMapIconName)
+           strcpy( icon_name, pAlert->pMapIconName );
+        else
+           return NULL;
         break;
 
     case RT_ALERT_TYPE_TRAFFIC_INFO:
@@ -1192,6 +1317,143 @@ const char * RTAlerts_Get_Map_Icon(int alertId)
 	return icon_name;
 }
 
+/**
+ * Get the map icon addon to display on map
+ * @param alertId - The ID of the alert
+ * @param AddOnIndex - The Index of the addon
+ * * @return the addon icon name, NULL if the alert is not found or type unknown
+ */
+const char * RTAlerts_Get_Map_AddOn(int alertId, int AddOnIndex){
+
+   RTAlert *pAlert;
+   pAlert = RTAlerts_Get_By_ID(alertId);
+   if (pAlert == NULL)
+        return NULL;
+
+   if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
+      return NULL;
+
+   if (AddOnIndex == 0){
+      if (pAlert->iNumComments != 0)
+         return "alert_pin_addon_comment";
+      else if (pAlert->sImageIdStr[0])
+         return  "alert_pin_addon_attachment";
+      else if (pAlert->pMapAddOnName)
+         return  pAlert->pMapAddOnName;
+      else
+         return NULL;
+   }
+   else if (AddOnIndex == 1){
+      if (pAlert->sImageIdStr[0])
+         return  "alert_pin_addon_attachment";
+      else if (pAlert->pMapAddOnName)
+         return  pAlert->pMapAddOnName;
+      else
+         return NULL;
+   }
+   else if (AddOnIndex == 2){
+      if (pAlert->pMapAddOnName)
+          return  pAlert->pMapAddOnName;
+      else
+         return NULL;
+   }
+
+   return NULL;
+}
+
+/**
+ * Get the the number of icon addons
+ * @param alertId - The ID of the alert
+ * * @return the The number of map addons
+ */
+int RTAlerts_Get_Number_Of_Map_AddOns(int alertId){
+
+   RTAlert *pAlert;
+   int count = 0;
+   pAlert = RTAlerts_Get_By_ID(alertId);
+   if (pAlert == NULL)
+        return 0;
+
+   if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
+      return 0;
+
+   if (pAlert->iNumComments != 0)
+      count++;
+
+   if (pAlert->sImageIdStr[0])
+      count++;
+
+   if (pAlert->pMapAddOnName)
+      count++;
+
+   return count;
+}
+
+/**
+ * Get the the number of icon addons
+ * @param alertId - The ID of the alert
+ * * @return the The number of map addons
+ */
+int RTAlerts_Get_Number_Of_AddOns(int alertId){
+
+   RTAlert *pAlert;
+   int count = 0;
+   pAlert = RTAlerts_Get_By_ID(alertId);
+   if (pAlert == NULL)
+        return 0;
+
+   if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
+      return 1;
+
+   if ((pAlert->iType == RT_ALERT_TYPE_TRAFFIC_JAM) && (pAlert->sAddOnName[0] == 0))
+      count++;
+
+   if (pAlert->iNumComments != 0)
+      count++;
+
+   if (pAlert->sAddOnName[0])
+      count++;
+
+   return count;
+}
+
+/**
+ * Get the icon addon to display
+ * @param alertId - The ID of the alert
+ * @param AddOnIndex - The Index of the addon
+ * * @return the addon icon name, NULL if the alert is not found or type unknown
+ */
+const char * RTAlerts_Get_AddOn(int alertId, int AddOnIndex){
+
+   RTAlert *pAlert;
+   pAlert = RTAlerts_Get_By_ID(alertId);
+   if (pAlert == NULL)
+        return NULL;
+
+   if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
+      return "alert_icon_addon_waze";
+
+   if (AddOnIndex == 0){
+      if (pAlert->iNumComments != 0)
+         return "alert_icon_addon_comment";
+      else if (pAlert->pMenuAddOnName)
+         return  pAlert->pMenuAddOnName;
+      else if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
+         return "alert_icon_addon_user";
+      else
+         return NULL;
+   }
+   else if (AddOnIndex == 1){
+      if (pAlert->pMenuAddOnName)
+         return  pAlert->pMenuAddOnName;
+      else if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
+               return "alert_icon_addon_user";
+      else
+         return NULL;
+   }
+
+   return NULL;
+}
 /**
  * Get the icon to display of an in case of approaching the alert
  * @param alertId - The ID of the alert
@@ -1353,6 +1615,8 @@ int RTAlerts_Is_Alertable(int record)
         return FALSE;
     case RT_ALERT_TYPE_PARKING:
         return FALSE;
+    case RT_ALERT_TYPE_DYNAMIC:
+       return FALSE;
     default:
         return FALSE;
     }
@@ -1389,10 +1653,158 @@ int RTAlerts_Is_Reroutable(RTAlert *pAlert)
         return FALSE;
     case RT_ALERT_TYPE_PARKING:
         return FALSE;
+    case RT_ALERT_TYPE_DYNAMIC:
+        return FALSE;
 
     default:
         return FALSE;
     }
+}
+
+static void OnAlertShortClick (const char *name,
+                              const char *sprite,
+                              const char *image,
+                              const RoadMapGpsPosition *gps_position,
+                              const RoadMapGuiPoint    *offset,
+                              BOOL is_visible,
+                              int scale,
+                              int opacity,
+                              const char *id,
+                              const char *text) {
+   int AlertId = atoi(name);
+   
+   if ((RTAlerts_State() == STATE_SCROLLING) && (RTAlerts_Get_Current_Alert_Id() == AlertId))
+      RealtimeAlertCommentsList(AlertId);
+   else
+      RTAlerts_Popup_By_Id_No_Center(AlertId);
+}
+
+static void DeleteAlertObject(RTAlert *pAlert)
+{
+   RoadMapDynamicString GUI_ID;
+   RoadMapDynamicString Group = roadmap_string_new( "RealtimeAlerts");
+   RoadMapDynamicString Name;
+   RoadMapDynamicString Sprite= roadmap_string_new( "RealtimeAlerts");
+   const char*          icon;
+   char                 text[128];
+   int                  iAddon;
+   int                  numAddons;
+   
+   snprintf(text, sizeof(text), "%d", pAlert->iID);
+   Name  = roadmap_string_new( text);
+   
+   numAddons = RTAlerts_Get_Number_Of_Map_AddOns(pAlert->iID);
+   for (iAddon = 0; iAddon < numAddons; iAddon++ ){
+      icon = RTAlerts_Get_Map_AddOn(pAlert->iID, iAddon);
+      snprintf(text, sizeof(text), "%d_%s", pAlert->iID, icon);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_remove( GUI_ID);
+      
+      roadmap_string_release(GUI_ID);
+   }
+   
+   icon = RTAlerts_Get_Map_Icon(pAlert->iID);
+   if (icon != NULL) {
+      snprintf(text, sizeof(text), "RTAlert_%d", pAlert->iID);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_remove( GUI_ID);
+      
+      roadmap_string_release(GUI_ID);
+
+      snprintf(text, sizeof(text), "RTAlert_small_%d", pAlert->iID);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_remove( GUI_ID);
+      
+      roadmap_string_release(GUI_ID);
+   }
+   
+   roadmap_string_release( Group);
+   roadmap_string_release( Name);
+   roadmap_string_release( Sprite);
+}
+
+/**
+ * Create a screen object for alert
+ * @param pAlert - pointer to the alert
+ * @return None
+ */
+static void CreateAlertObject(RTAlert *pAlert)
+{
+   RoadMapDynamicString Image;
+   RoadMapDynamicString GUI_ID;
+   RoadMapDynamicString Group = roadmap_string_new( "RealtimeAlerts");
+   RoadMapDynamicString Name;
+   RoadMapDynamicString Sprite= roadmap_string_new( "RealtimeAlerts");
+   const char*          icon;
+   char                 text[128];
+   int                  iAddon;
+   int                  numAddons;
+   RoadMapGpsPosition   Pos;
+   RoadMapGuiPoint      Offset;
+   RoadMapImage         image;
+   
+   snprintf(text, sizeof(text), "%d", pAlert->iID);
+   Name  = roadmap_string_new( text);
+   
+   Pos.longitude = pAlert->iLongitude;
+   Pos.latitude = pAlert->iLatitude;
+   Offset.x = 4;
+   
+   //main object
+   icon = RTAlerts_Get_Map_Icon(pAlert->iID);
+   if (icon != NULL) {
+      image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, icon);
+      if (image)
+         Offset.y = -roadmap_canvas_image_height(image) /2 +4;
+      Image = roadmap_string_new(icon);
+      snprintf(text, sizeof(text), "RTAlert_%d", pAlert->iID);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_add( Group, GUI_ID, Name, Sprite, Image, &Pos, &Offset,
+                         OBJECT_ANIMATION_POP_IN | OBJECT_ANIMATION_POP_OUT | OBJECT_ANIMATION_WHEN_VISIBLE, NULL);
+      roadmap_object_set_action(GUI_ID, OnAlertShortClick);
+      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN));
+      
+      roadmap_string_release(Image);
+      roadmap_string_release(GUI_ID);
+      
+      
+      image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "alert_marker_small");
+      if (image)
+         Offset.y = -roadmap_canvas_image_height(image) /2 +4;
+      Offset.x = 6;
+      Image = roadmap_string_new("alert_marker_small");
+      snprintf(text, sizeof(text), "RTAlert_small_%d", pAlert->iID);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_add( Group, GUI_ID, Name, Sprite, Image, &Pos, &Offset,
+                         OBJECT_ANIMATION_POP_IN | OBJECT_ANIMATION_POP_OUT,
+                         NULL);
+      roadmap_object_set_action(GUI_ID, OnAlertShortClick);
+      roadmap_object_set_zoom (GUI_ID, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, roadmap_layer_get_declutter(ROADMAP_ROAD_PRIMARY));
+      
+      roadmap_string_release(Image);
+      roadmap_string_release(GUI_ID);
+   }
+   
+   //addons
+   numAddons = RTAlerts_Get_Number_Of_Map_AddOns(pAlert->iID);
+   for (iAddon = 0; iAddon < numAddons; iAddon++ ){
+      icon = RTAlerts_Get_Map_AddOn(pAlert->iID, iAddon);
+      image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, icon);
+      if (image)
+         Offset.y = -roadmap_canvas_image_height(image) /2 +4;
+      Image = roadmap_string_new(icon);
+      snprintf(text, sizeof(text), "%d_%s", pAlert->iID, icon);
+      GUI_ID = roadmap_string_new(text);
+      roadmap_object_add( Group, GUI_ID, Name, Sprite, Image, &Pos, &Offset, 0, NULL);
+      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN));
+      
+      roadmap_string_release(Image);
+      roadmap_string_release(GUI_ID);
+   }
+   
+   roadmap_string_release( Group);
+   roadmap_string_release( Name);
+   roadmap_string_release( Sprite);
 }
 
 /**
@@ -1413,7 +1825,16 @@ static void OnAlertAdd(RTAlert *pAlert)
     if (pAlert->bPingWazer && Realtime_AllowPing()){
        RTAlerts_popup_PingWazer(pAlert);
     }
+    else{
+       if ((!pAlert->bAlertByMe) && (pAlert->iReportedElapsedTime < 120) && pAlert->sGroup[0] && (roadmap_groups_get_popup_config()) && pAlert->iGroupRelevance){
+          if ((roadmap_groups_get_popup_config() == POPUP_REPORT_FOLLOWING_GROUPS) ||
+               roadmap_groups_get_popup_config() == pAlert->iGroupRelevance ){
+                   RTAlerts_Popup_By_Id(pAlert->iID, TRUE);
+          }
+       }
+    }
 
+   CreateAlertObject(pAlert);
 }
 
 /**
@@ -1467,6 +1888,16 @@ static void RTAlerts_Timer(void)
         RealTime_SetMapDisplayed(TRUE);
         gIdleScrolling = FALSE;
         return;
+    }
+
+    if (roadmap_message_ticker_is_on()){
+       if (gIdleScrolling)
+       {
+            RTAlerts_Stop_Scrolling();
+            RealTime_SetMapDisplayed(TRUE);
+            gIdleScrolling = FALSE;
+       }
+       return;
     }
 
     if ((pos.speed < 2) && (gps_active))
@@ -1533,7 +1964,7 @@ static void RTAlerts_zoom(RoadMapPosition AlertPosition, int iCenterAround)
     if (iCenterAround == CENTER_ON_ALERT)
     {
     	  roadmap_trip_set_point("Hold", &AlertPosition);
-        roadmap_screen_update_center(&AlertPosition);
+        roadmap_screen_update_center_animated(&AlertPosition, 600, 0);
 		  scale = 1000;
         gCentered = TRUE;
 
@@ -1559,15 +1990,14 @@ static void RTAlerts_zoom(RoadMapPosition AlertPosition, int iCenterAround)
 			 if (scale == -1) {
 				 scale = 5000;
 		    }
-		    roadmap_screen_update_center(&pos);
+		    roadmap_screen_update_center_animated(&pos, 600, 0);
 	    } else {
    		 scale = 5000;
-          roadmap_screen_update_center(&AlertPosition);
+          roadmap_screen_update_center_animated(&AlertPosition, 600, 0);
 		 }
 	 }
 
-    roadmap_math_set_scale(scale, roadmap_screen_height() / 3);
-    roadmap_layer_adjust();
+    roadmap_screen_set_scale(scale, roadmap_screen_height() / 3);
     roadmap_screen_set_orientation_fixed();
 }
 
@@ -1993,6 +2423,11 @@ static void RTAlerts_Popup(void)
     if (pAlert == NULL)
         return;
 
+    if (!roadmap_map_settings_show_report(pAlert->iType)){
+       RTAlerts_Popup();
+       return;
+    }
+
     // reached an alert that was added while scrolling, sort again
     if (pAlert->iDistance<=0){
     	RTAlerts_Sort_List(sort_proximity);
@@ -2006,9 +2441,20 @@ static void RTAlerts_Popup(void)
     {
     	gIterator = 0;
     }
+
+    if ((roadmap_general_settings_events_radius() != -1) && (pAlert->iDistance > roadmap_general_settings_events_radius()*1000))
+    {
+       gIterator = 0;
+    }
+
     pAlert = RTAlerts_Get(gIterator);
     if (pAlert == NULL)
         return;
+
+    if (!roadmap_map_settings_show_report(pAlert->iType)){
+       RTAlerts_Popup();
+       return;
+    }
 
 	if (!gIgnoreAlertMaxDist){
 		roadmap_log(ROADMAP_DEBUG, "RTAlerts_Popup: popping up report automatically, report distance is %d",
@@ -2019,11 +2465,12 @@ static void RTAlerts_Popup(void)
 			pAlert->iDistance,roadmap_config_get_integer(&RoadMapConfigMaxAlertPopDist));
 	}
 
-    RTAlerts_popup_alert(pAlert->iID, CENTER_ON_ME);
+
+   RTAlerts_popup_alert(pAlert->iID, CENTER_ON_ME);
 
 }
 
-const char *RTAlerts_get_title(int iAlertType, int iAlertSubType){
+const char *RTAlerts_get_title(RTAlert *pAlert, int iAlertType, int iAlertSubType){
 
     if (iAlertType == RT_ALERT_TYPE_ACCIDENT)
         return roadmap_lang_get("Accident");
@@ -2051,13 +2498,18 @@ const char *RTAlerts_get_title(int iAlertType, int iAlertSubType){
 		return roadmap_lang_get("Road construction");
     else if (iAlertType == RT_ALERT_TYPE_PARKING)
       return roadmap_lang_get("Parking");
+    else if ((iAlertType == RT_ALERT_TYPE_DYNAMIC) && (pAlert != NULL))
+      return roadmap_lang_get(pAlert->pAlertTitle);
     else
 		return roadmap_lang_get("Chit chat");
 }
 
 static void on_popup_close(int exit_code, void* context){
 
-   if (gSavedZoom == -1){
+   if (gSavedZoom == -2){
+      // do nothing
+   }
+   else if (gSavedZoom == -1){
        roadmap_trip_set_focus("GPS");
        roadmap_math_zoom_reset();
    }else{
@@ -2197,7 +2649,7 @@ static BOOL Alert_OnKeyPressed( SsdWidget this, const char* utf8char, uint32_t f
  * @param buf_len - the buffer max len
  * @return None
  */
-static void RTAlerts_get_report_info_str( RTAlert *pAlert, char* buf, int buf_len )
+void RTAlerts_get_report_info_str( RTAlert *pAlert, char* buf, int buf_len )
 {
     int timeDiff;
     time_t now;
@@ -2214,13 +2666,13 @@ static void RTAlerts_get_report_info_str( RTAlert *pAlert, char* buf, int buf_le
     else
     	tmpStr = roadmap_lang_get("");
 
-  	snprintf( buf, buf_len, tmpStr );
+  	snprintf( buf, buf_len, "%s", tmpStr );
 
 
     if (timeDiff < 60)
         snprintf( buf  + strlen( buf ), buf_len - strlen( buf ),
                 roadmap_lang_get("%d seconds ago"), timeDiff );
-    else if ((timeDiff > 60) && (timeDiff < 3600))
+    else if ((timeDiff >= 60) && (timeDiff < 3600))
         snprintf( buf  + strlen( buf ), buf_len - strlen( buf ),
                 roadmap_lang_get("%d minutes ago"), timeDiff/60 );
     else
@@ -2286,12 +2738,22 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
    char ReportedByStr[100];
    SsdWidget button;
    RoadMapPosition position;
+   int i, num_addOns;
+   SsdWidget facebook_image;
+   SsdWidget groups_container;
 
    ssd_widget_reset_cache(popup);
    // Set the title
-   ssd_widget_set_value( popup, "popuup_text", RTAlerts_get_title(pAlert->iType, pAlert->iSubType) );
+   ssd_widget_set_value( popup, "popuup_text", RTAlerts_get_title(pAlert, pAlert->iType, pAlert->iSubType) );
 
    ssd_bitmap_update(ssd_widget_get(popup, "alert_icon"), RTAlerts_Get_Icon(pAlert->iID));
+   ssd_bitmap_remove_overlays(ssd_widget_get(popup, "alert_icon"));
+   num_addOns = RTAlerts_Get_Number_Of_AddOns(pAlert->iID);
+   for (i = 0 ; i < num_addOns; i++){
+       const char *AddOn = RTAlerts_Get_AddOn(pAlert->iID, i);
+       if (AddOn)
+          ssd_bitmap_add_overlay(ssd_widget_get(popup, "alert_icon"),AddOn);
+   }
 
    ssd_widget_set_value(popup, "alert_location", pAlert->sLocationStr);
 
@@ -2299,6 +2761,56 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
    ssd_widget_set_value(popup, "alert_info", AlertStr);
    ReportedByStr[0] = 0;
    RTAlerts_get_reported_by_string(pAlert,ReportedByStr,sizeof(ReportedByStr));
+   if (ReportedByStr[0] == 0)
+      ssd_widget_hide(ssd_widget_get(popup, "user_info_container"));
+   else
+      ssd_widget_show(ssd_widget_get(popup, "user_info_container"));
+
+   facebook_image = ssd_widget_get(popup, "facebook_image");
+   if (facebook_image){
+       ssd_bitmap_update(facebook_image, "facebook_default_image_small");
+       if (pAlert->bShowFacebookPicture){
+          int facebook_image_size = 32;
+          ssd_widget_show(ssd_widget_get(popup, "FB_IMAGE_container"));
+          if (roadmap_screen_is_hd_screen())
+             facebook_image_size = 50;
+          roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, pAlert->iID, -1, facebook_image_size, facebook_image);
+       }
+       else{
+          ssd_widget_hide(ssd_widget_get(popup, "FB_IMAGE_container"));
+       }
+   }
+
+   if (pAlert->sFacebookName[0] != 0){
+          ssd_text_set_text(ssd_widget_get(popup,"facebook_user_name"), pAlert->sFacebookName);
+          ssd_widget_show(ssd_widget_get(popup,"facebook_user_name"));
+          ssd_widget_show(ssd_widget_get(popup,"hspacer_fb"));
+   }
+   else{
+      ssd_text_set_text(ssd_widget_get(popup,"facebook_user_name"), "");
+      ssd_widget_hide(ssd_widget_get(popup,"facebook_user_name"));
+      ssd_widget_hide(ssd_widget_get(popup,"hspacer_fb"));
+   }
+
+   groups_container = ssd_widget_get(popup, "Groups.container");
+   if (pAlert->sGroup[0] != 0){
+      SsdWidget group_image;
+      SsdWidget group_text;
+      char      s_groups[RT_ALERT_GROUP_MAXSIZE+20];
+      group_image = ssd_widget_get(groups_container, "Groups.image");
+      group_text = ssd_widget_get(groups_container, "Groups.text");
+      if (pAlert->sGroupIcon[0] != 0)
+      ssd_bitmap_update(group_image, pAlert->sGroupIcon);
+       else
+          ssd_bitmap_update(group_image, "groups_default_icons");
+      snprintf( s_groups, sizeof(s_groups), "\n %s: %s", roadmap_lang_get("group"), pAlert->sGroup);
+      ssd_text_set_text(group_text, s_groups);
+      ssd_widget_show(groups_container);
+   }
+   else{
+      ssd_widget_hide(groups_container);
+   }
+
    ssd_widget_set_value(popup, "reported_by_info", ReportedByStr);
    RTAlerts_update_stars(ssd_widget_get(popup,"position_container"),pAlert);
    RTAlerts_show_space_before_desc(popup,pAlert);
@@ -2307,9 +2819,28 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
    ssd_widget_set_value(popup, "alert_distance", AlertStr);
    if (pAlert->sDescription[0] != 0){
       ssd_widget_set_value(popup, "descripion_text", pAlert->sDescription);
+      ssd_widget_show(ssd_widget_get(popup,"descripion_text"));
    }
    else{
       ssd_widget_set_value(popup, "descripion_text", "");
+      ssd_widget_hide(ssd_widget_get(popup,"descripion_text"));
+   }
+
+   if (RtAlerts_get_addional_text(pAlert)){
+      ssd_widget_show(ssd_widget_get(popup, "addition_text_container"));
+      ssd_text_set_text(ssd_widget_get(popup, "additional_text"), RtAlerts_get_addional_text(pAlert));
+      ssd_widget_show(ssd_widget_get(popup, "additional_text"));
+
+      if (RtAlerts_get_addional_text_icon(pAlert)){
+          ssd_bitmap_update(ssd_widget_get(popup, "addition_bitmap"), RtAlerts_get_addional_text_icon(pAlert));
+          ssd_widget_show(ssd_widget_get(popup, "addition_bitmap"));
+      }
+      else{
+         ssd_widget_hide(ssd_widget_get(popup, "addition_bitmap"));
+      }
+   }
+   else{
+      ssd_widget_hide(ssd_widget_get(popup, "addition_text_container"));
    }
 
 #ifdef TOUCH_SCREEN
@@ -2340,6 +2871,7 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
     set_left_softkey(popup->parent, pAlert);
     set_right_softkey(popup->parent);
 #endif
+
    position.longitude = pAlert->iLongitude;
    position.latitude = pAlert->iLatitude;
    ssd_popup_update_location(popup, &position);
@@ -2354,16 +2886,29 @@ static void update_popup(SsdWidget popup, RTAlert *pAlert, int iCenterAround){
 
 static void update_ping_wazer_popup(SsdWidget popup, RTAlert *pAlert){
    char AlertStr[700];
+   char name[RT_ALERT_FACEBOOK_USERNM_MAXSIZE+10];
+   SsdWidget facebook_image;
+   SsdWidget fb_image_cont;
+   SsdWidget moodW;
    const char *mood_str;
 
    ssd_widget_reset_cache(popup);
 
    mood_str = roadmap_mood_to_string(pAlert->iMood);
-   ssd_bitmap_update(ssd_widget_get(popup, "alert_icon"), mood_str);
+   moodW = ssd_widget_get(popup, "ping_mood_bitmap");
+   ssd_bitmap_update(moodW, mood_str);
    free((void *)mood_str);
 
    ssd_widget_set_value(popup, "PingUserFrom", pAlert->sReportedBy);
 
+   if (pAlert->sFacebookName[0] != 0){
+       snprintf(name, sizeof(name), "(%s)",pAlert->sFacebookName);
+       ssd_widget_set_value(popup, "fb_user_name", name);
+       ssd_widget_show(ssd_widget_get(popup, "fb_user_name"));
+   }
+   else{
+      ssd_widget_hide(ssd_widget_get(popup, "fb_user_name"));
+   }
 
    AlertStr[0] = 0;
    if (pAlert->sDescription[0] != 0){
@@ -2378,6 +2923,29 @@ static void update_ping_wazer_popup(SsdWidget popup, RTAlert *pAlert){
     set_right_softkey(popup->parent);
 #endif
 
+   facebook_image = ssd_widget_get(popup, "facebook_image");
+   fb_image_cont = ssd_widget_get(popup, "FB_IMAGE_container");
+
+   if (pAlert->bShowFacebookPicture){
+      if (facebook_image){
+
+         ssd_bitmap_update(facebook_image, "facebook_default_image");
+         roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, pAlert->iID, -1, SOCIAL_IMAGE_SIZE_SQUARE, facebook_image);
+         ssd_widget_set_color(fb_image_cont, "#ffffff", "#ffffff");
+         ssd_widget_set_offset(moodW, -20, 12);
+         moodW->flags |=  SSD_ALIGN_BOTTOM;
+         moodW->flags &=  ~ SSD_ALIGN_CENTER;
+         ssd_widget_show(facebook_image);
+      }
+   }
+   else{
+      ssd_widget_set_color(fb_image_cont, NULL, NULL);
+      moodW->flags &= ~ SSD_ALIGN_BOTTOM;
+      moodW->flags |=  SSD_ALIGN_CENTER;
+      ssd_widget_set_offset(moodW, 0, 0);
+      ssd_widget_hide(facebook_image);
+   }
+
    ssd_dialog_activate("PingWazerPopUPDlg", NULL);
    ssd_dialog_refresh_current_softkeys();
    ssd_widget_reset_cache(popup);
@@ -2386,6 +2954,27 @@ static void update_ping_wazer_popup(SsdWidget popup, RTAlert *pAlert){
    if (!roadmap_screen_refresh()){
       roadmap_screen_redraw();
    }
+}
+
+char *RtAlerts_get_addional_text(RTAlert *pAlert){
+   if (!strcmp(pAlert->sAddOnName,"twitter"))
+      return (char *)roadmap_lang_get("Traffic tweets via twitter");
+   else
+      return NULL;
+}
+
+char *RtAlerts_get_addional_text_icon(RTAlert *pAlert){
+   if (!strcmp(pAlert->sAddOnName,"twitter"))
+      return "twitter_small_icon";
+   else
+      return NULL;
+}
+
+char *RtAlerts_get_addional_keyboard_text(RTAlert *pAlert){
+   if (!strcmp(pAlert->sAddOnName,"twitter"))
+      return (char *)roadmap_lang_get("your comment is also tweeted to the twitter user");
+   else
+      return NULL;
 }
 /**
  * Display the pop up of an alert
@@ -2400,6 +2989,16 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
     const char *focus;
     RoadMapPosition position;
     SsdWidget text, position_con;
+    SsdWidget user_info_container;
+    SsdWidget user_info_text_container;
+    SsdWidget fb_image_cont;
+    SsdWidget groups_container;
+    SsdWidget group_image;
+    SsdWidget group_text;
+    SsdWidget facebook_image;
+    SsdWidget wgt_hspace;
+    SsdWidget addition_text_container;
+    SsdWidget additional_bitmap;
     static SsdWidget popup;
     SsdWidget text_con;
     SsdWidget spacer;
@@ -2409,8 +3008,10 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
     SsdWidget bitmap;
     int width = roadmap_canvas_width() ;
     char ReportedByStr[100];
-    int image_container_width = 40;
-
+    int image_container_width = 52;
+    int num_addOns, i;
+    int fb_width = 34;
+    int fb_height = 34;
 #ifdef TOUCH_SCREEN
     SsdWidget button;
 #endif
@@ -2428,8 +3029,11 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
     if (gAlertsTable.iCount == 0)
         return;
 
-   if ( roadmap_screen_is_hd_screen() )
-		image_container_width = 60;
+   if ( roadmap_screen_is_hd_screen() ){
+      image_container_width = 77;
+      fb_width = 52;
+      fb_height = 52;
+   }
 
     pAlert = RTAlerts_Get_By_ID(alertId);
     if (pAlert == NULL)
@@ -2451,6 +3055,12 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
    }
    gCurrentCommentId = -1;
 	bitmap = ssd_bitmap_new("alert_icon", RTAlerts_Get_Icon(pAlert->iID),SSD_ALIGN_CENTER|SSD_WS_TABSTOP);
+   num_addOns = RTAlerts_Get_Number_Of_AddOns(pAlert->iID);
+   for (i = 0 ; i < num_addOns; i++){
+       const char *AddOn = RTAlerts_Get_AddOn(pAlert->iID, i);
+       if (AddOn)
+          ssd_bitmap_add_overlay(bitmap,AddOn);
+   }
 
 	ssd_widget_get_size(bitmap, &size, NULL);
     position_con =
@@ -2461,7 +3071,7 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
       ssd_container_new ("text_conatiner", "", SSD_MIN_SIZE, SSD_MIN_SIZE, 0);
     ssd_widget_set_color(text_con, NULL, NULL);
 
-    text = ssd_text_new("popuup_text", RTAlerts_get_title(pAlert->iType, pAlert->iSubType), 18, SSD_END_ROW);
+    text = ssd_text_new("popuup_text", RTAlerts_get_title(pAlert, pAlert->iType, pAlert->iSubType), 18, SSD_END_ROW);
     ssd_widget_set_color(text,"#f6a201", NULL);
     ssd_widget_add(position_con, text);
 
@@ -2470,40 +3080,125 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
 	ssd_widget_set_color(text,"#f6a201", NULL);
 	ssd_widget_add(position_con, text);
 	AlertStr[0] = 0;
+   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+   ssd_widget_set_color( spacer, NULL, NULL );
+   ssd_widget_add( position_con, spacer );
 
-	RTAlerts_get_report_info_str( pAlert, AlertStr, sizeof( AlertStr ) );
+   if (pAlert->sDescription[0] != 0){
+     //Display the alert description
+     snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr) - strlen(AlertStr),
+            "%s", pAlert->sDescription);
+     text = ssd_text_new("descripion_text", AlertStr, 16,0);
+     ssd_widget_set_color(text,"#ffffff", NULL);
+     ssd_widget_add(text_con, text);
+     ssd_widget_add(position_con, text_con);
+     AlertStr[0] = 0;
+   }
+   else{
+      text = ssd_text_new("descripion_text", "", 14,0);
+      ssd_widget_set_color(text,"#ffffff", NULL);
+      ssd_widget_add(text_con, text);
+      ssd_widget_add(position_con, text_con);
+      AlertStr[0] = 0;
+   }
+
+   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+   ssd_widget_set_color( spacer, NULL, NULL );
+   ssd_widget_add( position_con, spacer );
+
+    RTAlerts_get_report_info_str( pAlert, AlertStr, sizeof( AlertStr ) );
 
     text = ssd_text_new("alert_info", AlertStr, 14,SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
     ssd_widget_set_color(text,"#ffffff", NULL);
     ssd_widget_add(position_con, text);
+
+    //ssd_dialog_add_vspace(position_con, 5, 0);
+    user_info_container =
+      ssd_container_new ("user_info_container", "", width-size.width -2, SSD_MIN_SIZE,0);
+    ssd_widget_set_color(user_info_container, NULL, NULL);
+
+    user_info_text_container =
+      ssd_container_new ("user_info_text_container", "", width-size.width -2-fb_width-4, SSD_MIN_SIZE,0);
+    ssd_widget_set_color(user_info_text_container,NULL, NULL);
+
+    fb_image_cont = ssd_container_new ("FB_IMAGE_container", "", fb_width, fb_height, SSD_ALIGN_VCENTER);
+    ssd_widget_set_color(fb_image_cont, "#ffffff", "#ffffff");
+    facebook_image = ssd_bitmap_new("facebook_image", "facebook_default_image_small", SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
+    ssd_widget_add(fb_image_cont, facebook_image);
+    ssd_widget_add(user_info_container, fb_image_cont);
+
+
+
     ReportedByStr[0] = 0;
     RTAlerts_get_reported_by_string(pAlert,ReportedByStr,sizeof(ReportedByStr));
     text = ssd_text_new("reported_by_info", ReportedByStr, 14,SSD_TEXT_NORMAL_FONT);
     ssd_widget_set_color(text,"#ffffff", NULL);
-    ssd_widget_add(position_con, text);
-    RTAlerts_update_stars(position_con, pAlert);
+    ssd_dialog_add_hspace(user_info_text_container, 5, 0);
+    ssd_widget_add(user_info_text_container, text);
+    RTAlerts_update_stars(user_info_text_container, pAlert);
+
+    text = ssd_text_new("facebook_user_name", "", 14,SSD_TEXT_NORMAL_FONT);
+    wgt_hspace = ssd_container_new( "hspacer_fb", "", 5, 20, SSD_START_NEW_ROW );
+    ssd_widget_set_color( wgt_hspace, NULL, NULL );
+    ssd_widget_add( user_info_text_container, wgt_hspace );
+
+    ssd_widget_set_color(text,"#ffffff", NULL);
+    if (pAlert->sFacebookName[0] != 0){
+       char name[RT_ALERT_FACEBOOK_USERNM_MAXSIZE+2];
+       snprintf(name, sizeof(name), "(%s)",pAlert->sFacebookName);
+       ssd_text_set_text(text, name);
+    }
+    else{
+       ssd_widget_hide(text);
+       ssd_widget_hide(ssd_widget_get(user_info_text_container,"hspacer_fb"));
+    }
+
+    ssd_widget_add(user_info_text_container, text);
+    ssd_widget_add(user_info_container, user_info_text_container);
+
+    ssd_widget_add(position_con, user_info_container);
+
+   // Groups container
+   groups_container =
+   ssd_container_new ("Groups.container", "", width-size.width -2, SSD_MIN_SIZE,0);
+   ssd_widget_set_color(groups_container, NULL, NULL);
+   ssd_dialog_add_vspace(groups_container, 3, 0);
+   group_image = ssd_bitmap_new("Groups.image", "groups_default_icons", SSD_ALIGN_VCENTER);
+   ssd_widget_add(groups_container, group_image);
+   ssd_dialog_add_hspace(groups_container, 5, 0);
+   group_text = ssd_text_new("Groups.text", "", -1, SSD_ALIGN_VCENTER);
+   ssd_widget_set_color(group_text,"#ffffff", NULL);
+   ssd_widget_add(groups_container, group_text);
+   
+   ssd_widget_add(position_con, groups_container);
+   if (pAlert->sGroup[0]){
+      char      s_groups[RT_ALERT_GROUP_MAXSIZE+20];
+      snprintf( s_groups, sizeof(s_groups), "\n %s: %s", roadmap_lang_get("group"), pAlert->sGroup);
+       if (pAlert->sGroupIcon[0] != 0)
+      ssd_bitmap_update(group_image, pAlert->sGroupIcon);
+       else
+          ssd_bitmap_update(group_image, "groups_default_icons");
+      ssd_text_set_text(group_text, s_groups);
+   }
+    else{
+       ssd_widget_hide(groups_container);
+    }
     ssd_widget_add (position_con,
     ssd_container_new ("space_before_descrip", NULL, 0, 10, SSD_END_ROW));
     RTAlerts_show_space_before_desc(position_con,pAlert);
     AlertStr[0] = 0;
 
+    if (ReportedByStr[0] == 0)
+       ssd_widget_hide(user_info_container);
 
-    if (pAlert->sDescription[0] != 0){
-	    //Display the alert description
-    	snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr) - strlen(AlertStr),
-        	    "%s", pAlert->sDescription);
-    	text = ssd_text_new("descripion_text", AlertStr, 16,0);
-    	ssd_widget_set_color(text,"#ffffff", NULL);
-		ssd_widget_add(text_con, text);
-		ssd_widget_add(position_con, text_con);
-		AlertStr[0] = 0;
+    else if (pAlert->bShowFacebookPicture){
+       int facebook_image_size = 32;
+       if (roadmap_screen_is_hd_screen())
+          facebook_image_size = 50;
+       roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, pAlert->iID, -1, facebook_image_size,  facebook_image );
     }
     else{
-       text = ssd_text_new("descripion_text", "", 14,0);
-       ssd_widget_set_color(text,"#ffffff", NULL);
-       ssd_widget_add(text_con, text);
-       ssd_widget_add(position_con, text_con);
-       AlertStr[0] = 0;
+       ssd_widget_hide(fb_image_cont);
     }
 
 
@@ -2539,6 +3234,33 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
    ssd_widget_add(popup, image_con);
 
     ssd_widget_add(popup, position_con);
+
+    addition_text_container =
+          ssd_container_new ("addition_text_container", "", SSD_MIN_SIZE, SSD_MIN_SIZE,0);
+    ssd_widget_set_color(addition_text_container, NULL, NULL);
+
+    additional_bitmap = ssd_bitmap_new("addition_bitmap", "", SSD_ALIGN_VCENTER);
+    ssd_widget_add(addition_text_container, additional_bitmap);
+    ssd_dialog_add_hspace(addition_text_container, 2, 0);
+
+    text = ssd_text_new("additional_text", "", 14, SSD_ALIGN_VCENTER|SSD_END_ROW);
+    ssd_widget_set_color(text,"#ffffff", NULL);
+    ssd_widget_add(addition_text_container, text);
+
+    if (RtAlerts_get_addional_text(pAlert)){
+       ssd_text_set_text(text, RtAlerts_get_addional_text(pAlert));
+       if (RtAlerts_get_addional_text_icon(pAlert))
+          ssd_bitmap_update(additional_bitmap, RtAlerts_get_addional_text_icon(pAlert));
+       else
+          ssd_widget_hide(additional_bitmap);
+    }
+    else{
+       ssd_widget_hide(addition_text_container);
+    }
+
+
+    ssd_widget_add(popup,addition_text_container);
+
 #ifdef TOUCH_SCREEN
 
     spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
@@ -2588,10 +3310,9 @@ static void RTAlerts_popup_alert(int alertId, int iCenterAround)
 
 }
 
-
 static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
 {
-
+    char name[RT_ALERT_FACEBOOK_USERNM_MAXSIZE+10];
     char AlertStr[700];
     const char *focus;
     SsdWidget text, position_con;
@@ -2602,9 +3323,13 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
     const char *mood_str;
     SsdSize size;
     SsdWidget bitmap;
+    SsdWidget facebook_image;
+    SsdWidget fb_image_cont;
     static RoadMapSoundList list;
     int width = roadmap_canvas_width() ;
-    int image_container_width = 40;
+    int image_container_width = 70;
+    int f_width = 52;
+    int f_height = 52;
     char *icon[3];
 #ifdef TOUCH_SCREEN
     SsdWidget button;
@@ -2619,7 +3344,7 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
         return;
 
    if ( roadmap_screen_is_hd_screen() )
-      image_container_width = 60;
+      image_container_width = 100;
 
    if (pAlert == NULL)
         return;
@@ -2640,12 +3365,12 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
    }
 
    mood_str = roadmap_mood_to_string(pAlert->iMood);
-   bitmap = ssd_bitmap_new("alert_icon", mood_str, SSD_ALIGN_CENTER);
+   bitmap = ssd_bitmap_new("ping_mood_bitmap", mood_str, SSD_ALIGN_BOTTOM);
    free((void *)mood_str);
 
    ssd_widget_get_size(bitmap, &size, NULL);
    position_con =
-      ssd_container_new ("position_container", "", width-size.width - image_container_width, SSD_MIN_SIZE,0);
+      ssd_container_new ("position_container", "", width-size.width - image_container_width-10, SSD_MIN_SIZE,0);
    ssd_widget_set_color(position_con, NULL, NULL);
 
    text_con =
@@ -2660,6 +3385,18 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
    ssd_widget_set_color(text,"#f6a201", NULL);
    ssd_widget_add(position_con, text);
 
+   if (pAlert->sFacebookName[0] != 0){
+       snprintf(name, sizeof(name), "(%s)",pAlert->sFacebookName);
+       text = ssd_text_new("fb_user_name", name, 18,SSD_END_ROW);
+       ssd_widget_set_color(text,"#f6a201", NULL);
+       ssd_widget_add(position_con, text);
+   }
+   else{
+      text = ssd_text_new("fb_user_name", "", 18,SSD_END_ROW);
+      ssd_widget_set_color(text,"#f6a201", NULL);
+      ssd_widget_add(position_con, text);
+      ssd_widget_hide(text);
+   }
    spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
    ssd_widget_set_color( spacer, NULL, NULL );
    ssd_widget_add( position_con, spacer );
@@ -2718,7 +3455,37 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
       bitmap->key_pressed = Alert_OnKeyPressed;
 #endif
 
-   ssd_widget_add(image_con, bitmap);
+
+    if (roadmap_screen_is_hd_screen()){
+       f_height = 77;
+       f_width = 77;
+    }
+
+    fb_image_cont = ssd_container_new ("FB_IMAGE_container", "", f_width, f_height, SSD_ALIGN_CENTER);
+    ssd_widget_set_color(fb_image_cont, "#ffffff", "#ffffff");
+
+    facebook_image = ssd_bitmap_new("facebook_image", "facebook_default_image", SSD_ALIGN_CENTER);
+    ssd_widget_set_offset(facebook_image, 0, 1);
+    ssd_widget_add(fb_image_cont, facebook_image);
+    ssd_widget_set_offset(bitmap, -20, 12);
+    ssd_widget_add(image_con, fb_image_cont);
+    spacer = ssd_container_new( "space", "", image_container_width, 7, 0 );
+    ssd_widget_set_color(spacer, NULL, NULL);
+    ssd_widget_add(image_con, spacer);
+    //mood
+    ssd_widget_add(fb_image_cont, bitmap);
+
+   if (pAlert->bShowFacebookPicture){
+       roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_ALERT, pAlert->iID, -1, SOCIAL_IMAGE_SIZE_SQUARE, facebook_image);
+   }
+   else{
+      ssd_widget_set_color(fb_image_cont, NULL, NULL);
+      bitmap->flags &= ~ SSD_ALIGN_BOTTOM;
+      bitmap->flags |=  SSD_ALIGN_CENTER;
+      ssd_widget_set_offset(bitmap, 0, 0);
+      ssd_widget_hide(facebook_image);
+   }
+
    AlertStr[0] = 0;
    RTAlerts_get_report_distance_str( pAlert, AlertStr, sizeof( AlertStr ) );
 
@@ -2763,18 +3530,23 @@ static void RTAlerts_popup_PingWazer(RTAlert *pAlert)
  * @param IId - the ID of the alert to popup
  * @return None
  */
-void RTAlerts_Popup_By_Id(int iID)
+void RTAlerts_Popup_By_Id(int iID, BOOL saveContext)
 {
     if (!(ssd_dialog_is_currently_active() && (!strcmp(ssd_dialog_currently_active_name(), "AlertPopUPDlg"))))
     {
+       if (saveContext){
+          const char *focus = roadmap_trip_get_focus_name();
+          if (focus && (strcmp(focus, "GPS")))
+             roadmap_math_get_context(&gSavedPosition, &gSavedZoom);
 
-       const char *focus = roadmap_trip_get_focus_name();
-       if (focus && (strcmp(focus, "GPS")))
-          roadmap_math_get_context(&gSavedPosition, &gSavedZoom);
-
+          gSavedFocus = focus;
+       }
+       else{
+          gSavedZoom = -2;
+       }
        roadmap_screen_hold();
-       gSavedFocus = focus;
     }
+
     RTAlerts_popup_alert(iID, CENTER_ON_ALERT);
 }
 
@@ -2867,7 +3639,7 @@ static void RTAlerts_Show_Image( int alertId, RoadMapImage image )
 
     pAlert = RTAlerts_Get_By_ID( alertId );
 
-    title = RTAlerts_get_title( pAlert->iType, pAlert->iSubType );
+    title = RTAlerts_get_title( pAlert, pAlert->iType, pAlert->iSubType );
 
     dialog = ssd_dialog_activate( SSD_RT_ALERT_IMAGE_DLG_NAME, NULL );
 
@@ -3124,6 +3896,7 @@ typedef struct
     int iType;
     int iDirection;
     const char * szDescription;
+    const char * szGroup;
 } RTAlertContext;
 
 /**
@@ -3135,7 +3908,6 @@ static BOOL on_keyboard_closed(  int         exit_code,
                                  const char* value,
                                  void*       context)
 {
-    BOOL success;
     const char *desc;
     upload_Image_context * uploadContext;
     RTAlertContext *AlertContext = (RTAlertContext *)context;
@@ -3161,6 +3933,7 @@ static BOOL on_keyboard_closed(  int         exit_code,
     uploadContext->desc = strdup(desc);
     uploadContext->iDirection = AlertContext->iDirection;
     uploadContext->iType = AlertContext->iType;
+    uploadContext->group = strdup(AlertContext->szGroup);
 
     if ( gCurrentImagePath ){
    	 if (!roadmap_camera_image_upload( NULL, gCurrentImagePath,
@@ -3182,7 +3955,7 @@ static BOOL on_keyboard_closed(  int         exit_code,
  * Show add additi -alert Type, szDescription - alert description, iDirection - direction of the alert
  * @return void
  */
-void report_alert(int iAlertType, const char * szDescription, int iDirection)
+void report_alert(int iAlertType, const char * szDescription, int iDirection, const char *szGroup)
 {
 
     RTAlertContext *AlertConext = calloc(1, sizeof(RTAlertContext));
@@ -3190,6 +3963,7 @@ void report_alert(int iAlertType, const char * szDescription, int iDirection)
     AlertConext->iType = iAlertType;
     AlertConext->szDescription = szDescription;
     AlertConext->iDirection = iDirection;
+    AlertConext->szGroup = szGroup;
 
     ssd_dialog_hide_current(dec_close);
 #if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE)
@@ -3414,7 +4188,7 @@ void add_real_time_alert_for_construction()
 void add_real_time_alert_for_police_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_POLICE, "" , RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_POLICE, "" , RT_ALERT_MY_DIRECTION,"");
 }
 
 
@@ -3426,7 +4200,7 @@ void add_real_time_alert_for_police_my_direction()
 void add_real_time_alert_for_accident_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_ACCIDENT, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_ACCIDENT, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3437,7 +4211,7 @@ void add_real_time_alert_for_accident_my_direction()
 void add_real_time_alert_for_traffic_jam_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_TRAFFIC_JAM, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_TRAFFIC_JAM, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3448,7 +4222,7 @@ void add_real_time_alert_for_traffic_jam_my_direction()
 void add_real_time_alert_for_hazard_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_HAZARD, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_HAZARD, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3459,7 +4233,7 @@ void add_real_time_alert_for_hazard_my_direction()
 void add_real_time_alert_for_parking_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_PARKING, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_PARKING, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3470,7 +4244,7 @@ void add_real_time_alert_for_parking_my_direction()
 void add_real_time_alert_for_other_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_OTHER, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_OTHER, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3481,7 +4255,7 @@ void add_real_time_alert_for_other_my_direction()
 void add_real_time_alert_for_construction_my_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_CONSTRUCTION, "",RT_ALERT_MY_DIRECTION);
+    report_alert(RT_ALERT_TYPE_CONSTRUCTION, "",RT_ALERT_MY_DIRECTION,"");
 }
 
 /**
@@ -3492,7 +4266,7 @@ void add_real_time_alert_for_construction_my_direction()
 void add_real_time_alert_for_police_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_POLICE, "" , RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_POLICE, "" , RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 /**
@@ -3503,7 +4277,7 @@ void add_real_time_alert_for_police_opposite_direction()
 void add_real_time_alert_for_accident_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_ACCIDENT, "" , RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_ACCIDENT, "" , RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 /**
@@ -3514,7 +4288,7 @@ void add_real_time_alert_for_accident_opposite_direction()
 void add_real_time_alert_for_traffic_jam_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_TRAFFIC_JAM, "", RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_TRAFFIC_JAM, "", RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 
@@ -3526,7 +4300,7 @@ void add_real_time_alert_for_traffic_jam_opposite_direction()
 void add_real_time_alert_for_hazard_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_HAZARD, "", RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_HAZARD, "", RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 /**
@@ -3537,7 +4311,7 @@ void add_real_time_alert_for_hazard_opposite_direction()
 void add_real_time_alert_for_parking_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_PARKING, "", RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_PARKING, "", RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 /**
  * Report an alert for Other on the opposite direction
@@ -3547,7 +4321,7 @@ void add_real_time_alert_for_parking_opposite_direction()
 void add_real_time_alert_for_other_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_OTHER, "", RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_OTHER, "", RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 /**
@@ -3558,7 +4332,7 @@ void add_real_time_alert_for_other_opposite_direction()
 void add_real_time_alert_for_construction_opposite_direction()
 {
 
-    report_alert(RT_ALERT_TYPE_CONSTRUCTION, "", RT_ALERT_OPPSOITE_DIRECTION);
+    report_alert(RT_ALERT_TYPE_CONSTRUCTION, "", RT_ALERT_OPPSOITE_DIRECTION,"");
 }
 
 #ifndef IPHONE
@@ -3652,10 +4426,12 @@ void real_time_post_alert_comment_by_id(int iAlertid)
     ShowEditbox(roadmap_lang_get("Comment"), "", post_comment_keyboard_callback,
             pAlert, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
-   ssd_show_keyboard_dialog(  roadmap_lang_get("Comment"),
+    ssd_show_keyboard_dialog_ext(  roadmap_lang_get("Comment"),
                               NULL,
+                              NULL,
+                              RtAlerts_get_addional_keyboard_text(pAlert),
                               post_comment_keyboard_callback,
-                              pAlert);
+                              pAlert, 0);
 #endif
 
 }
@@ -3784,49 +4560,6 @@ static int button_callback(SsdWidget widget, const char *new_value)
 }
 
 /**
- * Creates and display a messagebox indicating an incident on the route.
- * @param pAlert - pointer to the alert that is on the route
- * @return void
- */
-static void create_ssd_dialog(RTAlert *pAlert)
-{
-    const char *description;
-    SsdWidget text;
-    SsdWidget dialog = ssd_dialog_new("rt_alert_on_my_route",
-            roadmap_lang_get("New Alert"),
-            NULL,
-            SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|
-            SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS);
-
-    if (pAlert->iType== RT_ALERT_TYPE_ACCIDENT)
-        description = roadmap_lang_get("New accident on your route");
-    else if (pAlert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
-        description = roadmap_lang_get("New traffic jam on your route");
-    else
-        description = roadmap_lang_get("New incident on your route");
-
-	text = ssd_text_new("text", description, 16, SSD_END_ROW|SSD_WIDGET_SPACE);
-   ssd_widget_add(dialog, text);
-	text = ssd_text_new("alert_text", pAlert->sLocationStr, 16, SSD_END_ROW);
-	ssd_widget_set_color(text,"#9d1508", NULL);
-	ssd_widget_add(dialog, text);
-
-
-   /* Spacer */
-   ssd_widget_add(dialog, ssd_container_new("spacer1", NULL, 0, 20,   SSD_END_ROW));
-
-   ssd_widget_add(dialog, ssd_button_label("Recalculate",
-            roadmap_lang_get("Recalculate"),
-            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, button_callback));
-
-   ssd_widget_add(dialog, ssd_button_label("Cancel",
-            roadmap_lang_get("Cancel"),
-            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, button_callback));
-}
-
-
-
-/**
  *
  *
  * @return void
@@ -3902,10 +4635,11 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
 	SsdWidget image_con;
 	SsdWidget text_con;
    char *icon[3];
+   int i, num_addOns;
 #ifdef TOUCH_SCREEN
    SsdWidget button;
 #endif
-   int image_container_width = 40;
+   int image_container_width = 52;
    int width = roadmap_canvas_width();
 
 #ifdef IPHONE_NATIVE
@@ -3917,7 +4651,7 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
 	CommentStr[0] = 0;
 
    if ( roadmap_screen_is_hd_screen() )
-     image_container_width = 60;
+     image_container_width = 78;
 
 
 	 dialog =  ssd_popup_new("Comment Pop Up", roadmap_lang_get("Response"),NULL,SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_ROUNDED_BLACK|SSD_HEADER_BLACK|SSD_POINTER_COMMENT);
@@ -3951,7 +4685,13 @@ static void RTAlerts_Comment_PopUp(RTAlertComment *Comment, RTAlert *Alert)
     snprintf(CommentStr + strlen(CommentStr), sizeof(CommentStr)
                 - strlen(CommentStr), "%s", Alert->sLocationStr);
 
-	bitmap = ssd_bitmap_new("alert_icon",RTAlerts_Get_IconByType(Alert->iType, FALSE),0);
+	bitmap = ssd_bitmap_new("alert_icon",RTAlerts_Get_IconByType(Alert, Alert->iType, FALSE),0);
+	num_addOns = RTAlerts_Get_Number_Of_AddOns(Alert->iID);
+	for (i = 0 ; i < num_addOns; i++){
+	       const char *AddOn = RTAlerts_Get_AddOn(Alert->iID, i);
+	       if (AddOn)
+	          ssd_bitmap_add_overlay(bitmap,AddOn);
+	}
 	ssd_widget_add(image_con, bitmap);
 	ssd_widget_add(dialog, image_con);
 
@@ -4107,7 +4847,6 @@ static void get_location_str(char *sLocationStr, int iDirection, const RoadMapGp
 ////////////////////////////////////////////////////////////////////
 static int report_menu_buttons_callback (SsdWidget widget, const char *new_value) {
    upload_Image_context * uploadContext;
-   BOOL success;
 
    SsdWidget container = widget->parent;
 
@@ -4115,6 +4854,8 @@ static int report_menu_buttons_callback (SsdWidget widget, const char *new_value
          const char *description = ssd_widget_get_value(ssd_widget_get(container, roadmap_lang_get("Additional Details")),roadmap_lang_get("Additional Details"));
    		const char *direction = ssd_button_get_name(ssd_widget_get(container, "Direction"));
    		const char *type = ssd_bitmap_get_name(ssd_widget_get(container, "alert_icon"));
+   		const char *group = roadmap_groups_get_selected_group_name();
+
    		int alert_direction;
    		if (!strcmp(direction, "mydirection"))
    			alert_direction = RT_ALERT_MY_DIRECTION;
@@ -4124,11 +4865,15 @@ static int report_menu_buttons_callback (SsdWidget widget, const char *new_value
 			RTAlerts_ShowProgressDlg();
 			gMinimizeState = RTAlerts_Get_TypeByIconName(type);
 
+			if (group == NULL){
+			   group = "";
+			}
 
 			uploadContext = (upload_Image_context *)malloc(sizeof(upload_Image_context));
 			uploadContext->desc = strdup(description);
 			uploadContext->iDirection = alert_direction;
 			uploadContext->iType = RTAlerts_Get_TypeByIconName(type);
+			uploadContext->group = strdup(group);
 			if ( gCurrentImagePath ){
 				if(roadmap_camera_image_upload( NULL, gCurrentImagePath, gCurrentImageId,
 						continue_report_after_image_upload, (void *) uploadContext ) == FALSE){
@@ -4160,22 +4905,25 @@ static int report_menu_buttons_callback (SsdWidget widget, const char *new_value
 }
 
 /////////////////////////////////////////////////////////////////////
-static void on_mood_changed(void){
+static void on_groups_changed(void){
 
 	char *icon[2];
+	const char *name;
 
-	icon[0] = (char *)roadmap_mood_get();
+	icon[0] = (char *)roadmap_groups_get_selected_group_icon();
 	icon[1] = NULL;
-
-	ssd_dialog_change_button(roadmap_lang_get ("Mood"), (const char **)&icon[0], 1);
-	ssd_dialog_change_text("Mood Text", roadmap_lang_get(roadmap_mood_get_name()));
-
+	ssd_dialog_change_button(roadmap_lang_get ("GroupIcon"), (const char **)&icon[0], 1);
+	name = roadmap_groups_get_selected_group_name();
+	if (name && *name)
+	   ssd_dialog_change_text("Group Text", roadmap_groups_get_selected_group_name());
+	else
+      ssd_dialog_change_text("Group Text", roadmap_lang_get("No group"));
 
 }
 
 /////////////////////////////////////////////////////////////////////
-static int on_mood_select( SsdWidget this, const char *new_value){
-	roadmap_mood_dialog(on_mood_changed);
+static int on_group_select( SsdWidget this, const char *new_value){
+   roadmap_groups_dialog(on_groups_changed);
 	return 0;
 }
 
@@ -4267,11 +5015,11 @@ static void report_dialog(int iAlertType){
 	SsdWidget text_box;
 	char *icon[2];
 	BOOL isLongScreen;
-	const char *mood;
+	const char *group_name;
 	const RoadMapGpsPosition   *TripLocation;
 	char sLocationStr[RT_ALERT_LOCATION_MAX_SIZE+1];
 	int iDirection = RT_ALERT_MY_DIRECTION;
-	int container_height = 40;
+	int container_height = 50;
    const char *edit_button_r[] = {"edit_right", "edit_right"};
    const char *edit_button_l[] = {"edit_left", "edit_left"};
     gCurrentImageId[0] = 0;
@@ -4286,7 +5034,7 @@ static void report_dialog(int iAlertType){
 	gMinimizeState = -1;
 
 	dialog = ssd_dialog_new ("Report",
-                            RTAlerts_get_title(iAlertType, 0),
+                            RTAlerts_get_title(NULL, iAlertType, 0),
                             NULL,
                             SSD_CONTAINER_TITLE);
 
@@ -4304,7 +5052,7 @@ static void report_dialog(int iAlertType){
 
    box = ssd_container_new ("box", NULL,
                         		SSD_MIN_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW);
-	bitmap = ssd_bitmap_new("alert_icon",RTAlerts_Get_IconByType(iAlertType, FALSE), 0);
+	bitmap = ssd_bitmap_new("alert_icon",RTAlerts_Get_IconByType(NULL, iAlertType, FALSE), 0);
 	ssd_widget_add(box, bitmap);
 	get_location_str(&sLocationStr[0], iDirection, NULL);
 	text = ssd_text_new ("Alert position", sLocationStr, -1,SSD_END_ROW|SSD_ALIGN_VCENTER);
@@ -4324,7 +5072,7 @@ static void report_dialog(int iAlertType){
 
    box = ssd_container_new ("Direction group", NULL,
                   SSD_MAX_SIZE,container_height,
-		  		  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
+                  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
 	icon[0] = "mydirection";
 	icon[1] = NULL;
    container =  ssd_container_new ("space", NULL, 60, SSD_MIN_SIZE,SSD_ALIGN_VCENTER);
@@ -4344,43 +5092,55 @@ static void report_dialog(int iAlertType){
     {
        ssd_widget_add(group, space(2));
     }
-	//Mood
-    box = ssd_container_new ("Mood group", NULL,
+
+    //Group
+
+    if (roadmap_groups_get_num_following() > 0){
+       text = ssd_text_new ("GroupTextTitle", roadmap_lang_get("Report will be also be sent to:"), -1, SSD_END_ROW);
+       ssd_widget_set_color(text, "#206892",NULL);
+       ssd_widget_add (group,text);
+       ssd_dialog_add_vspace(group, 3, 0);
+
+
+       roadmap_groups_set_selected_group_name(roadmap_groups_get_active_group_name());
+       roadmap_groups_set_selected_group_icon (roadmap_groups_get_active_group_icon());
+
+       box = ssd_container_new ("Groups group", NULL,
                   SSD_MAX_SIZE,container_height,
-		  		  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
+                  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
 	ssd_widget_set_color (box, "#000000", "#ffffff");
-	box->callback = on_mood_select;
+       box->callback = on_group_select;
    ssd_widget_set_pointer_force_click( box );
-	icon[0] = (char *)roadmap_mood_get();
+       icon[0] = (char *)roadmap_groups_get_active_group_icon();
 	icon[1] = NULL;
    container =  ssd_container_new ("space", NULL, 60, SSD_MIN_SIZE,SSD_ALIGN_VCENTER);
 	ssd_widget_set_color(container, NULL, NULL);
-	mood = roadmap_mood_get();
+       group_name = roadmap_groups_get_active_group_name();
    ssd_widget_add (container,
-		   ssd_button_new (roadmap_lang_get ("Mood"), roadmap_lang_get(mood), (const char **)&icon[0], 1,
+		 ssd_button_new ("GroupIcon", "GroupIcon", (const char **)&icon[0], 1,
 		   				   SSD_ALIGN_VCENTER|SSD_WS_TABSTOP|SSD_ALIGN_CENTER,
-		   				   on_mood_select));
-   free((void *)mood);
+		   				   on_group_select));
 	ssd_widget_add(box, container);
 	ssd_widget_add (box,
-         ssd_text_new ("Mood Text", roadmap_lang_get(roadmap_mood_get_name()), -1,
+             ssd_text_new ("Group Text", group_name, -1,
                         SSD_ALIGN_VCENTER));
-
 
    if (!ssd_widget_rtl(NULL))
 	   button = ssd_button_new ("edit_button", "", &edit_button_r[0], 2,
-        	                 SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_mood_select);
+        	                 SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_group_select);
    else
 	   button = ssd_button_new ("edit_button", "", &edit_button_l[0], 2,
-        	                 SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_mood_select);
+        	                 SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_group_select);
    if (!ssd_widget_rtl(NULL))
-   		ssd_widget_set_offset(button, 10, 0);
+   		ssd_widget_set_offset(button, -10, 0);
    else
-		ssd_widget_set_offset(button, -11, 0);
+          ssd_widget_set_offset(button, 11, 0);
    ssd_widget_add(box, button);
 
    ssd_widget_add (group, box);
+    }
 
+#ifndef EMBEDDED_CE
    if (isLongScreen){
     	ssd_widget_add(group, space(1));
    }
@@ -4393,7 +5153,9 @@ static void report_dialog(int iAlertType){
    if (isLongScreen){
    ssd_widget_add(group, space(1));
    }
-
+#else
+	ssd_widget_add(group, space(5));
+#endif
     ssd_widget_add (group,
    				   ssd_button_label ("Send", roadmap_lang_get ("Send"),
                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER, report_menu_buttons_callback));
@@ -4565,24 +5327,28 @@ void RTAlerts_report_map_problem(){
       return;
    }
 
-   TripLocation = malloc (sizeof (*TripLocation));
-   if (roadmap_navigate_get_current (TripLocation, &line, &direction) == -1) {
-     const RoadMapPosition *GpsPosition;
-     GpsPosition = roadmap_trip_get_position ("GPS");
-     if ( (GpsPosition != NULL)) {
-        TripLocation->latitude = GpsPosition->latitude;
-        TripLocation->longitude = GpsPosition->longitude;
-        TripLocation->speed = 0;
-        TripLocation->steering = 0;
-     }
-     else {
-         free (TripLocation);
-         roadmap_messagebox ("Error",
-                    "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
-         return;
-     }
+   TripLocation = roadmap_trip_get_gps_position("AlertSelection");
+   if (TripLocation == NULL) {
+
+      TripLocation = malloc (sizeof (*TripLocation));
+      if (roadmap_navigate_get_current (TripLocation, &line, &direction) == -1) {
+        const RoadMapPosition *GpsPosition;
+        GpsPosition = roadmap_trip_get_position ("GPS");
+        if ( (GpsPosition != NULL)) {
+           TripLocation->latitude = GpsPosition->latitude;
+           TripLocation->longitude = GpsPosition->longitude;
+           TripLocation->speed = 0;
+           TripLocation->steering = 0;
+        }
+        else {
+            free (TripLocation);
+            roadmap_messagebox ("Error",
+                       "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
+            return;
+        }
+      }
+      roadmap_trip_set_gps_position( "AlertSelection", "Selection", "new_alert_marker",TripLocation);
    }
-   roadmap_trip_set_gps_position( "AlertSelection", "Selection", "new_alert_marker",TripLocation);
 
    gMinimizeState = -1;
 
@@ -4706,7 +5472,7 @@ const char * RTAlerts_Get_Stars_Icon(int starNum){
 		case 5:
 			return "RT5Stars";
 		default:
-			return NULL;
+			return "RT0Stars";
 	}
 }
 
@@ -4736,10 +5502,12 @@ void RTAlerts_add_comment_stars(SsdWidget container,  RTAlertComment *pAlertComm
 	// add stars only if user isn't anonymous
      if ( strcmp(pAlertComment->sPostedBy,roadmap_lang_get("anonymous"))&&strcmp(pAlertComment->sPostedBy,"anonymous")){
       		 int rank = pAlertComment->iRank;
-      		 SsdWidget stars_bitmap = ssd_bitmap_new("stars icon", RTAlerts_Get_Stars_Icon(rank),SSD_END_ROW);
-      		 ssd_dialog_add_hspace(container, 5 , 0);
-      		 ssd_widget_set_offset(stars_bitmap,0, 5);
-      		 ssd_widget_add(container, stars_bitmap);
+      		 if (rank != -1){
+      		    SsdWidget stars_bitmap = ssd_bitmap_new("stars icon", RTAlerts_Get_Stars_Icon(rank),SSD_END_ROW);
+      		    ssd_dialog_add_hspace(container, 5 , 0);
+      		    ssd_widget_set_offset(stars_bitmap,0, 5);
+      		    ssd_widget_add(container, stars_bitmap);
+      		 }
     }
 }
 
@@ -4750,14 +5518,20 @@ void RTAlerts_Set_Ignore_Max_Distance(BOOL ignore){
 /**
  * Builds the string containing the reported by info
  */
-static void RTAlerts_get_reported_by_string( RTAlert *pAlert, char* buf, int buf_len )
+void RTAlerts_get_reported_by_string( RTAlert *pAlert, char* buf, int buf_len )
 {
 
    // Display who reported the alert
    if (pAlert->sReportedBy[0] != 0)
    {
-    	snprintf(buf, buf_len,
-      	      " %s %s  ", roadmap_lang_get("by"), pAlert->sReportedBy );
+      if (pAlert->sFacebookName[0] != 0){
+         snprintf(buf, buf_len,
+                  " %s %s  ", roadmap_lang_get("by"), pAlert->sReportedBy );
+      }
+      else{
+         snprintf(buf, buf_len,
+                  " %s %s  ", roadmap_lang_get("by"), pAlert->sReportedBy );
+      }
    }
 }
 
@@ -4783,7 +5557,7 @@ static void continue_report_after_image_upload(void * context){
 	success = Realtime_Report_Alert(uploadContext->iType, uploadContext->desc,
 			uploadContext->iDirection, gCurrentImageId,
 	      roadmap_twitter_is_sending_enabled() && roadmap_twitter_logged_in(),
-	      roadmap_facebook_is_sending_enabled() && roadmap_facebook_logged_in());
+	      roadmap_facebook_is_sending_enabled() && roadmap_facebook_logged_in(), uploadContext->group);
 
 	if (success){
 	  ssd_dialog_hide_all(dec_close);
@@ -4793,6 +5567,7 @@ static void continue_report_after_image_upload(void * context){
 		RTAlerts_CloseProgressDlg();
 
 	free(uploadContext->desc);
+	free(uploadContext->group);
 	free(uploadContext);
 }
 
@@ -4814,10 +5589,27 @@ BOOL RTAlerts_isByMe(int iId)
  */
 BOOL RTAlerts_isAlertOnRoute(int iId)
 {
+   RTAlert *pAlert;
 
-    RTAlert *pAlert = RTAlerts_Get_By_ID(iId);
-    if (!pAlert)
-        return FALSE;
+   if (navigate_main_state() == -1)
+       return FALSE;
+
+   pAlert = RTAlerts_Get_By_ID(iId);
+   if (!pAlert)
+       return FALSE;
+   else
+       return pAlert->bAlertIsOnRoute;
+}
+
+void RTAlerts_clear_group_counter(void){
+ gDisplayClearedTimeStamp = time(NULL);
+ gGroupState = STATE_OLD;
+}
+
+
+int RAlerts_get_group_state(void){
+   if (gAlertsTable.iGroupCount == 0)
+        return STATE_OLD;
     else
-        return pAlert->bAlertIsOnRoute;
+       return gGroupState;
 }

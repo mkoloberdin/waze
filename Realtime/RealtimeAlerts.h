@@ -28,7 +28,8 @@
 
 #include "../roadmap_sound.h"
 #include "../ssd/ssd_widget.h"
-#include "../src/roadmap_alerter.h"
+#include "../roadmap_alerter.h"
+
 // Alerts types
 #define RT_ALERT_TYPE_CHIT_CHAT			   0
 #define RT_ALERT_TYPE_POLICE				   1
@@ -39,7 +40,8 @@
 #define RT_ALERT_TYPE_OTHER				   6
 #define RT_ALERT_TYPE_CONSTRUCTION        7
 #define RT_ALERT_TYPE_PARKING             8
-#define RT_ALERTS_LAST_KNOWN_STATE			8
+#define RT_ALERT_TYPE_DYNAMIC             9
+#define RT_ALERTS_LAST_KNOWN_STATE			9
 
 //Alerts direction
 #define RT_ALERT_BOTH_DIRECTIONS 			0
@@ -48,14 +50,30 @@
 
 #define	RT_MAXIMUM_ALERT_COUNT           500
 #define RT_ALERT_LOCATION_MAX_SIZE        150
-#define RT_ALERT_DESCRIPTION_MAXSIZE      200
+#define RT_ALERT_DESCRIPTION_MAXSIZE      400
 #define RT_ALERT_IMAGEID_MAXSIZE		      100
 #define RT_ALERT_USERNM_MAXSIZE 			   100
+#define RT_ALERT_FACEBOOK_USERNM_MAXSIZE  100
+#define RT_ALERT_GROUP_MAXSIZE            100
+#define RT_ALERT_GROUP_ICON_MAXSIZE       100
+
+#define RT_ALERTS_MAX_ALERT_TYPE           64
+#define RT_ALERTS_MAX_ADD_ON_NAME         128
+#define RT_ALERTS_MAX_ICON_NAME           128
+#define RT_ALERTS_MAX_TITLE_NAME          128
 
 #define RT_ALERT_RES_TITLE_MAX_SIZE       64
 #define RT_ALERT_RES_TEXT_MAX_SIZE        512
 
 #define RT_ALERTS_PROGRESS_DLG_NAME		"Alert progress dialog"
+
+#define ALERT_ICON_PREFIX  "alert_icon_"
+#define ALERT_PIN_PREFIX   "alert_pin_"
+
+#define ALERT_TITLE_PREFIX "alert_title_"
+
+#define ALERT_ICON_ADDON_PREFIX "alert_icon_addon_"
+#define ALERT_PIN_ADDON_PREFIX  "alert_pin_addon_"
 
 #define REROUTE_MIN_DISTANCE              30000
 
@@ -64,11 +82,7 @@
 #define STATE_NEW          2
 #define STATE_NEW_COMMENT  3
 #define STATE_SCROLLING    4
-#ifdef _WIN32
-#define NEW_LINE "\r\n"
-#else
 #define NEW_LINE "\n"
-#endif
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,7 +98,8 @@ typedef enum alert_sort_method
 typedef enum alert_filter
 {
    filter_none,
-   filter_on_route
+   filter_on_route,
+   filter_group
 }  alert_filter;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,7 +115,10 @@ typedef struct
     BOOL bDisplay;
     int  iRank;
     int  iMood;
+    char sFacebookName[RT_ALERT_FACEBOOK_USERNM_MAXSIZE]; //Facebook name
+    BOOL bShowFacebookPicture; // Show facebook Picture
 } RTAlertComment;
+
 
 #define MAP_PROBLEM_INCORRECT_TURN               "Incorrect turn"
 #define MAP_PROBLEM_INCORRECT_ADDRESS            "Incorrect address"
@@ -148,16 +166,29 @@ typedef struct
     char sNearStr[RT_ALERT_LOCATION_MAX_SIZE+1];
     char sStreetStr[RT_ALERT_LOCATION_MAX_SIZE+1];
     char sCityStr[RT_ALERT_LOCATION_MAX_SIZE+1];
-    int iDistance;
-    int iLineId;
-    int	 iSquare;
-    int iNumComments;
+    int  iDistance;
+    int  iLineId;
+    int  iSquare;
+    int  iNumComments;
     BOOL bAlertByMe;
     BOOL bPingWazer;
     roadmap_alerter_location_info location_info;
     RTAlertCommentsEntry *Comment;
-    BOOL bAlertIsOnRoute;
-
+    char sAddOnName[RT_ALERTS_MAX_ADD_ON_NAME];
+    char sAlertType[RT_ALERTS_MAX_ALERT_TYPE];
+    char *pMenuAddOnName;
+    char *pMapAddOnName;
+    char *pIconName;
+    char *pMapIconName;
+    char *pAlertTitle;
+    BOOL bAlertIsOnRoute; // Is alert on my route
+    char sFacebookName[RT_ALERT_FACEBOOK_USERNM_MAXSIZE]; // Facebook name
+    BOOL bShowFacebookPicture;         // Show facebook Picture
+    char sGroup[RT_ALERT_GROUP_MAXSIZE];
+    char sGroupIcon[RT_ALERT_GROUP_ICON_MAXSIZE];
+    int  iGroupRelevance;
+    int  iReportedElapsedTime;
+    int  iDisplayTimeStamp;
 } RTAlert;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -175,6 +206,7 @@ typedef struct
 {
     RTAlert *alert[RT_MAXIMUM_ALERT_COUNT];
     int iCount;
+    int iGroupCount;
 } RTAlerts;
 
 void RTAlerts_Alert_Init(RTAlert *alert);
@@ -184,9 +216,12 @@ void RTAlerts_Term(void);
 BOOL RTAlerts_Add(RTAlert *alert);
 BOOL RTAlerts_Remove(int iID);
 int RTAlerts_Count(void);
+int RTAlerts_GroupCount(void);
 const char * RTAlerts_Count_Str(void);
+const char * RTAlerts_GroupCount_Str(void);
 RTAlert *RTAlerts_Get(int record);
 RTAlert *RTAlerts_Get_By_ID(int iID);
+const char* RTAlerts_Get_GroupName_By_Id(int iId);
 BOOL RTAlerts_Is_Empty();
 BOOL RTAlerts_Exists(int iID);
 void RTAlerts_Get_Position(int alert, RoadMapPosition *position, int *steering);
@@ -194,6 +229,7 @@ int RTAlerts_Get_Type(int record);
 int RTAlerts_Get_Type_By_Id(int iId);
 int RTAlerts_Get_Id(int record);
 char *RTAlerts_Get_LocationStr(int record);
+char * RTAlerts_Get_LocationStrByID(int Id);
 unsigned int RTAlerts_Get_Speed(int record);
 int RTAlerts_Get_Distance(int record);
 const char * RTAlerts_Get_Map_Icon(int alert);
@@ -207,7 +243,7 @@ void RTAlerts_Sort_List(alert_sort_method sort_method);
 BOOL RTAlerts_Get_City_Street(RoadMapPosition AlertPosition,
         const char **city_name, const char **street_name,  int *square, int*line_id,
         int direction);
-void RTAlerts_Popup_By_Id(int alertId);
+void RTAlerts_Popup_By_Id(int alertId, BOOL saveContext);
 void RTAlerts_Popup_By_Id_No_Center(int iID);
 void RTAlerts_Scroll_All(void);
 void RTAlerts_Stop_Scrolling(void);
@@ -262,9 +298,9 @@ int RTAlerts_HandleAlert(int alertId);
 int RTAlerts_is_reply_popup_on(void);
 int RTAlerts_CurrentAlert_Has_Comments(void);
 void RTAlerts_CurrentComments(void);
-const char * RTAlerts_Get_IconByType(int iAlertType, BOOL has_comments);
+const char * RTAlerts_Get_IconByType(RTAlert *pAlert, int iAlertType, BOOL has_comments);
 int RTAlerts_Get_TypeByIconName(const char *icon_name);
-const char *RTAlerts_get_title(int iAlertType, int iAlertSubType);
+const char *RTAlerts_get_title(RTAlert *pAlert,int iAlertType, int iAlertSubType);
 int  RTAlerts_Get_Minimize_State(void);
 void RTAlerts_Minimized_Alert_Dialog(void);
 void RTAlerts_Resert_Minimized(void);
@@ -281,5 +317,17 @@ int RTAlertsGetMapProblems (int **outMapProblems, char **outMapProblemsOption[])
 
 BOOL RTAlerts_isByMe(int iId);
 BOOL RTAlerts_isAlertOnRoute(int iId);
+const char * RTAlerts_Get_Map_AddOn(int alertId, int AddOnIndex);
+int RTAlerts_Get_Number_Of_Map_AddOns(int alertId);
+const char * RTAlerts_Get_AddOn(int alertId, int AddOnIndex);
+int RTAlerts_Get_Number_Of_AddOns(int alertId);
 
+char *RtAlerts_get_addional_text(RTAlert *pAlert);
+char *RtAlerts_get_addional_text_icon(RTAlert *pAlert);
+char *RtAlerts_get_addional_keyboard_text(RTAlert *pAlert);
+
+void RTAlerts_get_reported_by_string( RTAlert *pAlert, char* buf, int buf_len );
+void RTAlerts_get_report_info_str( RTAlert *pAlert, char* buf, int buf_len );
+void RTAlerts_clear_group_counter(void);
+int RAlerts_get_group_state(void);
 #endif	//	__REALTIME_ALERT_H__

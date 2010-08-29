@@ -38,6 +38,16 @@ typedef struct {
    
 } list_menu_selector;
 
+typedef struct {
+   char              title[128];
+   char              text[1024];
+   char              top_image[128];
+   char              bottom_image[128];
+   char              button_text[128];
+   RoadMapCallback   button_cb;
+} list_menu_empty_message;
+
+
 void roadmap_list_menu_simple (const char             *name,
                                const char             *items_file,
                                const char             *items[],
@@ -62,7 +72,8 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                         void*                  context,
                                         SsdSoftKeyCallback     detail_button_callback,
                                         int                    list_height,
-                                        int                    add_next_button);
+                                        int                    add_next_button,
+                                        list_menu_empty_message* empty_message);
 
 void* roadmap_list_menu_generic (const char*          title,
                                  int                  count,
@@ -76,7 +87,8 @@ void* roadmap_list_menu_generic (const char*          title,
                                  void*                context,
                                  SsdSoftKeyCallback   detail_button_callback,
                                  int                  list_height,
-                                 int                  add_next_button);
+                                 int                  add_next_button,
+                                 list_menu_empty_message* empty_message);
 
 
 #endif // __ROADMAP_LIST_MENU__H

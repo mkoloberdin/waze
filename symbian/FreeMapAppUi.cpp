@@ -120,7 +120,7 @@ static void roadmap_browser_launcher( const RMBrowserContext* context )
 					pAppUi->ApplicationRect().Width() - 1,   context->top_margin + context->height // Bottom right
 				); 
 
-	TBuf<256> url;
+	TBuf<WEB_VIEW_URL_MAXSIZE> url;
 	GSConvert::CharPtrToTDes16( context->url, url );
 	pAppUi->ShowBrowserView( rect, url );
 }

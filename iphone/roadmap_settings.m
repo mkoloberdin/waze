@@ -60,7 +60,9 @@ enum IDs {
 	ID_TRAFFIC,
 	ID_LOGIN,
 	ID_PRIVACY,
+   ID_RECOMMEND,
 	ID_GENERAL,
+	ID_GROUPS,
 	ID_HELP_MENU,
    ID_DEBUG_INFO,
    ID_MEDIA_PLAYER,
@@ -144,7 +146,7 @@ void roadmap_settings(void) {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -221,7 +223,9 @@ void roadmap_settings(void) {
 	//Light day/night
 	selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
 	[selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Light")]];
-	segmentsArray = [NSArray arrayWithObjects:@"Day", @"Night", NULL];
+	segmentsArray = [NSArray arrayWithObjects:[NSString stringWithUTF8String:roadmap_lang_get("Day")],
+                                             [NSString stringWithUTF8String:roadmap_lang_get("Night")],
+                                             NULL];
 	[selCell setItems:segmentsArray];
 	if (roadmap_skin_state())
 		[selCell setSelectedSegment:1];
@@ -363,6 +367,40 @@ void roadmap_settings(void) {
 	[actionCell setTag:ID_PRIVACY];
 	id_actions[ID_PRIVACY] = "privacy_settings";
 	this_action =  roadmap_start_find_action (id_actions[ID_PRIVACY]);
+   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                (this_action->label_long)];
+	[groupArray addObject:actionCell];
+   
+   
+   //Groups settings
+	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+	icon_name = "group_settings";
+	img = roadmap_iphoneimage_load(icon_name);
+	if (img) {
+      actionCell.imageView.image = img;
+		[img release];
+	}
+	
+	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+	[actionCell setTag:ID_GROUPS];
+	id_actions[ID_GROUPS] = "group_settings";
+	this_action =  roadmap_start_find_action (id_actions[ID_GROUPS]);
+   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                (this_action->label_long)];
+	[groupArray addObject:actionCell];
+   
+   //Spread the word
+	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+	icon_name = "recommend";
+	img = roadmap_iphoneimage_load(icon_name);
+	if (img) {
+      actionCell.imageView.image = img;
+		[img release];
+	}
+	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+	[actionCell setTag:ID_RECOMMEND];
+	id_actions[ID_RECOMMEND] = "recommend";
+	this_action =  roadmap_start_find_action (id_actions[ID_RECOMMEND]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
 	[groupArray addObject:actionCell];

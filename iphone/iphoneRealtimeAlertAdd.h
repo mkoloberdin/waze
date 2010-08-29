@@ -45,7 +45,7 @@
 	UIImage        *iconImage;
 	UIImage        *minimizedImage;
 	UIButton       *imageButton;
-	UIButton       *moodButton;
+	UIButton       *groupButton;
 	UIButton       *hideButton;
    UIButton       *cancelButton;
 	UIImageView    *animatedImageView;
@@ -58,7 +58,7 @@
 @property (nonatomic, retain) UIImage        *iconImage;
 @property (nonatomic, retain) UIImage        *minimizedImage;
 @property (nonatomic, retain) UIButton       *imageButton;
-@property (nonatomic, retain) UIButton       *moodButton;
+@property (nonatomic, retain) UIButton       *groupButton;
 @property (nonatomic, retain) UIButton       *hideButton;
 @property (nonatomic, retain) UIButton       *cancelButton;
 @property (nonatomic, retain) UIImageView    *animatedImageView;

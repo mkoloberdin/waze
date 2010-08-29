@@ -50,6 +50,13 @@ SsdWidget ssd_menu_new (const char           *name,
                                const RoadMapAction  *actions,
                                int                   flags);
 
+SsdWidget ssd_menu_new_cb (const char           *name,
+                        SsdWidget          addition_conatiner,
+                               const char           *items_file,
+                               const char           *items[],
+                               const RoadMapAction  *actions,
+                               int                   flags,
+                               PFN_ON_DIALOG_CLOSED on_dialog_closed);
 void ssd_menu_hide (const char *name);
 void ssd_menu_load_images(const char   *items_file, const RoadMapAction  *actions);
 void ssd_menu_set_right_text(char *name, char *item, char *text);

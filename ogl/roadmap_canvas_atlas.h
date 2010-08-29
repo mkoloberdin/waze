@@ -30,8 +30,11 @@
 #ifndef INCLUDE__ROADMAP_CANVAS_ATLAS__H
 #define INCLUDE__ROADMAP_CANVAS_ATLAS__H
 
+#include "roadmap_canvas_ogl.h"
 
+#ifndef CANVAS_ATLAS_TEX_SIZE
 #define CANVAS_ATLAS_TEX_SIZE    256 //TODO: better make this dynamic
+#endif
 
 BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image);
 void roadmap_canvas_atlas_clean (const char* hint);

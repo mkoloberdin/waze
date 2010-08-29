@@ -26,7 +26,19 @@
 
 #include "roadmap.h"
 
-#define WEB_VIEW_URL_MAXSIZE       (512)
+
+#define WAZE_CMD_URL_PREFIX        ("waze://")
+#define WAZE_EXTERN_URL_PREFIX     ("waze://?open_url=")
+#define WEB_VIEW_URL_MAXSIZE       (2048)
+#define BROWSER_BAR_NORMAL          0
+#define BROWSER_BAR_EXTENDED        1
+
+#if ((defined IPHONE) || (defined ANDROID))
+#define BROWSER_WEB_VERSION         "1"
+#else
+#define BROWSER_WEB_VERSION         "0"
+#endif
+
 
 typedef struct
 {
@@ -42,7 +54,11 @@ void roadmap_browser_register_launcher( RMBrowserLauncherCb launcher_cb );
 
 void roadmap_browser_register_close( RoadMapCallback close_cb );
 
-
-void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback);
+void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback, int bar_type);
+#ifdef IPHONE
+BOOL roadmap_browser_show_preloaded (void);
+void roadmap_browser_preload (const char* title, const char* url, RoadMapCallback callback, int bar_type);
+void roadmap_browser_unload (void);
+#endif //IPHONE
 
 #endif /*ROADMAP_BROWSER_H_*/

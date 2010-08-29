@@ -101,6 +101,31 @@ static RMNativeKBParams s_gNativeKBParams = {  _native_kb_type_default, 1, _nati
 
 static void on_device_event( device_event event, void* context );
 static void update_editbox_topspace() ;
+void reopen_keyboard(void);
+
+
+static BOOL on_keyboard_closed(  int         exit_code,
+                                 const char* value,
+                                 void*       context)
+{
+	SsdWidget edit       = NULL;
+	SsdWidget edit_cont= ssd_widget_get( search_context[s_type].c_dlg, GSD_IC_EDITBOX_CNT_NAME);
+	edit     = ssd_widget_get( edit_cont,GSD_IC_EDITBOX_NAME);
+
+    if( dec_ok != exit_code){
+		ssd_dialog_hide_current( dec_close);
+		roadmap_screen_refresh();
+        return TRUE;
+    }
+
+    if( value && (*value))
+       strcpy( search_context[s_type].c_saved_txt, value);
+
+    ssd_text_set_text(edit, value );
+    (*search_context[s_type].c_on_search)();
+
+    return TRUE;
+}
 
 void generic_search_dlg_switch_gui(void)
 {
@@ -117,6 +142,12 @@ void generic_search_dlg_switch_gui(void)
       ssd_dialog_set_current_scroll_flag(TRUE);
    else
    {
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+    ssd_dialog_draw ();
+
+    roadmap_main_set_periodic( 50, reopen_keyboard);
+
+#else
       SsdWidget edit_cont= ssd_widget_get( search_context[s_type].c_dlg, GSD_IC_EDITBOX_CNT_NAME);
       if ( roadmap_native_keyboard_enabled() )
       {
@@ -124,6 +155,7 @@ void generic_search_dlg_switch_gui(void)
       }
       ssd_dialog_set_focus( edit_cont );
       ssd_dialog_set_current_scroll_flag( FALSE );
+#endif
    }
    ssd_dialog_reset_offset();
    ssd_dialog_draw ();
@@ -132,12 +164,19 @@ void generic_search_dlg_switch_gui(void)
 
 void reopen_keyboard(void)
 {
+
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+    ShowEditbox(roadmap_lang_get( search_context[s_type].c_dlg_title), search_context[s_type].c_saved_txt,
+            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
+    roadmap_main_remove_periodic( reopen_keyboard);
+#else
    if( search_context[s_type].c_saved_cb){
          (*search_context[s_type].c_on_reopen)( search_context[s_type].c_saved_cb, NULL);
    }
    search_context[s_type].c_saved_cb    = NULL;
    search_context[s_type].c_saved_txt[0]= '\0';
    roadmap_main_remove_periodic( reopen_keyboard);
+#endif
 }
 
 
@@ -177,6 +216,7 @@ void on_dlg_closed( int exit_code, void* context)
    // Show the top bar
    roadmap_top_bar_show();
 }
+
 
 static BOOL on_key_pressed__delegate_to_editbox(
                      SsdWidget   this,
@@ -235,9 +275,11 @@ SsdWidget create_input_container()
    int txt_box_height = 40;
    int edit_box_top_offset = ssd_keyboard_edit_box_top_offset();
 
-#ifndef TOUCH_SCREEN
-   txt_box_height = 23;
-#endif
+   if ( roadmap_screen_is_hd_screen() )
+   {
+      txt_box_height = 52;
+   }
+
    icnt = ssd_container_new(  GSD_INPUT_CONT_NAME,
                               NULL,
                               SSD_MAX_SIZE,
@@ -249,7 +291,7 @@ SsdWidget create_input_container()
                               NULL,
                               SSD_MAX_SIZE,
                               txt_box_height,
-                              SSD_WS_TABSTOP|SSD_CONTAINER_TXT_BOX|SSD_END_ROW|SSD_ALIGN_CENTER);
+                              SSD_WS_TABSTOP|SSD_CONTAINER_SEARCH_BOX|SSD_END_ROW|SSD_ALIGN_CENTER);
 
    bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
 
@@ -380,6 +422,7 @@ void generic_search_dlg_show( search_types   type,
    SsdWidget dialog     = NULL;
    SsdWidget edit       = NULL;
    SsdWidget edit_cont  = NULL;
+   SsdWidget button     = NULL;
 
    if( search_context[type].c_cb || search_context[type].c_ctx)
    {
@@ -405,6 +448,7 @@ void generic_search_dlg_show( search_types   type,
    dialog   = get_dlg(dlg_name, dlg_title, rcnt);
    set_softkeys(dialog, left_sk_callback, right_sk_callback);
    ssd_dialog_invalidate_tab_order_by_name(GSD_DIALOG_NAME);
+   ssd_dialog_invalidate_tab_order_by_name(dlg_name);
    ssd_dialog_activate( dlg_name, NULL);
 
    if( !search_context[s_type].c_1st)
@@ -419,7 +463,19 @@ void generic_search_dlg_show( search_types   type,
       ssd_text_reset_text( edit);
 
    ssd_dialog_set_current_scroll_flag(FALSE);
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
 
+   button = ssd_widget_get( dialog, GSD_IC_BUTTON_NAME);
+   ssd_widget_hide(button);
+   ssd_widget_hide(edit_cont);
+
+   ssd_dialog_activate( dlg_name, NULL );
+
+   ssd_dialog_draw ();
+
+   roadmap_main_set_periodic( 50, reopen_keyboard);
+
+#else
    update_editbox_topspace();
    if ( roadmap_native_keyboard_enabled() )
    {
@@ -440,9 +496,10 @@ void generic_search_dlg_show( search_types   type,
 
    ssd_dialog_activate( dlg_name, NULL );
 
-   ssd_dialog_set_focus( edit_cont );
+   ssd_dialog_set_focus(edit_cont);
 
    ssd_dialog_draw ();
+#endif
 }
 
 /* Top space for the editbox handler. Updates the top space depending on the portrait landscape */
@@ -482,8 +539,14 @@ static void on_device_event( device_event event, void* context )
 
 void generic_search_dlg_reopen_native_keyboard(void)
 {
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+
+    ShowEditbox(roadmap_lang_get( search_context[s_type].c_dlg_title), search_context[s_type].c_saved_txt,
+            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
+#else
    if ( roadmap_native_keyboard_enabled() )
    {
       roadmap_native_keyboard_show( &s_gNativeKBParams );
    }
+#endif
 }

@@ -53,6 +53,7 @@ void roadmap_main_show_view (UIView *View);
 BOOL roadmap_main_should_rotate(UIInterfaceOrientation interfaceOrientation);
 void roadmap_main_get_bounds(CGRect *bounds);
 UIImageView *roadmap_main_bg_image (void);
+UIColor *roadmap_main_table_color (void);
 
 
 

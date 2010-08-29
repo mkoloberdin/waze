@@ -146,7 +146,7 @@ void RTAlerts_report_map_problem() {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {

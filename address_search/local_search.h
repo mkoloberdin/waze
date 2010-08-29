@@ -37,6 +37,11 @@ roadmap_result local_search_resolve_address(
                   void*                context,
                   CB_OnAddressResolved cbOnAddressResolved,
                   const char*          address);
+BOOL local_candidate_build_address_string( address_candidate* this);
+const char* on_local_option(   /* IN  */   const char*       data,
+                                 /* IN  */   void*             context,
+                                 /* OUT */   BOOL*             more_data_needed,
+                                 /* OUT */   roadmap_result*   rc);
 
 #endif   // __LOCAL_SEARCH_H__
 

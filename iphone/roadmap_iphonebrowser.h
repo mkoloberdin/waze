@@ -25,14 +25,17 @@
 #define __ROADMAP_IPHONEBROWSER__H
 
 
-@interface BrowserView : UIViewController <UIWebViewDelegate> {
+@interface BrowserViewController : UIViewController <UIWebViewDelegate> {
    RoadMapCallback   gCallback;
+   BOOL              gIsShown;
+   UIWebView         *gBrowserView;
 }
 
 
-- (void) show: (const char *) title 
-          url: (const char *) url
-     callback: (RoadMapCallback) callback;
+- (void) preload: (const char *) title 
+             url: (const char *) url
+        callback: (RoadMapCallback) callback
+             bar: (int) bar_type;
 
 
 @end

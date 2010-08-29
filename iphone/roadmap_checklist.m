@@ -46,7 +46,7 @@
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = gRowHeight;
    
    if (headersArray) {
@@ -85,6 +85,7 @@
       headersArray = NULL;
    
    gEnableBack = !(flags & CHECKLIST_DISABLE_BACK);
+   gEnableClose =  !(flags & CHECKLIST_DISABLE_CLOSE);
    gGlobalChecklist = flags & CHECKLIST_GLOBAL;
 	gCallback = callback;
    gRowHeight = height;
@@ -102,11 +103,11 @@
    
    //set right button
 	UINavigationItem *navItem = [self navigationItem];
-   if (gEnableBack) {
+   if (gEnableBack && gEnableClose) {
       UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")]
                                                                     style:UIBarButtonItemStyleDone target:self action:@selector(onClose)];
       [navItem setRightBarButtonItem:barButton];
-   } else {
+   } else if (!gEnableBack) {
       navItem.hidesBackButton = TRUE;
    }
 	
@@ -209,8 +210,11 @@
 			cell.accessoryType = UITableViewCellAccessoryNone;
 			cell.accessoryView = NULL;
 		}
-	} else
+	} else {
       cell.textLabel.font = [UIFont boldSystemFontOfSize:17];
+      cell.accessoryType = UITableViewCellAccessoryNone;
+      cell.accessoryView = NULL;
+   }
    
 	return cell;
 }

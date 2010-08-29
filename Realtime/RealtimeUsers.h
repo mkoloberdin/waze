@@ -30,6 +30,9 @@
 #define  RT_USERID_MAXSIZE             (63)
 #define  RT_USERTTL_MAXSIZE            (63)
 #define  RL_MAXIMUM_USERS_COUNT        (50)
+#define  RT_USERFACEBOOK_MAXSIZE       (100)
+#define  RT_USER_GROUP_MAXSIZE         (100)
+#define  RT_USER_GROUP_ICON_MAXSIZE   (100)
 
 #define RT_USERS_CENTER_NONE				-1
 #define RT_USERS_CENTER_ON_ALERT       1
@@ -61,8 +64,15 @@ typedef struct tagRTUserLocation
    int   				iJoinDate;                    // User join date (time)
    BOOL        		bWasUpdated;                  // New user, OR user location was changed
    int               iPingFlag;                  // Can we send a ping top that user
-
+   char              sFacebookName[RT_USERFACEBOOK_MAXSIZE]; // Facebook name
+   BOOL              bFacebookFriend;              // Is facebook friend
+   BOOL              bShowFacebookPicture;         // Show facebook Picture
+   char              sGroup[RT_USER_GROUP_MAXSIZE]; //Group
+   char              sGroupIcon[RT_USER_GROUP_ICON_MAXSIZE];
+   int               iGroupRelevance;
+   BOOL              bShowGroupIcon;
 }  RTUserLocation, *LPRTUserLocation;
+
 
 void   RTUserLocation_Init       ( LPRTUserLocation this);
 void   RTUserLocation_CreateGUIID( LPRTUserLocation this);   //   Create ID for the GUI

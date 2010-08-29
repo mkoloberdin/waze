@@ -470,7 +470,7 @@ void roadmap_login_new_existing_dlg(){
 	   ssd_widget_set_offset(text, 10, -7);
 
 	   ssd_widget_add (group2, text);
-	   button = ssd_button_label ("New", roadmap_lang_get ("Get Started"),
+	   button = ssd_button_label ("New", roadmap_lang_get ("Sign Up"),
 				SSD_WS_TABSTOP|SSD_ALIGN_VCENTER|SSD_END_ROW|SSD_ALIGN_RIGHT|SSD_WS_TABSTOP, new_existing_buttons_callback );
 	   if (ssd_widget_rtl(NULL))
 		  ssd_widget_set_offset(button, 10, -7);
@@ -771,7 +771,7 @@ static SsdWidget create_button_group (const char* group_name,
                                         SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    icon[0] = logo;
    icon[1] = NULL;
-   container =  ssd_container_new ("space", NULL, 47, 
+   container =  ssd_container_new ("space", NULL, 47,
                                    SSD_MIN_SIZE, SSD_ALIGN_VCENTER);
    ssd_widget_set_color(container, NULL, NULL);
    ssd_widget_add (container,
@@ -782,7 +782,7 @@ static SsdWidget create_button_group (const char* group_name,
    ssd_widget_add (group, container);
    ssd_widget_add (group,
                    ssd_text_new (text, text, -1, SSD_ALIGN_VCENTER));
-   
+
 #ifdef TOUCH_SCREEN
    if (!ssd_widget_rtl(NULL)){
       buttons[0] = edit_button[0];
@@ -795,7 +795,7 @@ static SsdWidget create_button_group (const char* group_name,
                             SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, callback);
    ssd_widget_add(group, button);
 #endif
-   
+
    return group;
 }
 
@@ -807,22 +807,22 @@ void roadmap_login_profile_dialog_show( void )
    const char *config_car;
    char *icon[2];
    int width;
-   
+
 #ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
 #else
    int tab_flag = SSD_WS_TABSTOP;
 #endif
-   
+
    /* Current shown login function for the
     * further processing in callbacks
     */
    roadmap_login_set_show_function( (RoadmapLoginDlgShowFn) roadmap_login_profile_dialog_show );
-   
+
    width = roadmap_canvas_width()/2;
-   
+
    if ( !ssd_dialog_exists( sDlgName ) ) {
-      
+
       SsdWidget dialog;
       SsdWidget group, group2;
       SsdWidget box;
@@ -832,29 +832,29 @@ void roadmap_login_profile_dialog_show( void )
       int height = 45;
       const char *edit_button[] = {"edit_right", "edit_left"};
       const char *buttons[2];
-      
+
       if ( roadmap_screen_is_hd_screen() )
       {
          height = 65;
       }
-      
+
       dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get(sDlgName), on_close_dialog,
                                SSD_CONTAINER_TITLE);
-      
+
 #ifdef TOUCH_SCREEN
       space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10, SSD_WIDGET_SPACE|SSD_END_ROW);
       ssd_widget_set_color (space, NULL,NULL);
       ssd_widget_add(dialog, space);
 #endif
-      
+
       box = ssd_container_new ("box group", NULL,
                                SSD_MAX_SIZE,SSD_MIN_SIZE,
                                SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      
+
       group = ssd_container_new ("Name group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      
+
       ssd_widget_set_color (group, "#000000", "#ffffff");
       ssd_widget_add (group,
                       ssd_text_new ("Label", roadmap_lang_get("Username"), -1,
@@ -864,16 +864,16 @@ void roadmap_login_profile_dialog_show( void )
                                           roadmap_lang_get("Change of username and password should be done on www.waze.com, and only then entered here. Continue?"),
                                           roadmap_lang_get("Username"));
       ssd_entry_set_kb_params( username, roadmap_lang_get( "User name" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
-      
+
       ssd_widget_add (group, username);
-      
+
       ssd_widget_add (box, group);
-      
+
       group = ssd_container_new ("PW group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
+
       ssd_widget_add (group,
                       ssd_text_new ("Label", roadmap_lang_get("Password"), -1,
                                     SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
@@ -882,29 +882,29 @@ void roadmap_login_profile_dialog_show( void )
       ssd_entry_set_kb_params( pwd, roadmap_lang_get( "Password" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
       ssd_widget_add (group, pwd );
       ssd_widget_add (box, group);
-      
+
       group = ssd_container_new ("Nick group", NULL,
                                  SSD_MAX_SIZE, SSD_MIN_SIZE,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
+
       ssd_widget_add (group,
                       ssd_text_new ("Label", roadmap_lang_get("Nickname"), -1,
                                     SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
-      
+
       ssd_widget_add (group,
                       ssd_entry_new ("Nickname", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT,
                                      0, width, SSD_MIN_SIZE ,roadmap_lang_get("Nickname")));
       ssd_widget_add (box, group);
-      
-      
+
+
       ssd_widget_add (dialog, box);
       group = ssd_container_new ("Car group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|
                                  SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
+
       config_car = roadmap_config_get (&RoadMapConfigCarName);
       car_name = roadmap_path_join("cars", config_car);
 #ifdef TOUCH_SCREEN
@@ -932,14 +932,14 @@ void roadmap_login_profile_dialog_show( void )
                                     SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
       group->callback = on_car_select;
       ssd_widget_add (dialog, group);
-      
+
       //Privacy
       group = ssd_container_new ("Privacy group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|
                                  SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
+
 #ifdef TOUCH_SCREEN
       if (!ssd_widget_rtl(NULL)){
          buttons[0] = edit_button[0];
@@ -958,15 +958,15 @@ void roadmap_login_profile_dialog_show( void )
                       ssd_button_new (roadmap_lang_get ("Car"), roadmap_lang_get(config_car), (const char **)&icon[0], 1,
                                       0,
                                       NULL));
-      
+
       ssd_widget_add (group,
                       ssd_text_new ("Privacy Text", roadmap_lang_get("Privacy settings"), -1,
                                     SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
       group->callback = RealtimePrivacySettingsWidgetCallBack;
-      
-      
+
+
       ssd_widget_add (dialog, group);
-      
+
       group = ssd_container_new("AllowPing group",NULL,SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE
                                 |SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
       ssd_widget_set_color (group, NULL, NULL);
@@ -980,9 +980,9 @@ void roadmap_login_profile_dialog_show( void )
       ssd_widget_add(group,group2);
       ssd_widget_add (group,
                       ssd_checkbox_new ("AllowPing", TRUE,  SSD_ALIGN_RIGHT|SSD_ALIGN_VCENTER, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
-      
+
       ssd_widget_add(dialog,group);
-      
+
 #ifndef TOUCH_SCREEN
       group = ssd_container_new ("Car group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
@@ -1000,32 +1000,32 @@ void roadmap_login_profile_dialog_show( void )
                                       on_mood_select));
       group->callback = on_mood_select;
       ssd_widget_add (dialog, group);
-      
+
 #endif
-      
+
       //Social networks
       box = ssd_container_new ("social group", NULL,
                                SSD_MAX_SIZE,SSD_MIN_SIZE,
                                SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS
                                |SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      
+
       //Twitter
       group = create_button_group ("Twitter group",
                                    "twitter_logo",
                                    "Twitter",
                                    twitter_button_cb);
       ssd_widget_add (box, group);
-      
-#if 0 //enable when facebook is supported      
+
+#if 1 //enable when facebook is supported
       //Facebook
       ssd_widget_add (box, ssd_separator_new ("separator", 0));
       group = create_button_group ("Facebook group",
-                                   "facebook_logo",
+                                   "facebook_settings",
                                    "Facebook",
                                    facebook_button_cb);
       ssd_widget_add (box, group);
 #endif
-      
+
       //Foursquare
       if (roadmap_foursquare_is_enabled()) {
          ssd_widget_add (box, ssd_separator_new ("separator", 0));
@@ -1035,19 +1035,19 @@ void roadmap_login_profile_dialog_show( void )
                                       foursquare_button_cb);
          ssd_widget_add (box, group);
       }
-      
+
       ssd_widget_add (dialog, box);
-      
-      
+
+
 #ifndef TOUCH_SCREEN
       ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Ok"));
       ssd_widget_set_left_softkey_callback   ( dialog, on_ok_softkey);
 #endif
-      
+
       sProfileDlg = dialog;
       free(car_name);
    }
-   
+
    if ( !SsdLoginShown) {
       const char *pVal;
       yesno[0] = "Yes";
@@ -1060,11 +1060,11 @@ void roadmap_login_profile_dialog_show( void )
       else pVal = yesno[1];
       ssd_widget_set_data (sProfileDlg, "AllowPing", (void *) pVal);
    }
-   
+
    SsdLoginShown = 1;
-   
+
    sgLastLoginDlg = sProfileDlg;
-   
+
    ssd_dialog_draw ();
    ssd_dialog_activate ( sDlgName, NULL);
 }

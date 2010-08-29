@@ -44,7 +44,7 @@
 #include "ssd_progress_msg_dialog.h"
 #include "roadmap_start.h"
 #include "roadmap_introduction.h"
-
+#include "roadmap_browser.h"
 #include "roadmap_welcome_wizard.h"
 #include "roadmap_iphonewelcome_wizard.h"
 
@@ -77,21 +77,27 @@ static CGRect gRectTerm = {20.0f, 15.0f, 280.0f, 300.0f};
 
 //static CGSize gSizeTermAccepted = {75.0f, 30.0f};
 //static CGSize gSizeNormalBtn = {100.0f, 30.0f};
-static CGSize gSizePersonalizeText1 = {270.0f, 60.0f};
-static CGSize gSizePersonalizeText2 = {270.0f, 80.0f};
+static CGSize gSizePersonalizeText1 = {270.0f, 50.0f};
+static CGSize gSizePersonalizeAlreadyHave = {270.0f, 25.0f};
+static CGSize gSizePersonalizeText2 = {270.0f, 70.0f};
 static CGSize gSizePersonalizeLater = {270.0f, 60.0f};
 
 #define TEXT_HEIGHT 30.0f
 
 enum ids {
 	ID_TWITTER_USERNAME = 1,
-	ID_TWITTER_PASSWORD
+	ID_TWITTER_PASSWORD,
+   ID_TWITTER_CHECKED,
+   ID_TWITTER_UNCHECKED,
+   ID_FACEBOOK_CHECKED,
+   ID_FACEBOOK_UNCHECKED,
+   ID_PING_CHECKED,
+   ID_PING_UNCHECKED
 };
 
 static RoadMapCallback gCallback;
 static int is_wizard_shown = 0;
-static int gShowIntro = 0;
-
+static int gAfterCreate;
 
 
 const char* Hebrew_Disclaimer = 
@@ -199,9 +205,9 @@ void roadmap_term_of_use(RoadMapCallback callback){
 }
 
 /////////////////////////////////////////////////////////////////////
-void welcome_wizard_twitter_dialog(int showIntro){
+void welcome_wizard_twitter_dialog(int afterCreate){
    WelcomeWizardView *twitterDialog = [[WelcomeWizardView alloc] init];
-	[twitterDialog showTwitter:showIntro];
+	[twitterDialog showTwitter:afterCreate];
 }
 
 void roadmap_welcome_personalize_later_dialog() {
@@ -351,24 +357,79 @@ void roadmap_welcome_wizard(void){
 
 @implementation WelcomeWizardView
 
+- (void)hideKeyboard
+{
+   if (kbIsOn) {
+      int i;
+      UIScrollView *scrollView = (UIScrollView *) self.view;
+      UIView *view;
+      
+      for (i = 0; i < [[scrollView subviews] count]; ++i) {
+         view = [[scrollView subviews] objectAtIndex:i];
+         if (view.tag == ID_TWITTER_USERNAME ||
+             view.tag == ID_TWITTER_PASSWORD)
+            [(UITextField *)view resignFirstResponder];
+      }
+      
+      kbIsOn = FALSE;
+   }
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+   [self hideKeyboard];
+}
+
 - (void) onFinish
 {
 	roadmap_welcome_wizard_set_first_time_no();
    is_wizard_shown = 0;
    
-   if (gShowIntro)
+   if (gAfterCreate)
       roadmap_introduction_show_auto();
    else
       roadmap_main_show_root(NO);
 }
 
+- (void) onFacebookNext
+{
+   if (!gAfterConnect)
+      roadmap_browser_unload();
+   
+   gAfterConnect = FALSE;
+   
+   UIScrollView *scrollView = (UIScrollView *) self.view;
+   UIView *view = [scrollView viewWithTag:ID_FACEBOOK_UNCHECKED];
+   if (view) {
+      roadmap_facebook_set_show_name(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
+      roadmap_facebook_set_show_picture(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
+   } else {
+      roadmap_facebook_set_show_name(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
+      roadmap_facebook_set_show_picture(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
+   }
+   
+   roadmap_facebook_send_permissions();
+   
+   WelcomeWizardView *endDialog = [[WelcomeWizardView alloc] init];
+   [endDialog showEnd];
+}
+
+- (void) onPingNext
+{
+   WelcomeWizardView *facebookDialog = [[WelcomeWizardView alloc] init];
+   [facebookDialog showFacebook];
+}
+
 - (void) onTwitterNext
 {
    int i;
-   int verified = 1;
+   BOOL verified = TRUE;
+   BOOL tweet_signup = TRUE;
    NSString *username, *password;
    UIView *view;
    UIScrollView *scrollView = (UIScrollView *) self.view;
+   
+   [self hideKeyboard];
    
    username = @"";
    password = @"";
@@ -384,6 +445,9 @@ void roadmap_welcome_wizard(void){
             if (((UILabel *)view).text)
                password = ((UILabel *)view).text;
             break;
+         case ID_TWITTER_UNCHECKED:
+            tweet_signup = FALSE;
+            break;
          default:
             break;
       }
@@ -391,19 +455,31 @@ void roadmap_welcome_wizard(void){
    
    if (([username compare:@""] != NSOrderedSame) &&
        ([password compare:@""] == NSOrderedSame)) {
-      verified = 0;
-      roadmap_messagebox("Error", "Invalid username");
+      verified = FALSE;
+      roadmap_messagebox("Error", "Invalid password");
    }
    else if (([username compare:@""] == NSOrderedSame) &&
               ([password compare:@""] != NSOrderedSame)) {
-      verified = 0;
-      roadmap_messagebox("Error", "Invalid password");
+      verified = FALSE;
+      roadmap_messagebox("Error", "Invalid username");
    }
+   
+   roadmap_twitter_set_signup(tweet_signup);
    
    
    if (verified) {
-      WelcomeWizardView *endDialog = [[WelcomeWizardView alloc] init];
-      [endDialog showEnd];
+      int success;
+      roadmap_twitter_set_username([username UTF8String]);
+      if ([password compare:@""] != NSOrderedSame) {
+         success = Realtime_TwitterConnect([username UTF8String], [password UTF8String], roadmap_twitter_is_signup_enabled());
+         if (success) {
+            roadmap_twitter_set_logged_in (TRUE);
+            roadmap_twitter_set_signup (FALSE);
+         }
+      }
+      
+      WelcomeWizardView *pingDialog = [[WelcomeWizardView alloc] init];
+      [pingDialog showPing];
    }
 }
 
@@ -425,17 +501,23 @@ void roadmap_welcome_wizard(void){
 	[personalizeLaterDialog showPersonalizeLater];
 }
 
+- (void) onPersonalizeSignIn
+{
+   roadmap_main_show_root(NO);
+   roadmap_login_details_dialog_show_un_pw();
+}
+
+
 
 - (void)viewDidAppear:(BOOL)animated
 {
-	UIScrollView *scrollView = (UIScrollView *) self.view;
-	CGRect rect = [scrollView frame];
-	rect.size.height = roadmap_main_get_mainbox_height();
-	[scrollView setFrame:rect];
-   
-//TODO: make twitter text field first responder ?
-	
 	[super viewDidAppear:animated];
+   
+   
+   if (gAfterConnect) {
+      roadmap_facebook_check_login();
+      [self onFacebookNext];
+   }
 }
 
 ////////////////////
@@ -447,6 +529,7 @@ void roadmap_welcome_wizard(void){
 	UIImage *image;
    UIImage *strechedImage;
 	UIImageView *bgView;
+   UIImageView *imageView;
 	NSString *text;
 	UILabel *label;
 	UIButton *button;
@@ -461,26 +544,24 @@ void roadmap_welcome_wizard(void){
    UIImage *imgButtonUp;
    UIImage *imgButtonDown;
    
-   image = roadmap_iphoneimage_load("button_up");
+   image = roadmap_iphoneimage_load("welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_iphoneimage_load("welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
-	
-	//[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Personalize later")]];
-	
-	
-	//set UI elements
+   
+   
+   //set UI elements
 	
 	//background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_iphoneimage_load("Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
@@ -490,23 +571,31 @@ void roadmap_welcome_wizard(void){
 		[bgView release];
 	}
    
+   viewPosY += 10;
    
 	//Way to go text
-	text = [NSString stringWithUTF8String:
-           roadmap_lang_get("Way to go!")];
-   rect = bgView.frame;
-   rect.size.width = bgView.bounds.size.width - 80;
-   rect.size.height = TEXT_HEIGHT;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 40;
+   rect = CGRectMake(bgView.frame.origin.x + 15, viewPosY,
+                     bgView.bounds.size.width - 40, 20);
 	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:text];
-	[label setTextAlignment:UITextAlignmentCenter];
-   [label setFont:[UIFont boldSystemFontOfSize:18]];
-   [label setTextColor:[UIColor colorWithRed:0.941f green:0.0f blue:0.376f alpha:1.0f]];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Way to go!")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
 	[scrollView addSubview:label];
 	[label release];
-   viewPosY += label.bounds.size.height + 5;
+   viewPosY += label.bounds.size.height + 10;
+   
+   //Waze logo
+   image = roadmap_iphoneimage_load("welcome_logo");
+   if (image) {
+      imageView = [[UIImageView alloc] initWithImage:image];
+      [image release];
+      rect = imageView.bounds;
+      rect.origin.x = (bgView.bounds.size.width - imageView.bounds.size.width) /2;
+      rect.origin.y = viewPosY;
+      imageView.frame = rect;
+      [bgView addSubview:imageView];
+      [imageView release];
+      viewPosY += imageView.bounds.size.height + 10;
+   }
    
    //Accound updated text
    text = [NSString stringWithUTF8String:
@@ -521,13 +610,14 @@ void roadmap_welcome_wizard(void){
 	[label setTextAlignment:UITextAlignmentCenter];
    [label setFont:[UIFont systemFontOfSize:16]];
    [label setNumberOfLines:2];
+   label.textColor = [UIColor darkGrayColor];
 	[bgView addSubview:label];
 	[label release];
    viewPosY += label.bounds.size.height + 5;
    
 	//Close button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")] forState:UIControlStateNormal];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Start wazing")] forState:UIControlStateNormal];
 	if (imgButtonUp)
 		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
 	if (imgButtonDown)
@@ -541,7 +631,7 @@ void roadmap_welcome_wizard(void){
 	[button addTarget:self action:@selector(onFinish) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
    
-   viewPosY += button.bounds.size.height + 5;
+   viewPosY += button.bounds.size.height + 25;
 	
    
    rect = bgView.frame;
@@ -550,22 +640,48 @@ void roadmap_welcome_wizard(void){
    
 	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
 	
+   gAfterConnect = FALSE;
 	
 	roadmap_main_push_view(self);
 }
 
+- (void) onTogglePing: (id) sender
+{
+   UIButton *button = (UIButton *) sender;
+   UIImage *image;
+   
+   if (button.tag == ID_PING_CHECKED) {
+      button.tag = ID_PING_UNCHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_off");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }
+      Realtime_Set_AllowPing(FALSE);
+   } else {
+      button.tag = ID_PING_CHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_on");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }      
+      Realtime_Set_AllowPing(TRUE);
+   }
+   
+}
 
 ////////////////////
-// Twitter Dialog
-- (void)showTwitter: (int)showIntro
+// Ping Dialog
+- (void)showPing
 {
 	CGRect rect;
 	UIImage *image;
-	UIImageView *imageView;
    UIImage *strechedImage;
 	UIImageView *bgView;
 	UILabel *label;
-	UITextField *textField;
+   UIButton *button;
+   UIImage *imgButtonUp;
+   UIImage *imgButtonDown;
    CGFloat viewPosY = 5.0f;
 	rect = [[UIScreen mainScreen] applicationFrame];
 	rect.origin.x = 0;
@@ -576,22 +692,404 @@ void roadmap_welcome_wizard(void){
 	[scrollView release]; // decrement retain count
 	[scrollView setDelegate:self];
 	
-	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Enter twitter details")]];
-   
-   //set right button
-	UINavigationItem *navItem = [self navigationItem];
-   UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")]
-                                                                 style:UIBarButtonItemStyleDone target:self action:@selector(onTwitterNext)];
-	[navItem setRightBarButtonItem:barButton];
+	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Welcome")]];
 	
-   gShowIntro = showIntro;
-   
    //UI elements
+   
+   image = roadmap_iphoneimage_load("welcome_btn");
+   if (image) {
+      imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
+      [image release];
+   }
+   image = roadmap_iphoneimage_load("welcome_btn_h");
+   if (image) {
+      imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
+      [image release];
+   }
 	
    //background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_iphoneimage_load("Bubble_02");
+	if (image) {
+		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
+		bgView = [[UIImageView alloc] initWithImage:strechedImage];
+		[image release];
+		[bgView setFrame:rect];
+		[scrollView addSubview:bgView];
+		[bgView release];
+	}
+   
+   viewPosY += 10;
+   
+   //Login text
+   rect = CGRectMake(bgView.frame.origin.x + 15, viewPosY,
+                     bgView.bounds.size.width - 40, 20);
+   label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Ping")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
+	[scrollView addSubview:label];
+	[label release];
+   viewPosY += rect.size.height + 10;
+	
+	//Note text
+   rect = bgView.frame;
+   rect.origin.y += viewPosY;
+   rect.origin.x += 15;
+   rect.size.height = TEXT_HEIGHT * 2;
+   rect.size.width -= 50;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+   char str[512];
+   snprintf(str, sizeof(str), "%s\n%s", 
+            roadmap_lang_get("Allow wazers to ping you."),
+            roadmap_lang_get("It's useful, fun and you can always turn it off."));
+	[label setText:[NSString stringWithUTF8String: str]];
+   label.textColor = [UIColor darkGrayColor];
+	//[label setBackgroundColor:[UIColor clearColor]];
+   label.numberOfLines = 3;
+	[scrollView addSubview:label];
+	[label release];
+   
+   viewPosY += TEXT_HEIGHT *3 + 5;
+	
+   
+   //Ping checkbox
+   button = [UIButton buttonWithType:UIButtonTypeCustom];
+   image = roadmap_iphoneimage_load("default_checkbox_on");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+   }
+   button.tag = ID_PING_CHECKED;
+   rect = bgView.frame;
+   rect.size = image.size;
+   rect.origin.y += viewPosY;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5;
+   else
+      rect.origin.x += bgView.bounds.size.width - rect.size.width - 5;
+   [button setFrame:rect];
+	[button addTarget:self action:@selector(onTogglePing:) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   
+   rect = bgView.frame;
+   rect.origin.y += viewPosY + (button.frame.size.height - TEXT_HEIGHT*1)/2;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5 + button.frame.size.width + 10;
+   else
+      rect.origin.x += 5;
+   rect.size.height = TEXT_HEIGHT *1;
+   rect.size.width = bgView.bounds.size.width - button.frame.size.width - 20;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("I agree to be pinged")]];
+   label.textColor = [UIColor darkGrayColor];
+   label.numberOfLines = 1;
+	[scrollView addSubview:label];
+	[label release];
+   
+   viewPosY += TEXT_HEIGHT *1 + 15;
+   
+   //Next button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")] forState:UIControlStateNormal];
+	if (imgButtonUp)
+		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
+	if (imgButtonDown)
+		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
+   
+   rect.origin.y = viewPosY;
+   rect.origin.x = bgView.bounds.size.width/2 + 15;
+   rect.size = imgButtonUp.size;
+	[button setFrame:rect];
+	[button addTarget:self action:@selector(onPingNext) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   viewPosY += button.bounds.size.height + 10;
+   
+   
+   rect = bgView.frame;
+   rect.size.height = viewPosY + 20;
+   bgView.frame = rect;
+   
+	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+   scrollView.alwaysBounceVertical = YES;
+	
+   
+   Realtime_Set_AllowPing(TRUE);
+   
+   gAfterConnect = FALSE;
+	roadmap_main_push_view(self);
+}
+
+- (void) onFacebookConnect
+{
+   gAfterConnect = TRUE;
+   if (!roadmap_browser_show_preloaded())
+      roadmap_facebook_connect(FALSE);
+}
+
+- (void) onToggleFacebook: (id) sender
+{
+   UIButton *button = (UIButton *) sender;
+   UIImage *image;
+   
+   if (button.tag == ID_FACEBOOK_CHECKED) {
+      button.tag = ID_FACEBOOK_UNCHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_off");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }
+      
+   } else {
+      button.tag = ID_FACEBOOK_CHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_on");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }      
+   }
+   
+}
+
+////////////////////
+// Facebook Dialog
+- (void)showFacebook
+{
+	CGRect rect;
+	UIImage *image;
+   UIImage *strechedImage;
+	UIImageView *bgView;
+	UILabel *label;
+   UIButton *button;
+   UIImage *imgButtonUp;
+   UIImage *imgButtonDown;
+   CGFloat viewPosY = 5.0f;
+	rect = [[UIScreen mainScreen] applicationFrame];
+	rect.origin.x = 0;
+	rect.origin.y = 0;
+	rect.size.height = roadmap_main_get_mainbox_height();
+	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
+	self.view = scrollView;
+	[scrollView release]; // decrement retain count
+	[scrollView setDelegate:self];
+	
+	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Welcome")]];
+	
+   //UI elements
+   
+   image = roadmap_iphoneimage_load("welcome_btn");
+   if (image) {
+      imgButtonUp = [image stretchableImageWithLeftCapWidth:0 topCapHeight:0];
+      [image release];
+   }
+   image = roadmap_iphoneimage_load("welcome_btn_h");
+   if (image) {
+      imgButtonDown = [image stretchableImageWithLeftCapWidth:0 topCapHeight:0];
+      [image release];
+   }
+	
+   //background frame
+	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
+                     roadmap_main_get_mainbox_height() - 55);
+	image = roadmap_iphoneimage_load("Bubble_02");
+	if (image) {
+		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
+		bgView = [[UIImageView alloc] initWithImage:strechedImage];
+		[image release];
+		[bgView setFrame:rect];
+		[scrollView addSubview:bgView];
+		[bgView release];
+	}
+   
+   viewPosY += 10;
+   
+   //Login text
+   rect = CGRectMake(bgView.frame.origin.x + 15, viewPosY,
+                     bgView.bounds.size.width - 40, 20);
+   label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Facebook")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
+	[scrollView addSubview:label];
+	[label release];
+   viewPosY += rect.size.height + 10;
+	
+	//Note text
+   rect = bgView.frame;
+   rect.origin.y += viewPosY;
+   rect.origin.x += 15;
+   rect.size.height = TEXT_HEIGHT * 2;
+   rect.size.width -= 50;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Connect to Facebook to see how your friends are wazing")]];
+   label.textColor = [UIColor darkGrayColor];
+	//[label setBackgroundColor:[UIColor clearColor]];
+   label.numberOfLines = 2;
+	[scrollView addSubview:label];
+	[label release];
+   
+   viewPosY += TEXT_HEIGHT *2 + 15;
+   
+   //Facebook checkbox
+   button = [UIButton buttonWithType:UIButtonTypeCustom];
+   image = roadmap_iphoneimage_load("default_checkbox_on");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+   }
+   button.tag = ID_FACEBOOK_CHECKED;
+   rect = bgView.frame;
+   rect.size = image.size;
+   rect.origin.y += viewPosY;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5;
+   else
+      rect.origin.x += bgView.bounds.size.width - rect.size.width - 5;
+   [button setFrame:rect];
+	[button addTarget:self action:@selector(onToggleFacebook:) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   
+   rect = bgView.frame;
+   rect.origin.y += viewPosY + (button.frame.size.height - TEXT_HEIGHT*2)/2;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5 + button.frame.size.width + 10;
+   else
+      rect.origin.x += 5;
+   rect.size.height = TEXT_HEIGHT *2;
+   rect.size.width = bgView.bounds.size.width - button.frame.size.width - 20;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Display my FB name & picture in my user profile")]];
+   label.textColor = [UIColor darkGrayColor];
+   label.numberOfLines = 2;
+	[scrollView addSubview:label];
+	[label release];
+   
+   viewPosY += TEXT_HEIGHT *2 + 20;
+   
+   //Connect button
+	image = roadmap_iphoneimage_load("facebook_connect");
+   if (image) {
+      rect.origin.y = viewPosY;
+      rect.origin.x = bgView.bounds.size.width/2 + 20;
+      rect.size = image.size;
+      button = [UIButton buttonWithType:UIButtonTypeCustom];
+      [button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+      [button addTarget:self action:@selector(onFacebookConnect) forControlEvents:UIControlEventTouchUpInside];
+      button.frame = rect;
+      [scrollView addSubview:button];
+   }
+   
+   //Next button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Skip")] forState:UIControlStateNormal];
+	if (imgButtonUp)
+		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
+	if (imgButtonDown)
+		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
+   
+   rect.origin.y = viewPosY;
+   rect.origin.x = bgView.bounds.size.width/2 - image.size.width - 20;
+   rect.size = image.size;
+	[button setFrame:rect];
+	[button addTarget:self action:@selector(onFacebookNext) forControlEvents:UIControlEventTouchUpInside];
+   button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
+	[scrollView addSubview:button];
+   viewPosY += button.bounds.size.height + 10;
+   
+   
+   rect = bgView.frame;
+   rect.size.height = viewPosY + 20;
+   bgView.frame = rect;
+   
+	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+   scrollView.alwaysBounceVertical = YES;
+	
+   
+   gAfterConnect = FALSE;
+	roadmap_main_push_view(self);
+}
+
+- (void) onToggleTwitter: (id) sender
+{
+   UIButton *button = (UIButton *) sender;
+   UIImage *image;
+   
+   if (button.tag == ID_TWITTER_CHECKED) {
+      button.tag = ID_TWITTER_UNCHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_off");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }
+      
+   } else {
+      button.tag = ID_TWITTER_CHECKED;
+      image = roadmap_iphoneimage_load("default_checkbox_on");
+      if (image) {
+         [button setBackgroundImage:image forState:UIControlStateNormal];
+         [image release];
+      }      
+   }
+   
+}
+
+
+////////////////////
+// Twitter Dialog
+- (void)showTwitter: (int)afterCreate
+{
+	CGRect rect;
+	UIImage *image;
+	UIImageView *imageView;
+   UIImage *strechedImage;
+	UIImageView *bgView;
+	UILabel *label;
+	UITextField *textField;
+   UIButton *button;
+   UIImage *imgButtonUp;
+   UIImage *imgButtonDown;
+   CGFloat viewPosY = 5.0f;
+	rect = [[UIScreen mainScreen] applicationFrame];
+	rect.origin.x = 0;
+	rect.origin.y = 0;
+	rect.size.height = roadmap_main_get_mainbox_height();
+	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
+	self.view = scrollView;
+	[scrollView release]; // decrement retain count
+	[scrollView setDelegate:self];
+   
+   kbIsOn = FALSE;
+	
+	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Welcome")]];
+	
+   gAfterCreate = afterCreate;
+   
+   if (gAfterCreate) {
+      //hide left button
+      UINavigationItem *navItem = [self navigationItem];
+      [navItem setHidesBackButton:YES];
+      
+      //preload facebook signup
+      roadmap_facebook_connect(TRUE);
+   }
+   
+   //UI elements
+   
+   image = roadmap_iphoneimage_load("welcome_btn");
+   if (image) {
+      imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
+      [image release];
+   }
+   image = roadmap_iphoneimage_load("welcome_btn_h");
+   if (image) {
+      imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
+      [image release];
+   }
+	
+   //background frame
+	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
+                     roadmap_main_get_mainbox_height() - 55);
+	image = roadmap_iphoneimage_load("Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
@@ -604,12 +1102,12 @@ void roadmap_welcome_wizard(void){
    //Twitter icon
    rect = bgView.frame;
    rect.origin.y += viewPosY;
-   image = roadmap_iphoneimage_load("Tweeter-logo");
+   image = roadmap_iphoneimage_load("welcome_twitter");
    if (image) {
-      if (!roadmap_lang_rtl())
+      //if (!roadmap_lang_rtl())
          rect.origin.x += 5;
-      else
-         rect.origin.x += bgView.bounds.size.width - 5 - image.size.width;
+      //else
+      //   rect.origin.x += bgView.bounds.size.width - 5 - image.size.width;
       rect.size = image.size;
       imageView = [[UIImageView alloc] initWithImage:image];
       [image release];
@@ -617,24 +1115,32 @@ void roadmap_welcome_wizard(void){
       [scrollView addSubview:imageView];
       [imageView release];
    }
+   
+   //Login text
+   rect = CGRectMake(imageView.frame.origin.x + imageView.bounds.size.width + 15, imageView.frame.origin.y,
+                     bgView.bounds.size.width -  imageView.bounds.size.width - 40, imageView.bounds.size.height);
+   label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Twitter")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
+	[scrollView addSubview:label];
+	[label release];
+   viewPosY += rect.size.height + 10;
 	
 	//Note text
    rect = bgView.frame;
    rect.origin.y += viewPosY;
-   if (!roadmap_lang_rtl())
-      rect.origin.x += 5 + imageView.frame.size.width + 10;
-   else
-      rect.origin.x += 5;
+   rect.origin.x += 5;
    rect.size.height = TEXT_HEIGHT;
    rect.size.width = bgView.bounds.size.width - imageView.frame.size.width - 20;
 	label = [[iphoneLabel alloc] initWithFrame:rect];
 	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Tweet your road reports")]];
+   label.textColor = [UIColor darkGrayColor];
 	//[label setBackgroundColor:[UIColor clearColor]];
    [label setAdjustsFontSizeToFitWidth:YES];
 	[scrollView addSubview:label];
 	[label release];
    
-   viewPosY += imageView.bounds.size.height + 5;
+   viewPosY += TEXT_HEIGHT + 10;
    
 	
    
@@ -647,6 +1153,7 @@ void roadmap_welcome_wizard(void){
 	label = [[iphoneLabel alloc] initWithFrame:rect];
 	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Username")]];
 	[label setBackgroundColor:[UIColor clearColor]];
+   label.textColor = [UIColor darkGrayColor];
 	[scrollView addSubview:label];
 	[label release];
 	
@@ -676,6 +1183,7 @@ void roadmap_welcome_wizard(void){
 	label = [[iphoneLabel alloc] initWithFrame:rect];
 	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Password")]];
 	[label setBackgroundColor:[UIColor clearColor]];
+   label.textColor = [UIColor darkGrayColor];
 	[scrollView addSubview:label];
 	[label release];
 	
@@ -694,15 +1202,69 @@ void roadmap_welcome_wizard(void){
 	[scrollView addSubview:textField];
 	[textField release];
    
-   viewPosY += TEXT_HEIGHT + 5;
+   viewPosY += TEXT_HEIGHT + 10;
+   
+   //Tweet checkbox
+   button = [UIButton buttonWithType:UIButtonTypeCustom];
+   image = roadmap_iphoneimage_load("default_checkbox_on");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+   }
+   button.tag = ID_TWITTER_CHECKED;
+   rect = bgView.frame;
+   rect.size = image.size;
+   rect.origin.y += viewPosY;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5;
+   else
+      rect.origin.x += bgView.bounds.size.width - rect.size.width - 5;
+   [button setFrame:rect];
+	[button addTarget:self action:@selector(onToggleTwitter:) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   
+   rect = bgView.frame;
+   rect.origin.y += viewPosY + (button.frame.size.height - TEXT_HEIGHT)/2;
+   if (!roadmap_lang_rtl())
+      rect.origin.x += 5 + button.frame.size.width + 10;
+   else
+      rect.origin.x += 5;
+   rect.size.height = TEXT_HEIGHT;
+   rect.size.width = bgView.bounds.size.width - button.frame.size.width - 20;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Tweet that I'm checking-out waze")]];
+   label.textColor = [UIColor darkGrayColor];
+	[scrollView addSubview:label];
+	[label release];
+   
+   viewPosY += TEXT_HEIGHT + 20;
+   
+   //Next button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")] forState:UIControlStateNormal];
+	if (imgButtonUp)
+		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
+	if (imgButtonDown)
+		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
+   
+   rect.origin.y = viewPosY;
+   rect.origin.x = bgView.bounds.size.width/2 + 15;
+   rect.size = imgButtonUp.size;
+	[button setFrame:rect];
+	[button addTarget:self action:@selector(onTwitterNext) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   viewPosY += button.bounds.size.height + 20;
    
    
    rect = bgView.frame;
    rect.size.height = viewPosY;
    bgView.frame = rect;
 		
+   scrollView.alwaysBounceVertical = YES;
 	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
 	
+   
+   gAfterConnect = FALSE;
 	roadmap_main_push_view(self);
 }
 
@@ -730,12 +1292,14 @@ void roadmap_welcome_wizard(void){
    UIImage *imgButtonUp;
    UIImage *imgButtonDown;
    
-   image = roadmap_iphoneimage_load("button_up");
+   gAfterCreate = 0;
+   
+   image = roadmap_iphoneimage_load("welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_iphoneimage_load("welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
@@ -799,6 +1363,7 @@ void roadmap_welcome_wizard(void){
 	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
 	
 	
+   gAfterConnect = FALSE;
 	roadmap_main_push_view(self);
 }
 
@@ -825,6 +1390,8 @@ void roadmap_welcome_wizard(void){
 	[scrollView setDelegate:self];
    UIImage *imgButtonUp;
    UIImage *imgButtonDown;
+   
+   gAfterCreate = 0;
    
    image = roadmap_iphoneimage_load("button_up");
    if (image) {
@@ -890,7 +1457,38 @@ void roadmap_welcome_wizard(void){
    [label setFont:[UIFont boldSystemFontOfSize:18]];
 	[bgView addSubview:label];
 	[label release];
+   viewPosY += label.bounds.size.height;
+   
+   //Personalize - already have a login
+	text = [NSString stringWithUTF8String:
+           roadmap_lang_get("Already have a login?  ")];
+   rect.size = gSizePersonalizeText1;
+   rect.origin.y = viewPosY;
+   rect.origin.x = (bgView.bounds.size.width - gSizePersonalizeAlreadyHave.width) /2;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:text];
+	[label setNumberOfLines:1];
+	//[label setTextAlignment:UITextAlignmentCenter];
+   [label setFont:[UIFont boldSystemFontOfSize:18]];
+	[bgView addSubview:label];
+	[label release];
    viewPosY += label.bounds.size.height + 5;
+   
+   //Personalize button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Sign in")] forState:UIControlStateNormal];
+	if (imgButtonUp)
+		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
+	if (imgButtonDown)
+		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
+   [button sizeToFit];
+   rect.origin.y = viewPosY;
+   rect.origin.x = bgView.bounds.size.width/2 - button.bounds.size.width - 5;
+   rect.size = button.bounds.size;
+	[button setFrame:rect];
+	[button addTarget:self action:@selector(onPersonalizeSignIn) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   viewPosY += button.bounds.size.height + 10;
    
    //Personalize text 2
 	text = [NSString stringWithUTF8String:
@@ -905,11 +1503,11 @@ void roadmap_welcome_wizard(void){
    [label setFont:[UIFont systemFontOfSize:16]];
 	[bgView addSubview:label];
 	[label release];
-   viewPosY += label.bounds.size.height + 60;
+   viewPosY += label.bounds.size.height + 30;
 	
-	//Next button
+	//Personalize button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")] forState:UIControlStateNormal];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Personalize")] forState:UIControlStateNormal];
 	if (imgButtonUp)
 		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
 	if (imgButtonDown)
@@ -922,9 +1520,9 @@ void roadmap_welcome_wizard(void){
 	[button addTarget:self action:@selector(onPersonalizeNext) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
 	
-	//Skip button
+	//Not now button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Skip")] forState:UIControlStateNormal];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Not now")] forState:UIControlStateNormal];
 	if (imgButtonUp)
 		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
 	if (imgButtonDown)
@@ -947,6 +1545,7 @@ void roadmap_welcome_wizard(void){
 	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
 	
 	
+   gAfterConnect = FALSE;
 	roadmap_main_push_view(self);
 }
 
@@ -973,16 +1572,49 @@ void roadmap_welcome_wizard(void){
    [textField resignFirstResponder];
 }
 
-- (BOOL)textFieldShouldReturn:(UITextField *)textField {
-		[textField resignFirstResponder];
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
    
-	return NO;
+   if (!kbIsOn) {
+      if (!roadmap_horizontal_screen_orientation())
+         rect.size.height -= 215;
+      else
+         rect.size.height -= 162;
+      
+      view.frame = rect;
+      kbIsOn = TRUE;
+   }
+   
+   [view scrollRectToVisible:textField.frame animated:YES];
+}
+
+- (BOOL)textFieldShouldReturn:(UITextField *)textField {
+   [textField resignFirstResponder];
+   
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
+   
+   if (kbIsOn) {
+      if (!roadmap_horizontal_screen_orientation())
+         rect.size.height += 215;
+      else
+         rect.size.height += 162;
+      
+      view.frame = rect;
+      kbIsOn = FALSE;
+   }
+   
+   [view scrollRectToVisible:textField.frame animated:YES];
+   
+   return NO;
 }
 
 - (BOOL)textField:(UITextField *)textField shouldChangeCharactersInRange:(NSRange)range replacementString:(NSString *)string
 {
    if (roadmap_keyboard_typing_locked(TRUE)) {
       [textField resignFirstResponder];
+      kbIsOn = FALSE;
       return NO;
    } else
       return YES;

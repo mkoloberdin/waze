@@ -1,10 +1,8 @@
 
 ifeq ($(DESKTOP),ANDROID)
 include ../../android/Makefile.in.android
-ARFLAGS = "r"
 else
 CC=cc
-AR=ar rc
 RANLIB=ranlib
 endif
 

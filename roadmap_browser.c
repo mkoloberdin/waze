@@ -24,14 +24,15 @@
 #include "roadmap.h"
 #include "roadmap_browser.h"
 #include "roadmap_lang.h"
+#include "roadmap_factory.h"
 #include <string.h>
 
 #define  SSD_WEB_VIEW_DIALOG_NAME         "WEB_VIEW_DALOG"
 #define  SSD_WEB_VIEW_CNT_NAME            "WEB_VIEW_DALOG.MAIN CONTAINER"
 
 static RMBrowserLauncherCb RMBrowserLauncher = NULL;     // Native browser launcher function
-static RoadMapCallback     RMBrowserClose = NULL;        // Native browser close function
-static RoadMapCallback     RMBrowserCallback = NULL;     // Callback function supplied by browse request
+static RoadMapCallback     RMBrowserClose = NULL;        // Native browser close function - called to close the native browser control/view
+static RoadMapCallback     RMBrowserCallback = NULL;     // Callback function supplied by browse request - called upon browser close
 
 static void roadmap_browser_show_ssd();
 
@@ -72,8 +73,6 @@ void roadmap_browser_register_close( RoadMapCallback close_cb )
  */
 void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback)
 {
-   roadmap_log( ROADMAP_DEBUG, "Browser launcher is not initialized..." );
-
    if ( !RMBrowserLauncher )
    {
       roadmap_log( ROADMAP_ERROR, "Browser launcher is not initialized..." );
@@ -89,7 +88,34 @@ void roadmap_browser_show (const char* title, const char* url, RoadMapCallback c
 #endif
 }
 
+BOOL roadmap_browser_url_handler( const char* url )
+{
+   if ( !url || !url[0] )
+   {
+      roadmap_log( ROADMAP_ERROR, "Url is not valid" );
+      return FALSE;
+   }
 
+   roadmap_log( ROADMAP_DEBUG, "Processing url: %s", url );
+
+   if ( strstr( url, WAZE_CMD_URL_PREFIX ) == url )
+   {
+      const char* url_action = url + strlen( WAZE_CMD_URL_PREFIX );
+      RoadMapAction* action = roadmap_start_find_action( url_action );
+      if ( action != NULL )
+      {
+         roadmap_log( ROADMAP_DEBUG, "Processing action: %s, provided in url: %s", action->name, url );
+         action->callback();
+         return TRUE;
+      }
+      else
+      {
+         roadmap_log( ROADMAP_WARNING, "Cannot find action: %s, provided in url: %s", url_action, url );
+      }
+   }
+
+   return FALSE;
+}
 
 
 
@@ -132,6 +158,7 @@ void roadmap_browser_show_ssd( const char* title, const char* url )
    static SsdWidget dialog = NULL;
    static SsdWidget container = NULL;
    static RMBrowserContext context;
+   SsdSize dlg_size, cnt_size;
 
    if ( !( dialog = ssd_dialog_activate( SSD_WEB_VIEW_DIALOG_NAME, NULL ) ) )
    {
@@ -149,7 +176,6 @@ void roadmap_browser_show_ssd( const char* title, const char* url )
    /*
     * Get the size of the dialog and the container
     */
-   SsdSize dlg_size, cnt_size;
    container = ssd_widget_get( dialog, SSD_WEB_VIEW_CNT_NAME );
    ssd_widget_get_size( dialog, &dlg_size, NULL );
    ssd_widget_get_size( container, &cnt_size, NULL );

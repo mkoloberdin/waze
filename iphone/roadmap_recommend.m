@@ -29,7 +29,7 @@
 #include "roadmap_list_menu.h"
 #ifdef CHOMP
 #include "chomp-connect-iphoneos/ChompDialog.h"
-#endif
+#endif //CHOMP
 #include "roadmap_recommend.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "roadmap_iphonerecommend.h"
@@ -153,9 +153,10 @@ void roadmap_recommend() {
 @end
 
 
-//////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////
 #ifdef CHOMP
+//////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+
 @implementation RoadMapChompDelegate
 
 
@@ -170,4 +171,4 @@ void roadmap_recommend() {
 }
 
 @end
-#endif
+#endif //CHOMP

@@ -123,7 +123,15 @@ void CRoadMapNativeHTTP::ConnectWithParamsL()
     GSConvert::CharPtrToTDes16(m_hostname, hostName);
     ConnectL(hostName, m_port);
 
-    m_eConnStatus = EConnStatusConnected; 
+    //  Inform our client that we have a connection
+    if( m_pConnectCallback != NULL ) 
+	{
+		SelfSignal( EConnStatusConnectCallback );
+    }
+    else
+	{
+		m_eConnStatus = EConnStatusConnected;
+	}
 }
 
 void CRoadMapNativeHTTP::ConnectL(const TDesC& aHostname, int)
@@ -141,11 +149,7 @@ void CRoadMapNativeHTTP::ConnectL(const TDesC& aHostname, int)
   m_Transaction = m_Session.OpenTransactionL(m_pUri8->Uri(), *this, method);
   
   m_PostData.InitL( m_Transaction );
-  
-  //  Inform our client that we have a connection
-  if( m_pConnectCallback != NULL ) {
-      (*m_pConnectCallback)( dynamic_cast<CRoadMapNativeNet*>(this), m_context, succeeded );
-  }
+    
 }
 
 void CRoadMapNativeHTTP::SetReadyToSendData(bool aIsReady)
@@ -185,7 +189,7 @@ int CRoadMapNativeHTTP::Read( void *data, int length )
     if( m_RecvCallback == NULL ) {
         // Synchronious read mode
         // If no data is available wait while there is a chance for it to arrive
-        while( m_eConnStatus > 0 &&
+        if( m_eConnStatus >= EConnStatusConnectCallback && 
                m_eConnStatus != EConnStatusTransactionDone &&
                m_CurReplyHttpHeader.Size() == 0 && m_CurBodyChunk.Size() == 0 )
         {
@@ -257,24 +261,37 @@ void CRoadMapNativeHTTP::SelfSignalDataEvent()
         return;
     }
     
-    // Asynchronous mode, Read() is non-blocking.
-    TRequestStatus* status = &iStatus;
+    SelfSignal( DATA_EVENT_AVAILABLE_STATUS );
+   
+}
+
+inline void CRoadMapNativeHTTP::SelfSignal( EConnStatus aConnStatus, TInt aRequestStatus )
+{
+    /*
+     * Set the connection status
+     */
+	m_eConnStatus = aConnStatus;
+    
+    /*
+     * Set the request status
+     */
+	TRequestStatus* status = &iStatus;
+	
     if ( IsActive() )
-	{						
+	{				
+		
 		roadmap_log( ROADMAP_INFO, "Trying to activate already active object. Overriding the status" );
 		/*
 		 * Just override the status and use previous request 
 		 */
-		*status = DATA_EVENT_AVAILABLE_STATUS;
+		*status = aRequestStatus;
 	}
 	else
 	{
 		SetActive();
-		User::RequestComplete( status, DATA_EVENT_AVAILABLE_STATUS );
+		User::RequestComplete( status, aRequestStatus );
 	}
-	
 }
-
 
 void CRoadMapNativeHTTP::StartPolling(void* apInputCallback, void* apIO)
 {
@@ -353,9 +370,17 @@ void CRoadMapNativeHTTP::MHFRunL(RHTTPTransaction aTransaction, const THTTPEvent
         break;
 
     case THTTPEvent::EFailed:
-        roadmap_log(ROADMAP_WARNING, "CRoadMapNativeHTTP: Got THTTPEvent: %d", aEvent.iStatus );
+    	TInt status = aTransaction.Response().StatusCode();
+        roadmap_log(ROADMAP_WARNING, "CRoadMapNativeHTTP: Got THTTPEvent: %d. HTTP Status: %d", aEvent.iStatus, status );        
+        if ( status == 304 )
+		{
+			roadmap_log(ROADMAP_DEBUG, "CRoadMapNativeHTTP: Failed event in 'Not modified' response - ignoring ..." );
+		}
+        else
+		{
         m_eConnStatus = EConnStatusError;
         SelfSignalDataEvent();
+		}
         break;
 
     default:
@@ -684,6 +709,12 @@ void CRoadMapNativeHTTP::RunL()
             OpenSession();
             ConnectWithParamsL();
             break;
+        case EConnStatusConnectCallback:
+		{
+			(*m_pConnectCallback)( dynamic_cast<CRoadMapNativeNet*>(this), m_context, succeeded );
+			m_eConnStatus = EConnStatusConnected;
+			break;
+		}
         case EConnStatusConnected: 
             //  this should not happen...
             break;
@@ -693,7 +724,7 @@ void CRoadMapNativeHTTP::RunL()
         return;
     case KErrCancel:
     	/* AGA NOTE: In touch screen it's not intuitive. Tap out of the dialog
-    	 * causes this event. It loks like application crash. For this case we 
+    	 * causes this event. It looks like application crash. For this case we 
     	 * just show the connection screen
     	 */ 
 #ifdef TOUCH_SCREEN

@@ -455,7 +455,8 @@ static void roadmap_address_dialog (RoadMapAddressDialog *context) {
             ("Address", "State",
              roadmap_county_get_name (roadmap_locator_active ()));
 
-      roadmap_history_declare ('A', 7);
+      roadmap_history_declare( ADDRESS_HISTORY_CATEGORY, ahi__count);
+
    }
 
    context->navigate = 0;

@@ -75,6 +75,12 @@ EXTERN_C unsigned char *read_png_file(const char* file_name, int *width, int *he
 
 #define MAX_THICKNESS 50
 
+#ifdef _WIN32
+	#define CANVAS_HD_FONT_FACTOR  1.8
+#else
+	#define CANVAS_HD_FONT_FACTOR  1.5
+#endif
+
 //#define RGB565
 #ifdef RGB565
 typedef agg::pixfmt_rgb565 pixfmt;
@@ -165,7 +171,7 @@ void roadmap_canvas_get_formated_text_extents
    wchar_t wstr[255];
    if (can_tilt) *can_tilt = 1;
 
-   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+   if ((font_type & FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
       font_type = FONT_TYPE_BOLD;
 
    int length = roadmap_canvas_agg_to_wchar (text, wstr, 255);
@@ -180,7 +186,7 @@ void roadmap_canvas_get_formated_text_extents
    const wchar_t* p = wstr;
 
 
-   if (font_type == FONT_TYPE_NORMAL){
+   if (font_type & FONT_TYPE_NORMAL){
       feng = &m_feng_nor;
       image_feng = &m_image_feng_nor;
    }
@@ -193,11 +199,11 @@ void roadmap_canvas_get_formated_text_extents
       size = 15;
       if ( roadmap_screen_is_hd_screen() )
       {
-        size = (int)(size * 1.5);
+            size = (int)(size * CANVAS_HD_FONT_FACTOR);
       }
       else{
    #ifdef _WIN32
-         size = int (size * 0.8);
+         size = (int) (size * 0.9);
    #endif
       }
       feng->height(size);
@@ -206,18 +212,18 @@ void roadmap_canvas_get_formated_text_extents
       /* Use the regular font */
       *descent = abs((int)feng->descender()) + 1;
       *ascent = (int)feng->ascender() + 1;
-      if (font_type == FONT_TYPE_NORMAL)
+      if (font_type & FONT_TYPE_NORMAL)
          fman = &m_fman_nor;
       else
          fman = &m_fman;
    } else {
       if ( roadmap_screen_is_hd_screen() )
       {
-         size = int (size * 1.5);
+         size = (int) (size * CANVAS_HD_FONT_FACTOR);
       }
       else{
 #ifdef _WIN32
-         size = int (size * 0.8);
+         size = (int) (size * 0.9);
 #endif
       }
       image_feng->height(size);
@@ -225,7 +231,7 @@ void roadmap_canvas_get_formated_text_extents
 
       *descent = abs((int)image_feng->descender()) + 1;
       *ascent = (int)image_feng->ascender() + 1;
-      if (font_type == FONT_TYPE_NORMAL)
+      if (font_type & FONT_TYPE_NORMAL)
          fman = &m_image_fman_nor;
       else
          fman = &m_image_fman;
@@ -441,7 +447,7 @@ void roadmap_canvas_draw_multiple_points (int count, RoadMapGuiPoint *points) {
    }
 }
 
-#ifndef ANDROID // Linkage fails
+#if !defined(ANDROID) && !defined(WIN32)// Linkage fails
 void roadmap_canvas_draw_rounded_rect(RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, int radius){
 
 	rounded r = agg::rounded_rect(bottom->x, bottom->y, top->x, top->y, 10);
@@ -707,7 +713,7 @@ static wchar_t* bidi_string(wchar_t *logical) {
    log2vis = fribidi_log2vis ((FriBidiChar *)logical, len, &base,
       /* output */
       visual, ltov, vtol, levels);
-
+   visual[len] = 0;
    if (!log2vis) {
       //msSetError(MS_IDENTERR, "Failed to create bidi string.",
       //"msGetFriBidiEncodedString()");
@@ -715,7 +721,7 @@ static wchar_t* bidi_string(wchar_t *logical) {
    }
    visual[len] = 0;
    new_len = len;
-
+   visual[len] = 0;
    return (wchar_t *)visual;
 
 }
@@ -733,11 +739,11 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
    font_engine_type  *feng;
    font_engine_type  *image_feng;
 
-   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+   if ((font_type & FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
       font_type = FONT_TYPE_BOLD;
 
 
-   if (font_type == FONT_TYPE_NORMAL){
+   if (font_type & FONT_TYPE_NORMAL){
       fman = &m_fman_nor;
       feng = &m_feng_nor;
       image_feng = &m_image_feng_nor;
@@ -751,7 +757,7 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
    }
 
 
-   if ((font_type == FONT_TYPE_BOLD) && (RoadMapCanvasFontLoaded != 1)) return;
+   if ((font_type & FONT_TYPE_BOLD) && (RoadMapCanvasFontLoaded != 1)) return;
 
 
    dbg_time_start(DBG_TIME_TEXT_FULL);
@@ -777,11 +783,11 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
 
    if ( roadmap_screen_is_hd_screen() )
    {
-     size = (int)(size * 1.5);
+     size = (int)(size * CANVAS_HD_FONT_FACTOR);
    }
    else{
 #ifdef _WIN32
-      size = int (size * 0.8);
+      size = (int) (size * 0.9);
 #endif
    }
 
@@ -1277,6 +1283,10 @@ RoadMapImage roadmap_canvas_new_image (int width, int height) {
    RoadMapImage image =  new roadmap_canvas_image();
    unsigned char *buf = (unsigned char *)malloc (width*height*4);
 
+   if (buf == NULL){
+      roadmap_log( ROADMAP_FATAL, "Failed to create new image width=%d, height=%d", width, height );
+      return NULL;
+   }
    memset(buf, 0, (width*height*4));
 
    image->rbuf.attach (buf,
@@ -1313,10 +1323,10 @@ void roadmap_canvas_draw_image_formated_text (RoadMapImage image,
 
    if (RoadMapCanvasFontLoaded != 1) return;
 
-   if ((font_type == FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
+   if ((font_type & FONT_TYPE_NORMAL) && (!RoadMapCanvasNormalFontLoaded))
       font_type = FONT_TYPE_BOLD;
 
-   if (font_type == FONT_TYPE_NORMAL){
+   if (font_type & FONT_TYPE_NORMAL){
       image_fman = &m_image_fman_nor;
       image_feng = &m_image_feng_nor;
    }
@@ -1344,11 +1354,11 @@ void roadmap_canvas_draw_image_formated_text (RoadMapImage image,
 
    if ( roadmap_screen_is_hd_screen() )
    {
-      size = int (size * 1.5);
+      size = (int) (size * CANVAS_HD_FONT_FACTOR);
    }
    else{
 #ifdef _WIN32
-      size = int (size * 0.8);
+      size = (int) (size * 0.9);
 #endif
    }
 

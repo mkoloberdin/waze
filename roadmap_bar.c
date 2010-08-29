@@ -111,6 +111,7 @@ BarText RoadMapTexts[] = {
     ROADMAP_TEXT("time_to_dest", "#ffffff",get_time_to_destination),
     ROADMAP_TEXT("dist_to_dest", "#ffffff",get_dist_to_destination),
     ROADMAP_TEXT("current_num_comments", "#ffffff",get_current_num_comments),
+    ROADMAP_TEXT("group_num_alerts", "#ffffff",RTAlerts_GroupCount_Str),
     ROADMAP_TEXT(NULL, NULL, NULL)
 };
 
@@ -1004,6 +1005,7 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 	      SelectedBarObject->image_state = IMAGE_STATE_SELECTED;
 	      roadmap_screen_redraw();
 
+#ifdef PLAY_CLICK
 	      if (!list) {
 	         list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 	         roadmap_sound_list_add (list, "click");
@@ -1011,6 +1013,7 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 	      }
 
 	      roadmap_sound_play_list (list);
+#endif
 
 	      roadmap_screen_redraw();
 
@@ -1172,7 +1175,7 @@ void roadmap_bar_initialize(void){
    TopBarSelectedBg = ( RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, TOP_BAR_SELECTED_BG_IMAGE );
 #endif
 
-#if ! (defined(ANDROID_OGL))   // Draw directly for ANDROID OPENGL		AGA
+#if ! (defined(OPENGL/*ANDROID_OGL Also for GTK2 OPENGL TT*/))   // Draw directly for ANDROID OPENGL		AGA
    TopBarFullBg = createBGImage( topBarBgImg );
 
    BottomBarFullBg = createBGImage( bottomBarBgImg );

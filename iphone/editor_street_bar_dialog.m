@@ -174,8 +174,10 @@ void editor_street_bar_update_properties (void) {
       return;
    
    if (roadmap_navigate_get_current
-       (&gps_position, &line, &direction) == -1)
+       (&gps_position, &line, &direction) == -1) {
+      roadmap_messagebox_timeout ("Oops", "We can't locate your direction. Try again after driving.", 5);
       return;
+   }
    
    editor_street_bar_track(&line, &gps_position, TRUE);
 }

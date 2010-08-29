@@ -172,6 +172,7 @@ static int roadmap_alternative_routes_get_last_check_time_stamp(void){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static void roadmap_alternative_routes_set_last_check_time_stamp(int time_stamp){
    roadmap_config_set_integer (&RoadMapConfigLastCheckTimeStamp, time_stamp);
+   roadmap_config_save(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -322,6 +323,7 @@ static int on_drive_btn_cb (SsdWidget widget, const char *new_value) {
    ai.house = NULL;
    ai.state= NULL;
    ai.street = NULL;
+   navigate_main_set_dest_pos(&pAltRoute->destPosition);
    Realtime_ReportOnNavigation(&pAltRoute->destPosition, &ai);
    return 1;
 }
@@ -1140,7 +1142,7 @@ static SsdWidget get_bitmap (void) {
 #ifndef TOUCH_SCREEN
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int Close_sk_cb(SsdWidget widget, const char *new_value, void *context) {
-   suggest_route_dialog_close (dec_close);
+   on_close_btn_cb (NULL,NULL);
    return 1;
 }
 
@@ -1254,6 +1256,15 @@ static void on_suggest_dlg_close (int exit_code, void* context){
    stop_progress();
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static void on_suggest_dlg_canceled (int exit_code, void* context){
+   RealtimeAltRoutes_Route_CancelRequest();
+   roadmap_trip_remove_point ("Destination");
+   roadmap_trip_remove_point ("Departure");
+   navigate_main_stop_navigation ();
+   stop_progress();
+}
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_alternative_routes_suggest_route_dialog () {
@@ -1326,6 +1337,7 @@ void roadmap_alternative_routes_suggest_route_dialog () {
       //Set Timer on drive button
       g_seconds = SUGGEST_DLG_TIMEOUT/1000;
       set_timer();
+      ssd_dialog_set_callback(on_suggest_dlg_close);
       roadmap_alternative_routes_set_last_check_time_stamp((int)time(NULL));
       roadmap_screen_redraw();
       return;
@@ -1340,7 +1352,7 @@ void roadmap_alternative_routes_suggest_route_dialog () {
    }
 
 
-   dialog = ssd_dialog_new (ALT_ROUTE_SUGGEST_ROUTE_DLG_NAME, "", on_suggest_dlg_close, SSD_DIALOG_FLOAT
+   dialog = ssd_dialog_new (ALT_ROUTE_SUGGEST_ROUTE_DLG_NAME, "", on_suggest_dlg_canceled, SSD_DIALOG_FLOAT
                            | SSD_ALIGN_CENTER | SSD_ROUNDED_CORNERS | SSD_ROUNDED_BLACK | SSD_ALIGN_VCENTER | SSD_CONTAINER_BORDER);
 
    ssd_widget_add (dialog, space (5));
@@ -1665,8 +1677,8 @@ void roadmap_alternative_routes_routes_dialog (void) {
       ssd_widget_add (text_container1, text);
 
       msg[0] = 0;
-      snprintf (msg + strlen (msg), sizeof (msg) - strlen (msg), "%.1f %s",
-                     nav_result->total_length / 1000.0,
+      snprintf (msg + strlen (msg), sizeof (msg) - strlen (msg), "%d.%d %s",
+					 roadmap_math_to_trip_distance(nav_result->total_length), roadmap_math_to_trip_distance_tenths(nav_result->total_length)%10,
                      roadmap_lang_get (roadmap_math_trip_unit ()));
       text = ssd_text_new ("route-msg-txt", msg, 16, SSD_END_ROW);
       ssd_widget_add (text_container1, text);

@@ -36,6 +36,7 @@
 #include "../roadmap_navigate.h"
 #include "../roadmap_utf8.h"
 #include "../roadmap_trip.h"
+#include "../roadmap_tripserver.h"
 #include "generic_search.h"
 #include "../Realtime/Realtime.h"
 #include "../ssd/ssd_keyboard_dialog.h"
@@ -199,7 +200,7 @@ roadmap_result generic_search_resolve_address(
 
    query = address__prepare_query( address, custom_query );
    s_results_count = 0;
-   
+
    roadmap_log (ROADMAP_INFO, "Local search query: %s", query);
 
    // Perform WebService Transaction:
@@ -247,18 +248,22 @@ BOOL on_favorites_name( int         exit_code,
 
    if( dec_ok == exit_code)
    {
-      if( !name || !(*name))
+      if( !name || !(*name)) {
          roadmap_messagebox ( roadmap_lang_get( "Add to favorites"),
                               roadmap_lang_get( "ERROR: Invalid name specified"));
+         return FALSE;
+      }
       else
       {
          RoadMapPosition coordinates;
          coordinates.latitude = atoi(favorites_address_info[5]);
          coordinates.longitude = atoi(favorites_address_info[6]);
-         Realtime_TripServer_CreatePOI(name, &coordinates, TRUE);
 
          favorites_address_info[ ahi_name] = strdup( name);
+         favorites_address_info[ahi_synced] = strdup("false");
          roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);
+         roadmap_trip_server_create_poi(name, &coordinates, TRUE);
+
 #ifdef IPHONE
          roadmap_main_show_root(0);
 #endif //IPHONE
@@ -315,7 +320,7 @@ void generic_search_add_address_to_history( int               category,
    sprintf(longtitude, "%d", position->longitude);
    address[ahi_latitude]   = latitude;
    address[ahi_longtitude] = longtitude;
-
+   address[ahi_synced] = "false";
    if( ADDRESS_FAVORITE_CATEGORY == category)
    {
       int i;

@@ -1177,7 +1177,7 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
       if (size->width == SSD_MAX_SIZE) size->width = max->width;
       if (size->height== SSD_MAX_SIZE) size->height= max->height - total_height_below;
    }
-   
+
 #ifdef IPHONE_NATIVE
    if (size->width > 320)
       size->width = 320;

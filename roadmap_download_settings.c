@@ -206,7 +206,7 @@ void roadmap_download_settings_show(void){
         box2->callback = roadmap_map_download;
 
         ssd_widget_add( box2,
-                 ssd_text_new ( "Download map text", roadmap_lang_get("Download map of my area"), 16, SSD_ALIGN_VCENTER ) );
+                 ssd_text_new ( "Download map text", roadmap_lang_get("Download map of my area"), -1, SSD_ALIGN_VCENTER ) );
 
 
         ssd_widget_add( box, box2 );
@@ -226,7 +226,7 @@ void roadmap_download_settings_show(void){
      box2->callback = refresh_tiles_callback;
 
      ssd_widget_add( box2,
-              ssd_text_new ("Refresh map text", roadmap_lang_get( "Refresh map of my area" ), 16, SSD_ALIGN_VCENTER ) );
+              ssd_text_new ("Refresh map text", roadmap_lang_get( "Refresh map of my area" ), -1, SSD_ALIGN_VCENTER ) );
 
      ssd_dialog_add_vspace( box2, 2, 0 );
      ssd_widget_add( box, box2 );

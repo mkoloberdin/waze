@@ -54,12 +54,22 @@
 #include "roadmap_string.h"
 #include "roadmap_gps.h"
 
+#define OBJECT_ANIMATION_POP_IN        0x1
+#define OBJECT_ANIMATION_POP_OUT       0x2
+#define OBJECT_ANIMATION_FADE_IN       0x4
+#define OBJECT_ANIMATION_FADE_OUT      0x8
+#define OBJECT_ANIMATION_WHEN_VISIBLE  0x10
+
 
 void roadmap_object_add (RoadMapDynamicString origin,
                          RoadMapDynamicString id,
                          RoadMapDynamicString name,
                          RoadMapDynamicString sprite,
-                         RoadMapDynamicString image);
+                         RoadMapDynamicString      image,
+                         const RoadMapGpsPosition *position,
+                         const RoadMapGuiPoint    *offset,
+                         int                       animation,
+                         RoadMapDynamicString text);
 
 void roadmap_object_move (RoadMapDynamicString id,
                           const RoadMapGpsPosition *position);
@@ -73,7 +83,12 @@ typedef void (*RoadMapObjectAction) (const char *name,
                                      const char *sprite,
                                      const char *image,
                                      const RoadMapGpsPosition *gps_position,
-                                     const char *id);
+                                     const RoadMapGuiPoint    *offset,
+                                     BOOL       is_visible,
+                                     int        scale,
+                                     int        opacity,
+                                     const char *id,
+                                     const char *text);
 
 void roadmap_object_set_action (RoadMapDynamicString id,
                                 RoadMapObjectAction action);

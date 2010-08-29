@@ -58,6 +58,7 @@ static const char*   titleUnPw = "Log In";
 static int isTwitterModified  = 0;
 static int isUnPwShown        = 0;
 static int isNewExistingShown = 0;
+static int isUpdateShown      = 0;
 static int isUpdate           = 0;
 
 static char                    LoginDialogUserName[100];
@@ -78,9 +79,6 @@ enum IDs {
 	ID_TWITTER,
    ID_FOURSQUARE,
    ID_FACEBOOK,
-	ID_TWITTER_ENABLED,
-	ID_TWITTER_USERNAME,
-	ID_TWITTER_PASSWORD,
    ID_CHECKED,
    ID_UNCHECKED,
    ID_CONFIRM_PASSWORD,
@@ -93,10 +91,6 @@ enum IDs {
 
 static const char *id_actions[MAX_IDS];
 static RoadMapCallback id_callbacks[MAX_IDS];
-
-static CGSize gSizeSigninBtn = {125.0f, 30.0f};
-static CGSize gSizeNormalBtn = {100.0f, 30.0f};
-
 static LoginDialog *gRoadmapLoginDialog;
 
 // Allow ping events
@@ -123,14 +117,15 @@ const char *roadmap_login_dlg_get_allowPing(){
 }
 
 void roadmap_login_details_dialog_show_un_pw(void) {
-   if (isUnPwShown)
+   if (isUnPwShown ||
+       isUpdateShown)
       return;
    
    isUnPwShown = TRUE;
    
    roadmap_login_set_show_function(roadmap_login_details_dialog_show_un_pw);
    
-	LoginDialog *gRoadmapLoginDialog = [[LoginDialog alloc] initWithStyle:UITableViewStyleGrouped];
+	gRoadmapLoginDialog = [[LoginDialog alloc] initWithStyle:UITableViewStyleGrouped];
 	[gRoadmapLoginDialog showUnPw];
 }
 
@@ -154,6 +149,10 @@ void roadmap_login_new_existing_dlg(){
 }
 
 void roadmap_login_update_dlg_show( void ) {
+   if (isUpdateShown)
+      return;
+   
+   isUpdateShown = TRUE;
    LoginUpdateDialog *dialog = [[LoginUpdateDialog alloc] init];
 	[dialog showUpdateLogin];
 }
@@ -181,6 +180,7 @@ void roadmap_login_update_dlg_show( void ) {
 {
    CGFloat viewPosY = 5.0f;
 	CGRect rect;
+   CGRect frameRect;
 	UIImage *image;
 	UIImageView *imageView;
 	UILabel *label;
@@ -196,12 +196,12 @@ void roadmap_login_update_dlg_show( void ) {
    UIImage *imgButtonUp;
    UIImage *imgButtonDown;
    
-   image = roadmap_iphoneimage_load("button_up");
+   image = roadmap_iphoneimage_load("welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_iphoneimage_load("welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
@@ -215,10 +215,35 @@ void roadmap_login_update_dlg_show( void ) {
 	
 	
 	//set UI elements
+   
+   //background frame
+	image = roadmap_iphoneimage_load("Bubble_02");
+	if (image) {
+		frameRect = CGRectMake(([scrollView frame].size.width - [image size].width) /2, viewPosY,
+                        [image size].width, 280);
+      imageView = [[UIImageView alloc] initWithFrame:frameRect];
+      [imageView setImage:[image stretchableImageWithLeftCapWidth:15 topCapHeight:15]];
+		[image release];
+		[scrollView addSubview:imageView];
+      [imageView release];
+	} else {
+      return;
+   }
+   viewPosY+= 10;
+   
+   //Login text
+   rect = CGRectMake(frameRect.origin.x + 15, viewPosY,
+                     frameRect.size.width - 30, 25);
+   label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Login")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
+	[scrollView addSubview:label];
+	[label release];
+   viewPosY += rect.size.height + 10;
 	
-   //Existing user
+   //New user
 	//background frame
-	image = roadmap_iphoneimage_load("Bubble_01");
+	image = roadmap_iphoneimage_load("welcome_gray");
 	if (image) {
 		rect = CGRectMake(([scrollView frame].size.width - [image size].width) /2, viewPosY,
                         [image size].width, [image size].height);
@@ -231,77 +256,92 @@ void roadmap_login_update_dlg_show( void ) {
 	
 	//text
 	rect = imageView.frame;
-	rect.size.width -= 15 + gSizeSigninBtn.width;
-	rect.size.height = rect.size.height - 20 -10;
-	rect.origin.x += 5;
-	rect.origin.y += 5;
+	rect.size.width -= 40;
+	rect.size.height = 20;
+	rect.origin.x += 20;
+	rect.origin.y += 20;
 	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("EXISTING user")]];
-	[label setTextColor:[UIColor colorWithRed:0.941f green:0.0f blue:0.376f alpha:1.0f]];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("New user")]];
+	[label setTextColor:[UIColor colorWithRed:0.33f green:0.33f blue:0.33f alpha:1.0f]];
+   label.backgroundColor = [UIColor clearColor];
 	[scrollView addSubview:label];
 	[label release];
    
    //button
-   rect = imageView.frame;
-   rect.origin.x += rect.size.width - 5 - gSizeSigninBtn.width;
-   rect.origin.y += (rect.size.height - gSizeSigninBtn.height - 20) /2;
-   rect.size = gSizeSigninBtn;
    button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Sign In")] forState:UIControlStateNormal];
-	if (imgButtonUp)
-		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
-	if (imgButtonDown)
-		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
-	[button setFrame:rect];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Sign up")] forState:UIControlStateNormal];
+   image = roadmap_iphoneimage_load("welcome_btn_large");
+   if (image) {
+      [button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+   }
+   image = roadmap_iphoneimage_load("welcome_btn_large_h");
+   if (image) {
+      [button setBackgroundImage:image forState:UIControlStateHighlighted];
+      [image release];
+   }
+	[button sizeToFit];
+   rect = button.frame;
+   rect.origin.y = imageView.frame.origin.y + imageView.frame.size.height - 15 - button.bounds.size.height;
+   rect.origin.x = imageView.frame.origin.x + (imageView.frame.size.width - button.bounds.size.width)/2;
+   button.frame = rect;
+	[button addTarget:self action:@selector(onGetStarted) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   viewPosY += imageView.frame.size.height + 5;
+   
+   //Existing user
+	//background frame
+	image = roadmap_iphoneimage_load("welcome_gray");
+	if (image) {
+		rect = CGRectMake(([scrollView frame].size.width - [image size].width) /2, viewPosY,
+                        [image size].width, [image size].height);
+      imageView = [[UIImageView alloc] initWithFrame:rect];
+      [imageView setImage:[image stretchableImageWithLeftCapWidth:15 topCapHeight:15]];
+		[image release];
+		[scrollView addSubview:imageView];
+      [imageView release];
+	}
+	
+	//text
+	rect = imageView.frame;
+	rect.size.width -= 40;
+	rect.size.height = 20;
+	rect.origin.x += 20;
+	rect.origin.y += 20;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Existing user")]];
+	[label setTextColor:[UIColor darkGrayColor]];
+   label.backgroundColor = [UIColor clearColor];
+	[scrollView addSubview:label];
+	[label release];
+   
+   //button
+   button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Get Started")] forState:UIControlStateNormal];
+	image = roadmap_iphoneimage_load("welcome_btn_large_g");
+   if (image) {
+      [button setBackgroundImage:image forState:UIControlStateNormal];
+      [image release];
+   }
+   image = roadmap_iphoneimage_load("welcome_btn_large_g_h");
+   if (image) {
+      [button setBackgroundImage:image forState:UIControlStateHighlighted];
+      [image release];
+   }
+	[button sizeToFit];
+   rect = button.frame;
+   rect.origin.y = imageView.frame.origin.y + imageView.frame.size.height - 15 - button.bounds.size.height;
+   rect.origin.x = imageView.frame.origin.x + (imageView.frame.size.width - button.bounds.size.width)/2;
+   button.frame = rect;
+   
 	[button addTarget:self action:@selector(onSignIn) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
 	
-	viewPosY += imageView.frame.origin.y + imageView.frame.size.height + 5;
-   
-   //New user
-	//background frame
-	image = roadmap_iphoneimage_load("Bubble_02");
-	if (image) {
-		rect = CGRectMake(([scrollView frame].size.width - [image size].width) /2, viewPosY,
-                        [image size].width, [image size].height);
-      imageView = [[UIImageView alloc] initWithFrame:rect];
-      [imageView setImage:[image stretchableImageWithLeftCapWidth:15 topCapHeight:15]];
-		[image release];
-		[scrollView addSubview:imageView];
-      [imageView release];
-	}
-	
-	//text
-	rect = imageView.frame;
-	rect.size.width -= 15 + gSizeSigninBtn.width;
-	rect.size.height = rect.size.height -20 - 10;
-	rect.origin.x += 5;
-	rect.origin.y += 5;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("NEW user")]];
-	[label setTextColor:[UIColor colorWithRed:0.373f green:0.549f blue:0.094f alpha:1.0f]];
-	[scrollView addSubview:label];
-	[label release];
-   
-   //button
-   rect = imageView.frame;
-   rect.origin.x += rect.size.width - 5 - gSizeSigninBtn.width;
-   rect.origin.y += (rect.size.height - gSizeSigninBtn.height - 20) /2;
-   rect.size = gSizeSigninBtn;
-   button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Get Started")] forState:UIControlStateNormal];
-	if (imgButtonUp)
-		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
-	if (imgButtonDown)
-		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
-	[button setFrame:rect];
-	[button addTarget:self action:@selector(onGetStarted) forControlEvents:UIControlEventTouchUpInside];
-	[scrollView addSubview:button];
-	
-	viewPosY += imageView.frame.origin.y + imageView.frame.size.height;
+	viewPosY += imageView.frame.size.height + 10;
    
 	
 	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+   scrollView.alwaysBounceVertical = YES;
 	
 	roadmap_main_push_view(self);
 }
@@ -348,7 +388,7 @@ void roadmap_login_update_dlg_show( void ) {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
 }
 
@@ -629,7 +669,7 @@ void roadmap_login_update_dlg_show( void ) {
 {
 	int success;
 	if (isTwitterModified) {
-		success = Realtime_TwitterConnect(roadmap_twitter_get_username(), roadmap_twitter_get_password());
+		success = Realtime_TwitterConnect(roadmap_twitter_get_username(), roadmap_twitter_get_password(), roadmap_twitter_is_signup_enabled());
 		
 		isTwitterModified = 0;
 	}
@@ -760,6 +800,32 @@ void roadmap_login_update_dlg_show( void ) {
 
 @implementation LoginUpdateDialog
 
+- (void)hideKeyboard
+{
+   if (kbIsOn) {
+      int i;
+      UIScrollView *scrollView = (UIScrollView *) self.view;
+      UIView *view;
+
+      for (i = 0; i < [[scrollView subviews] count]; ++i) {
+         view = [[scrollView subviews] objectAtIndex:i];
+         if (view.tag == ID_USERNAME ||
+             view.tag == ID_PASSWORD ||
+             view.tag == ID_CONFIRM_PASSWORD ||
+             view.tag == ID_NICKNAME ||
+             view.tag == ID_EMAIL)
+            [(UITextField *)view resignFirstResponder];
+      }
+
+      kbIsOn = FALSE;
+   }
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+   [self hideKeyboard];
+}
+
 - (void) onToggleUpdates: (id) sender
 {
    UIButton *button = (UIButton *) sender;
@@ -841,7 +907,10 @@ void roadmap_login_update_dlg_show( void ) {
    UIView *view;
    UITextField *textField;
    UIScrollView *scrollView = (UIScrollView *) self.view;
+   const char *email = "";
+   BOOL  bSendUpdates = FALSE;
    
+   [self hideKeyboard];
    
    const char *confirmPassword = "";
    
@@ -850,7 +919,6 @@ void roadmap_login_update_dlg_show( void ) {
       textField = ((UITextField *)view);
       if (textField.text)
          strncpy_safe (LoginDialogUserName, [textField.text UTF8String], sizeof (LoginDialogUserName));
-      [textField resignFirstResponder];
    }
    
    view = [scrollView viewWithTag: ID_PASSWORD];
@@ -858,7 +926,6 @@ void roadmap_login_update_dlg_show( void ) {
       textField = ((UITextField *)view);
       if (textField.text)
          strncpy_safe (LoginDialogPassword, [textField.text UTF8String], sizeof (LoginDialogPassword));
-      [textField resignFirstResponder];
    }
    
    view = [scrollView viewWithTag: ID_CONFIRM_PASSWORD];
@@ -866,7 +933,6 @@ void roadmap_login_update_dlg_show( void ) {
       textField = ((UITextField *)view);
       if (textField.text)
          confirmPassword = [textField.text UTF8String];
-      [textField resignFirstResponder];
    }
    
    if (!roadmap_login_validate_username (LoginDialogUserName))
@@ -875,42 +941,52 @@ void roadmap_login_update_dlg_show( void ) {
    if (!roadmap_login_validate_password (LoginDialogPassword, confirmPassword))
       return;
    
-   LoginUpdateDialog *nicknameDialog = [[LoginUpdateDialog alloc] init];
-   [nicknameDialog showNickname];
-}
-
-- (void)viewDidAppear:(BOOL)animated
-{
-	UIScrollView *scrollView = (UIScrollView *) self.view;
-   UIView *view;
-	CGRect rect = [scrollView frame];
-	rect.size.height = roadmap_main_get_mainbox_height();
-	[scrollView setFrame:rect];
-   
-   int i;
-   for (i = 0; i < [[scrollView subviews] count]; ++i) {
-      view = [[scrollView subviews] objectAtIndex:i];
-      if ((view.tag == ID_USERNAME) ||
-          (view.tag == ID_NICKNAME)/* ||
-       (view.tag == ID_TWITTER_USERNAME)*/)
-         [(UITextField *)view becomeFirstResponder];
+   view = [scrollView viewWithTag: ID_NICKNAME];
+   if (view) {
+      textField = ((UITextField *)view);
+      if (textField.text)
+         strncpy_safe (LoginDialogNickname, [textField.text UTF8String], sizeof (LoginDialogNickname));
    }
-	
-	[super viewDidAppear:animated];
+   
+   view = [scrollView viewWithTag: ID_EMAIL];
+   if (view) {
+      textField = ((UITextField *)view);
+      if (textField.text)
+         email = [textField.text UTF8String];
+   }
+   
+   view = [scrollView viewWithTag: ID_CHECKED];
+   if (view) {
+      bSendUpdates = TRUE;
+   }
+   
+   if (!roadmap_login_validate_email (email))
+      return;
+   
+   if (isUpdate) {
+      roadmap_login_on_update (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates);
+   } else {
+      roadmap_login_on_create (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates);
+   }
+   
+   roadmap_welcome_wizard_set_first_time_no();
 }
 
 ////////////////////
-// End Dialog
-- (void)showEnd
+// Login Dialog
+- (void)showUpdateLogin
 {
+   const char* username = NULL;
 	CGRect rect;
-   CGFloat viewPosY = 5.0f;
 	UIImage *image;
    UIImage *strechedImage;
 	UIImageView *bgView;
-	NSString *text;
 	UILabel *label;
-	UIButton *button;
+	UITextField *textField;
+   CGFloat viewPosY = 15.0f;
+   UIButton *button;
+   UIImage *imgButtonUp;
+   UIImage *imgButtonDown;
 	rect = [[UIScreen mainScreen] applicationFrame];
 	rect.origin.x = 0;
 	rect.origin.y = 0;
@@ -919,132 +995,37 @@ void roadmap_login_update_dlg_show( void ) {
 	self.view = scrollView;
 	[scrollView release]; // decrement retain count
 	[scrollView setDelegate:self];
-   UIImage *imgButtonUp;
-   UIImage *imgButtonDown;
    
-   image = roadmap_iphoneimage_load("button_up");
+   kbIsOn = FALSE;
+	
+	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Login details")]];
+   
+   image = roadmap_iphoneimage_load("welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_iphoneimage_load("welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
       [image release];
    }
 	
-	//[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Personalize later")]];
-	
-	
+   
+   username = RealTime_GetUserName();
+   if ( username && *username && Realtime_IsLoggedIn() )
+   {	// Update user
+	   isUpdate = 1;
+   }
+   else
+   {	// Create user
+	   isUpdate = 0;
+   }
+   
+   LoginDialogUserName[0] = 0;
+   LoginDialogPassword[0] = 0;
+   
 	//set UI elements
-	
-	//background frame
-	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
-                     roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
-	if (image) {
-		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
-		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
-		[bgView setFrame:rect];
-		[scrollView addSubview:bgView];
-		[bgView release];
-	}
-   
-   
-	//Way to go text
-	text = [NSString stringWithUTF8String:
-           roadmap_lang_get("Way to go!")];
-   rect = bgView.frame;
-   rect.size.width = bgView.bounds.size.width - 80;
-   rect.size.height = TEXT_HEIGHT;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 40;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:text];
-	[label setTextAlignment:UITextAlignmentCenter];
-   [label setFont:[UIFont boldSystemFontOfSize:18]];
-   [label setTextColor:[UIColor colorWithRed:0.941f green:0.0f blue:0.376f alpha:1.0f]];
-	[scrollView addSubview:label];
-	[label release];
-   viewPosY += label.bounds.size.height + 5;
-   
-   //Accound updated text
-   text = [NSString stringWithUTF8String:
-           roadmap_lang_get("Your account has been updated")];
-   rect = bgView.frame;
-   rect.size.width = bgView.bounds.size.width - 120;
-   rect.size.height = TEXT_HEIGHT * 2;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 60;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:text];
-	[label setTextAlignment:UITextAlignmentCenter];
-   [label setFont:[UIFont systemFontOfSize:16]];
-   [label setNumberOfLines:2];
-	[bgView addSubview:label];
-	[label release];
-   viewPosY += label.bounds.size.height + 5;
-   
-	//Close button
-	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")] forState:UIControlStateNormal];
-	if (imgButtonUp)
-		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
-	if (imgButtonDown)
-		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   rect.origin.x += (bgView.bounds.size.width - gSizeNormalBtn.width) /2;
-   rect.size = gSizeNormalBtn;
-	[button setFrame:rect];
-	[button addTarget:self action:@selector(onFinish) forControlEvents:UIControlEventTouchUpInside];
-	[scrollView addSubview:button];
-   
-   viewPosY += button.bounds.size.height + 5;
-	
-   
-   rect = bgView.frame;
-   rect.size.height = viewPosY;
-   bgView.frame = rect;
-   
-	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
-	
-	
-	roadmap_main_push_view(self);
-}
-
-////////////////////
-// Twitter Dialog
-- (void)showTwitter
-{
-	CGRect rect;
-	UIImage *image;
-	UIImageView *imageView;
-   UIImage *strechedImage;
-	UIImageView *bgView;
-	UILabel *label;
-	UITextField *textField;
-   CGFloat viewPosY = 5.0f;
-	rect = [[UIScreen mainScreen] applicationFrame];
-	rect.origin.x = 0;
-	rect.origin.y = 0;
-	rect.size.height = roadmap_main_get_mainbox_height();
-	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
-	self.view = scrollView;
-	[scrollView release]; // decrement retain count
-	[scrollView setDelegate:self];
-	
-	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Enter twitter details")]];
-   
-   //set right button
-	UINavigationItem *navItem = [self navigationItem];
-   UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")]
-                                                                 style:UIBarButtonItemStyleDone target:self action:@selector(onTwitterNext)];
-	[navItem setRightBarButtonItem:barButton];
-	
-   
-   //UI elements
 	
    //background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
@@ -1059,44 +1040,17 @@ void roadmap_login_update_dlg_show( void ) {
 		[bgView release];
 	}
    
-   //Twitter icon
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   image = roadmap_iphoneimage_load("Tweeter-logo");
-   if (image) {
-      if (!roadmap_lang_rtl())
-         rect.origin.x += 5;
-      else
-         rect.origin.x += bgView.bounds.size.width - 5 - image.size.width;
-      rect.size = image.size;
-      imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
-      [imageView setFrame:rect];
-      [scrollView addSubview:imageView];
-      [imageView release];
-   }
-	
-	//Note text
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   if (!roadmap_lang_rtl())
-      rect.origin.x += 5 + imageView.frame.size.width + 10;
-   else
-      rect.origin.x += 5;
-   rect.size.height = TEXT_HEIGHT;
-   rect.size.width = bgView.bounds.size.width - imageView.frame.size.width - 20;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Tweet your road reports")]];
-	//[label setBackgroundColor:[UIColor clearColor]];
-   [label setAdjustsFontSizeToFitWidth:YES];
+   //Login text
+   rect = CGRectMake(bgView.frame.origin.x + 5, viewPosY,
+                     bgView.frame.size.width - 30, 25);
+   label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Your Details")]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
 	[scrollView addSubview:label];
 	[label release];
+   viewPosY += rect.size.height + 10;
    
-   viewPosY += imageView.bounds.size.height + 5;
-   
-	
-   
-   //Username
+	//Username
    rect = bgView.frame;
    rect.origin.y += viewPosY;
    rect.origin.x += 5;
@@ -1111,16 +1065,13 @@ void roadmap_login_update_dlg_show( void ) {
 	rect.origin.x += rect.size.width + 10;
 	rect.size.width = (bgView.bounds.size.width - 20)/2;
 	textField = [[UITextField alloc] initWithFrame:rect];
-	[textField setTag:ID_TWITTER_USERNAME];
+	[textField setTag:ID_USERNAME];
 	[textField setBorderStyle:UITextBorderStyleRoundedRect];
 	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
 	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
 	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-	//[textField setReturnKeyType:UIReturnKeyDone];
 	[textField setDelegate:self];
-	[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
 	[scrollView addSubview:textField];
-	//[textField becomeFirstResponder];
 	[textField release];
    
    viewPosY += TEXT_HEIGHT + 10;
@@ -1140,78 +1091,46 @@ void roadmap_login_update_dlg_show( void ) {
 	rect.origin.x += rect.size.width + 10;
 	rect.size.width = (bgView.bounds.size.width - 20)/2;
 	textField = [[UITextField alloc] initWithFrame:rect];
-	[textField setTag:ID_TWITTER_PASSWORD];
+	[textField setTag:ID_PASSWORD];
 	[textField setBorderStyle:UITextBorderStyleRoundedRect];
 	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
 	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
 	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
 	[textField setSecureTextEntry:YES];
-	//[textField setReturnKeyType:UIReturnKeyDone];
 	[textField setDelegate:self];
-	[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
 	[scrollView addSubview:textField];
 	[textField release];
    
-   viewPosY += TEXT_HEIGHT + 5;
+   viewPosY += TEXT_HEIGHT + 10;
    
-   
+   //Confirm password
    rect = bgView.frame;
-   rect.size.height = viewPosY;
-   bgView.frame = rect;
-   
-	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+   rect.origin.y += viewPosY;
+   rect.origin.x += 5;
+   rect.size.height = TEXT_HEIGHT;
+   rect.size.width = (bgView.bounds.size.width - 20)/2;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Confirm")]];
+	[label setBackgroundColor:[UIColor clearColor]];
+	[scrollView addSubview:label];
+	[label release];
 	
-	roadmap_main_push_view(self);
-}
-
-////////////////////
-// Nickname Dialog
-- (void)showNickname
-{
-	CGRect rect;
-	UIImage *image;
-	UIImage *strechedImage;
-	UIImageView *bgView;
-	UILabel *label;
-	UITextField *textField;
-   UIButton *button;
-   CGFloat viewPosY = 5.0f;
-	rect = [[UIScreen mainScreen] applicationFrame];
-	rect.origin.x = 0;
-	rect.origin.y = 0;
-	rect.size.height = roadmap_main_get_mainbox_height();
-	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
-	self.view = scrollView;
-	[scrollView release]; // decrement retain count
-	[scrollView setDelegate:self];
-	
-	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Additional Details")]];
+	rect.origin.x += rect.size.width + 10;
+	rect.size.width = (bgView.bounds.size.width - 20)/2;
+	textField = [[UITextField alloc] initWithFrame:rect];
+	[textField setTag:ID_CONFIRM_PASSWORD];
+	[textField setBorderStyle:UITextBorderStyleRoundedRect];
+	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
+	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
+	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
+	[textField setSecureTextEntry:YES];
+	[textField setDelegate:self];
+	[scrollView addSubview:textField];
+	[textField release];
    
-   //set right button
-	UINavigationItem *navItem = [self navigationItem];
-   UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")]
-                                                                 style:UIBarButtonItemStyleDone target:self action:@selector(onNicknameNext)];
-	[navItem setRightBarButtonItem:barButton];
+   viewPosY += TEXT_HEIGHT + 20;
    
-	LoginDialogNickname[0] = 0;
-   
-   
-	//UI elements
-	
-   //background frame
-	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
-                     roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
-	if (image) {
-		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
-		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
-		[bgView setFrame:rect];
-		[scrollView addSubview:bgView];
-		[bgView release];
-	}
-   
-	//Nickname
+   //Nickname
    rect = bgView.frame;
    rect.origin.y += viewPosY;
    rect.origin.x += 5;
@@ -1257,12 +1176,9 @@ void roadmap_login_update_dlg_show( void ) {
 	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
 	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
 	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-	//[textField setReturnKeyType:UIReturnKeyDone];
    [textField setKeyboardType:UIKeyboardTypeEmailAddress];
 	[textField setDelegate:self];
-	//[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
 	[scrollView addSubview:textField];
-	//[textField becomeFirstResponder];
 	[textField release];
    
    viewPosY += TEXT_HEIGHT + 10;
@@ -1296,178 +1212,10 @@ void roadmap_login_update_dlg_show( void ) {
    rect.size.width = bgView.bounds.size.width - button.frame.size.width - 20;
 	label = [[iphoneLabel alloc] initWithFrame:rect];
 	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Send me updates")]];
-	//[label setBackgroundColor:[UIColor clearColor]];
 	[scrollView addSubview:label];
 	[label release];
-	
    
-   viewPosY += TEXT_HEIGHT + 5;
-   
-   
-   rect = bgView.frame;
-   rect.size.height = viewPosY;
-   bgView.frame = rect;
-   
-   
-   
-	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
-	
-	roadmap_main_push_view(self);
-}
-
-////////////////////
-// Login Dialog
-- (void)showUpdateLogin
-{
-   const char* username = NULL;
-	CGRect rect;
-	UIImage *image;
-   UIImage *strechedImage;
-	UIImageView *bgView;
-	UILabel *label;
-	UITextField *textField;
-   CGFloat viewPosY = 5.0f;
-   UIButton *button;
-   UIImage *imgButtonUp;
-   UIImage *imgButtonDown;
-	rect = [[UIScreen mainScreen] applicationFrame];
-	rect.origin.x = 0;
-	rect.origin.y = 0;
-	rect.size.height = roadmap_main_get_mainbox_height();
-	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
-	self.view = scrollView;
-	[scrollView release]; // decrement retain count
-	[scrollView setDelegate:self];
-	
-	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Login details")]];
-   
-   image = roadmap_iphoneimage_load("button_up");
-   if (image) {
-      imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
-   }
-   image = roadmap_iphoneimage_load("button_down");
-   if (image) {
-      imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
-   }
-	
-   
-   username = RealTime_GetUserName();
-   if ( username && *username && Realtime_IsLoggedIn() )
-   {	// Update user
-	   isUpdate = 1;
-   }
-   else
-   {	// Create user
-	   isUpdate = 0;
-   }
-   
-   LoginDialogUserName[0] = 0;
-   LoginDialogPassword[0] = 0;
-   
-	//set UI elements
-	
-   //background frame
-	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
-                     roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
-	if (image) {
-		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
-		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
-		[bgView setFrame:rect];
-		[scrollView addSubview:bgView];
-		[bgView release];
-	}
-   
-	//Username
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 5;
-   rect.size.height = TEXT_HEIGHT;
-   rect.size.width = (bgView.bounds.size.width - 20)/2;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Username")]];
-	[label setBackgroundColor:[UIColor clearColor]];
-	[scrollView addSubview:label];
-	[label release];
-	
-	rect.origin.x += rect.size.width + 10;
-	rect.size.width = (bgView.bounds.size.width - 20)/2;
-	textField = [[UITextField alloc] initWithFrame:rect];
-	[textField setTag:ID_USERNAME];
-	[textField setBorderStyle:UITextBorderStyleRoundedRect];
-	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
-	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
-	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-	//[textField setReturnKeyType:UIReturnKeyDone];
-	[textField setDelegate:self];
-	//[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
-	[scrollView addSubview:textField];
-	//[textField becomeFirstResponder];
-	[textField release];
-   
-   viewPosY += TEXT_HEIGHT + 10;
-	
-	//Password
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 5;
-   rect.size.height = TEXT_HEIGHT;
-   rect.size.width = (bgView.bounds.size.width - 20)/2;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Password")]];
-	[label setBackgroundColor:[UIColor clearColor]];
-	[scrollView addSubview:label];
-	[label release];
-	
-	rect.origin.x += rect.size.width + 10;
-	rect.size.width = (bgView.bounds.size.width - 20)/2;
-	textField = [[UITextField alloc] initWithFrame:rect];
-	[textField setTag:ID_PASSWORD];
-	[textField setBorderStyle:UITextBorderStyleRoundedRect];
-	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
-	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
-	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-	[textField setSecureTextEntry:YES];
-	//[textField setReturnKeyType:UIReturnKeyDone];
-	[textField setDelegate:self];
-	//[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
-	[scrollView addSubview:textField];
-	[textField release];
-   
-   viewPosY += TEXT_HEIGHT + 10;
-   
-   //Confirm password
-   rect = bgView.frame;
-   rect.origin.y += viewPosY;
-   rect.origin.x += 5;
-   rect.size.height = TEXT_HEIGHT;
-   rect.size.width = (bgView.bounds.size.width - 20)/2;
-	label = [[iphoneLabel alloc] initWithFrame:rect];
-	[label setText:[NSString stringWithUTF8String: roadmap_lang_get("Confirm")]];
-	[label setBackgroundColor:[UIColor clearColor]];
-   //[label setNumberOfLines:2];
-	[scrollView addSubview:label];
-	[label release];
-	
-	rect.origin.x += rect.size.width + 10;
-	rect.size.width = (bgView.bounds.size.width - 20)/2;
-	textField = [[UITextField alloc] initWithFrame:rect];
-	[textField setTag:ID_CONFIRM_PASSWORD];
-	[textField setBorderStyle:UITextBorderStyleRoundedRect];
-	[textField setClearButtonMode:UITextFieldViewModeWhileEditing];
-	[textField setAutocorrectionType:UITextAutocorrectionTypeNo];
-	[textField setAutocapitalizationType:UITextAutocapitalizationTypeNone];
-	[textField setSecureTextEntry:YES];
-	//[textField setReturnKeyType:UIReturnKeyDone];
-	[textField setDelegate:self];
-	//[textField setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<skip>")]];
-	[scrollView addSubview:textField];
-	[textField release];
-   
-   viewPosY += TEXT_HEIGHT + 10;
+   viewPosY += TEXT_HEIGHT + 15;
    
    //Next button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -1479,7 +1227,7 @@ void roadmap_login_update_dlg_show( void ) {
    
    rect.origin.y = viewPosY;
    rect.origin.x = bgView.bounds.size.width/2 + 5;
-   rect.size = gSizeNormalBtn;
+   rect.size = imgButtonUp.size;
 	[button setFrame:rect];
 	[button addTarget:self action:@selector(onLoginNext) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
@@ -1493,20 +1241,21 @@ void roadmap_login_update_dlg_show( void ) {
 		[button setBackgroundImage:imgButtonDown forState:UIControlStateHighlighted];
    
    rect.origin.y = viewPosY;
-   rect.origin.x = bgView.bounds.size.width/2 - gSizeNormalBtn.width - 5;
-   rect.size = gSizeNormalBtn;
+   rect.origin.x = bgView.bounds.size.width/2 - imgButtonUp.size.width - 5;
+   rect.size = imgButtonUp.size;
 	[button setFrame:rect];
 	[button addTarget:self action:@selector(onLoginSkip) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
 	
-   viewPosY += button.bounds.size.height + 5;
+   viewPosY += button.bounds.size.height +5;
    
    
    rect = bgView.frame;
    rect.size.height = viewPosY;
    bgView.frame = rect;
 	
-	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+	[scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY + 10)];
+   scrollView.alwaysBounceVertical = YES;
 	
 	roadmap_main_push_view(self);
 }
@@ -1514,6 +1263,7 @@ void roadmap_login_update_dlg_show( void ) {
 
 - (void)dealloc
 {
+   isUpdateShown = FALSE;
    
 	[super dealloc];
 }
@@ -1533,12 +1283,6 @@ void roadmap_login_update_dlg_show( void ) {
          if ([textField text])
             strncpy_safe(LoginDialogNickname, [[textField text] UTF8String], sizeof(LoginDialogNickname));
 			break;
-      case ID_TWITTER_USERNAME:
-			roadmap_twitter_set_username([[textField text] UTF8String]);
-			break;
-		case ID_TWITTER_PASSWORD:
-			roadmap_twitter_set_password([[textField text] UTF8String]);		
-			break;
 		default:
 			break;
 	}
@@ -1546,8 +1290,40 @@ void roadmap_login_update_dlg_show( void ) {
    [textField resignFirstResponder];
 }
 
+- (void)textFieldDidBeginEditing:(UITextField *)textField {
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
+   
+   if (!kbIsOn) {
+      if (!roadmap_horizontal_screen_orientation())
+         rect.size.height -= 215;
+      else
+         rect.size.height -= 162;
+      
+      view.frame = rect;
+      kbIsOn = TRUE;
+   }
+   
+   [view scrollRectToVisible:textField.frame animated:YES];
+}
+
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
    [textField resignFirstResponder];
+   
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
+   
+   if (kbIsOn) {
+      if (!roadmap_horizontal_screen_orientation())
+         rect.size.height += 215;
+      else
+         rect.size.height += 162;
+      
+      view.frame = rect;
+      kbIsOn = FALSE;
+   }
+   
+   [view scrollRectToVisible:textField.frame animated:YES];
    
 	return NO;
 }
@@ -1556,6 +1332,7 @@ void roadmap_login_update_dlg_show( void ) {
 {
    if (roadmap_keyboard_typing_locked(TRUE)) {
       [textField resignFirstResponder];
+      kbIsOn = FALSE;
       return NO;
    } else
       return YES;

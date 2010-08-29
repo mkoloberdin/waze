@@ -26,15 +26,14 @@
 
 
 @interface CommentsListView : UIViewController <UIScrollViewDelegate> {
-	NSNumber *alertId;
-   int abusedComment;
+	int alertId;
+   int selectedComment;
+   int minCommentHeight;
 }
 
-@property (nonatomic, retain) NSNumber *alertId;
-
-- (void) onReportAbuseConfirmed;
 - (void) showWithAlert: (int)iAlertId;
-
+- (void) onReportAbuseConfirmed;
+- (void) setImage:(RoadMapImage)image alert:(int)alert_id comment:(int)comment_id;
 
 @end
 

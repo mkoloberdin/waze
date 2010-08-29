@@ -63,7 +63,10 @@ static BOOL on_kb_closed(  int         exit_code,
    SsdWidget w = context;
    SsdEntryContext* ctx = ( SsdEntryContext* ) w->context;
    BOOL retVal = TRUE;
-
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+   if( dec_ok != exit_code)
+      return TRUE;
+#endif
    if( dec_ok == exit_code)
       w->set_value( w, value);
 
@@ -276,7 +279,7 @@ SsdWidget ssd_confirmed_entry_new (const char *name,
          bg_text = ssd_text_new ("BgText", background_text, -1, SSD_ALIGN_VCENTER);
    ssd_widget_set_color(bg_text, "#C0C0C0",NULL);
    ssd_widget_add (text_box, bg_text);
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    if (!ssd_widget_rtl(NULL))
       button = ssd_button_new ("edit_button", "", &edit_button[0], 1,
                           SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, edit_callback);

@@ -28,21 +28,20 @@
 
 
 #include "roadmap_main.h"
-
+#include "roadmap_messagebox.h"
 #include "roadmap_iphonemain.h"
 #include "roadmap_iphonecamera.h"
 
 void roadmap_camera_take_alert_picture(  float image_scale, CameraImageQuality image_quality,
 								 const char* image_folder, const char* image_file )
 {
-	RoadMapCameraView *imagePicker = [[RoadMapCameraView alloc] init];
-   /* TODO: add this code
-	if (![imagePicker isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera])
+   if (![RoadMapCameraView isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera])
 	{
-		[imagePicker release];
-		return 0;
+      roadmap_messagebox("Oops", "Camera is not available");
+		return;
 	}
-	*/
+   
+	RoadMapCameraView *imagePicker = [[RoadMapCameraView alloc] init];
 	
 	[imagePicker setSourceType:UIImagePickerControllerSourceTypeCamera];
 	[imagePicker takePictureWithScale: image_scale

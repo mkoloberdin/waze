@@ -65,17 +65,37 @@
 #define  SOCIAL_CFG_PRM_SHOW_MUNCHING_No         ("no")
 #define  SOCIAL_CFG_PRM_SHOW_MUNCHING_Yes        ("yes")
 
+//  Post about sign up Enable / Disable:
+#define  SOCIAL_CFG_PRM_SEND_SIGNUP_Name        ("Publish Signup")
+#define  SOCIAL_CFG_PRM_SEND_SIGNUP_Enabled     ("Enabled")
+#define  SOCIAL_CFG_PRM_SEND_SIGNUP_Disabled    ("Disabled")
+
+//  Show user name Enable / Disable:
+#define  SOCIAL_CFG_PRM_SHOW_NAME_Name          ("Show Name")
+#define  SOCIAL_CFG_PRM_SHOW_NAME_Enabled       ("Enabled")
+#define  SOCIAL_CFG_PRM_SHOW_NAME_Friends       ("Friends")
+#define  SOCIAL_CFG_PRM_SHOW_NAME_Disabled      ("Disabled")
+
+//  Show user picture Enable / Disable:
+#define  SOCIAL_CFG_PRM_SHOW_PICTURE_Name       ("Show Picture")
+#define  SOCIAL_CFG_PRM_SHOW_PICTURE_Enabled    ("Enabled")
+#define  SOCIAL_CFG_PRM_SHOW_PICTURE_Friends    ("Friends")
+#define  SOCIAL_CFG_PRM_SHOW_PICTURE_Disabled   ("Disabled")
+
 // Logged in status
-#define  SOCIAL_CFG_PRM_LOGGED_IN_Name           ("Logged In")
-#define  SOCIAL_CFG_PRM_LOGGED_IN_No             ("no")
-#define  SOCIAL_CFG_PRM_LOGGED_IN_Yes            ("yes")
+#define  SOCIAL_CFG_PRM_LOGGED_IN_Name          ("Logged In")
+#define  SOCIAL_CFG_PRM_LOGGED_IN_No            ("no")
+#define  SOCIAL_CFG_PRM_LOGGED_IN_Yes           ("yes")
 
 // Facebook URLs
 #define  FACEBOOK_CFG_PRM_URL_Name                 ("Url")
 #define  FACEBOOK_CFG_PRM_URL_Default              ("")
-#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/connect")
-#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect")
-#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected")
+#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/connect") //TODO: change back to this
+//#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/oauth2_connect")
+#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect") //TODO: change back to this
+//#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect_oauth2")
+#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected") //TODO: change back to this
+//#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected_oauth2")
 #define  FACEBOOK_SHARE_SUFFIX                     ("/facebook/share")
 
 
@@ -89,6 +109,11 @@
 #define  ROADMAP_SOCIAL_DESTINATION_MODE_STREET   2
 #define  ROADMAP_SOCIAL_DESTINATION_MODE_FULL     3
 #define  ROADMAP_SOCIAL_DESTINATION_MODES_COUNT   4
+
+#define  ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED 0
+#define  ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS  1
+#define  ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED  2
+#define  ROADMAP_SOCIAL_SHOW_DETAILS_MODES_COUNT   3
 
 BOOL roadmap_social_initialize(void);
 
@@ -117,20 +142,26 @@ BOOL roadmap_twitter_is_munching_enabled(void);
 void roadmap_twitter_enable_munching();
 void roadmap_twitter_disable_munching();
 BOOL roadmap_twitter_is_show_munching(void);
+BOOL roadmap_twitter_is_signup_enabled(void);
+void roadmap_twitter_set_signup(BOOL enabled);
 BOOL roadmap_facebook_is_munching_enabled(void);
 void roadmap_facebook_enable_munching();
 void roadmap_facebook_disable_munching();
+int roadmap_facebook_get_show_name(void);
+void roadmap_facebook_set_show_name(int mode);
+int roadmap_facebook_get_show_picture(void);
+void roadmap_facebook_set_show_picture(int mode);
 
 void roadmap_twitter_login_failed(int status);
 void roadmap_twitter_set_logged_in (BOOL is_logged_in);
 BOOL roadmap_twitter_logged_in(void);
 BOOL roadmap_facebook_logged_in(void);
 void roadmap_facebook_check_login(void);
-void roadmap_facebook_connect(void);
+void roadmap_facebook_connect(BOOL preload);
 void roadmap_facebook_disconnect(void);
 void roadmap_facebook_refresh_connection (void);
 void roadmap_facebook_invite(void);
-
+void roadmap_facebook_send_permissions (void);
 
 
 #endif /* INCLUDE__ROADMAP_SOCIAL__H */

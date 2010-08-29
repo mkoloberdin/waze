@@ -40,7 +40,7 @@
 	rightLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 5, 5)];
    [rightLabel setBackgroundColor:[UIColor clearColor]];
    [rightLabel setTextColor:[UIColor colorWithRed:.22f green:.329f blue:.529f alpha:1.0f]];
-   [rightLabel setFont:[UIFont boldSystemFontOfSize:16]];
+   [rightLabel setFont:[UIFont boldSystemFontOfSize:17]];
    [self.contentView addSubview:rightLabel];
    
    leftLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 0, 5, 5)];

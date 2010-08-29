@@ -95,7 +95,8 @@ void RTTrafficInfo_InitRecord(RTTrafficInfo *pTrafficInfo)
 	pTrafficInfo->boundingBox.north = 0;
 	pTrafficInfo->boundingBox.west = 0;
 	pTrafficInfo->boundingBox.south = 0;
-	
+	pTrafficInfo->bIsOnRoute = FALSE;
+
 }
 
 /**
@@ -106,9 +107,9 @@ void RTTrafficInfo_InitRecord(RTTrafficInfo *pTrafficInfo)
 void RTTrafficInfo_Init()
 {
 	int i;
-	
+
 	roadmap_log (ROADMAP_DEBUG, "RTTrafficInfo_Init()");
-	
+
 	gTrafficInfoTable.iCount = 0;
 	for (i=0; i< RT_TRAFFIC_INFO_MAXIMUM_TRAFFIC_INFO_COUNT; i++){
 		gTrafficInfoTable.pTrafficInfo[i] = NULL;
@@ -158,7 +159,7 @@ void RTTrafficInfo_ClearAll()
    int count;
 
 	roadmap_log (ROADMAP_DEBUG, "RTTrafficInfo_ClearAll()");
-	
+
    count = gTrafficInfoTable.iCount;
    gTrafficInfoTable.iCount = 0;
    for( i=0; i< RT_TRAFFIC_INFO_MAXIMUM_TRAFFIC_INFO_COUNT; i++)
@@ -245,7 +246,7 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 
 	if (pTrafficInfo->iNumGeometryPoints < 1)
 		return FALSE;
-		
+
 	RTAlerts_Alert_Init(&alert);
 
 	alert.iID = pTrafficInfo->iID +  ALERT_ID_OFFSET;
@@ -253,6 +254,7 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 	alert.iType = RT_ALERT_TYPE_TRAFFIC_INFO;
 	alert.iSubType = pTrafficInfo->iType;
 	alert.iSpeed = pTrafficInfo->iSpeed;
+	alert.bAlertIsOnRoute = pTrafficInfo->bIsOnRoute;
 
 	strncpy_safe(alert.sLocationStr, pTrafficInfo->sDescription,RT_ALERT_LOCATION_MAX_SIZE);
 
@@ -308,7 +310,7 @@ BOOL RTTrafficInfo_AddSegments( int iTrafficInfoID, int iSquare, int iVersion, i
 		roadmap_log (ROADMAP_ERROR, "Trying to add segments for invalid traffic info id %d", pTrafficInfo);
 		return FALSE;
 	}
-	
+
 	for (i = 0; i < nLines; i++)
 	{
 		int index = gRTTrafficInfoLinesTable.iCount;
@@ -318,13 +320,13 @@ BOOL RTTrafficInfo_AddSegments( int iTrafficInfoID, int iSquare, int iVersion, i
 			break;
 		}
 		gRTTrafficInfoLinesTable.iCount++;
-		
+
 		if (gRTTrafficInfoLinesTable.pRTTrafficInfoLines[index] == NULL)
 		{
 			gRTTrafficInfoLinesTable.pRTTrafficInfoLines[index] = malloc( sizeof(RTTrafficInfoLines));
 		}
 		pLine = gRTTrafficInfoLinesTable.pRTTrafficInfoLines[index];
-		
+
 		pLine->iSquare = iSquare;
 		pLine->iVersion = iVersion;
 		if (iLines[i] >= 0)
@@ -345,13 +347,13 @@ BOOL RTTrafficInfo_AddSegments( int iTrafficInfoID, int iSquare, int iVersion, i
 			needTile = TRUE;
 		added = TRUE;
 	}
-	
+
 	if (needTile)
 	{
 		// register for tile updates
 		RTTrafficInfo_TileRequest (iSquare, iVersion);
 	}
-	
+
 	return added;
 }
 
@@ -454,7 +456,7 @@ BOOL RTTrafficInfo_Add(RTTrafficInfo *pTrafficInfo)
         return TRUE;
     }
 
-	if (gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount] == NULL) { 
+	if (gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount] == NULL) {
     	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount] = calloc(1, sizeof(RTTrafficInfo));
 	   if (gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount] == NULL)
 	   {
@@ -462,10 +464,12 @@ BOOL RTTrafficInfo_Add(RTTrafficInfo *pTrafficInfo)
 	      return FALSE;
 	   }
 	}
-	
+
    RTTrafficInfo_InitRecord(gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]);
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->iID = pTrafficInfo->iID;
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->fSpeedMpS = pTrafficInfo->fSpeedMpS;
+	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->bIsOnRoute = pTrafficInfo->bIsOnRoute;
+
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->iSpeed = (int)(roadmap_math_meters_p_second_to_speed_unit( (float)pTrafficInfo->fSpeedMpS)+0.5F);
 	switch (pTrafficInfo->iType){
 		case 0:
@@ -524,7 +528,7 @@ BOOL RTTrafficInfo_Remove(int iID)
 		if (gTrafficInfoTable.pTrafficInfo[i]->iID != iID) continue;
 
       gTrafficInfoTable.iCount--;
-      
+
       // preserve the allocated space for later use
 		tmp = gTrafficInfoTable.pTrafficInfo[i];
 		gTrafficInfoTable.pTrafficInfo[i] = gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount];
@@ -534,7 +538,7 @@ BOOL RTTrafficInfo_Remove(int iID)
       RTTraficInfo_DeleteSegments(iID);
 #endif
       RTTrafficInfo_DeleteAlert (iID);
-      
+
       return TRUE;
 	}
 
@@ -550,13 +554,13 @@ BOOL RTTrafficInfo_Remove(int iID)
 BOOL RTTrafficInfo_UpdateGeometry(RTTrafficInfo *pTrafficInfo)
 {
 	int i;
-	
+
 	if (pTrafficInfo->iNumGeometryPoints < 1)
 	{
 		roadmap_log (ROADMAP_ERROR, "Cannot update geometry with no coordinates - ID = %d", pTrafficInfo->iID);
 		return FALSE;
 	}
-	
+
 	// Calculate bounding box
 	pTrafficInfo->boundingBox.east = pTrafficInfo->geometry[0].longitude;
 	pTrafficInfo->boundingBox.west = pTrafficInfo->geometry[0].longitude;
@@ -572,7 +576,7 @@ BOOL RTTrafficInfo_UpdateGeometry(RTTrafficInfo *pTrafficInfo)
 		{
 			pTrafficInfo->boundingBox.west = pTrafficInfo->geometry[i].longitude;
 		}
-		
+
 		if (pTrafficInfo->geometry[i].latitude > pTrafficInfo->boundingBox.north)
 		{
 			pTrafficInfo->boundingBox.north = pTrafficInfo->geometry[i].latitude;
@@ -582,7 +586,7 @@ BOOL RTTrafficInfo_UpdateGeometry(RTTrafficInfo *pTrafficInfo)
 			pTrafficInfo->boundingBox.south = pTrafficInfo->geometry[i].latitude;
 		}
 	}
-	
+
 	return RTTrafficInfo_GenerateAlert (pTrafficInfo);
 }
 
@@ -732,21 +736,21 @@ int RTTrafficInfo_GetAlertForLine(int iLineid, int iSquareId){
  * @return TRUE is successful
  */
 static BOOL RTTrafficInfo_InstrumentSegment(int iLine) {
-	
+
 	RTTrafficInfoLines *segment = gRTTrafficInfoLinesTable.pRTTrafficInfoLines[iLine];
 	int tileVersion = roadmap_square_version (segment->iSquare);
 	int i;
-	
+
 	if (tileVersion == 0 ||
 		 (segment->iVersion > 0 && tileVersion != segment->iVersion)) {
-		 	
+
 		segment->isInstrumented = FALSE;
-		return FALSE;	 	
-	} 
-	
+		return FALSE;
+	}
+
 	roadmap_square_set_current (segment->iSquare);
 	roadmap_line_shapes (segment->iLine, &(segment->iFirstShape), &(segment->iLastShape));
-	roadmap_line_from (segment->iLine, &(segment->positionFrom)); 	
+	roadmap_line_from (segment->iLine, &(segment->positionFrom));
 	roadmap_line_to (segment->iLine, &(segment->positionTo));
 	// Fill bounding box
 	if (segment->positionFrom.longitude < segment->positionTo.longitude) {
@@ -781,7 +785,7 @@ static BOOL RTTrafficInfo_InstrumentSegment(int iLine) {
 	}
 	segment->cfcc = roadmap_line_cfcc (segment->iLine);
 	segment->isInstrumented = TRUE;
-	return TRUE; 	
+	return TRUE;
 }
 
 /**
@@ -826,7 +830,7 @@ static void RTTrafficInfo_TileReceivedCb( int tile_id )
 		RTTrafficInfo_InstrumentSegments ( tile_id );
 	}
 
-	
+
 	/* Next callback in chain */
 	if ( TileCbNext )
 	{
@@ -843,11 +847,12 @@ static void RTTrafficInfo_TileReceivedCb( int tile_id )
 static void RTTrafficInfo_TileRequest( int tile_id, int version )
 {
 	int tileVersion = roadmap_square_version ( tile_id );
-	
+
 	if ( tileVersion == 0 || ( tileVersion < version ) )
 	{
 		int* tile_status = roadmap_tile_status_get ( tile_id );
-		*tile_status = (ROADMAP_TILE_STATUS_FLAG_CALLBACK | ROADMAP_TILE_STATUS_CALLBACK_RT_TRAFFIC | *tile_status ) &
+      if (tile_status)
+         *tile_status = (ROADMAP_TILE_STATUS_FLAG_CALLBACK | ROADMAP_TILE_STATUS_CALLBACK_RT_TRAFFIC | *tile_status ) &
 								~ROADMAP_TILE_STATUS_FLAG_UPTODATE;
 	}
 }
@@ -860,12 +865,12 @@ static void RTTrafficInfo_TileRequest( int tile_id, int version )
 static void RTTrafficInfo_UnitChangeCb (void)
 {
 	int i;
-	
+
 	for (i = 0; i < gTrafficInfoTable.iCount; i++)
 	{
 		gTrafficInfoTable.pTrafficInfo[i]->iSpeed = (int)(roadmap_math_meters_p_second_to_speed_unit( (float)gTrafficInfoTable.pTrafficInfo[i]->fSpeedMpS)+0.5F);
-	}	
-	
+	}
+
 	if (sNextUnitChangeCb != NULL)
 		sNextUnitChangeCb ();
 }

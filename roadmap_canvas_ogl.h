@@ -31,6 +31,7 @@
 #define INCLUDE__ROADMAP_CANVAS_OGL__H
 
 #include "roadmap_canvas.h"
+#include "roadmap_canvas3d.h" // roadmap_canvas3_ogl_prepare()
 
 #ifdef IPHONE
 #include <OpenGLES/ES1/gl.h>
@@ -49,8 +50,10 @@
 
 
 #ifndef __SYMBIAN32__
+#ifndef GTK2_OGL
 #include "roadmap_wchar.h"
 #include "roadmap_libpng.h"
+#endif
 #endif //__SYMBIAN32__
 
 extern RoadMapCanvasMouseHandler RoadMapCanvasMouseButtonPressed;
@@ -60,8 +63,6 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 
 int roadmap_canvas_ogl_to_wchar (const char *text, wchar_t *output, int size);
 void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, float thickness_factor );
-
-//#define OPENGL_DEBUG
 
 #ifdef OPENGL_DEBUG
 #define check_gl_error() { \

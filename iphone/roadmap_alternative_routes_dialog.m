@@ -473,8 +473,8 @@ int roadmap_alternative_route_select (int index) {
    
    //distance
    msg[0] = 0;
-   snprintf (msg + strlen (msg), sizeof (msg) - strlen (msg), "%.1f %s",
-             nav_result->total_length / 1000.0,
+   snprintf (msg + strlen (msg), sizeof (msg) - strlen (msg), "%d.%d %s",
+             roadmap_math_to_trip_distance(nav_result->total_length), roadmap_math_to_trip_distance_tenths(nav_result->total_length)%10,
              roadmap_lang_get (roadmap_math_trip_unit ()));
    rect.origin.y = gDistanceOriginY;
    rect.origin.x = gLeftOriginX;

@@ -339,10 +339,20 @@ public final class FreeMapAppView extends SurfaceView implements SurfaceHolder.C
         Context ctx = this.getContext();
         Configuration cfg = ctx.getResources().getConfiguration();
         
+        if ( mLastEvent == aEvent )
+        	return super.onKeyDown( aKeyCode, aEvent );;	// If it comes here - it definitely was not handled
+        
+        mLastEvent = aEvent;
+        
         // If exceptional key - return unhandled. Array must be sorted in ascending order before
-        if (  Arrays.binarySearch( mUnhandledKeys, aKeyCode ) >= 0 )
+        int idx;
+        if (  ( idx = Arrays.binarySearch( mUnhandledKeys, aKeyCode ) ) >= 0 )         		
         {
-            return false;
+        	if ( ( mUnhandledKeysMetaMask[idx] == 0 /* Don't care */ ) || 
+        			( mUnhandledKeysMetaMask[idx] & aEvent.getMetaState() ) > 0 )
+        	{
+        		return super.onKeyDown( aKeyCode, aEvent );
+        	}
         }
 
         if ( aKeyCode == KeyEvent.KEYCODE_MENU )
@@ -377,20 +387,45 @@ public final class FreeMapAppView extends SurfaceView implements SurfaceHolder.C
         // Handle shift key event for physical (hard) input
         if ( cfg.hardKeyboardHidden == Configuration.HARDKEYBOARDHIDDEN_NO )
         {
-	        if ( aEvent.isShiftPressed() )
-	        {
-	            mShiftState = ( mShiftState + 1 ) % ( SHIFT_STATE_DOUBLE_CLICK + 1 );
-	        }
-	        else
-	        {
+        	if ( KeyEvent.isModifierKey( aKeyCode ) )
+        	{
+        		if ( mModifierKeyCode == aKeyCode )
+        		{
+        			mModifierState = ( mModifierState + 1 ) % ( MODIFIER_STATE_DOUBLE_CLICK + 1 );
+        		}
+        		else
+        		{
+        			mModifierKeyCode = aKeyCode;
+        			mModifierState = MODIFIER_STATE_CLICK;
+        		}        		
+        		return super.onKeyDown( aKeyCode, aEvent );
+        	}
+        	else
+        	{
 	            // Set the meta state for the shift
-	            if ( mShiftState > SHIFT_STATE_NONE )       
-	                metaState = KeyEvent.META_SHIFT_ON;
-	            // Reset the shift if is not locked by double click
-	            if ( mShiftState == SHIFT_STATE_CLICK )
-	                mShiftState = SHIFT_STATE_NONE;
-	        }
+	            if ( mModifierState == MODIFIER_STATE_DOUBLE_CLICK )    
+	            {
+	            	if ( mModifierKeyCode == KeyEvent.KEYCODE_ALT_LEFT || mModifierKeyCode == KeyEvent.KEYCODE_ALT_RIGHT )
+	            	{
+	            		metaState = KeyEvent.META_ALT_ON;
+	            	}
+	            	if ( mModifierKeyCode == KeyEvent.KEYCODE_SHIFT_LEFT || mModifierKeyCode == KeyEvent.KEYCODE_SHIFT_RIGHT )
+	            	{
+	            		metaState = KeyEvent.META_SHIFT_ON;
+	            	}
+	            }
+	            else
+	            {
+	            	// Reset the state if regular key pressed without hold modifier key
+	            	if ( !aEvent.isShiftPressed() && !aEvent.isAltPressed() ) 	            			
+	            	{
+	            		mModifierKeyCode = -1;
+	            		mModifierState = MODIFIER_STATE_NONE;
+	            	}
+	            }
+        	}
         }
+
         
         if ( aKeyCode == KeyEvent.KEYCODE_CAMERA )
         {
@@ -466,21 +501,26 @@ public final class FreeMapAppView extends SurfaceView implements SurfaceHolder.C
      *================================= Data members section =================================
      */
     
-    private final static int SHIFT_STATE_NONE = 0;
-    private final static int SHIFT_STATE_CLICK = 1;
-    private final static int SHIFT_STATE_DOUBLE_CLICK = 2;
-    private int mShiftState = SHIFT_STATE_NONE;
-    
     private Bitmap mScreenShot = null;
     private MotionEvent mLastHandledEvent;
     private final static int MOTION_RESOLUTION_VAL = 3;
     private int mImeAction = EditorInfo.IME_ACTION_UNSPECIFIED;     // Customized action button in the soft keyboard
     private boolean mImeCloseOnAction = false;                      // Close keyboard when action button iks pressed
-    private int[] mUnhandledKeys = { KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN };
-
+    private int[] mUnhandledKeys = { KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
+									KeyEvent.KEYCODE_SPACE };
+    private int[] mUnhandledKeysMetaMask = { 0, 0, KeyEvent.META_ALT_ON };
     public boolean mIsSplashShown = false;							// Indicates if the splash was already shown
     public volatile boolean mIsSplashDestroyed = false;				// Indicates if the splash was already destroyed
     
     public Bitmap	mSplashBitmap = null;
     private volatile boolean mIsReady = false;
+    private KeyEvent		mLastEvent = null;
+    
+    private final static int MODIFIER_STATE_NONE = 0;
+    private final static int MODIFIER_STATE_CLICK = 1;
+    private final static int MODIFIER_STATE_DOUBLE_CLICK = 2;
+    
+    private int 			mModifierState = MODIFIER_STATE_NONE;
+    private int    			mModifierKeyCode 	= -1;				// Modifier key code 
+    
 }

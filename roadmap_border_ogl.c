@@ -191,7 +191,7 @@ int roadmap_display_border( int style, int header, int pointer_type, RoadMapGuiP
 			RoadMapGuiPoint points[3];
 			RoadMapPen pointer_pen;
 			roadmap_math_coordinate ( position, points );
-			roadmap_math_rotate_coordinates ( 1, points );
+			roadmap_math_rotate_project_coordinate ( points );
 
 			if ( points[0].y > sign_bottom.y )
 			{

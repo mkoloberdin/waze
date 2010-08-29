@@ -49,6 +49,7 @@
 #include "roadmap_lang.h"
 #include "roadmap_config.h"
 #include "roadmap_map_settings.h"
+#include "roadmap_groups.h"
 #include "roadmap_iphoneimage.h"
 #include "Realtime/RealtimeAlerts.h"
 
@@ -99,11 +100,22 @@ typedef struct {
     
     RoadMapBarTextFn bat_text_fn;
 
-} BarText; 
+} BarText;
+
+typedef struct {
+   
+   const char *name;
+   
+   RoadMapBarTextFn bar_text_fn;
+   
+} BarDynamicImages;
 
 #define ROADMAP_TEXT(p,w,t) \
-    {p, NULL, w, t}
+   {p, NULL, w, t}
      
+#define ROADMAP_DYNAMIC_IMAGE(p,t) \
+   {p, t}
+
 BarText RoadMapTexts[] = {
 
     ROADMAP_TEXT("clock", "#303030", get_time_str),
@@ -114,7 +126,14 @@ BarText RoadMapTexts[] = {
     ROADMAP_TEXT("time_to_dest", "#303030",get_time_to_destination),
     ROADMAP_TEXT("dist_to_dest", "#303030",get_dist_to_destination),
     ROADMAP_TEXT("info_with_num_alerts", "#303030",get_info_with_num_alerts),
+    ROADMAP_TEXT("group_num_alerts", "#ffffff",RTAlerts_GroupCount_Str),
     ROADMAP_TEXT(NULL, NULL, NULL)
+};
+
+BarDynamicImages RoadMapDynamicImages[] = {
+   
+   ROADMAP_DYNAMIC_IMAGE("group_wazer", roadmap_groups_get_active_group_wazer_icon),
+   ROADMAP_DYNAMIC_IMAGE(NULL,  NULL)
 };
 
 typedef struct {
@@ -130,6 +149,7 @@ BarTitle RoadMapTitles[] = {
 	{"live_info", "Events"},
 	{"report", "Report"},
    {"scoreboard", "Scoreboard"},
+   {"groups", "Groups"},
 	{NULL, NULL}
 };
 
@@ -155,6 +175,8 @@ typedef struct {
    RoadMapStateFn  condition_fn;
    int			   condition_value;
    int 			   image_state;
+   BarDynamicImages *bar_image_fn;
+   char        last_image_fn_icon[128];
 } BarObject;
 
 typedef struct {
@@ -180,6 +202,18 @@ static BarText * roadmap_bar_text_find(const char *name){
     roadmap_log (ROADMAP_ERROR, "unknown bar text '%s'", name);
     return NULL;
 	
+}
+
+static BarDynamicImages * roadmap_bar_dynamic_image_find(const char *name){
+   BarDynamicImages *d_image;
+   
+   for (d_image = RoadMapDynamicImages; d_image->name != NULL; ++d_image) {
+      if (strcmp (d_image->name, name) == 0) {
+         return d_image;
+      }
+   }
+   roadmap_log (ROADMAP_ERROR, "unknown bar dynamic image '%s'", name);
+   return NULL;
 }
 
 static void roadmap_bar_pos (BarObject *object,
@@ -389,6 +423,24 @@ static void roadmap_bar_decode_text
 
 }
 
+static void roadmap_bar_decode_dynamic_image (BarObject *object,
+                                              int argc, const char **argv, int *argl) {
+   
+   char arg[255];
+   
+   argc -= 1;
+   if (argc != 1) {
+      roadmap_log (ROADMAP_ERROR, "roadmap bar:'%s' illegal dynamic image indicator.",
+                   object->name);
+      return;
+   }
+   
+   roadmap_bar_decode_arg (arg, sizeof(arg), argv[1], argl[1]);
+   
+   object->bar_image_fn = roadmap_bar_dynamic_image_find (arg);
+   
+}
+
 static BarObject *roadmap_bar_new
           (int argc, const char **argv, int *argl) {
              
@@ -401,7 +453,7 @@ static BarObject *roadmap_bar_new
              object->text_color = NULL;
              object->pos_x	= -100;
              object->pos_y	= -100;
-             
+             object->last_image_fn_icon[0] = 0;
              
              
    return object;
@@ -507,65 +559,69 @@ static void roadmap_bar_load (const char *data, int size, BarObjectTable_s *BarO
       }
 
       switch (argv[0][0]) {
-
-      case 'P':
-
-         roadmap_bar_decode_position (object, argc, argv, argl);
-         break;
-
-      case 'I':
-
-         roadmap_bar_decode_icon (object, argc, argv, argl);
-         break;
-
-     case 'A':
-
-         roadmap_bar_decode_action (object, argc, argv, argl);
-         break;
-
-      case 'B':
-
-         roadmap_bar_decode_bbox (object, argc, argv, argl);
-         break;
-
-      case 'S':
-
-         roadmap_bar_decode_state (object, argc, argv, argl);
-         break;
-
-      case 'N':
-         object = roadmap_bar_new (argc, argv, argl);
-         
-         BarObjectTable->object[BarObjectTable->count] = object;
-         BarObjectTable->count++;
-         break;
-      case 'C':
-      	 roadmap_bar_decode_condition (object, argc, argv, argl);
-         break;
-           
-      case 'T':
-      	roadmap_bar_decode_text (object, argc, argv, argl);
-      	break;
-      	
-      case 'F':
-      	roadmap_bar_decode_integer (&object->font_size, argc, argv,
-                                             argl);
-        break;
-        
-     case 'L':
-     	roadmap_bar_decode_integer(&object->text_alling, argc, argv,
-                                             argl);   
-        break;
-     case 'D':
-      	roadmap_bar_decode_text_color (object, argc, argv, argl);
-        break;     
-        
-	  case 'Y':
-      	roadmap_bar_decode_integer (&BarObjectTable->draw_bg, argc, argv,
-                                             argl);
-        break;	
+            
+         case 'P':
+            
+            roadmap_bar_decode_position (object, argc, argv, argl);
+            break;
+            
+         case 'I':
+            
+            roadmap_bar_decode_icon (object, argc, argv, argl);
+            break;
+            
+         case 'A':
+            
+            roadmap_bar_decode_action (object, argc, argv, argl);
+            break;
+            
+         case 'B':
+            
+            roadmap_bar_decode_bbox (object, argc, argv, argl);
+            break;
+            
+         case 'S':
+            
+            roadmap_bar_decode_state (object, argc, argv, argl);
+            break;
+            
+         case 'N':
+            object = roadmap_bar_new (argc, argv, argl);
+            
+            BarObjectTable->object[BarObjectTable->count] = object;
+            BarObjectTable->count++;
+            break;
+         case 'C':
+            roadmap_bar_decode_condition (object, argc, argv, argl);
+            break;
+            
+         case 'T':
+            roadmap_bar_decode_text (object, argc, argv, argl);
+            break;
+            
+         case 'G':
+            roadmap_bar_decode_dynamic_image(object, argc, argv, argl);
+            break;
+            
+         case 'F':
+            roadmap_bar_decode_integer (&object->font_size, argc, argv,
+                                        argl);
+            break;
+            
+         case 'L':
+            roadmap_bar_decode_integer(&object->text_alling, argc, argv,
+                                       argl);   
+            break;
+         case 'D':
+            roadmap_bar_decode_text_color (object, argc, argv, argl);
+            break;     
+            
+         case 'Y':
+            roadmap_bar_decode_integer (&BarObjectTable->draw_bg, argc, argv,
+                                        argl);
+            break;	
       }
-
+      
 	  
       while (p < end && *p < ' ') p++;
       data = p;
@@ -608,6 +664,8 @@ static void roadmap_top_bar_set_ui (BarObjectTable_s *BarObjectTable) {
          
          if (object->action) {
 				[button addTarget:topBarView action:@selector(buttonEvent:) forControlEvents: UIControlEventTouchUpInside];
+         } else {
+            button.userInteractionEnabled = NO;
          }
          
          object->button = button;
@@ -672,12 +730,12 @@ static void roadmap_bottom_bar_set_ui  (BarObjectTable_s *BarObjectTable) {
 	UIImage *img = roadmap_iphoneimage_load(BOTTOM_BUTTON);
 	UIImage *buttonImage;
 	if (img) {
-		buttonImage = [img stretchableImageWithLeftCapWidth:5 topCapHeight:0];
+		buttonImage = [img stretchableImageWithLeftCapWidth:5 topCapHeight:5];
 		[img release];
 	}
 
 	img = roadmap_iphoneimage_load(BOTTOM_BUTTON_SEL);
-	UIImage *buttonImageSel = [img stretchableImageWithLeftCapWidth:5 topCapHeight:0];
+	UIImage *buttonImageSel = [img stretchableImageWithLeftCapWidth:5 topCapHeight:5];
 	[img release];
    
 	
@@ -759,10 +817,13 @@ static void roadmap_bottom_bar_set_ui  (BarObjectTable_s *BarObjectTable) {
             
             [button setTitle:title forState:UIControlStateNormal];
             button.titleLabel.font = [UIFont systemFontOfSize:14.0f];
+            /*
             [button sizeToFit];
             rect = button.bounds;
             rect.size.width += 10;
+            rect.size.height += 10;
             button.bounds = rect;
+             */
             [button setTitleEdgeInsets:UIEdgeInsetsMake(0, 5, 0, 5)];
             
             [button addTarget:bottomBarView action:@selector(buttonEvent:) forControlEvents: UIControlEventTouchUpInside];
@@ -771,6 +832,11 @@ static void roadmap_bottom_bar_set_ui  (BarObjectTable_s *BarObjectTable) {
             object->barButton = [[UIBarButtonItem alloc] initWithCustomView:object->button];
          }
          
+         [object->button sizeToFit];
+         rect = object->button.bounds;
+         rect.size.width += 10;
+         rect.size.height += 10;
+         object->button.bounds = rect;
 			[buttonArray addObject:object->barButton];
 			[buttonArray addObject:flexSpacer];
 		}           		    	                
@@ -941,13 +1007,13 @@ void draw_top_bar_objects(BarObjectTable_s *table){
    
    if (!topBarView)
       return;
-   
+   /*
 	if (!first_time) {
 		[UIView beginAnimations:NULL context:NULL];
 		[UIView setAnimationDuration:0.3f];
 		[UIView setAnimationCurve:UIViewAnimationCurveEaseOut];
 	}
-	
+	*/
 	for (i=0; i < table->count; i++) {
     	RoadMapGuiPoint ObjectLocation; 
     	if (table->object[i] == NULL)
@@ -956,10 +1022,12 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 		if (table->object[i]->button) {
 			if (table->object[i]->condition_fn){
 				condition = (*table->object[i]->condition_fn) ();
-				if (condition !=  table->object[i]->condition_value)
-					[table->object[i]->button setHidden:YES];
-				else
-					[table->object[i]->button setHidden:NO];
+				if (condition !=  table->object[i]->condition_value) {
+               [table->object[i]->button setHidden:YES];
+               continue;
+				} else {
+               [table->object[i]->button setHidden:NO];
+            }
 			}
 			
 			roadmap_bar_pos(table->object[i], &ObjectLocation);
@@ -978,15 +1046,14 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 				state = (*table->object[i]->state_fn) ();
 				
 				if ((state < 0) || (state >= MAX_STATES)){
-				}
-				else{
-					//if (table->object[i]->action)
-					//	continue;
+               [table->object[i]->button setHidden:YES];
+				} else {
 					if (table->object[i]->images[state] != NULL){
 						if ((table->object[i]->image_state == IMAGE_STATE_SELECTED) && (table->object[i]->image_selected[state] != NULL))
 							[table->object[i]->button setImage:table->object[i]->image_selected[state] forState: UIControlStateNormal];
 						else 
 							[table->object[i]->button setImage:table->object[i]->images[state] forState: UIControlStateNormal];
+                  [table->object[i]->button setHidden:NO];
 					} else {
 						[table->object[i]->button setHidden:YES];
 					}
@@ -1006,9 +1073,63 @@ void draw_top_bar_objects(BarObjectTable_s *table){
             xPos -= rect.size.width + 5;
          }
 		}
+      
+      
+      if (table->object[i]->bar_image_fn){
+		   const char *image_name = NULL;
+		   image_name = table->object[i]->bar_image_fn->bar_text_fn();
+		   if (image_name && *image_name &&
+             strcmp(image_name, table->object[i]->last_image_fn_icon)){
+            UIImage *image = roadmap_iphoneimage_load(image_name);
+		      if (image) {
+               UIImageView *imageView = (UIImageView *)[topBarView viewWithTag:i];
+               if (imageView) {
+                  imageView.image = image;
+                  [imageView sizeToFit];
+               } else {
+                  imageView = [[UIImageView alloc] initWithImage:image];
+                  imageView.tag = i;
+                  [topBarView addSubview:imageView];
+                  [imageView release];
+                  rect = imageView.frame;
+                  rect.origin = CGPointMake(ObjectLocation.x, ObjectLocation.y);
+                  imageView.frame = rect;
+               }
+               
+               [image release];
+             
+               strncpy_safe(table->object[i]->last_image_fn_icon, image_name, sizeof(table->object[i]->last_image_fn_icon));
+            }
+		   } else if (image_name &&
+                    strcmp(image_name, table->object[i]->last_image_fn_icon)) { //no image
+            UIImageView *imageView = (UIImageView *)[topBarView viewWithTag:i];
+            if (imageView) {
+               imageView.image = NULL;
+            } else {
+               imageView = [[UIImageView alloc] init];
+               imageView.tag = i;
+               [topBarView addSubview:imageView];
+               [imageView release];
+               rect = imageView.frame;
+               rect.origin = CGPointMake(ObjectLocation.x, ObjectLocation.y);
+               imageView.frame = rect;
+            }
+            
+            strncpy_safe(table->object[i]->last_image_fn_icon, image_name, sizeof(table->object[i]->last_image_fn_icon));
+         }
+		}
 		
 		
     	if (table->object[i]->bar_text){
+         if (table->object[i]->condition_fn){
+				condition = (*table->object[i]->condition_fn) ();
+				if (condition !=  table->object[i]->condition_value) {
+               [table->object[i]->label setHidden:YES];
+               continue;
+				} else {
+               [table->object[i]->label setHidden:NO];
+            }
+			}
 			
 			[table->object[i]->label setText: [NSString stringWithUTF8String: (*table->object[i]->bar_text->bat_text_fn)()]];
 			[table->object[i]->label sizeToFit];
@@ -1029,12 +1150,13 @@ void draw_top_bar_objects(BarObjectTable_s *table){
     	}           		    	                
     }
 	
+   /*
 	if (first_time) {
 		//first_time = 0;
 	} else {
 		[UIView commitAnimations];
 	}
-   
+   */
    if (first_time)
       roadmap_top_bar_set_ui (&TopBarObjectTable);
    first_time = 0;
@@ -1442,6 +1564,7 @@ UIToolbar *roadmap_bar_create_more_bar (void) {
    
    if (bottomBarView) {
       rect = bottomBarView.frame;
+      rect.size.height -= 9;
       if (isShown)
          rect.origin.y -= rect.size.height;
    } else {

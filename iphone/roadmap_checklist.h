@@ -27,6 +27,7 @@
 
 #define CHECKLIST_GLOBAL         0x1
 #define CHECKLIST_DISABLE_BACK   0x2
+#define CHECKLIST_DISABLE_CLOSE  0x4
 
 typedef void (*ChecklistCallback) (int value, int group);
 
@@ -36,6 +37,7 @@ typedef void (*ChecklistCallback) (int value, int group);
 	NSArray              *dataArray;
    NSArray              *headersArray;
    BOOL                 gEnableBack;
+   BOOL                 gEnableClose;
    BOOL                 gGlobalChecklist;
    int                  gRowHeight;
 }

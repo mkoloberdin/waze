@@ -43,6 +43,7 @@ int roadmap_help_next_topic  (const char **label, RoadMapCallback *callback);
 void roadmap_help_initialize (void);
 void roadmap_help_menu(void);
 void roadmap_open_help(void);
+void roadmap_help_about(void);
 
 #ifdef IPHONE
 void roadmap_help_guided_tour (void);

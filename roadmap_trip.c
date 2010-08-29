@@ -1078,7 +1078,7 @@ void roadmap_trip_display (void) {
 
         if (roadmap_math_point_is_visible (&waypoint->map)) {
             roadmap_math_coordinate (&waypoint->map, &point);
-            roadmap_math_rotate_coordinates (1, &point);
+            roadmap_math_rotate_project_coordinate (&point);
 
             if ((focus != NULL) && ((!strcmp(waypoint->sprite,"GPS") &&
             		!strcmp (focus, "GPS") && (roadmap_screen_get_orientation_mode() != ORIENTATION_FIXED) ))) {
@@ -1089,7 +1089,7 @@ void roadmap_trip_display (void) {
 
                 roadmap_math_coordinate ((RoadMapPosition *)&waypoint->gps, &screen_point);
 
-                roadmap_math_rotate_coordinates (1, &screen_point);
+                roadmap_math_rotate_project_coordinate (&screen_point);
                 config_car = roadmap_config_get (&RoadMapConfigCarName);
                 if (config_car[0] != 0){
                 	car_name = editor_screen_overide_car();
@@ -1142,7 +1142,7 @@ void roadmap_trip_display (void) {
         azymuth = roadmap_math_azymuth (&gps->map,
                                         &RoadMapTripNextWaypoint->map);
         roadmap_math_coordinate (&gps->map, &point);
-        roadmap_math_rotate_coordinates (1, &point);
+        roadmap_math_rotate_project_coordinate (&point);
         roadmap_sprite_draw ("Direction", &point, azymuth);
     }
 }

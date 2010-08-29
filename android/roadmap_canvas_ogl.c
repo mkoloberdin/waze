@@ -55,7 +55,8 @@ static int sgOGLPixelFormat = 0;
 #define SSD_CANVAS_OGL_TARGET_FPS 10		// FPS
 #define EGL_CONTEXT_INITIALIZER {NULL, NULL, NULL};
 
-#define ANDROID_HD_FONT_FACTOR			1.6F
+#define ANDROID_SD_FONT_FACTOR         1.2F
+#define ANDROID_HD_FONT_FACTOR			1.8F
 #define ANDROID_MIN_LINE_THICKNESS		3.0F
 
 EGLContextPack sgMainEGLContextPack = EGL_CONTEXT_INITIALIZER;
@@ -210,7 +211,7 @@ void roadmap_canvas_prepare_main_context( void )
 
 void roadmap_canvas_prepare()
 {
-	float aa_factor, font_factor = 1.F;
+	float aa_factor, font_factor = ANDROID_SD_FONT_FACTOR;
 
 	glMatrixMode( GL_PROJECTION );
 	glLoadIdentity();

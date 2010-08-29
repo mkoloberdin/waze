@@ -442,7 +442,7 @@ void navigate_cost_initialize (void) {
       ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
 
    roadmap_config_declare_enumeration
-      ("user", &PreferSameStreetCfg, NULL, "no", "yes", NULL);
+      ("preferences", &PreferSameStreetCfg, NULL, "no", "yes", NULL);
 
    roadmap_config_declare_enumeration
        ("user", &CostAvoidTrailCfg, NULL,  "Don't allow", "Allow", "Avoid long ones", NULL);

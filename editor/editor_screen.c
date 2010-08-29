@@ -73,7 +73,7 @@
 #include "Realtime/RealtimeAlertCommentsList.h"
 #include "Realtime/Realtime.h"
 
-#include "static/editor_dialog.h" 
+#include "static/editor_dialog.h"
 #include "track/editor_track_main.h"
 
 #include "editor_screen.h"
@@ -128,7 +128,9 @@ static char const *PopupMenuItems[] = {
    "setasdestination",
    "setasdeparture",
    "save_location",
+#ifdef IPHONE
    "properties",
+#endif
    NULL,
 };
 #endif
@@ -215,7 +217,7 @@ void report_accident_at_screen_point(void){
 
    if (gpsPos.steering < 0) gpsPos.steering += 360;
    Realtime_Alert_ReportAtLocation(RT_ALERT_TYPE_ACCIDENT, "", iDirection,
-                                   gpsPos );
+                                   gpsPos,"" );
 }
 
 
@@ -245,7 +247,7 @@ void report_accident_opposite_side_at_screen_point(void){
 
    if (gpsPos.steering < 0) gpsPos.steering += 360;
    Realtime_Alert_ReportAtLocation(RT_ALERT_TYPE_ACCIDENT, "", iDirection,
-                                   gpsPos );
+                                   gpsPos,"" );
 
 }
 
@@ -296,13 +298,13 @@ static int editor_screen_line_iter_cb (const PluginLine *line, void *context, in
 
 
 static int editor_screen_short_click (RoadMapGuiPoint *point) {
-
+/*
    int AlertId;
    int scale;
 
    if (!roadmap_object_short_ckick_enabled())
       return 0;
-      
+
    roadmap_math_to_position (point, &position, 1);
 
    scale = roadmap_math_get_scale(0)/80;
@@ -315,7 +317,7 @@ static int editor_screen_short_click (RoadMapGuiPoint *point) {
    		RTAlerts_Popup_By_Id_No_Center(AlertId);
    	return 1;
    }
-
+*/
    return 0;
 }
 
@@ -660,7 +662,7 @@ static int editor_screen_draw_markers (void) {
 
       drawn++;
       roadmap_math_coordinate (&pos, &screen_point);
-      roadmap_math_rotate_coordinates (1, &screen_point);
+      roadmap_math_rotate_project_coordinate (&screen_point);
 
       pen = roadmap_layer_get_pen (ROADMAP_ROAD_MAIN,0 ,0);
       if (pen != NULL) {
@@ -1023,6 +1025,7 @@ char *editor_screen_overide_car(){
 	static char car_name[50];
 	static int pacman = -1;
 	static int road_roller = 1;
+   static BOOL center_set = FALSE;
 	RoadMapGpsPosition pos;
 
 	if (!editor_screen_gray_scale()){
@@ -1047,7 +1050,10 @@ char *editor_screen_overide_car(){
 		// stay as pacman
 		if ((pacman == -1) || (export_track_num_points() > 1)) {
 			pacman = -1;
-	   	roadmap_screen_move_center(0);
+         if (center_set) { //TODO: move center handling to roadmap_view
+            roadmap_screen_move_center(0);
+            center_set = FALSE;
+         }
 		   return NULL;
 		}
 	}
@@ -1055,6 +1061,7 @@ char *editor_screen_overide_car(){
 	if (pacman == -1) pacman = 3;
 
    roadmap_screen_move_center(40);
+   center_set = TRUE;
 	roadmap_navigate_get_current(&pos, NULL, NULL);
 	if (pos.speed == 0)
 		sprintf(car_name,"%s%d", editor_screen_wazzy_name(), 1);

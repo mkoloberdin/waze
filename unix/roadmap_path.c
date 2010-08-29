@@ -431,10 +431,11 @@ static char *roadmap_path_expand (const char *item, size_t length) {
    expanded = malloc (length + expansion_length + 1);
    roadmap_check_allocated(expanded);
 
-   strcpy (expanded, expansion);
-   strncat (expanded, item, length);
+   //strcpy (expanded, expansion);
+   //strncat (expanded, item, length);
+   snprintf(expanded, length + expansion_length + 1, "%s%s", expansion, item);
 
-   expanded[length+expansion_length] = 0;
+   //expanded[length+expansion_length] = 0;
 
    return expanded;
 }

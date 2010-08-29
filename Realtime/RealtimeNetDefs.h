@@ -36,7 +36,7 @@
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (135)
+#define  RTNET_PROTOCOL_VERSION                 (138)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -220,7 +220,7 @@ typedef struct tagRTConnectionInfo
 /*16*/   int                  iMyAddon;
 /*17*/   int                  iPointsTimeStamp;
 /*18*/   int                  iExclusiveMoods;
-
+/*19*/   BOOL                 bIsNewbie;
 }  RTConnectionInfo, *LPRTConnectionInfo;
 
 void RTConnectionInfo_Init             ( LPRTConnectionInfo this, PFN_ONUSER pfnOnAddUser, PFN_ONUSER pfnOnMoveUser, PFN_ONUSER pfnOnRemoveUser);
@@ -271,7 +271,7 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_4NavigateTo           ("NavigateTo,%s,,%s,%s,%s\n")
 #define  RTNET_FORMAT_NETPACKET_5Auth		            ("Auth,%d,%s,%s,%d,%s\n")
 #define  RTNET_FORMAT_NETPACKET_1SendSMS	            ("BridgeTo,DOWNLOADSMS,send_download,2,phone_number,%s\n")
-#define  RTNET_FORMAT_NETPACKET_3TwitterConnect       ("BridgeTo,TWITTER,twitter_connect,6,twitter_username,%s,twitter_password,%s,connect,%s\n")
+#define  RTNET_FORMAT_NETPACKET_5TwitterConnect       ("BridgeTo,TWITTER,twitter_connect,10,twitter_username,%s,twitter_password,%s,connect,%s,tweet_login,%s,device_id,%d\n")
 #define  RTNET_FORMAT_NETPACKET_4FoursquareConnect    ("BridgeTo,FOURSQUARE,signin,8,username,%s,password,%s,connect,%s,tweet_login,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2FoursquareSearch     ("BridgeTo,FOURSQUARE,getNearbyPlaces,4,lat,%s,lon,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2FoursquareCheckin    ("BridgeTo,FOURSQUARE,checkin,4,vid,%s,tweet_badge,%s\n")
@@ -279,14 +279,18 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_4CreateAccount        ("BridgeTo,CREATEACCOUNT,signup_mobile,6,user_name,%s,password,%s,email,%s,receive_mails,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4UpdateProfile        ("BridgeTo,UPDATEPROFILE,update_profile_mobile,8,user_name,%s,password,%s,email,%s,receive_mails,%s\n")
 
-#define  RTNET_FORMAT_NETPACKET_4TripServerCreatePOI   		("BridgeTo,TRIPSERVER,CreatePOI,8,x,%d,y,%d,name,%s,override,%s\n")
+#define  RTNET_FORMAT_NETPACKET_5TripServerCreatePOI   		("BridgeTo,TRIPSERVER,CreatePOI,10,x,%d,y,%d,name,%s,override,%s,id,%d\n")
 #define  RTNET_FORMAT_NETPACKET_1TripServerDeletePOI   		("BridgeTo,TRIPSERVER,DeletePOI,2,name,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2TripServerFindTrip    		("BridgeTo,TRIPSERVER,FindTrip,4,x,%d,y,%d\n")
 #define  RTNET_FORMAT_NETPACKET_1TripServerGetTripRoutes   	("BridgeTo,TRIPSERVER,GetTripRoutes,2,tripId,%d\n")
 #define  RTNET_FORMAT_NETPACKET_1TripServerGetRouteSegments ("BridgeTo,TRIPSERVER,GetRouteSegments,2,tripId,%d\n")
+#define  RTNET_FORMAT_NETPACKET_0TripServerGetPOIs          ("BridgeTo,TRIPSERVER,GetPOIs,0\n")
+#define  RTNET_FORMAT_NETPACKET_0TripServerGetNumPOIs       ("BridgeTo,TRIPSERVER,GetNumPOIs,0\n")
 #define  RTNET_FORMAT_NETPACKET_4ReportMapError             ("BridgeTo,UPDATEMAP,send_update_request_mobile,8,lon,%d,lat,%d,type,%s,description,%s\n")
 #define  RTNET_FORMAT_NETPACKET_5GetGeoConfig               ("GetGeoServerConfig,%d,%s,%d,%s,%s")
 #define  RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints        ("BridgeTo,SCOREBOARD,getPoints,8,period,%s,geography,%s,from_rank,%s,count,%s\n")
+#define  RTNET_FORMAT_NETPACKET_4PushNotificationsSet       ("BridgeTo,PUSHNOTIFICATIONS,setService,8,token,%s,score,%s,updates,%s,friends,%s\n")
+#define  RTNET_FORMAT_NETPACKET_2FacebookPermissions        ("BridgeTo,FACEBOOKPERMISSIONS,facebook_permissions,4,show_name,%s,show_picture,%s\n")
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -315,8 +319,13 @@ DECLARE_WEBSVC_PARSER(GeoLocation)
 DECLARE_WEBSVC_PARSER(onGeoConfigResponse)
 DECLARE_WEBSVC_PARSER(UpdateUserPoints)
 DECLARE_WEBSVC_PARSER(AddBonus)
+DECLARE_WEBSVC_PARSER(AddCustomBonus)
 DECLARE_WEBSVC_PARSER(RmBonus)
 DECLARE_WEBSVC_PARSER(CollectBonusRes)
+DECLARE_WEBSVC_PARSER(OpenMessageTicker)
+DECLARE_WEBSVC_PARSER(UserGroups)
+DECLARE_WEBSVC_PARSER(OpenMoodSelection)
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 

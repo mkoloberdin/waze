@@ -38,7 +38,7 @@
 #define  HTTP_HEADER_MAX_SIZE                (400)
 #define  WST_WEBSERVICE_METHOD_MAX_SIZE      (0xFF)
 #define  WST_MIN_PARSERS_COUNT               ( 1)
-#define  WST_MAX_PARSERS_COUNT               (30)
+#define  WST_MAX_PARSERS_COUNT               (35)
 
 typedef void*  wst_handle;
 

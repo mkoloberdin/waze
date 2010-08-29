@@ -497,10 +497,9 @@ void roadmap_file_rmdir( const char *path, const char *name )
 
      TFileName dirName;
      GSConvert::CharPtrToTDes16( full_name, dirName );
-     roadmap_path_free ( full_name );
-
+     
      /*
-      * Initialize CFileMan object
+      * Initialize CFileMan object 
       */
      RFs fs;
      User::LeaveIfError( fs.Connect() );
@@ -509,7 +508,17 @@ void roadmap_file_rmdir( const char *path, const char *name )
      CFileMan* fileMan=CFileMan::NewL( fs );
      CleanupStack::PushL( fileMan );
 
-     TInt err=fileMan->RmDir( dirName );
+     _LIT( KDirTerminator, "\\" );
+     dirName.Append( KDirTerminator );
+     
+     TInt err = fileMan->RmDir( dirName );
 
-     CleanupStack::PopAndDestroy( 2, &fs ); // fileMan, fs
+     if ( err != KErrNone )
+	  {        
+		   roadmap_log( ROADMAP_ERROR, "Error %d removing the directory: %s.", err, full_name );
+	  }
+     
+     roadmap_path_free ( full_name );
+     fs.Close();
+     CleanupStack::PopAndDestroy( 2 ); // fileMan, fs
 }

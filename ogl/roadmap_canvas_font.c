@@ -33,9 +33,18 @@
 #include "roadmap_hash.h"
 #include "roadmap_screen.h"
 #include "ft2build.h"
+#if defined(OPENGL)
+#if defined(GTK2_OGL)
+#include <GL/gl.h>
+#include <freetype/freetype.h>
+#include <freetype/ftglyph.h>
+#include <freetype/ftstroke.h>
+#else
 #include "freetype.h"
 #include "ftglyph.h"
 #include "ftstroke.h"
+#endif// GTK2_OGL
+#endif// OPENGL
 
 #include "roadmap_canvas.h"
 #include "roadmap_canvas_ogl.h"
@@ -111,7 +120,7 @@ static void init() {
    char *path;
 
 #ifdef IPHONE_NATIVE
-   path = roadmap_path_bundle();
+   path = (char *)roadmap_path_bundle();
 #else
    path = roadmap_path_user();
 #endif
@@ -166,16 +175,6 @@ void roadmap_canvas_font_metrics (int size, int *ascent, int *descent, int bold)
    FT_FaceRec *faceRec = (FT_FaceRec*)used_face;
    *ascent = (int)(faceRec->ascender * size / faceRec->height);
    *descent = abs((int)(faceRec->descender * size / faceRec->height));
-   
-/*
- * AGA TODO :: Check this
- * AR: ascent / descent code fixed, and the below was not tested. Uncomment if required.
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   (*ascent) += 3;
-	   (*descent) += 4;
-   }
- */
 }
 
 

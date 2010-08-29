@@ -105,6 +105,8 @@ void toggle_navigation_guidance(void);
 void navigation_guidance_on(void);
 void navigation_guidance_off(void);
 void navigate_main_set (int status);
+int navigate_main_get_follow_gps (void);
+void navigate_main_prepare_for_request (void);
 int  navigate_main_calc_route (void);
 int navigate_main_route (void);
 void navigate_main_on_route (int flags, int length, int track_time,
@@ -130,6 +132,7 @@ void navigate_get_waypoint (int distance, RoadMapPosition *way_point);
 int navigate_is_auto_zoom (void);
 BOOL navigate_main_ETA_enabled();
 BOOL navgiate_main_voice_guidance_enabled();
+int navigate_main_near_destination(void);
 int navigate_main_state(void);
 void navigate_menu(void);
 BOOL navigate_main_is_calculating_route(void);
@@ -156,6 +159,6 @@ const RoadMapPosition *navigate_main_get_src_position(void);
 
 int navigate_main_alt_routes_display(void);
 int navigate_main_is_alt_routes(void);
-
+void navigate_main_set_dest_pos(RoadMapPosition *position);
 #endif /* INCLUDE__NAVIGATE_MAIN__H */
 

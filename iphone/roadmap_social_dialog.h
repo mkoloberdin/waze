@@ -26,11 +26,13 @@
 
 
 
-@interface TwitterDialog : UITableViewController <UITextFieldDelegate> {
+@interface SocialDialog : UITableViewController <UITextFieldDelegate> {
 	NSMutableArray				*dataArray;
    NSMutableArray				*headersArray;
    NSMutableArray				*footersArray;
    BOOL                    isTwitter;
+   BOOL                    isTwitterModified;
+   BOOL                    isPrivacyModified;
 }
 
 @property (nonatomic, retain) NSMutableArray	*dataArray;

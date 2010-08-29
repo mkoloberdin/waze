@@ -413,7 +413,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 		    * If not enough distance has been passed from last check, provider can order to ignore
 		    * if alert is active, always perform check, so distance will be updated
 		    */
-	  	   if(!alert_active){
+	  	   if(!alert_should_be_visible){
 		       if(!(* (RoadMapAlertProviders.provider[i]->distance_check))(gps_pos))
 		          continue;
 		   }
@@ -634,15 +634,15 @@ void show_alert_dialog(){
 
    is_cancelable = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->is_cancelable)) (alertId);
 #ifdef TOUCH_SCREEN
+   ssd_widget_add (dialog,
+         ssd_button_label ("Hide", roadmap_lang_get ("Hide"),
+            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
+
    if (is_cancelable){
       ssd_widget_add (dialog,
             ssd_button_label ("Irrelevant", roadmap_lang_get ("Not there"),
                SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
    }
-
-   ssd_widget_add (dialog,
-         ssd_button_label ("Hide", roadmap_lang_get ("Hide"),
-            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
 
 #else
    if (is_cancelable)

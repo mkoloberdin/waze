@@ -5,8 +5,7 @@
 #define IPHONE_NATIVE
 #define USE_FRIBIDI
 #define OPENGL
-//#define OPENGL_DEBUG
-
+#define VIEW_MODE_3D_OGL
 
 //fribidi defines
 #define FRIBIDI_EXPORTS                1

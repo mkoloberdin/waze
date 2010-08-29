@@ -212,6 +212,36 @@ public final class FreeMapNativeManager
     	int value = aValue ? 1 : 0;
     	SetBackgroundRunNTV( value );
     }
+    
+    /*************************************************************************************************
+     * UrlHandler
+     * Checks if waze should take an action on the passed url 
+     */
+    public boolean UrlHandler( String aUrl )
+    {    	
+    	final String url = aUrl;
+    	if ( url.startsWith( WAZE_URL_PATTERN ) )
+    	{
+    		if ( IsNativeThread() )
+    		{
+    			UrlHandlerNTV( url );
+    		}
+    		else
+    		{
+    			/*
+    	    	 * Post the request
+    	    	 */
+    	    	Runnable request = new Runnable() {			
+    				public void run() {
+    					UrlHandlerNTV( url );				
+    				}
+    			};
+    			PostRunnable( request );
+    		}
+    		return true;
+    	}
+    	return false;
+    }
 
     /*************************************************************************************************
      * PostRunnable
@@ -1231,7 +1261,9 @@ public final class FreeMapNativeManager
         }
         catch (UnsatisfiedLinkError ule)
         {
-            WazeLog.e( "Error: Could not load library " + aTargetFile, ule );
+            Log.e( "WAZE", "Error: Could not load library " + aTargetFile + " - exiting! " + ule.getMessage() );
+            ule.printStackTrace();
+            AppLayerShutDown();
         }
     }
 
@@ -1299,6 +1331,9 @@ public final class FreeMapNativeManager
      * These methods are implemented in the
      * native side and should be called after!!! the shared library is loaded
      */
+    
+    private native boolean UrlHandlerNTV( String aUrl );	// Handles custom urls ( true - if handled )
+    
     private native void NativeMsgDispatcherNTV( int aMsgId );
 
     private native void InitNativeManagerNTV( String aLibPath, int aBuildSdkVersion, String aDeviceName );
@@ -1314,7 +1349,7 @@ public final class FreeMapNativeManager
     private native void SetUpgradeRunNTV( byte value );	// Sets if this run is the first(upgrade or installation) run
     
     private native void SetBackgroundRunNTV( int value );	// Sets true if the application is currently at the background
-    
+
     /*************************************************************************************************
      *================================= Data members section
      * =================================
@@ -1365,6 +1400,7 @@ public final class FreeMapNativeManager
 
 	private boolean mIsMenuEnabled = false;		// Indicates whether the menu is enabled or not
 	
+	private static final String WAZE_URL_PATTERN = "waze://";
 	private static final int NATIVE_THREAD_PRIORITY = -18;
 	private static final long CAMERA_PREVIEW_TIMEOUT = 30000L; // Camera preview
                                                                 // timeout

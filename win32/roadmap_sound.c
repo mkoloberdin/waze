@@ -39,6 +39,7 @@ extern HANDLE MAP_Initialize();
 extern BOOL MAP_Open(HANDLE hLib, LPCTSTR pszFile);
 extern BOOL MAP_Play(HANDLE hLib);
 extern BOOL MAP_Stop(HANDLE hLib);
+extern DWORD MAP_GetVolume(HANDLE hLib, BOOL bSysVolume);
 
 #define MAX_LISTS 2
 
@@ -194,7 +195,10 @@ int roadmap_sound_play_file (const char *file_name) {
    char full_name[256];
    LPWSTR file_name_unicode;
    BOOL madplayer_file;
-
+   DWORD volume = MAP_GetVolume(madplayer_handle, TRUE);
+   if (volume == 0){
+	   return TRUE;
+   }
    if (roadmap_path_is_full_path (file_name)) {
       file_name_unicode = ConvertToWideChar(file_name, CP_UTF8);
    } else {

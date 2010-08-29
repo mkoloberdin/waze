@@ -66,10 +66,14 @@ typedef struct {
 
 } RoadMapNavigateRouteCB;
 
+typedef void (*RoadMapNavigateSegmentChangedCB) (PluginLine *current, int direction);
+void roadmap_navigate_register_segment_changed(RoadMapNavigateSegmentChangedCB cb);
+void roadmap_navigate_unregister_segment_changed(RoadMapNavigateSegmentChangedCB cb);
+
 int roadmap_navigate_get_neighbours
               (const RoadMapPosition *position, int scale, int accuracy, int max_shapes,
                RoadMapNeighbour *neighbours, int max, int type);
-               
+
 void roadmap_navigate_disable (void);
 void roadmap_navigate_enable  (void);
 
@@ -101,8 +105,8 @@ int roadmap_navigate_get_current (RoadMapGpsPosition *position,
                                   PluginLine *line,
                                   int *direction);
 time_t roadmap_navigate_get_time (void);
-                                  
-void roadmap_navigate_check_alerts (void);                                  
+
+void roadmap_navigate_check_alerts (RoadMapGpsPosition *gps_position);
 
 void roadmap_navigate_route (RoadMapNavigateRouteCB callbacks);
 void roadmap_navigate_end_route (void);

@@ -115,7 +115,7 @@ void roadmap_download_settings_dialog_show(void){
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -162,7 +162,7 @@ void roadmap_download_settings_dialog_show(void){
          callbackCell.imageView.image = img;
          [img release];
       }
-      [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+      //[callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
       [callbackCell setTag:ID_DOWNLOAD_MAP];
       id_callbacks[ID_DOWNLOAD_MAP] = map_download;
       callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Download map of my area")];
@@ -177,7 +177,7 @@ void roadmap_download_settings_dialog_show(void){
       callbackCell.imageView.image = img;
       [img release];
    }
-   [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   //[callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
    [callbackCell setTag:ID_REFRESH_MAP];
    id_callbacks[ID_REFRESH_MAP] = map_refresh;
    callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Refresh map of my area")];

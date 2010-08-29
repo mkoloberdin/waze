@@ -41,25 +41,27 @@
 #include "roadmap_camera_image.h"
 #include "roadmap_config.h"
 #include "roadmap_time.h"
+#include "roadmap_groups.h"
 #include "roadmap_iphoneimage.h"
 #include "roadmap_iphonecanvas.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_device_events.h"
 #include "widgets/iphoneLabel.h"
+#include "roadmap_checklist.h"
 
 
-static CGRect gRectNote = {25.0f, 15.0f, 250.0f, 17.0f};
-static CGRect gRectIcon = {25.0f, 30.0f, 50.0f, 40.0f};
-static CGRect gRectDescription = {75.0f, 35.0f, 200.0f, 35.0f};
-static CGRect gRectEditbox = {25.0f, 80.0f, 270.0f, 40.0f};
-static CGRect gRectDirection = {25.0f, 135.0f, 125.0f, 35.0f};
-static CGRect gRectMood = {165.0f, 135.0f, 125.0f, 35.0f};
-static CGRect gRectImage = {80.0f, 185.0f, 150.0f, 120.0f};
+static CGRect gRectNote = {65.0f, 15.0f, 210.0f, 20.0f};
+static CGRect gRectIcon = {15.0f, 15.0f, 50.0f, 40.0f};
+static CGRect gRectEditbox = {25.0f, 60.0f, 270.0f, 40.0f};
+static CGRect gRectDirection = {25.0f, 110.0f, 270.0f, 35.0f};
+static CGRect gRectGroupNote = {25.0f, 155.0f, 270.0f, 20.0f};
+static CGRect gRectGroupSelect = {25.0f, 185.0f, 270.0f, 35.0f};
+static CGRect gRectImage = {80.0f, 235.0f, 150.0f, 120.0f};
 static CGRect gRectImageLs = {305.0f, 50.0f, 150.0f, 120.0f};
-static CGRect gRectCancel = {39.0f, 335.0f, 100.0f, 28.0f};
-static CGRect gRectCancelLs = {39.0f, 200.0f, 100.0f, 28.0f};
-static CGRect gRectHide = {178.0f, 335.0f, 100.0f, 28.0f};
-static CGRect gRectHideLs = {178.0f, 200.0f, 100.0f, 28.0f};
+static CGRect gRectCancel = {39.0f, 365.0f, 100.0f, 28.0f};
+static CGRect gRectCancelLs = {39.0f, 230.0f, 100.0f, 28.0f};
+static CGRect gRectHide = {178.0f, 365.0f, 100.0f, 28.0f};
+static CGRect gRectHideLs = {178.0f, 230.0f, 100.0f, 28.0f};
 
 enum directions {
 	MY_DIRECTION = 100,
@@ -75,12 +77,116 @@ static AlertAddView *alertView;
 static int viewIsShown = 0;
 static int g_timeout;
 static char gCurrentImageId[ROADMAP_IMAGE_ID_BUF_LEN] = "";
+static const char gEmptyStr[1] = "";
 
 typedef struct tag_upload_context{
 	int iType;
 	char* desc;
 	int iDirection;
+   char *group;
 }upload_Image_context;
+
+
+
+static void groups_callback (int value, int group) {
+   int groups_count = roadmap_groups_get_num_following();
+   int main_exists = 0;
+   
+   if (strlen(roadmap_groups_get_active_group_name()) > 0) {
+      main_exists = 1;
+   }
+   
+   if (value == groups_count) {
+      roadmap_groups_set_selected_group_icon(gEmptyStr);
+      roadmap_groups_set_selected_group_name(gEmptyStr);
+   } else if (value == 0 && main_exists == 1) {
+      roadmap_groups_set_selected_group_icon(roadmap_groups_get_active_group_icon());
+      roadmap_groups_set_selected_group_name(roadmap_groups_get_active_group_name());
+   } else {
+      roadmap_groups_set_selected_group_icon(roadmap_groups_get_following_group_icon(value - main_exists));
+      roadmap_groups_set_selected_group_name(roadmap_groups_get_following_group_name(value - main_exists));
+   }
+   
+   roadmap_main_pop_view(YES);
+}
+
+static void show_groups() {
+   int groups_count = roadmap_groups_get_num_following();   
+   int i;
+   
+   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+	NSMutableArray *groupArray = NULL;
+   NSMutableDictionary *dict = NULL;
+   NSString *text;
+   const char* icon;
+   UIImage *image;
+   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+   RoadMapChecklist *groupsView;
+   int main_exists = 0;
+   
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   //Add main group
+   dict = [NSMutableDictionary dictionaryWithCapacity:1];
+   if (strlen(roadmap_groups_get_active_group_name()) > 0) {
+      text = [NSString stringWithUTF8String:roadmap_groups_get_active_group_name()];
+      [dict setValue:text forKey:@"text"];
+      icon = roadmap_groups_get_active_group_icon();
+      if (icon && icon[0] != 0)
+         image = roadmap_iphoneimage_load(icon);
+      else
+         image = roadmap_iphoneimage_load("groups_default_icons");
+      
+      [dict setValue:image forKey:@"image"];
+      
+      if (strcmp(roadmap_groups_get_active_group_name(), roadmap_groups_get_selected_group_name()) == 0) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+      
+      main_exists = 1;
+   }
+   
+   //Add following groups
+   for (i = 0; i < groups_count - main_exists; ++i) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:roadmap_groups_get_following_group_name(i)];
+      [dict setValue:text forKey:@"text"];
+      icon = roadmap_groups_get_following_group_icon(i);
+      if (icon && icon[0] != 0)
+         image = roadmap_iphoneimage_load(icon);
+      else
+         image = roadmap_iphoneimage_load("groups_default_icons");
+      
+      [dict setValue:image forKey:@"image"];
+      
+      if (strcmp(roadmap_groups_get_following_group_name(i), roadmap_groups_get_selected_group_name()) == 0) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+   }
+   
+   //Add none option
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:roadmap_lang_get("No group")];
+      [dict setValue:text forKey:@"text"];
+      
+      if (strlen(roadmap_groups_get_selected_group_name()) == 0) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];   
+   
+   [dataArray addObject:groupArray];
+   
+   text = [NSString stringWithUTF8String:roadmap_lang_get ("Groups")];
+	groupsView = [[RoadMapChecklist alloc] 
+                 activateWithTitle:text andData:dataArray andHeaders:NULL
+                 andCallback:groups_callback andHeight:60 andFlags:CHECKLIST_DISABLE_CLOSE];
+   
+}
 
 
 
@@ -91,7 +197,8 @@ static void continue_report_after_image_upload(void * context){
 	success = Realtime_Report_Alert(uploadContext->iType, uploadContext->desc,
                                    uploadContext->iDirection, gCurrentImageId,
                                    roadmap_twitter_is_sending_enabled() && roadmap_twitter_logged_in(),
-                                   roadmap_facebook_is_sending_enabled() && roadmap_facebook_logged_in());
+                                   roadmap_facebook_is_sending_enabled() && roadmap_facebook_logged_in(),
+                                   uploadContext->group);
    
 	RTAlerts_CloseProgressDlg();
    
@@ -246,7 +353,7 @@ void add_real_time_chit_chat()
 @synthesize iconImage;
 @synthesize minimizedImage;
 @synthesize imageButton;
-@synthesize moodButton;
+@synthesize groupButton;
 @synthesize hideButton;
 @synthesize cancelButton;
 @synthesize animatedImageView;
@@ -276,7 +383,7 @@ void add_real_time_chit_chat()
 	[newButtonDirection setFrame:[buttonDirectionView bounds]];
 	[newButtonDirection addTarget:self action:@selector(onDirection) forControlEvents:UIControlEventTouchUpInside];
    newButtonDirection.titleLabel.lineBreakMode = UILineBreakModeCharacterWrap;
-   newButtonDirection.titleLabel.font = [UIFont boldSystemFontOfSize:12.0f];
+   newButtonDirection.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
 	
 	
 	if (alertDirection == MY_DIRECTION) {
@@ -327,9 +434,9 @@ void add_real_time_chit_chat()
 
 }
 
-- (void) setMood {
+- (void) setGroup {
 	[self onCancelHide];
-	roadmap_mood_dialog(NULL);
+	show_groups();
 }
 
 - (void) setImage {
@@ -369,8 +476,10 @@ void add_real_time_chit_chat()
    isRestoreFocuse = TRUE;
 	
 	char *description;
+   const char *alert_group;
 
 	description = (char*)[[commentEditbox text] UTF8String];
+   alert_group = roadmap_groups_get_selected_group_name();
    
    if (!description)
       description = "";
@@ -388,6 +497,7 @@ void add_real_time_chit_chat()
    RTAlerts_ShowProgressDlg();
    upload_Image_context * uploadContext = (upload_Image_context *)malloc(sizeof(upload_Image_context));
    uploadContext->desc = strdup(description);
+   uploadContext->group = strdup(alert_group);
    uploadContext->iDirection = alert_direction;
    uploadContext->iType = alert_type;
 	
@@ -562,7 +672,7 @@ void add_real_time_chit_chat()
    
    // frame background
    rect.origin = CGPointMake (5, 3);
-   rect.size = CGSizeMake (bounds.size.width - 5, hideButton.frame.origin.y + hideButton.frame.size.height + 10);
+   rect.size = CGSizeMake (bounds.size.width - 5, hideButton.frame.origin.y + hideButton.frame.size.height + 5);
    bgFrame.frame = rect;
    rect = bgFrameButton.frame;
    rect.origin.x = bounds.size.width - rect.size.width;
@@ -616,68 +726,37 @@ void add_real_time_chit_chat()
 	label = [[iphoneLabel alloc] initWithFrame:gRectNote];
 	[label setText:text];
 	[label setTextColor:[UIColor  colorWithRed:0.0f green:0.412f blue:0.584f alpha:1.0f]];
+   [label setAdjustsFontSizeToFitWidth:YES];
 	[scrollView addSubview:label];
 	[label release];
 	
-	//description of alert
-	//We do not use full description now, only the location string
-	description[0] = 0;
+	//Alert type icon
 	if (alertType != RT_ALERT_TYPE_CHIT_CHAT) {
-		snprintf(description + strlen(description), sizeof(description)
-				 - strlen(description), "%s ", roadmap_lang_get("Reporting"));
 		if (alertType == RT_ALERT_TYPE_ACCIDENT) {
-			snprintf(description + strlen(description), sizeof(description)
-					 - strlen(description), "%s", roadmap_lang_get("accident"));
 			strcpy(report_icon, "reportaccident");
 			strcpy(minimized_icon, "minimized_accident");
 		} else if (alertType == RT_ALERT_TYPE_POLICE) {
-			snprintf(description + strlen(description), sizeof(description)
-					 - strlen(description), "%s", roadmap_lang_get("police"));
 			strcpy(report_icon, "reportpolice");
 			strcpy(minimized_icon, "minimized_police");
 		} else if (alertType == RT_ALERT_TYPE_TRAFFIC_JAM) {
-			snprintf(description + strlen(description), sizeof(description)
-					 - strlen(description), "%s", roadmap_lang_get("traffic jam"));
 			strcpy(report_icon, "reporttrafficjam");
 			strcpy(minimized_icon, "minimized_trafficjam");
 		} else if (alertType == RT_ALERT_TYPE_HAZARD) {
-			snprintf(description + strlen(description), sizeof(description)
-					 - strlen(description), "%s", roadmap_lang_get("hazard"));
 			strcpy(report_icon, "reporthazard");
 			strcpy(minimized_icon, "minimized_hazard");
 		} else if (alertType == RT_ALERT_TYPE_OTHER) { //TODO: this does not exist
 			strcpy(report_icon, "reportother");
 			strcpy(minimized_icon, "minimized_other");
 		} else if (alertType == RT_ALERT_TYPE_PARKING) {
-			snprintf(description + strlen(description), sizeof(description)
-					 - strlen(description), "%s", roadmap_lang_get("parking"));
 			strcpy(report_icon, "reportparking");
 			strcpy(minimized_icon, "minimized_parking");
 		}
 	} else {
 		//TODO: add suggested strings
-		snprintf(description + strlen(description), sizeof(description)
-				 - strlen(description), "%s", roadmap_lang_get("Chit chat"));
 		strcpy(report_icon, "reportincident");
 		strcpy(minimized_icon, "minimized_chitchat");
 	}
-	
-	[self getLocation: &sLocationStr[0] direction: alertDirection];
-	
-	snprintf(description + strlen(description), sizeof(description)
-			 - strlen(description), " on %s at %s", sLocationStr, roadmap_time_get_hours_minutes(time(NULL)));
-	
-	label = [[iphoneLabel alloc] initWithFrame:gRectDescription];
-	text = [NSString stringWithUTF8String:sLocationStr];
-	[label setText:text];
-	[label setNumberOfLines:0];
-	[label setLineBreakMode:UILineBreakModeWordWrap];
-	[label setAdjustsFontSizeToFitWidth:YES];
-	[label setFont:[UIFont systemFontOfSize:16.0f]];
-	[label setMinimumFontSize:10.0f];
-	[scrollView addSubview:label];
-	[label release];
-	
+		
 	//icon
 	if (iconImage)
 		[iconImage release];
@@ -713,14 +792,30 @@ void add_real_time_chit_chat()
 	[scrollView addSubview:buttonDirectionView];
 	[buttonDirectionView release];
 	[self setDirection];
-	
-	//mood button
-	moodButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-	[moodButton setFrame:gRectMood];
-	[moodButton addTarget:self action:@selector(setMood) forControlEvents:UIControlEventTouchUpInside];
-   moodButton.titleLabel.lineBreakMode = UILineBreakModeCharacterWrap;
-   moodButton.titleLabel.font = [UIFont systemFontOfSize:14.0f];
-	[scrollView addSubview:moodButton];
+
+   //group message
+   if (roadmap_groups_get_num_following() > 0) {   
+      text = [NSString stringWithUTF8String:roadmap_lang_get("Report will also be sent to group:")];
+      label = [[iphoneLabel alloc] initWithFrame:gRectGroupNote];
+      [label setText:text];
+      label.lineBreakMode = UILineBreakModeWordWrap;
+      [scrollView addSubview:label];
+      [label release];
+      
+      //group button
+      groupButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+      [groupButton setFrame:gRectGroupSelect];
+      [groupButton addTarget:self action:@selector(setGroup) forControlEvents:UIControlEventTouchUpInside];
+      groupButton.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+      [scrollView addSubview:groupButton];
+      
+      roadmap_groups_set_selected_group_name(roadmap_groups_get_active_group_name());
+      roadmap_groups_set_selected_group_icon (roadmap_groups_get_active_group_icon());
+   } else {
+      groupButton = NULL;
+      roadmap_groups_set_selected_group_name("");
+      roadmap_groups_set_selected_group_icon ("");
+   }
 	
 	//image button
 	imageButton = [UIButton buttonWithType:UIButtonTypeCustom];
@@ -737,8 +832,8 @@ void add_real_time_chit_chat()
 	[imageButton addTarget:self action:@selector(setImage) forControlEvents:UIControlEventTouchUpInside];
    imageButton.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
 	[scrollView addSubview:imageButton];
-	
-	//cancel button
+   
+   //cancel button
 	cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
 	[cancelButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Cancel")] forState:UIControlStateNormal];
 	image = roadmap_iphoneimage_load("button_up");
@@ -792,7 +887,6 @@ void add_real_time_chit_chat()
 	CGRect rect;
 	CGRect finalRect;
 	char hide_str[20];
-   const char* mood_str;
 
 	
 	if (!initialized) {
@@ -852,17 +946,29 @@ void add_real_time_chit_chat()
 		}
 	}	
 	
-	// Set mood image and text
-	[moodButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get(roadmap_mood_get_name())] forState:UIControlStateNormal];
-   mood_str = roadmap_path_join("moods", roadmap_mood_get_name());
-	image = roadmap_iphoneimage_load(mood_str);
-   roadmap_path_free(mood_str);
-	if (image) {
-		[moodButton setImage:image forState:UIControlStateNormal];
-		[moodButton setImageEdgeInsets:UIEdgeInsetsMake(3, 0, 2, 5)];
-		[image release];
+	// Set group image and text
+   if (groupButton) {
+      const char* group_name = roadmap_groups_get_selected_group_name();
+      if (group_name && group_name[0]) {
+         [groupButton setTitle:[NSString stringWithUTF8String:group_name]
+                      forState:UIControlStateNormal];
+         
+         image = roadmap_iphoneimage_load(roadmap_groups_get_selected_group_icon());
+         if (!image) {
+            image = roadmap_iphoneimage_load("groups_default_icons");
+         }
+         if (image) {
+            [groupButton setImage:image forState:UIControlStateNormal];
+            [groupButton setImageEdgeInsets:UIEdgeInsetsMake(3, 0, 2, 10)];
+            [image release];
+         }
+      } else {
+         [groupButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("No group")]
+                      forState:UIControlStateNormal];
+         [groupButton setImage:NULL forState:UIControlStateNormal];
+      }
+      
 	}
-	
 
    [self resizeViews];
    
@@ -889,22 +995,22 @@ void add_real_time_chit_chat()
 	
 	AlertScrollView *scrollView = [[AlertScrollView alloc] initWithFrame:CGRectZero];
    scrollView.alwaysBounceVertical = YES;
-   scrollView.backgroundColor = roadmap_main_table_color();
-   self.view = scrollView;
-   [scrollView release]; // decrement retain count
-   [scrollView setDelegate:self];
-   [self setTitle:[NSString stringWithUTF8String:RTAlerts_get_title(alert_type, -1)]];
-   UINavigationItem *navItem = [self navigationItem];
-   UIBarButtonItem *button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Send")]
-                                                              style:UIBarButtonItemStyleDone target:self action:@selector(sendAlert)];
-   
-   [navItem setRightBarButtonItem:button];
-   [button release];
-   
-   alertType = alert_type;
-   alertDirection = MY_DIRECTION;
-   
-   roadmap_main_push_view(self);
+	self.view = scrollView;
+	[scrollView release]; // decrement retain count
+	[scrollView setDelegate:self];
+	[self setTitle:[NSString stringWithUTF8String:RTAlerts_get_title(NULL, alert_type, -1)]];
+	UINavigationItem *navItem = [self navigationItem];
+	UIBarButtonItem *button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Send")]
+															   style:UIBarButtonItemStyleDone target:self action:@selector(sendAlert)];
+
+	[navItem setRightBarButtonItem:button];
+	[button release];
+	
+	alertType = alert_type;
+	alertDirection = MY_DIRECTION;
+	
+	roadmap_main_push_view(self);
+
 }
 
 

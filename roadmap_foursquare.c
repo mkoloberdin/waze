@@ -666,7 +666,8 @@ void roadmap_foursquare_venues_list (void) {
                              NULL,
                              NULL,
                              60,
-                             0);
+                             0,
+                             NULL);
 #else
    ssd_generic_icon_list_dialog_show(roadmap_lang_get(FOURSQUARE_VENUES_TITLE),
                                        gsVenuesCount,

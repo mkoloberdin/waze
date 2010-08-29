@@ -51,6 +51,7 @@
 #include "roadmap_bar.h"
 #include "roadmap_border.h"
 #include "roadmap_ticker.h"
+#include "roadmap_message_ticker.h"
 #include "roadmap_screen.h"
 
 #include "navigate/navigate_bar.h"
@@ -105,6 +106,7 @@ static RoadMapPen RoadMapWarningForeground;
 #define SIGN_BOTTOM   0
 #define SIGN_TOP      1
 #define SIGN_CENTER   2
+#define SIGN_RIGHT    3
 
 #define SIGN_TEXT	 0
 #define SIGN_POP_UP  1
@@ -161,7 +163,7 @@ typedef struct {
 
 
 RoadMapSign RoadMapStreetSign[] = {
-
+    ROADMAP_SIGN(NULL, "DEBUG_LOC", SIGN_TEXT,SIGN_RIGHT, "%g", "#ffffff", "#000000",STYLE_NORMAL,POINTER_NONE, HEADER_NONE),
     ROADMAP_SIGN("NO SCREEN", "Current Street", SIGN_TEXT, SIGN_BOTTOM, "%N, %C|%N", "#698b69", "#ffffff",STYLE_NORMAL,POINTER_NONE, HEADER_NONE),
     ROADMAP_SIGN("GPS", "Approach", SIGN_TEXT, SIGN_TOP, "Approaching %N, %C|Approaching %N", "#bdd1e7", "#000000",STYLE_NORMAL,POINTER_NONE, HEADER_NONE),
     ROADMAP_SIGN(NULL, "Selected Street", SIGN_TEXT,SIGN_BOTTOM, "%F", "#e4f1f9", "#000000",STYLE_NORMAL,POINTER_NONE, HEADER_NONE),
@@ -306,7 +308,7 @@ static void roadmap_display_string
 	    	}
 	    	else{
 	    		offset = 0;
-	    		text_size = -1;
+	    		text_size = 12;
 	    		roadmap_canvas_set_foreground("#000000");
 	    	}
 
@@ -330,7 +332,7 @@ static void roadmap_display_string
 	    }
 	    else{
 	    	offset = 0;
-	    	text_size = -1;
+	    	text_size = 12;
 	    }
 
 	    roadmap_canvas_draw_string_size
@@ -380,9 +382,8 @@ static void roadmap_display_string
         }
 
     }
-
-    roadmap_canvas_draw_string
-        (position, corner, text_line);
+    roadmap_canvas_draw_string_size
+                      (position,corner, 12,text_line);
 }
 
 
@@ -414,7 +415,7 @@ static void roadmap_display_highlight (const RoadMapPosition *position) {
     RoadMapGuiPoint point;
 
     roadmap_math_coordinate (position, &point);
-    roadmap_math_rotate_coordinates (1, &point);
+    roadmap_math_rotate_project_coordinate ( &point);
     roadmap_sprite_draw ("Highlight", &point, 0);
 }
 
@@ -434,7 +435,7 @@ static void roadmap_display_sign (RoadMapSign *sign) {
     roadmap_log_push ("roadmap_display_sign");
 
     roadmap_canvas_get_text_extents
-        (sign->content, -1, &width, &ascent, &descent, NULL);
+        (sign->content, 12, &width, &ascent, &descent, NULL);
 
 
     width += 8; /* Keep some room around the text. */
@@ -458,8 +459,8 @@ static void roadmap_display_sign (RoadMapSign *sign) {
 		if (sign->content[i]=='\n')
 			lines++;
 
-    text_height = ascent + descent + 5;
-    sign_height = lines * text_height + 5;
+    text_height = ascent + descent + 4;
+    sign_height = lines * text_height ;
 
    // screen_width = roadmap_canvas_width();
 
@@ -475,7 +476,7 @@ static void roadmap_display_sign (RoadMapSign *sign) {
         sign->was_visible = visible;
 
         roadmap_math_coordinate (&sign->position, points);
-        roadmap_math_rotate_coordinates (1, points);
+        roadmap_math_rotate_project_coordinate ( points );
 
         if (sign->where == SIGN_TOP) {
 
@@ -509,14 +510,14 @@ static void roadmap_display_sign (RoadMapSign *sign) {
 
 
        if (sign->where == SIGN_TOP || (points[0].y > height / 2)) {
-            points[1].y = sign_height + roadmap_bar_top_height() +roadmap_ticker_height()+5;
+            points[1].y = sign_height + roadmap_bar_top_height() +roadmap_ticker_height()+roadmap_message_ticker_height()+5;
             if (points[0].y < points[1].y){
 				points[0].x = points[1].x;
 				points[0].y = points[1].y;
             }
-            points[3].y = roadmap_bar_top_height() +roadmap_ticker_height()+5;
+            points[3].y = roadmap_bar_top_height() +roadmap_ticker_height()+roadmap_message_ticker_height()+5;
 
-            text_position.y = roadmap_bar_top_height() + roadmap_ticker_height()+8;
+            text_position.y = roadmap_bar_top_height() + roadmap_ticker_height()+roadmap_message_ticker_height()+8;
         }
         else {
 
@@ -539,6 +540,8 @@ static void roadmap_display_sign (RoadMapSign *sign) {
 
         points[0].x = (screen_width - sign_width) / 2;
         points[1].x = (screen_width + sign_width) / 2;
+        points[0].x = 2;
+        points[1].x = 2+sign_width;
         points[2].x = points[1].x;
         points[3].x = points[0].x;
 
@@ -550,7 +553,15 @@ static void roadmap_display_sign (RoadMapSign *sign) {
               break;
 
            case SIGN_TOP:
-              points[0].y = roadmap_bar_top_height() +roadmap_ticker_height()+3;
+              points[0].y = roadmap_bar_top_height() +roadmap_ticker_height()+roadmap_message_ticker_height()+3;
+              break;
+
+           case SIGN_RIGHT:
+              points[0].y = roadmap_bar_top_height() +roadmap_ticker_height()+roadmap_message_ticker_height()+3;
+              points[0].x = 2;
+              points[1].x = 2+sign_width;
+              points[2].x = points[1].x;
+              points[3].x = points[0].x;
               break;
 
            case SIGN_CENTER:
@@ -563,7 +574,7 @@ static void roadmap_display_sign (RoadMapSign *sign) {
         points[3].y = points[2].y;
 
         text_position.x = points[0].x + 4;
-        text_position.y = points[0].y + 3;
+        text_position.y = points[0].y + 1;
 
         count = 4;
     }
@@ -1034,7 +1045,7 @@ static void roadmap_display_console_box
 
     if (roadmap_screen_is_hd_screen())
        offset = 94;
-    
+
     if (type == ROADMAP_CONSOLE_ACTIVITY) {
 #ifdef TOUCH_SCREEN
        if (roadmap_horizontal_screen_orientation())
@@ -1064,7 +1075,7 @@ static void roadmap_display_console_box
     } else {
        if ( type == ROADMAP_CONSOLE_ACTIVITY || type == ROADMAP_CONSOLE_WARNING )
        {
-    	   frame[0].y = roadmap_bar_top_height() + 1;
+    	   frame[0].y = roadmap_bar_top_height() +  roadmap_ticker_height()+ roadmap_message_ticker_height()+1;
        }
        else
        {
@@ -1076,7 +1087,7 @@ static void roadmap_display_console_box
     frame[2].y = frame[1].y;
     frame[3].y = frame[0].y;
 
- 
+
 
     count = 4;
 
@@ -1249,3 +1260,4 @@ void roadmap_display_initialize (void) {
 
     roadmap_skin_register (roadmap_display_create_pens);
 }
+

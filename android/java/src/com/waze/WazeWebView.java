@@ -95,7 +95,12 @@ public class WazeWebView extends WebView
     private class WazeWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            view.loadUrl(url);
+        	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+        	// First try to handle internally
+        	if ( !mgr.UrlHandler( url ) )
+        	{
+        		view.loadUrl(url);
+        	}
             return true;
         }
         @Override

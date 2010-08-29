@@ -105,7 +105,7 @@ RMLIBSRCS=roadmap_main.c \
 
 
 ifeq ($(RENDERING),OPENGL)
-RMLIBSRCS+= roadmap_canvas_ogl.c $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c
+RMLIBSRCS+= roadmap_canvas_ogl.c $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c $(OPENGL_DIR)/roadmap_canvas_atlas.c
 else
 RMLIBSRCS+= roadmap_canvas_agg.c 
 endif
@@ -152,6 +152,7 @@ clean: cleanone
 cleanone:
 	rm -f *.o *.a *.da $(RUNTIME)
 	rm -f libandroidroadmap.so.nosymbols
+	rm -f JNI/*.o
 
 install: all
 	mkdir -p $(DESTDIR)$(bindir)

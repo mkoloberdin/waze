@@ -31,7 +31,7 @@
 #include <winsock.h>
 #include <Wininet.h>
 
-#ifdef   UNDER_CE
+#if ((defined UNDER_CE)&& !(defined EMBEDDED_CE))
    #define INITGUID
    #include "initguid.h"
    #include <connmgr.h>
@@ -52,14 +52,14 @@
 
 static CRITICAL_SECTION s_cs;
 
-#ifdef   UNDER_CE
-
-static HANDLE           RoadMapConnection = NULL;
-
 static RoadMapConfigDescriptor RoadMapConfigNetCompressEnabled =
                         ROADMAP_CONFIG_ITEM( "Network", "Compression Enabled");
 
 static BOOL RoadMapNetCompressEnabled = FALSE;
+
+#if ((defined UNDER_CE)&& !(defined EMBEDDED_CE))
+static HANDLE           RoadMapConnection = NULL;
+
 
 typedef enum tagconnection_status
 {
@@ -308,6 +308,9 @@ const char* GetProxyAddress__internal()
    INTERNET_PER_CONN_OPTION      Option;
    DWORD                         dwSize = sizeof(INTERNET_PER_CONN_OPTION_LIST);
 
+#ifdef EMBEDDED_CE
+   return NULL;
+#else
    if( already_done)
       return proxy_address;
 
@@ -343,6 +346,7 @@ const char* GetProxyAddress__internal()
    proxy_address  = proxy_address_buffer;
    roadmap_log( ROADMAP_DEBUG, "roadmap_net::GetProxyAddress() - Found proxy '%s'", proxy_address);
    return proxy_address;
+#endif
 }
 #endif   // UNDER_CE
 
@@ -356,7 +360,21 @@ const char* GetProxyAddress()
 
    return proxy;
 }
+#ifdef EMBEDDED_CE
+static BOOL is_connected( roadmap_result* res)
+{
+   BOOL bool_res;
+   
+   EnterCriticalSection( &s_cs);
+   //TEMP_AVI bool_res = is_connected__internal( res);
+   LeaveCriticalSection( &s_cs);
+   
+   return bool_res;
+}
 
+BOOL roadmap_net_is_connected()
+{ return is_connected( NULL);}
+#endif
 static RoadMapSocket roadmap_net_connect__internal(
          const char*       protocol,
          const char*       name,
@@ -423,7 +441,7 @@ static RoadMapSocket roadmap_net_connect__internal(
       addr.sin_port = htons((unsigned short)default_port);
    }
 
-#ifdef   UNDER_CE
+#if ((defined UNDER_CE)&& !(defined EMBEDDED_CE))
    if( !is_connected( res))
    {
       roadmap_log (ROADMAP_ERROR, "roadmap_net_connect() - 'is_connected()' returned FALSE");
@@ -439,7 +457,7 @@ static RoadMapSocket roadmap_net_connect__internal(
 	   host = NULL;
    }
 
-#if((defined _DEBUG)&&(defined UNDER_CE))
+#if((defined _DEBUG)&&(defined UNDER_CE) && (defined EMBEDDED_CE))
    if( NULL == host)
    {
       int iErr = WSAGetLastError();
@@ -779,7 +797,7 @@ RoadMapSocket roadmap_net_accept(RoadMapSocket server_socket)
 }
 
 
-#ifdef UNDER_CE
+#if ((defined UNDER_CE)&& (defined EMBEDDED_CE))
 #include <winioctl.h>
 #include "../md5.h"
 
@@ -907,7 +925,7 @@ int roadmap_net_connect_async(
 
 void roadmap_net_shutdown (void) {
    const char* netcompress_cfg_value = RoadMapNetCompressEnabled ? "yes" : "no";
-#ifdef   UNDER_CE
+#if ((defined UNDER_CE)&& !(defined EMBEDDED_CE))
    if (RoadMapConnection) {
       ConnMgrReleaseConnection(RoadMapConnection, 1);
       RoadMapConnection = NULL;

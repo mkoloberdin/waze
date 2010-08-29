@@ -33,6 +33,7 @@
 #include "roadmap_androidmain.h"
 #include "roadmap_androidogl.h"
 #include "roadmap_urlscheme.h"
+#include "roadmap_browser.h"
 
 // The JNI object representing the current class
 static android_jni_obj_type gJniObj;
@@ -126,6 +127,7 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
 
 }
 
+
 /*************************************************************************************************
  * Java_com_waze_FreeMapNativeManager_AppStartNTV
  * Starts the application
@@ -183,6 +185,29 @@ void FreeMapNativeManager_ShutDown()
 	// Calling the method
 	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
 }
+
+/*************************************************************************************************
+ * Java_com_waze_FreeMapNativeManager_UrlHandlerNTV
+ * JNI wrapper for
+ *
+ */
+JNIEXPORT jboolean JNICALL Java_com_waze_FreeMapNativeManager_UrlHandlerNTV
+( JNIEnv* aJNIEnv, jobject aJObj, jstring aUrl )
+{
+   jboolean isCopy;
+   jboolean res = JNI_FALSE;
+   const char* url = (*aJNIEnv)->GetStringUTFChars( aJNIEnv, aUrl, &isCopy );
+
+   if ( roadmap_browser_url_handler( url ) == TRUE )
+   {
+      res = JNI_TRUE;
+   }
+
+   (*aJNIEnv)->ReleaseStringUTFChars( aJNIEnv, aUrl, url );
+
+   return res;
+}
+
 
 
 /*************************************************************************************************
@@ -641,4 +666,6 @@ void FreeMapNativeManager_DisposeRefs()
     JNI_LOG( ROADMAP_INFO, "Disposing the references for the JNI object %s", gJniObj.name );
 	DisposeJNIObject( &gJniObj );
 }
+
+
 

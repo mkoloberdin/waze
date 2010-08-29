@@ -25,6 +25,8 @@
 #include "../roadmap_browser.h"
 
 void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback){
+	roadmap_spawn ("\\windows\\iexplore",
+				   url);
 }
 
 

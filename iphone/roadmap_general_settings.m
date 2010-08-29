@@ -40,6 +40,8 @@
 #include "roadmap_device_events.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
+#include "Realtime.h"
+#include "roadmap_push_notifications.h"
 #include "roadmap_messagebox.h"
 
 
@@ -59,6 +61,9 @@ static RoadMapConfigDescriptor RoadMapConfigGeneralUnit =
 RoadMapConfigDescriptor RoadMapConfigUseNativeKeyboard =
       ROADMAP_CONFIG_ITEM("Keyboard", "Use native");
 
+RoadMapConfigDescriptor RoadMapConfigEventsRadius =
+      ROADMAP_CONFIG_ITEM("Events", "Radius");
+
 RoadMapConfigDescriptor RoadMapConfigClockFormat = 
       ROADMAP_CONFIG_ITEM("Clock","Format");
 
@@ -74,13 +79,21 @@ enum IDs {
    ID_LANGUAGES,
    ID_PROMPTS,
    ID_CLOCK_FORMAT,
-   ID_SUGGEST_ROUTES
+   ID_SUGGEST_ROUTES,
+   ID_NOTIFICATIONS,
+   ID_EVENTS_RADIUS
 };
 
 #define MAX_IDS 25
 
 static RoadMapCallback id_callbacks[MAX_IDS];
 static RoadMapCallback lang_loaded_callback = NULL;
+static const char *distance_labels[6];
+static const char *distance_values[6];
+
+int roadmap_general_settings_events_radius(void){
+   return roadmap_config_get_integer(&RoadMapConfigEventsRadius);
+}
 
 
 BOOL roadmap_general_settings_is_24_hour_clock() {
@@ -219,6 +232,112 @@ static void show_prompts() {
    
 }
 
+static void events_callback (int value, int group) {
+   if (!(roadmap_config_match(&RoadMapConfigEventsRadius, distance_values[value]))){ // descriptor changed
+      roadmap_config_set (&RoadMapConfigEventsRadius,distance_values[value]);
+      OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
+   }
+   
+   roadmap_main_pop_view(YES);
+}
+
+static void show_events_radius() {
+   static BOOL initialized = FALSE;
+   int i;
+   
+   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+	NSMutableArray *groupArray = NULL;
+   NSMutableDictionary *dict = NULL;
+   NSString *text;
+   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+   RoadMapChecklist *promptsView;
+   
+   if (!initialized) {
+      if (roadmap_math_is_metric()){
+         char temp[100];
+         
+         distance_values[0] = "5";
+         distance_values[1] = "25";
+         distance_values[2] = "50";
+         distance_values[3] = "100";
+         distance_values[4] = "200";
+         distance_values[5] = "-1";
+         snprintf(temp, 100, "5 %s", roadmap_lang_get("Km"));
+         distance_labels[0] = strdup(temp);
+         snprintf(temp, 100, "25 %s", roadmap_lang_get("Km"));
+         distance_labels[1] = strdup(temp);
+         snprintf(temp, 100, "50 %s", roadmap_lang_get("Km"));
+         distance_labels[2] = strdup(temp);
+         snprintf(temp, 100, "100 %s", roadmap_lang_get("Km"));
+         distance_labels[3] = strdup(temp);
+         snprintf(temp, 100, "200 %s", roadmap_lang_get("Km"));
+         distance_labels[4] = strdup(temp);
+         distance_labels[5] = roadmap_lang_get("All");
+      }
+      else{
+         char temp[100];
+         
+         distance_values[0] = "8";
+         distance_values[1] = "40";
+         distance_values[2] = "80";
+         distance_values[3] = "160";
+         distance_values[4] = "320";
+         distance_values[5] = "-1";
+         snprintf(temp, 100, "5 %s", roadmap_lang_get("miles"));
+         distance_labels[0] = strdup(temp);
+         snprintf(temp, 100, "25 %s", roadmap_lang_get("miles"));
+         distance_labels[1] = strdup(temp);
+         snprintf(temp, 100, "50 %s", roadmap_lang_get("miles"));
+         distance_labels[2] = strdup(temp);
+         snprintf(temp, 100, "100 %s", roadmap_lang_get("miles"));
+         distance_labels[3] = strdup(temp);
+         snprintf(temp, 100, "200 %s", roadmap_lang_get("miles"));
+         distance_labels[4] = strdup(temp);
+         distance_labels[5] = roadmap_lang_get("All");
+      }     
+      
+      initialized = TRUE;
+   }
+   
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   for (i = 0; i < 6; ++i) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:distance_labels[i]];
+      [dict setValue:text forKey:@"text"];
+      if (roadmap_config_match(&RoadMapConfigEventsRadius, distance_values[i])) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+   }
+   [dataArray addObject:groupArray];
+   
+   text = [NSString stringWithUTF8String:roadmap_lang_get ("Events Radius")];
+	promptsView = [[RoadMapChecklist alloc] 
+                  activateWithTitle:text andData:dataArray andHeaders:NULL
+                  andCallback:events_callback andHeight:60 andFlags:0];
+   
+}
+
+void roadmap_general_settings_init(void){
+   
+   roadmap_config_declare
+      ("user", &RoadMapConfigBackLight, "yes", NULL);
+   
+   roadmap_config_declare_enumeration
+      ("preferences", &RoadMapConfigGeneralUnit, NULL, "metric", "imperial", NULL);
+   
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
+   
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigClockFormat, NULL, CLOCK_SETTINGS_12_HOUR, CLOCK_SETTINGS_24_HOUR, NULL);
+   
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigEventsRadius, NULL, "-1", "5", "25", "50", "100", "200", NULL);
+}
+
 
 void roadmap_general_settings_show (void) {
 		GeneralSetingsDialog *dialog = [[GeneralSetingsDialog alloc] initWithStyle:UITableViewStyleGrouped];
@@ -269,7 +388,7 @@ void roadmap_general_settings_show (void) {
 	
    [tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
 }
 
@@ -298,6 +417,7 @@ void roadmap_general_settings_show (void) {
    int lang_count = roadmap_lang_get_available_langs_count();
    int prompts_count = roadmap_prompts_get_count();
    
+   //Group #1
    groupArray = [NSMutableArray arrayWithCapacity:1];
    
    //Languages
@@ -324,37 +444,12 @@ void roadmap_general_settings_show (void) {
       [groupArray addObject:callbackCell];
    }
    
-   //Backlight
-	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_BACKLIGHT];
-	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
-                     ("Back Light On")]];
-	[swCell setDelegate:self];
-	[swCell setState: roadmap_config_match (&RoadMapConfigBackLight, "yes")];
-	[groupArray addObject:swCell];
-   
-	//Auto zoom
-	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_AUTO_ZOOM];
-	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
-					  ("Auto zoom")]];
-	[swCell setDelegate:self];
-	[swCell setState: roadmap_config_match (&NavigateConfigAutoZoom, "yes")];
-	[groupArray addObject:swCell];
-
-	//Show ticker
-	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_TICKER];
-	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
-					  ("Show points ticker")]];
-	[swCell setDelegate:self];
-	[swCell setState: roadmap_config_match(&RoadMapConfigShowTicker, "yes")];
-	[groupArray addObject:swCell];
-   
-	//Units
+   //Units
    selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
    [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Measurement system")]];
-   segmentsArray = [NSArray arrayWithObjects:@"Meters", @"Miles", NULL];
+   segmentsArray = [NSArray arrayWithObjects:[NSString stringWithUTF8String:roadmap_lang_get("Meters")],
+                                             [NSString stringWithUTF8String:roadmap_lang_get("Miles")],
+                                             NULL];
    [selCell setItems:segmentsArray];
    if (roadmap_config_match(&RoadMapConfigGeneralUnit, "metric"))
       [selCell setSelectedSegment:0];
@@ -373,6 +468,39 @@ void roadmap_general_settings_show (void) {
 	[swCell setState: roadmap_config_match(&RoadMapConfigClockFormat, CLOCK_SETTINGS_24_HOUR)];
 	[groupArray addObject:swCell];
    
+   [dataArray addObject:groupArray];
+   
+   
+   //Group #2
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   //Auto zoom
+	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
+	[swCell setTag:ID_AUTO_ZOOM];
+	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
+                     ("Auto zoom")]];
+	[swCell setDelegate:self];
+	[swCell setState: roadmap_config_match (&NavigateConfigAutoZoom, "yes")];
+	[groupArray addObject:swCell];
+   
+   //Show ticker
+	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
+	[swCell setTag:ID_TICKER];
+	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
+                     ("Show points ticker")]];
+	[swCell setDelegate:self];
+	[swCell setState: roadmap_config_match(&RoadMapConfigShowTicker, "yes")];
+	[groupArray addObject:swCell];
+   
+   //Backlight
+	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
+	[swCell setTag:ID_BACKLIGHT];
+	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
+                     ("Back Light On")]];
+	[swCell setDelegate:self];
+	[swCell setState: roadmap_config_match (&RoadMapConfigBackLight, "yes")];
+	[groupArray addObject:swCell];
+   
    //Automatically suggest routes
    if (roadmap_alternative_feature_enabled()){
       swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
@@ -383,6 +511,30 @@ void roadmap_general_settings_show (void) {
       [swCell setState: roadmap_alternative_routes_suggest_routes()];
       [groupArray addObject:swCell];
    }
+   
+   [dataArray addObject:groupArray];
+   
+   
+   //Group #3
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   //events radius
+   callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [callbackCell setTag:ID_EVENTS_RADIUS];
+   id_callbacks[ID_EVENTS_RADIUS] = show_events_radius;
+   callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Events Radius")];
+   //callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+   //                                (roadmap_prompts_get_label(roadmap_prompts_get_name()))];
+   [groupArray addObject:callbackCell];
+   
+   //push notifications
+   callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [callbackCell setTag:ID_NOTIFICATIONS];
+   id_callbacks[ID_NOTIFICATIONS] = roadmap_push_notifications_settings;
+   callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Notifications")];
+   [groupArray addObject:callbackCell];
 	
 	
 	[dataArray addObject:groupArray];
@@ -391,24 +543,6 @@ void roadmap_general_settings_show (void) {
 
 - (void) show
 {
-	static int initialized = 0;
-	
-	if (!initialized) {
-		initialized = 1;
-		
-      roadmap_config_declare
-         ("user", &RoadMapConfigBackLight, "yes", NULL);
-      
-		roadmap_config_declare_enumeration
-      	("preferences", &RoadMapConfigGeneralUnit, NULL, "metric", "imperial", NULL);
-		
-		roadmap_config_declare_enumeration
-      	("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
-      
-      roadmap_config_declare_enumeration
-         ("user", &RoadMapConfigClockFormat, NULL, CLOCK_SETTINGS_12_HOUR, CLOCK_SETTINGS_24_HOUR, NULL);
-	}
-	
 	[self populateData];
 
 	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(title)]];

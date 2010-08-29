@@ -795,7 +795,7 @@ static int pointer_up( SsdWidget this, const RoadMapGuiPoint *point)
 	   else
 	   {
 		   event_handled = 1;
-#ifndef ANDROID
+#ifdef PLAY_CLICK
 		   if (!list) {
 			  list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 			  roadmap_sound_list_add (list, "click");

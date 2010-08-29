@@ -32,7 +32,9 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>1.7.99.2</string>
+	<string>2.0.0.0</string>
+	<key>CFBundleGetInfoString</key>
+	<string></string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>SBUsesNetwork</key>
@@ -49,6 +51,11 @@
 	<array>
 		<string>icon.png</string>
 		<string>icon-ipad.png</string>
+	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>audio</string>
 	</array>
 </dict>
 </plist>

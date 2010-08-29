@@ -533,7 +533,7 @@ void  add_speed_cam_alert(){
 #endif //IPHONE
  		return;
    }
-	
+
 #ifdef IPHONE
 	roadmap_main_show_root(0);
 #endif //IPHONE
@@ -617,7 +617,7 @@ void request_speed_cam_delete(){
 
 	steering = CurrentGpsPoint->steering;
 
-	remove_alert(&CurrentFixedPosition,steering,roadmap_lang_get("Speed Cam"));
+	remove_alert(&CurrentFixedPosition,steering,"Speed Cam");
 	roadmap_trip_restore_focus();
 	ssd_dialog_hide_all(dec_ok);
 

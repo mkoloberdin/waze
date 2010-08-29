@@ -13,6 +13,14 @@ extern "C" {
 #define com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT 30000LL
 /*
  * Class:     com_waze_FreeMapNativeManager
+ * Method:    UrlHandlerNTV
+ * Signature: (Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_waze_FreeMapNativeManager_UrlHandlerNTV
+  (JNIEnv *, jobject, jstring);
+
+/*
+ * Class:     com_waze_FreeMapNativeManager
  * Method:    NativeMsgDispatcherNTV
  * Signature: (I)V
  */

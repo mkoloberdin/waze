@@ -45,6 +45,7 @@
 #include "roadmap_device_events.h"
 
 #include "roadmap_canvas.h"
+#include "roadmap_canvas3d.h"
 #include "roadmap_canvas_ogl.h"
 #include "roadmap_iphonecanvas.h"
 
@@ -272,6 +273,7 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    [self setupView];
    
    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   
    roadmap_canvas_refresh();
    
    roadmap_canvas_ogl_configure (0.0, 1.2, 2.0);
@@ -341,7 +343,7 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 
 - (BOOL)createFramebuffer
 {
-   roadmap_log (ROADMAP_DEBUG, "\n\n\n Creating new Framebuffer \n\n\n");
+   roadmap_log (ROADMAP_DEBUG, "Creating new Framebuffer");
    
    
    // Create default framebuffer object. The backing will be allocated for the current layer in -resizeFromLayer
@@ -425,6 +427,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
                                    [NSNumber numberWithBool:TRUE], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
    
    [self setContext];
+	//roadmap_canvas3_ogl_prepare();
+
    //[self setupView];
 
    //roadmap_canvas_ogl_configure ();
@@ -469,6 +473,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 	//[self destroyFramebuffer];
 	//[self setContext];
    [self resize];
+   
+   roadmap_canvas3_ogl_prepare();
    //needsResize = TRUE;
 
    
@@ -515,6 +521,10 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
     glAlphaFunc(GL_GREATER, 1/255.0);
     */
    
+   /*
+   glEnable(GL_DEPTH_TEST);
+   glDepthFunc(GL_LEQUAL);
+   */
    roadmap_canvas_ogl_configure(0.0, 1.2, 2.0);
 }
 

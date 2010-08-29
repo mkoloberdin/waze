@@ -266,30 +266,39 @@ int roadmap_location_denied () {
 #ifdef DEBUG
    longitude = 34878593;
    latitude = 32196208;
-    //longitude = -78549870;
-  //  latitude = -259970;
+   //longitude = -78549870;
+   //latitude = -259970;
 #endif
     
   
    roadmap_gps_coarse_fix(latitude, longitude);
 }
 
-
 - (void)locationManager:(CLLocationManager *)manager
        didFailWithError:(NSError *)error {
-       
+#if TARGET_IPHONE_SIMULATOR
+   // Cupertino
+   //CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:37.33168900 longitude:-122.03073100];
+   //IL
+   CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:32.196208 longitude:34.878593];
+   [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:nil];
+   [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:simulatorLocation];
+   [simulatorLocation release];
+#else
    if ([error code] == kCLErrorLocationUnknown) {
-      roadmap_log (ROADMAP_WARNING, "Could not find location\n");
+      roadmap_log (ROADMAP_WARNING, "Could not find location, error: '%s'\n",
+                   [[error description] UTF8String]);
       if (RoadMapLocationNavigating) {
          report_fix_loss();
-      RoadMapLoactionActive = 0;
+         RoadMapLoactionActive = 0;
       }
    } else if ([error code] == kCLErrorDenied) {
       roadmap_log (ROADMAP_WARNING, "Location Services denied\n");
       RoadMapLocationServiceDenied = 1;
       roadmap_location_stop();
-      roadmap_messagebox ("Error", "No access to Location Services. Please make sure Location Services is ON");
+      roadmap_messagebox ("Problem", "No access to Location Services. Please make sure Location Services is ON");
    }
+#endif
 }
 
 @end

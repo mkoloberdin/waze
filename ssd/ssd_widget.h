@@ -89,6 +89,7 @@
 #define SSD_ROUNDED_CORNERS	    0x4000
 #define SSD_NO_BG_IMAGE 		    0x8000
 #define SSD_CONTAINER_TXT_BOX     0x20000000
+#define SSD_CONTAINER_SEARCH_BOX  0x80000000
 
 /* Text flags */
 #define SSD_TEXT_LABEL        0x1000 /* Adds a ':' sign */

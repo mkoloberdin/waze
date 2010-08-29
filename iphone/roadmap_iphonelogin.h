@@ -45,11 +45,10 @@
 
 
 @interface LoginUpdateDialog : UIViewController <UIScrollViewDelegate, UITextFieldDelegate, UISearchBarDelegate> {
-
+   BOOL  kbIsOn;
 }
 
 - (void) showUpdateLogin;
-- (void) showNickname;
 
 @end
 

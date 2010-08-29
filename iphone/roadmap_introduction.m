@@ -185,7 +185,7 @@ void roadmap_introduction_show_auto(void) {
    [containerView addSubview:button];
    posY += button.frame.size.height;
    
-   
+   /*
    //geo info button
    button = [UIButton buttonWithType:UIButtonTypeCustom];
    image = roadmap_iphoneimage_load("geo_info_btn");
@@ -206,7 +206,7 @@ void roadmap_introduction_show_auto(void) {
    button.frame = rect;
    [containerView addSubview:button];
    posY += button.frame.size.height;
-   
+   */
    
    //start waze button
    button = [UIButton buttonWithType:UIButtonTypeCustom];

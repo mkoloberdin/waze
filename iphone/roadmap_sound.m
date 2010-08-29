@@ -60,11 +60,22 @@ static void play_next_file (void);
 
 
 static void set_duck (int enabled) {
-   AudioSessionSetActive(FALSE);
-   
+   UInt32 overrideMixing = TRUE;
    UInt32 allowMixing = enabled;
    OSStatus propertySetError = 0;
-   propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
+   
+   AudioSessionSetActive(FALSE);
+   
+   if (enabled) {
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
+   } else {      
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+   }
+   
+   if (propertySetError)
+      roadmap_log(ROADMAP_ERROR, "set_duck() failed to set audio session properties, err: %d", propertySetError);
    
    AudioSessionSetActive(TRUE);
 }
@@ -147,7 +158,7 @@ char *get_full_name(const char *file_name) {
    char result[MAX_SOUND_NAME];
    char *p;
    
-   sprintf(result, file_name);
+   strncpy_safe(result, file_name, sizeof(result));
    
    p = roadmap_path_skip_directories (result);
    p = strrchr (p, '.');
@@ -158,11 +169,11 @@ char *get_full_name(const char *file_name) {
    file_name = result;
    
    if (roadmap_path_is_full_path (file_name)) {
-      snprintf (full_name, sizeof(full_name), "%s", file_name);
+      strncpy_safe(full_name, file_name, sizeof(full_name));
    } else {
       const char* prompts_name = roadmap_prompts_get_name();
-         snprintf (full_name, sizeof(full_name), "%ssound/%s/%s",
-                   roadmap_path_user(), prompts_name, file_name);
+      snprintf (full_name, sizeof(full_name), "%ssound/%s/%s",
+                roadmap_path_user(), prompts_name, file_name);
    }
    
    return strdup(full_name);
@@ -211,7 +222,8 @@ int prepare_file (const char *file_name, AVAudioPlayer** audioPlayer) {
          roadmap_log (ROADMAP_WARNING, "prepare_file(): Sound play failed to init; File: '%s' ; Err: %s", 
                       full_name, [[err description] UTF8String]);
       } else {
-         roadmap_log (ROADMAP_WARNING, "prepare_file(): Sound play failed 'prepareToPlay' command");
+         roadmap_log (ROADMAP_WARNING, "prepare_file(): Sound play failed 'prepareToPlay' command; File: '%s'",
+                      full_name);
       }
       
       if (audioPlayer) {
@@ -397,8 +409,12 @@ void stopPlayer () {
 void roadmap_sound_initialize (void) {
    
    AudioSessionInitialize (NULL, NULL, NULL, NULL);
-   UInt32 sessionCategory = kAudioSessionCategory_AmbientSound;
+   //UInt32 sessionCategory = kAudioSessionCategory_AmbientSound;
+   UInt32 sessionCategory = kAudioSessionCategory_MediaPlayback;
    AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
+   UInt32 overrideMixing = TRUE;
+   AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+   
    
    AudioSessionSetActive (TRUE);
    

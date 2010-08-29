@@ -32,6 +32,7 @@
 #include "FreeMapAppView.h"
 extern "C" {
 #include "roadmap.h"
+#include "roadmap_messagebox.h"
 }
 
 // ============================ MEMBER FUNCTIONS ===============================
@@ -83,7 +84,7 @@ void CWazeBrowserView::ConstructL( const TRect& aRect )
 // C++ default constructor can NOT contain any code, that might leave.
 // -----------------------------------------------------------------------------
 //
-CWazeBrowserView::CWazeBrowserView() : iBrCtlInterface( NULL ), iUrl( NULL ),
+CWazeBrowserView::CWazeBrowserView() : iBrCtlInterface( NULL ),
       iBrLoadEventObserver( NULL ), iBrSpecialLoadObserver( NULL )
 {
    // No implementation required
@@ -113,7 +114,12 @@ CWazeBrowserView::~CWazeBrowserView()
 //
 void CWazeBrowserView::SetUrl( const TDes16& aUrl )
 {
-   iUrl = &aUrl;
+	if ( aUrl.Size() > iUrl.MaxSize() )
+	{
+		roadmap_log( ROADMAP_ERROR, "Cannot set the url of length: %d. Maximum length: %d", aUrl.Length(), iUrl.MaxLength() );
+		return;
+	}
+    iUrl.Copy( aUrl );
 }
 
 /***********************************************************
@@ -134,16 +140,21 @@ void CWazeBrowserView::ViewActivatedL( const TVwsViewId& aPrevViewId, TUid aCust
 
    TUint iCommandBase = TBrCtlDefs::ECommandIdBase;
    TUint iBrCtlCapabilities = TBrCtlDefs::ECapabilityDisplayScrollBar |
-         TBrCtlDefs::ECapabilityLoadHttpFw;
+         TBrCtlDefs::ECapabilityLoadHttpFw |TBrCtlDefs::ECapabilityClientNotifyURL |
+         TBrCtlDefs::ECapabilityAutoFormFill|TBrCtlDefs::ECapabilityCursorNavigation|
+         TBrCtlDefs::ECapabilityGraphicalPage|TBrCtlDefs::ECapabilityFavicon|TBrCtlDefs::ECapabilityToolBar|
+         TBrCtlDefs::ECapabilityWebKitLite;
+         
    if ( iBrCtlInterface == NULL )
    {
       iBrSpecialLoadObserver = new CWazeBrowserSpecialLoadObserver();
+      iBrLinkResolver = CWazeBrowserLinkResolver::NewL();
       iBrCtlInterface = CreateBrowserControlL( this,
             this->Rect(),
             iBrCtlCapabilities,
             iCommandBase,
             NULL,
-            NULL,
+            iBrLinkResolver,
             iBrSpecialLoadObserver,
             NULL,
             NULL );
@@ -151,7 +162,13 @@ void CWazeBrowserView::ViewActivatedL( const TVwsViewId& aPrevViewId, TUid aCust
       if( iBrCtlInterface != NULL )
       {
          //			iBrCtlInterface->SetBrowserSettingL( TBrCtlDefs::ESettingsApId, CRoadMapNativeNet::GetChosenAP() );
-         iBrLoadEventObserver = new CWazeBrowserLoadEventObserver();
+		  /*
+		   * Disable security content warning
+		   */
+      
+         iBrCtlInterface->SetBrowserSettingL( TBrCtlDefs::ESettingsSecurityWarnings, 0 );
+         iBrCtlInterface->SetBrowserSettingL( TBrCtlDefs::ESettingsCookiesEnabled, 1 );
+         iBrLoadEventObserver = new CWazeBrowserLoadEventObserver( iBrCtlInterface );
          iBrCtlInterface->AddLoadEventObserverL( iBrLoadEventObserver );
       }
       else
@@ -162,8 +179,9 @@ void CWazeBrowserView::ViewActivatedL( const TVwsViewId& aPrevViewId, TUid aCust
    }
 
    iBrCtlInterface->SetRect( this->Rect() );
-   //	iBrCtlInterface->ActivateL();
-   iBrCtlInterface->LoadUrlL( *iUrl );
+   //	iBrCtlInterface->ActivateL();   
+   
+   iBrCtlInterface->LoadUrlL( iUrl );
 }
 
 /***********************************************************
@@ -181,14 +199,27 @@ void CWazeBrowserView::ViewDeactivated()
 
 TKeyResponse CWazeBrowserView::HandleKeyEventL( const TKeyEvent& aKeyEvent, TEventCode aType )
 {
-   if ( ( aKeyEvent.iScanCode != EStdKeyDevice0 ) && ( aKeyEvent.iScanCode != EStdKeyDevice1 ) )
-   {
-      if ( iBrCtlInterface != NULL )
-      {
-         return iBrCtlInterface->OfferKeyEventL( aKeyEvent, aType );
-      }
-   }
-   return EKeyWasNotConsumed;
+	TKeyResponse res = EKeyWasNotConsumed;
+	TBrCtlDefs::TBrCtlElementType elem_type = iBrCtlInterface->FocusedElementType();
+	
+	if ( iBrCtlInterface != NULL )
+    {
+	    res = iBrCtlInterface->OfferKeyEventL( aKeyEvent, aType );	    
+    }
+	
+    /*
+     * Consume all events except non handled softkeys. Only softkeys codes in the input box should be ignored   
+     */
+	if ( res == EKeyWasConsumed )
+		return res;
+	
+	if ( !( elem_type != TBrCtlDefs::EElementActivatedInputBox &&  
+			  ( ( aKeyEvent.iScanCode == EStdKeyDevice0 ) || ( aKeyEvent.iScanCode == EStdKeyDevice1 ) ) ) ) 			
+	{		
+		res = EKeyWasConsumed;
+	}
+   
+   return res;
 }
 
 // ---------------------------------------------------------
@@ -264,6 +295,9 @@ CWazeBrowserSpecialLoadObserver::~CWazeBrowserSpecialLoadObserver()
  */
 void CWazeBrowserLoadEventObserver::HandleBrowserLoadEventL( TBrCtlDefs::TBrCtlLoadEvent aLoadEvent, TUint aSize, TUint16 aTransactionId )
 {
+
+//	roadmap_log( ROADMAP_WARNING, "Browser. Getting the event: %d.", aLoadEvent );
+   
    switch ( aLoadEvent )
    {
    case TBrCtlDefs::EEventNewContentStart:
@@ -274,10 +308,8 @@ void CWazeBrowserLoadEventObserver::HandleBrowserLoadEventL( TBrCtlDefs::TBrCtlL
    {
       if ( iWaitDialog == NULL )
       {
-         // Wait dialog
-         iWaitDialog = new CAknWaitDialog( ( REINTERPRET_CAST( CEikDialog**, &iWaitDialog ) ) );
-         iWaitDialog->SetTextL( _L( "Loading..." ) );
-         iWaitDialog->ExecuteLD( R_WAIT_NOTE );
+		 CreateWaitDialog();
+		 iWaitDialog->ExecuteLD( R_WAIT_NOTE );
       }
       break;
    }
@@ -298,12 +330,20 @@ void CWazeBrowserLoadEventObserver::HandleBrowserLoadEventL( TBrCtlDefs::TBrCtlL
    };
 }
 
-CWazeBrowserLoadEventObserver::CWazeBrowserLoadEventObserver() : iWaitDialog( NULL )
+
+inline void CWazeBrowserLoadEventObserver::CreateWaitDialog()
+{
+    iWaitDialog = new CAknWaitDialog( ( REINTERPRET_CAST( CEikDialog**, &iWaitDialog ) ) );
+    iWaitDialog->SetTextL( _L( "Loading..." ) );
+}
+
+CWazeBrowserLoadEventObserver::CWazeBrowserLoadEventObserver( CBrCtlInterface* aBrCtlInterface ) 
+				: iWaitDialog( NULL ), iBrCtlInterface( aBrCtlInterface )
 {
    // Wait dialog
-   iWaitDialog = new CAknWaitDialog( ( REINTERPRET_CAST( CEikDialog**, &iWaitDialog ) ) );
-   iWaitDialog->SetTextL( _L( "Loading..." ) );
-   iWaitDialog->ExecuteLD( R_WAIT_NOTE );
+	CreateWaitDialog();
+	iWaitDialog->ExecuteLD( R_WAIT_NOTE );
+	
 }
 
 CWazeBrowserLoadEventObserver::~CWazeBrowserLoadEventObserver()
@@ -313,3 +353,62 @@ CWazeBrowserLoadEventObserver::~CWazeBrowserLoadEventObserver()
       delete( iWaitDialog );
    }
 }
+
+
+
+
+
+/****************************************************************************************************************
+ * ================================== CWazeBrowserLinkResolver ===========================================
+ */
+
+CWazeBrowserLinkResolver* CWazeBrowserLinkResolver::NewL()                                                                     
+{                                                                                                   
+    CWazeBrowserLinkResolver* self = new (ELeave) CWazeBrowserLinkResolver();
+    CleanupStack::PushL( self );
+    self->ConstructL();
+    CleanupStack::Pop();
+    return self;
+}
+
+void CWazeBrowserLinkResolver::CancelAll()
+{}
+
+void CWazeBrowserLinkResolver::ConstructL()
+{}
+
+TBool CWazeBrowserLinkResolver::ResolveEmbeddedLinkL( const TDesC& aEmbeddedUrl, const TDesC& aCurrentUrl,
+                                         TBrCtlLoadContentType aLoadContentType, MBrCtlLinkContent& aEmbeddedLinkContent )
+{	
+//	HBufC8 *pUrl = HBufC8::NewL( aEmbeddedUrl.Size() + 1 );	// The size in bytes is relevant
+//	pUrl->Des().Copy( aEmbeddedUrl );
+//	TPtr8 pDes = pUrl->Des();
+	
+	//GSConvert::TDes16ToCharPtr( aEmbeddedUrl, (char**) &url, false );
+	//roadmap_log( ROADMAP_INFO, "Going to resolve embedded link: %s", (const char*) pDes.PtrZ() );
+	
+	return ResolveLinkL( aEmbeddedUrl, aCurrentUrl, aEmbeddedLinkContent );	
+}
+
+TBool CWazeBrowserLinkResolver::ResolveLinkL  ( const TDesC& aUrl, const TDesC &aCurrentUrl, MBrCtlLinkContent &aBrCtlLinkContent )
+{
+	TBool handled = EFalse;
+	
+	HBufC8 *pUrl = HBufC8::NewL( aUrl.Size() + 1 );	// The size in bytes is relevant
+	pUrl->Des().Copy( aUrl );
+	TPtr8 pDes = pUrl->Des();
+	
+	
+	roadmap_log( ROADMAP_INFO, "Going to resolve link: %s", (const char*) pDes.PtrZ() );
+	
+	if ( roadmap_browser_url_handler( (const char*) pDes.PtrZ() ) )
+	{
+		roadmap_messagebox( "URL", (const char*) pDes.PtrZ() );
+		handled = ETrue;
+	}
+	delete pUrl;
+	return handled;
+}
+
+CWazeBrowserLinkResolver::CWazeBrowserLinkResolver() {}
+CWazeBrowserLinkResolver::~CWazeBrowserLinkResolver() {}

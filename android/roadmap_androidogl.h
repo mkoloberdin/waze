@@ -31,6 +31,7 @@
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
+#include "roadmap_androidmain.h"
 //#include <ui/EventHub.h>
 
 typedef struct
@@ -39,6 +40,9 @@ typedef struct
 	EGLDisplay display;
 	EGLSurface surface;
 } EGLContextPack;
+
+#define CANVAS_ATLAS_TEX_SIZE \
+    ( { ( roadmap_main_get_build_sdk_version() < ANDROID_OS_VER_FROYO ) ? 512 : 1024; } )
 
 void roadmap_canvas_prepare_main_context( void );
 void roadmap_canvas_prepare( void );

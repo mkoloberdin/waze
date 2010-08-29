@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
 	android:name="Waze" 
-	android:versionCode="1018803" package="com.waze" android:versionName="1.8.99.101">
+	android:versionCode="1018900" package="com.waze" android:versionName="1.9.0.0">
 
 	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -16,7 +16,7 @@
 
 	
 	<application android:icon="@drawable/icon" android:label="@string/app_name" 
-				 android:debuggable="false">
+				 android:debuggable="true">
 		<activity android:name=".FreeMapAppActivity" android:label="@string/app_name"
 			android:launchMode="singleTask" android:configChanges="orientation|keyboardHidden" android:screenOrientation="user">
 			<intent-filter>

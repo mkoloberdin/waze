@@ -129,6 +129,7 @@ void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, CB_OnKeyboardDon
     }
     else
     {
+	  kbd_callback(dec_cancel, "", kbd_context);
       //Do nothing
     }
     

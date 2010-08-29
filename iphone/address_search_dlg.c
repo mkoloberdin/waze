@@ -91,14 +91,14 @@ typedef enum tag_contextmenu_items
    cm_add_to_favorites,
    cm_exit,
    cm_send,
-   
+
    cm__count,
    cm__invalid
 
 }  contextmenu_items;
 
 // Context menu items:
-static ssd_cm_item main_menu_items[] = 
+static ssd_cm_item main_menu_items[] =
 {
    //                  Label     ,           Item-ID
    SSD_CM_INIT_ITEM  ( "Navigate",           cm_navigate),
@@ -127,9 +127,9 @@ static const char* ANALYTICS_EVENT_ADDRSUCCESS_NAME = "ADDRESS_SEARCH_SUCCESS";
 static int on_options(SsdWidget widget, const char *new_value, void *context);
 static int send_error_report(){
    roadmap_result rc;
-   
+
    roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRREPORT_NAME, ANALYTICS_EVENT_ADDRREPORT_INFO, searched_text);
-   
+
 	rc= address_search_report_wrong_address(searched_text);
    if( succeeded == rc)
    {
@@ -143,16 +143,16 @@ static int send_error_report(){
                   "address_search_dialog::on_list_item_selected() - Resolve process transaction failed to start: '%s'",
                   err);
    }
-   
+
    roadmap_main_pop_view(YES);
-   
+
    return 0;
 }
 
 static int on_list_item_selected(SsdWidget widget, const char *new_value, const void *value, void *context)
 {
 	selected_item = (int)value;
-   
+
    if (strcmp(new_value, roadmap_lang_get(COULDNT_FIND_ADDRESS_TEXT))==0) {
       send_error_report();
    }
@@ -160,26 +160,26 @@ static int on_list_item_selected(SsdWidget widget, const char *new_value, const 
    {
       navigate(1);
    }
-   
+
    return 0;
 }
 
 /* Callback for the error message box */
 static void on_search_error_message( int exit_code )
 {
-   
+
 }
 
 static void on_address_resolved( void*                context,
-                                 address_candidate*   array, 
-                                 int                  size, 
+                                 address_candidate*   array,
+                                 int                  size,
                                  roadmap_result       rc)
 {
    static   const char* results[ADSR_MAX_RESULTS + 1];
    static   void*       indexes[ADSR_MAX_RESULTS + 1];
    static   const char* icons[ADSR_MAX_RESULTS + 1];
    int       i;
-   
+
    ssd_progress_msg_dialog_hide();
 
    if( succeeded != rc)
@@ -187,68 +187,74 @@ static void on_address_resolved( void*                context,
       if( is_network_error( rc))
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                                 roadmap_lang_get( "Search requires internet connection.\r\nPlease make sure you are connected."), on_search_error_message );
-      
-      
-      
+
+
+
       else if( err_as_could_not_find_matches == rc)
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                                 roadmap_lang_get( "Sorry, no results were found for this search"), on_search_error_message );
       else
       {
          char msg[128];
-         
+
          snprintf( msg, sizeof(msg), "%s\n%s",roadmap_lang_get("Sorry we were unable to complete the search"), roadmap_lang_get("Please try again later"));
-         
+
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"), msg, on_search_error_message );
       }
-      
+
       roadmap_log(ROADMAP_ERROR,
                   "address_search_dlg::on_address_resolved() - Resolve process failed with error '%s' (%d)",
                   roadmap_result_string( rc), rc);
-      
+
       roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRFAIL_NAME, ANALYTICS_EVENT_ADDRFAIL_INFO, searched_text);
       return;
    }
 
    if( !size)
    {
-      roadmap_log(ROADMAP_DEBUG, 
+      roadmap_log(ROADMAP_DEBUG,
                   "address_search_dlg::on_address_resolved() - NO RESULTS for the address-resolve process");
-      
+
       roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRNORES_NAME, ANALYTICS_EVENT_ADDRNORES_INFO, searched_text);
       return;
    }
 
    roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRSUCCESS_NAME, NULL, NULL);
-   
+
    assert( size <= ADSR_MAX_RESULTS);
-   
+
    for( i=0; i<size; i++)
    {
       results[i] = array[i].address;
       indexes[i] = (void*)(i);
 	   icons[i] = "search_address";
    }
-   
+
    results[i] = roadmap_lang_get(COULDNT_FIND_ADDRESS_TEXT);
    indexes[i] = (void*)(COULDNT_FIND_INDEX);
    icons[i] = "submit_logs";
-	
-	roadmap_list_menu_generic(roadmap_lang_get(ASD_DIALOG_TITLE), size+1, results, (void *)indexes, 
-							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 60, TRUE);
+
+	roadmap_list_menu_generic(roadmap_lang_get(ASD_DIALOG_TITLE), size+1, results, (void *)indexes,
+							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 60, TRUE, NULL);
 }
 
 
 int on_search(const char *text, void *list_cont)
 {
   roadmap_result rc;
-	
+
 	if ( !strcmp( DEBUG_LEVEL_SET_PATTERN, text ) )
 	{
 		roadmap_start_reset_debug_mode();
 		roadmap_main_show_root(NO);
 		return 0;
 	}
+   if ( !strcmp( "##@coord", text ) )
+   {
+      roadmap_gps_reset_show_coordinates();
+      roadmap_main_show_root(NO);
+      return 0;
+   }
    if ( !strcmp( "##@il", text ) )
    {
       roadmap_geo_config_il(NULL);
@@ -273,39 +279,39 @@ int on_search(const char *text, void *list_cont)
       roadmap_main_show_root(NO);
       return 0;
    }
-      
-   if ( !strcmp( "##@heb", text ) )	
-   { 
-      roadmap_lang_set_system_lang("heb"); 
-      roadmap_messagebox("", "Language changed to Hebrew, please restart waze");  
-      return 0;  
+
+   if ( !strcmp( "##@heb", text ) )
+   {
+      roadmap_lang_set_system_lang("heb");
+      roadmap_messagebox("", "Language changed to Hebrew, please restart waze");
+      return 0;
    }
    if ( !strcmp( "##@eng", text ) )
    {
       roadmap_messagebox("","Language changed to English, please restart waze");
-      roadmap_lang_set_system_lang("eng"); 
+      roadmap_lang_set_system_lang("eng");
       return 0;
    }
-   
-   
+
+
    strncpy_safe (searched_text, text, sizeof(searched_text));
-   
+
 	rc = ( address_search_resolve_address( list_cont, on_address_resolved, text));
 	if( succeeded == rc)
 	{
 		//roadmap_main_set_cursor( ROADMAP_CURSOR_WAIT);
       ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching . . . " ) );
-		roadmap_log(ROADMAP_DEBUG, 
+		roadmap_log(ROADMAP_DEBUG,
 					"address_search_dlg::on_search() - Started Web-Service transaction: Resolve address");
 	}
 	else
 	{
 		const char* err = roadmap_result_string( rc);
-		
-		roadmap_log(ROADMAP_ERROR, 
+
+		roadmap_log(ROADMAP_ERROR,
 					"address_search_dlg::on_search() - Resolve process transaction failed to start");
-		
-		roadmap_messagebox ( roadmap_lang_get( "Resolve Address"), 
+
+		roadmap_messagebox ( roadmap_lang_get( "Resolve Address"),
 							roadmap_lang_get( err));
 	}
 
@@ -316,13 +322,13 @@ int on_search(const char *text, void *list_cont)
 static int get_selected_list_item()
 {
    SsdWidget list;
-   
+
    if( s_1st)
       return -1;
-   
+
    list = ssd_widget_get( s_dlg, ASD_RC_LIST_NAME);
    assert(list);
-   
+
    return (int)ssd_list_selected_value( list);
 }
 
@@ -331,7 +337,7 @@ static const char* get_house_number__str( int i)
 {
    static char s_str[12];
    static int  s_i = -1;
-   
+
    if( i < 0)
       s_str[0] = '\0';
    else
@@ -339,9 +345,9 @@ static const char* get_house_number__str( int i)
       if( s_i != i)
          sprintf( s_str, "%d", i);
    }
-   
+
    s_i = i;
-   
+
    return s_str;
 }
 
@@ -349,37 +355,37 @@ static const char* get_house_number__str( int i)
 
 char* favorites_address_info[ahi__count];
 /*
-BOOL on_favorites_name( int         exit_code, 
+BOOL on_favorites_name( int         exit_code,
 					   const char* name,
 					   void*       context)
 {
 	int i;
-	
+
 	roadmap_main_show_root(0);
-	
+
 	if( dec_ok == exit_code)
 	{
 		if( !name || !(*name))
-			roadmap_messagebox ( roadmap_lang_get( "Add to favorites"), 
+			roadmap_messagebox ( roadmap_lang_get( "Add to favorites"),
 								roadmap_lang_get( "ERROR: Invalid name specified"));
 		else
 		{
 			favorites_address_info[ ahi_name] = strdup( name);
-			roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);      
-			
+			roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);
+
 			ssd_dialog_hide_all( dec_close);
-			
+
 			if( !roadmap_screen_refresh())
 				roadmap_screen_redraw();
 		}
-	}   
-	
+	}
+
 	for( i=0; i<ahi__count; i++)
 		FREE( favorites_address_info[i])
-		
+
 		return TRUE;
 }
- 
+
 
 static void add_to_favorites()
 {
@@ -396,7 +402,7 @@ static void add_address_to_history( int               category,
 	const char* address[ahi__count];
 	char        latitude[32];
 	char        longtitude[32];
-	
+
 	address[ahi_city]          = city;
 	address[ahi_street]        = street;
 	address[ahi_house_number]  = house;
@@ -405,19 +411,19 @@ static void add_address_to_history( int               category,
 		address[ahi_name]   = name;
 	else
 		address[ahi_name]   = "";
-	
+
 	sprintf(latitude, "%d", position->latitude);
 	sprintf(longtitude, "%d", position->longitude);
 	address[ahi_latitude]   = latitude;
 	address[ahi_longtitude] = longtitude;
-	
+
 	if( ADDRESS_FAVORITE_CATEGORY == category)
 	{
 		int i;
-		
+
 		for( i=0; i<ahi__count; i++)
 			favorites_address_info[i] = strdup( address[i]);
-		
+
 		add_to_favorites();
 	}
 	else
@@ -431,37 +437,37 @@ static BOOL navigate_with_coordinates_int( BOOL take_me_there)
 	int                        selected_list_item= selected_item;
 	const address_candidate*   selection         = generic_search_result( selected_list_item);
 	RoadMapPosition            position;
-	
+
 	if( !selection)
 	{
 		assert(0);
 		return FALSE;
 	}
-	
+
 	position.longitude= (int)(selection->longtitude* 1000000);
 	position.latitude = (int)(selection->latitude  * 1000000);
-	
+
 	roadmap_trip_set_point ("Selection",&position);
 	roadmap_trip_set_point ("Address",  &position);
-	
+
 	ai.state    = NULL;
 	ai.country  = NULL;
 	ai.city     = selection->city;
 	ai.street   = selection->street;
 	ai.house    = get_house_number__str( selection->house);
-	
-	add_address_to_history( ADDRESS_HISTORY_CATEGORY, 
-                           selection->city, 
-                           selection->street, 
-                           get_house_number__str( selection->house), 
+
+	add_address_to_history( ADDRESS_HISTORY_CATEGORY,
+                           selection->city,
+                           selection->street,
+                           get_house_number__str( selection->house),
                            NULL,
                            &position);
-	
+
 	if( take_me_there)
 	{
 		// Cancel previous navigation:
 		navigate_main_stop_navigation();
-		
+
 		if( -1 == main_navigator( &position, &ai))
 			return FALSE;
 	}
@@ -469,13 +475,13 @@ static BOOL navigate_with_coordinates_int( BOOL take_me_there)
 	{
 		int square = roadmap_tile_get_id_from_position (0, &position);
    	roadmap_tile_request (square, ROADMAP_TILE_STATUS_PRIORITY_ON_SCREEN, 1, NULL);
-   	
+
       roadmap_trip_set_focus ("Address");
-      
+
 		roadmap_square_force_next_update ();
       roadmap_screen_redraw ();
 	}
-	
+
 	return TRUE;
 }
 */
@@ -487,14 +493,14 @@ static BOOL navigate( BOOL take_me_there)
 
 
 static int on_option_selected (SsdWidget widget, const char* sel ,const void *value, void* context) {
-   
+
    contextmenu_items selection = cm__invalid;
    BOOL              close     = FALSE;
    BOOL              do_nav    = FALSE;
 	RoadMapPosition position;
-   
+
    s_menu = FALSE;
-      
+
    selection = ((ssd_cm_item_ptr)value)->id;
 
    switch( selection)
@@ -506,31 +512,31 @@ static int on_option_selected (SsdWidget widget, const char* sel ,const void *va
 		   	roadmap_main_show_root(0);
          close = navigate( do_nav);
          break;
-         
+
       case cm_add_to_favorites:
       {
          int                        selected_list_item   = selected_item;
          const address_candidate*   selection            = generic_search_result( selected_list_item);
-         
+
          position.longitude= (int)(selection->longtitude* 1000000);
          position.latitude = (int)(selection->latitude  * 1000000);
-         
+
          generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                                               selection->city, 
-                                               selection->street, 
+                                               selection->city,
+                                               selection->street,
                                                get_house_number__str( selection->house),
                                                selection->state,
                                                NULL,
-                                               &position); 
-         
+                                               &position);
+
          break;
       }
-         
+
       case cm_send:
          roadmap_main_pop_view(NO);
          send_error_report();
          break;
-         
+
       case cm_exit:
          close = TRUE;
          break;
@@ -539,21 +545,21 @@ static int on_option_selected (SsdWidget widget, const char* sel ,const void *va
          assert(0);
          break;
    }
-   
+
    return 0;
 }
 
-int on_options(SsdWidget widget, const char *new_value, void *context)	
+int on_options(SsdWidget widget, const char *new_value, void *context)
 {
 	static   const char* labels[MAX_MENU_ITEMS];
 	static   void*       values[MAX_MENU_ITEMS];
 	int i;
    int count;
-   
+
    selected_item = (int)new_value;
-   
+
    if (selected_item != COULDNT_FIND_INDEX) {
-	
+
 
       for (i = 0; i < context_menu.item_count; ++i) {
          labels[i] = context_menu.item[i].label;
@@ -565,9 +571,10 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
       values[0] = (void *)&cm_send_item;
       count = 1;
    }
-	
-	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected, NULL, NULL, NULL, 60, FALSE);
-	
+
+	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected,
+                             NULL, NULL, NULL, 60, FALSE, NULL);
+
 
 
    return 0;
@@ -592,17 +599,17 @@ void verify_init ()
 BOOL address_search_auto_search( const char* address)
 {
    verify_init();
-   
+
 	on_search(address, NULL);
-	
+
 	return TRUE;
 }
 
 void address_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                               void*                context)
 {
-   verify_init();   
-  
+   verify_init();
+
 	ShowSearchbox (roadmap_lang_get (ASD_DIALOG_TITLE), roadmap_lang_get ("Enter your search"), on_searchbox_done, NULL);
 }
 
@@ -610,7 +617,7 @@ void address_book_dlg_show(PFN_ON_DIALOG_CLOSED cbOnClosed,
                            void*                context)
 {
 	verify_init();
-	
+
 	roadmap_address_book (on_searchbox_done, NULL);
-	
+
 }

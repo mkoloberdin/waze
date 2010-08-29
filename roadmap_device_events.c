@@ -118,6 +118,8 @@ void roadmap_device_event_notification( device_event event)
       device_event_info_ptr handler = (device_event_info_ptr)cyclic_array_get_item( &EQC, i);
       
       assert(handler);
+	  if (!handler)
+		  return;
       handler->handler( event, handler->context);
    }
 }

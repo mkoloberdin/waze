@@ -26,7 +26,8 @@ void roadmap_general_settings_show(void);
 void quick_settins_exit( int exit_code, void* context);
 BOOL roadmap_general_settings_is_24_hour_clock();
 SsdWidget create_quick_setting_menu();
-
+int roadmap_general_settings_events_radius(void);
+void roadmap_general_settings_init(void);
 #ifdef IPHONE_NATIVE
 void roadmap_general_settings_show_lang_initial(RoadMapCallback callback);
 #endif //IPHONE_NATIVE

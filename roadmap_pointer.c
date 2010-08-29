@@ -44,7 +44,7 @@
 #elif (defined(__SYMBIAN32__))
 #define  DRAG_MOVEMENT_THR 8 // Sym touch
 #define LONG_CLICK_TIMEOUT 400
-#elif (defined(WIN32))
+#elif (defined(_WIN32))
 #define  DRAG_MOVEMENT_THR 8 // Win
 #define LONG_CLICK_TIMEOUT 400
 #else
@@ -143,9 +143,9 @@ static void roadmap_pointer_button_pressed (RoadMapGuiPoint *point) {
 
 static void roadmap_pointer_double_click_timeout (void) {
    roadmap_main_remove_periodic(roadmap_pointer_double_click_timeout);
-   
+
    is_testing_double_click = 0;
-   
+
    exec_callbacks (SHORT_CLICK, &last_pointer_point);
    is_button_down = 0;
    exec_callbacks (RELEASED, &last_pointer_point);
@@ -163,15 +163,15 @@ static void roadmap_pointer_button_released (RoadMapGuiPoint *point) {
       }
 
       exec_callbacks (DRAG_END, point);
-      
+
       is_dragging = 0;
       is_button_down = 0;
       exec_callbacks (RELEASED, point);
    } else if (is_testing_double_click) {
       roadmap_main_remove_periodic(roadmap_pointer_double_click_timeout);
-      
+
       is_testing_double_click = 0;
-      
+
       exec_callbacks (DOUBLE_CLICK, &last_pointer_point);
       is_button_down = 0;
    } else if (is_button_down) {
@@ -300,7 +300,7 @@ void roadmap_pointer_register_long_click (RoadMapPointerHandler handler,
 
 void roadmap_pointer_register_double_click (RoadMapPointerHandler handler,
                                           int priority) {
-   
+
    queue_callback (DOUBLE_CLICK, handler, priority);
 }
 
@@ -356,7 +356,7 @@ void roadmap_pointer_unregister_long_click (RoadMapPointerHandler handler) {
 }
 
 void roadmap_pointer_unregister_double_click (RoadMapPointerHandler handler) {
-   
+
    remove_callback (DOUBLE_CLICK, handler);
 }
 

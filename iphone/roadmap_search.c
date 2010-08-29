@@ -80,7 +80,7 @@ static RoadMapAddressNav RoadMapAddressNavigate;
 
 
 // Context menu items:
-static ssd_cm_item main_menu_items[] = 
+static ssd_cm_item main_menu_items[] =
 {
    //                  Label     ,           Item-ID
    SSD_CM_INIT_ITEM  ( "Navigate",           search_menu_navigate),
@@ -97,7 +97,7 @@ static void hide_our_dialogs( int exit_code)
 {
    	ssd_generic_list_dialog_hide ();
 	ssd_menu_hide("Search");
-    ssd_dialog_hide( "Main Menu", exit_code);   
+    ssd_dialog_hide( "Main Menu", exit_code);
 }
 
 static void roadmap_address_done (RoadMapGeocode *selected, BOOL navigate, address_info_ptr ai) {
@@ -126,12 +126,12 @@ static void roadmap_address_done (RoadMapGeocode *selected, BOOL navigate, addre
     roadmap_trip_set_point ("Address", &selected->position);
 
     if (!navigate || !RoadMapAddressNavigate) {
-       
+
        roadmap_trip_set_focus ("Address");
 
        roadmap_display_activate
           ("Selected Street", &line, &selected->position, &street);
-       
+
 	   roadmap_street_extend_line_ends (&line, &from, &to, FLAG_EXTEND_BOTH, NULL, NULL);
 	   roadmap_display_update_points ("Selected Street", &from, &to);
 	   roadmap_screen_add_focus_on_me_softkey();
@@ -155,7 +155,7 @@ static int roadmap_address_show (const char *city,
    char *state;
    const char *argv[4];
    address_info   ai;
-   
+
    ai.state = NULL;
    ai.country = NULL;
    ai.city =city;
@@ -175,7 +175,7 @@ static int roadmap_address_show (const char *city,
       free (selections);
       return 0;
    }
-   
+
    if(context->category == 'A'){
    	argv[0] = street_number_image;
    	argv[1] = street_name;
@@ -203,22 +203,22 @@ static int on_navigate(void *data){
     char *street_name;
     char *street_number;
     char *argv[5];
-    
+
 	ContextmenuContext *context = (ContextmenuContext *)data;
-	
+
 	roadmap_main_show_root(0);
-	
+
     roadmap_history_get (context->context->category, (void *) context->history, argv);
-    
+
   	city_name = strdup (argv[2]);
    	street_name = strdup (argv[1]);
    	street_number = strdup (argv[0]);
 
 
 	if (roadmap_address_show(city_name, street_name, street_number,context->context, TRUE)){
-		//hide_our_dialogs(dec_close);		 
+		//hide_our_dialogs(dec_close);
 	}
-	
+
 	return TRUE;
 }
 
@@ -228,37 +228,37 @@ static int on_show(void *data){
     char *street_name;
     char *street_number;
 	ContextmenuContext *context = (ContextmenuContext *)data;
-	
+
 	/* We got a full address */
     char *argv[5];
 
     roadmap_history_get (context->context->category, (void *) context->history, argv);
-    
+
   	city_name = strdup (argv[2]);
    	street_name = strdup (argv[1]);
    	street_number = strdup (argv[0]);
 
 
 	if (roadmap_address_show(city_name, street_name, street_number,context->context, FALSE)){
-		hide_our_dialogs(dec_close);		 
+		hide_our_dialogs(dec_close);
 	}
-	
+
 	return TRUE;
 }
 
 
 static void on_erase_history_item(int exit_code, void *data){
-	
+
 	ContextmenuContext *context = (ContextmenuContext *)data;
 
 	if( dec_yes != exit_code)
       return;
-	
+
 	roadmap_history_delete_entry(context->history);
 	roadmap_history_save();
 	ssd_generic_list_dialog_hide ();
 	roadmap_search_history (context->context->category, context->context->title);
-	
+
 }
 
 static void on_delete(void *data){
@@ -267,18 +267,18 @@ static void on_delete(void *data){
 	roadmap_main_show_root(0); //TODO: remove this when confirm dialog is ready
 	char string[100];
 	ContextmenuContext *context = (ContextmenuContext *)data;
-	
+
 	if (context->context->category == 'A')
 		strcpy(string, "Are you sure you want to remove item from history?");
 	else
 		strcpy(string, "Are you sure you want to remove item from favorites?");
-	
-	ssd_confirm_dialog( selection, 
-                        string, 
-                        FALSE,  
-                        on_erase_history_item, 
+
+	ssd_confirm_dialog( selection,
+                        string,
+                        FALSE,
+                        on_erase_history_item,
                         (void*)data);
-	
+
 }
 
 
@@ -287,17 +287,17 @@ static int keyboard_callback(int type, const char *new_value, void *data)
 	char *argv[5];
 	char empty[250];
 	ContextmenuContext *context = (ContextmenuContext *)data;;
-	
+
 
     if (type != SSD_KEYBOARD_OK)
         return 1;
 
 	roadmap_history_get (context->context->category, (void *) context->history, argv);
-	
+
 	if (new_value[0] == 0){
 		sprintf(empty, "%s %s %s",  argv[1], argv[0], argv[2]);
 		new_value = empty;
-	}	
+	}
 
     argv[4] = (char *)new_value;
 
@@ -306,130 +306,130 @@ static int keyboard_callback(int type, const char *new_value, void *data)
     ssd_keyboard_hide();
 
 	roadmap_main_show_root(0);
-		
+
     return 1;
 
 }
 
 static void add_to_favorites(int exit_code, void *data){
-	
+
 	if( dec_yes != exit_code)
       return;
-      
+
 	#if defined(__SYMBIAN32__) || defined(IPHONE)
     	ShowEditbox(roadmap_lang_get("Name"), "",
             keyboard_callback, (void *)data, EEditBoxStandard );
 	#else
   	  ssd_keyboard_show (SSD_KEYBOARD_LETTERS,
             roadmap_lang_get("Name"), "", NULL, keyboard_callback, (void *)data);
-	#endif  	
-	
+	#endif
+
 }
 
 static void on_add_to_favorites(void *data){
 	//const char* selection= ssd_generic_list_dialog_selected_string ();
 	const char* selection = "Confirm"; //TODO: fix this
 	roadmap_main_show_root(0); //TODO: remove this when confirm dialog is ready
-	ssd_confirm_dialog( selection, 
-                        "Are you sure you want to Add item to favorites?", 
-                        FALSE,  
-                        add_to_favorites, 
+	ssd_confirm_dialog( selection,
+                        "Are you sure you want to Add item to favorites?",
+                        FALSE,
+                        add_to_favorites,
                         (void*)data);
-	
+
 }
 
 
 static int on_option_selected (SsdWidget widget, const char *new_value, const void *value,
 							 void *context) {
-	
+
    search_menu_context_menu_items   selection;
    int                  exit_code = dec_ok;
    BOOL hide = FALSE;
-	
+
 	ssd_cm_item_ptr item = (ssd_cm_item_ptr)value;
-	
+
    g_context_menu_is_active       = FALSE;
-   
+
   // if( !made_selection)
-    //  return;  
-      
+    //  return;
+
    selection = (search_menu_context_menu_items)item->id;
 
-	 
+
    switch( selection)
    {
 	  case search_menu_navigate:
 	  	on_navigate(context);
 	    break;
-	    
+
 	  case search_menu_show:
 	    on_show(context);
 	    break;
-	    
+
 	  case search_menu_delete:
 	  	on_delete(context);
 	  	break;
-	  	
+
 	  case search_menu_add_to_favorites:
 	  	on_add_to_favorites(context);
 	    break;
-	  	
+
 	  case search_menu_exit:
 	  	hide = TRUE;
-	  	break;	  
-	  	
+	  	break;
+
 	  case search_menu_cancel:
 	  	g_context_menu_is_active = FALSE;
 	  	roadmap_screen_refresh ();
 	  	break;
-	  		
+
       default:
         break;
    }
-   
+
    if (hide){
    	  ssd_dialog_hide_all( exit_code);
       roadmap_screen_refresh ();
    }
-	
+
 	return TRUE;
 }
 
 void get_context_item (search_menu_context_menu_items id, ssd_cm_item_ptr *item){
 	int i;
-	
+
 	for( i=0; i<context_menu.item_count; i++)
 	{
 		*item = context_menu.item + i;
-		if ((*item)->id == id) {		
+		if ((*item)->id == id) {
 			return;
 		}
 	}
-	
+
 	//NSLog(@"not item found");
 	//TODO: handle wrong id
 }
 
 static int on_options(SsdWidget widget, const char *new_value, void *search_context){
-	
+
 	static ContextmenuContext menu_context;
 	static char *labels[MAX_CONTEXT_ENTRIES];
 	static void *values[MAX_CONTEXT_ENTRIES];
 	static char *icons[MAX_CONTEXT_ENTRIES];
 	ssd_cm_item_ptr item;
-	
+
 	int count = 0;
-	
+
 	menu_context.history = (void *)new_value;
 	menu_context.context = search_context;
-	
+
 	get_context_item (search_menu_delete, &item);
 	values[count] = item;
 	labels[count] = strdup(item->label);
 	//values[count] = NULL;
 	icons[count] = NULL;
 	count++;
-	
+
 	if (menu_context.context->category == 'A'){
 		get_context_item (search_menu_add_to_favorites, &item);
 		values[count] = item;
@@ -438,7 +438,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
 		icons[count] = NULL;
 		count++;
 	}
-	
+
 	roadmap_list_menu_generic (new_value,
 							   count,
 							   (const char **)labels,
@@ -447,13 +447,13 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
 							   NULL,
 							   on_option_selected,
 							   NULL,
-							   &menu_context,            
+							   &menu_context,
 							   NULL,
 							   NULL, 60,0,FALSE);
-	
+
 	return 0;
 	/*
-	
+
    int menu_x;
    static ContextmenuContext menu_context;
    BOOL can_navigate;
@@ -461,26 +461,26 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
    BOOL can_delete;
    BOOL add_exit = TRUE;
    BOOL add_cancel = FALSE;
-   
+
 #ifdef TOUCH_SCREEN
    add_exit = FALSE;
    add_cancel = TRUE;
    roadmap_screen_refresh();
 #endif
-   
+
    if(g_context_menu_is_active)
    {
       ssd_dialog_hide_current(dec_ok);
       g_context_menu_is_active = FALSE;
       return 0;
    }
-   
-   
+
+
    if (widget != NULL){
          const char* selection= ssd_generic_list_dialog_selected_string ();
          const void* value    = ssd_generic_list_dialog_selected_value  ();
          const void* list_context = ssd_generic_list_dialog_get_context();
-         
+
          if( selection && (*selection))
          {
             context = (void *)list_context;
@@ -489,10 +489,10 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
          else{
 #ifdef TOUCH_SCREEN
 			return 0;
-#endif         	
+#endif
          }
    }
-  
+
    menu_context.history = (void *)new_value;
    menu_context.context = context;
    can_navigate = FALSE;
@@ -501,7 +501,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
 
 
    if (strcmp(new_value, "generic_list")){
-		  #ifndef TOUCH_SCREEN       	
+		  #ifndef TOUCH_SCREEN
    	         can_navigate = TRUE;
    	      #endif
    	      can_delete = TRUE;
@@ -510,46 +510,46 @@ static int on_options(SsdWidget widget, const char *new_value, void *search_cont
 	      }
    }
 
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_navigate,           
-                              can_navigate,      
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_navigate,
+                              can_navigate,
                               FALSE);
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_show,           
-                              can_navigate,      
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_show,
+                              can_navigate,
                               FALSE);
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_delete,           
-                              can_delete,      
-                              FALSE);
-
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_add_to_favorites,           
-                              can_add_to_favorites,      
-                              FALSE);
-  
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_exit,           
-                              add_exit,      
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_delete,
+                              can_delete,
                               FALSE);
 
-   ssd_contextmenu_show_item( &context_menu, 
-                              search_menu_cancel,           
-                              add_cancel,      
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_add_to_favorites,
+                              can_add_to_favorites,
+                              FALSE);
+
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_exit,
+                              add_exit,
+                              FALSE);
+
+   ssd_contextmenu_show_item( &context_menu,
+                              search_menu_cancel,
+                              add_cancel,
                               FALSE);
 
    if  (ssd_widget_rtl (NULL))
 	   menu_x = SSD_X_SCREEN_RIGHT;
 	else
 		menu_x = SSD_X_SCREEN_LEFT;
-		
+
    ssd_context_menu_show(  menu_x,   // X
                            SSD_Y_SCREEN_BOTTOM, // Y
                            &context_menu,
                            on_option_selected,
                            &menu_context,
-                           dir_default); 
- 
+                           dir_default);
+
    g_context_menu_is_active = TRUE;
 
    return 0;*/
@@ -564,10 +564,10 @@ static int history_callback (SsdWidget widget, const char *new_value, const void
     menu_context.context = data;
   	on_navigate(&menu_context);
    	return 0;
-#endif  		
+#endif
 
 	on_options(NULL, value, data);
-	
+
 	return TRUE;
 }
 
@@ -584,29 +584,29 @@ void roadmap_search_history (char category, const char *title) {
    static int count = -1;
    void *history;
    void *prev;
-	
-	
-   
-   
+
+
+
+
    search_context.category = category;
    search_context.title = strdup(title);
 
    if (count == -1){
-   			roadmap_history_declare ('A', 4);
-   			roadmap_history_declare ('F', 5);
+      roadmap_history_declare( ADDRESS_HISTORY_CATEGORY, ahi__count);
+      roadmap_history_declare( ADDRESS_FAVORITE_CATEGORY, ahi__count);
    }
-   
-   count = 0;   
+
+   count = 0;
 
    	history = roadmap_history_latest (category);
 
    while (history && (count < MAX_HISTORY_ENTRIES)) {
       char *argv[5];
       char str[100];
-      
+
       roadmap_history_get (category, history, argv);
       prev = history;
-      
+
 	  if (category == 'A'){
       	snprintf (str, sizeof(str), "%s %s, %s", argv[1], argv[0], argv[2]);
       	icons[count] = "history";
@@ -619,14 +619,14 @@ void roadmap_search_history (char category, const char *title) {
       labels[count] = strdup(str);
 
       values[count] = history;
-      
+
 
       count++;
-      
+
       history = roadmap_history_before (category, history);
       if (history == prev) break;
    }
-	
+
 
    roadmap_list_menu_generic (roadmap_lang_get (title),
                   count,
@@ -636,7 +636,7 @@ void roadmap_search_history (char category, const char *title) {
                   NULL,
                   history_callback,
                   NULL,
-                  &search_context,            
+                  &search_context,
                   roadmap_lang_get("Options"),
             	  on_options, 60,0,TRUE);
 }
@@ -652,10 +652,10 @@ void search_menu_search_favorites(void){
 }
 
 void search_menu_search_address(void){
-	#ifdef  TOUCH_SCREEN 
+	#ifdef  TOUCH_SCREEN
 		roadmap_address_history();
 	#else
-		address_tabcontrol_show( NULL); 	
+		address_tabcontrol_show( NULL);
 	#endif
 }
 
@@ -664,7 +664,7 @@ extern ssd_contextmenu_ptr    s_main_menu;
 extern const char*            grid_menu_labels[];
 extern RoadMapAction          RoadMapStartActions[];
 BOOL get_menu_item_names(  const char*          menu_name,
-                           ssd_contextmenu_ptr  parent, 
+                           ssd_contextmenu_ptr  parent,
                            const char*          items[],
                            int*                 count);
 
@@ -672,10 +672,10 @@ BOOL get_menu_item_names(  const char*          menu_name,
 
 void roadmap_search_menu(void){
 
-	
-	roadmap_list_menu_simple ("Search", 
-								"search", 
-								NULL, 
+
+	roadmap_list_menu_simple ("Search",
+								"search",
+								NULL,
 								NULL,
 								RoadMapStartActions,
 								SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_TRANSPARENT|SSD_ROUNDED_CORNERS|SSD_POINTER_MENU|SSD_HEADER_GRAY);

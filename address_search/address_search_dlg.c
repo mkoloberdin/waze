@@ -37,6 +37,7 @@
 #include "../roadmap_locator.h"
 #include "../roadmap_display.h"
 #include "../roadmap_main.h"
+#include "../roadmap_gps.h"
 #include "../roadmap_geo_config.h"
 #include "../roadmap_square.h"
 #include "../roadmap_tile_manager.h"
@@ -242,6 +243,13 @@ static void on_search(void)
       roadmap_start_reset_debug_mode();
       return;
    }
+
+   if ( !strcmp( "##@coord", ssd_text_get_text( edit ) ) )
+   {
+      roadmap_gps_reset_show_coordinates();
+      return;
+   }
+
    if ( !strcmp( "##@il", ssd_text_get_text( edit ) ) )
    {
       roadmap_geo_config_il(NULL);

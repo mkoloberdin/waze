@@ -163,13 +163,12 @@ static void roadmap_layer_reload_internal (void) {
         if (!initialized)
            roadmap_config_declare ("schema", &descriptor, "1", NULL);
         thickness = category->thickness = roadmap_config_get_integer (&descriptor);
-#ifndef ANDROID
+
         if ( roadmap_screen_is_hd_screen() )
         {
          category->thickness = (int)(category->thickness * 1.5);
          thickness = (int)(thickness * 1.5);
         }
-#endif
 
         if (!initialized) {
            descriptor.name     = "Declutter";
@@ -377,6 +376,10 @@ void roadmap_layer_adjust (void) {
                      category->pen_count > 1);
 
             if (thickness <= 0) thickness = 1;
+#ifdef VIEW_MODE_3D_OGL
+            if (roadmap_screen_get_view_mode() == VIEW_MODE_3D)
+               thickness *= 2;
+#endif
             if (thickness > 40) thickness = 40;
 
 #ifndef OPENGL
@@ -427,6 +430,12 @@ void roadmap_layer_adjust (void) {
                if (category->delta_thickness[j] < 0) {
 
                   thickness += category->delta_thickness[j];
+                  
+#ifdef VIEW_MODE_3D_OGL
+                  if (roadmap_screen_get_view_mode() == VIEW_MODE_3D &&
+                      !roadmap_screen_fast_refresh())
+                     thickness += category->delta_thickness[j]*2; //increase the delta
+#endif
 
                } else {
                   /* Don't end with a road mostly drawn with the latter

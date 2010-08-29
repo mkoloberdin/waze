@@ -124,6 +124,7 @@ void roadmap_main_play_movie (const char* url);
 #define ROADMAP_MAIN_OS_NA             0
 #define ROADMAP_MAIN_OS_30             1
 #define ROADMAP_MAIN_OS_31             2
+#define ROADMAP_MAIN_OS_4              3
 
 #endif //IPHONE
 

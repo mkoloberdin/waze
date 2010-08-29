@@ -31,7 +31,7 @@
 #define INCLUDE__ROADMAP_ANDROID_MAIN__H
 
 #define ANDROID_OS_VER_DONUT	4
-
+#define ANDROID_OS_VER_FROYO  8
 
 // Main loop messages dispatcher
 void roadmap_main_message_dispatcher( int aMsg );

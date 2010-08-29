@@ -36,13 +36,15 @@
 
 
 @interface WelcomeWizardView : UIViewController <UIScrollViewDelegate, UITextFieldDelegate, UISearchBarDelegate> {
-
+   BOOL gAfterConnect;
+   BOOL kbIsOn;
 }
 
 
 - (void) showPersonalizeLater;
 - (void) showPersonalize;
-- (void) showTwitter: (int)showIntro;
+- (void) showTwitter: (int)afterCreate;
+- (void) showFacebook;
 - (void) showEnd;
 
 @end

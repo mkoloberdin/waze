@@ -51,7 +51,7 @@
 
 #include "../roadmap_main.h"
 #include "../roadmap_time.h"
-
+#include "roadmap_base64.h"
 #include "../roadmap_lang.h"
 #include "../roadmap_download.h"
 #include "../editor/editor_main.h"
@@ -67,6 +67,10 @@
 #include "roadmap_version.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_map_settings.h"
+#include "roadmap_push_notifications.h"
+#include "roadmap_math.h"
+#include "Realtime.h"
+#include "../navigate/navigate_main.h"
 
 #ifdef FLURRY
 #import "FlurryAPI.h"
@@ -117,32 +121,45 @@ static RoadMapViewController  *RoadMapMainViewController = NULL;
 static UINavigationController	*RoadMapMainNavCont        = NULL;
 static RoadMapView            *RoadMapMainBox            = NULL;
 static RoadMapCanvasView      *RoadMapCanvasBox          = NULL;
+static UIView                 *RoadMapTopBar             = NULL;
 static UIToolbar              *RoadMapBottomBar          = NULL;
 static UIToolbar              *RoadMapMoreBar            = NULL;
 static UIView                 *RoadMapMainToolbar        = NULL;
-static UIImageView            *RoadmapBgImageV           = NULL;
-static UIWindow               *RoadMapMainSplashWin      = NULL;
+//static UIWindow               *RoadMapMainSplashWin      = NULL;
 static UIImageView            *RoadMapMainSplashView     = NULL;
 
-static int                 IsGoingToSuspend           = 0; //true if suspending not from home button (phone call etc)
 static int                 IsLaunching                = 1;
+static int                 IsInBackground             = 0;
+static int                 IsActive                   = 1;
+static int                 IsScreenRefresh            = 0;
+static int                 IsBackgroundSupported      = FALSE;
+static int                 gsLaunchTime               = 0;
 static int                 RoadMapMainPlatform        = ROADMAP_MAIN_PLATFORM_NA;
 static int                 RoadMapMainOsVersion       = ROADMAP_MAIN_OS_NA;
 static char                RoadMapMainProxy[256];
 static int                 gsBacklightOn;
 static int                 gsTopBarHeight;
-
 static BOOL                showing_modal = FALSE;
+static RoadMapPosition     gsLastPosition;
 
 
 static int iPhoneIconsInitialized = 0;
 
 
 #define EDGE_MARGINE          0.0f
-#define BOTTOM_BAR_HEIGHT     40.0f
-#define BOTTOM_BAR_HEIGHT_LS  32.0f
-#define VIEW_TAG_TOP_BAR      1
-#define VIEW_TAG_BG_IMAGE     2
+#define BOTTOM_BAR_HEIGHT     49.0f //40.0f
+#define BOTTOM_BAR_HEIGHT_LS  41.0f //32.0f
+#define BACKGROUND_TIMEOUT       (10*60*1000)
+
+
+static void roadmap_main_screen_refresh (int refresh) {
+   IsScreenRefresh = refresh;
+   
+   if (IsInBackground)
+      return;
+   
+   roadmap_start_screen_refresh(refresh);
+}
 
 static UIView *roadmap_main_toolbar_icon (const char *icon) {
 
@@ -164,9 +181,13 @@ void roadmap_main_toggle_full_screen (void) {
 }
 
 void roadmap_main_new (const char *title, int width, int height) {
-    [TheApp newWithTitle: title andWidth: width andHeight: height];
-	
+   static BOOL first_time = TRUE;
+   
+   if (first_time) {
+      first_time = FALSE;
+      [TheApp newWithTitle: title andWidth: width andHeight: height];
       editor_main_set (1);
+   }
 }
 
 void roadmap_main_title(char *fmt, ...) {
@@ -411,11 +432,15 @@ static void roadmap_canvas_rect (CGRect *outRect){
 void roadmap_main_add_canvas (void) {
    //    NSLog ("roadmap_main_add_canvas\n");
    static BOOL done = FALSE;
-   
-   if (done)
-      return;
-   
    CGRect rect;
+   
+   if (done) {
+      roadmap_canvas_rect(&rect);
+      RoadMapCanvasBox.frame = rect;
+      [RoadMapCanvasBox layoutSubviews];
+      return;
+   }
+   
 	roadmap_canvas_rect(&rect);
    
    RoadMapCanvasBox = [[RoadMapCanvasView alloc] initWithFrame: rect];
@@ -425,9 +450,8 @@ void roadmap_main_add_canvas (void) {
    [RoadMapCanvasBox setContentMode:UIViewContentModeCenter];
    [RoadMapMainBox addSubview: RoadMapCanvasBox];
    
-   UIView *topView = [RoadMapMainBox viewWithTag:VIEW_TAG_TOP_BAR];
-   if (topView)
-      [RoadMapMainBox bringSubviewToFront:topView];
+   if (RoadMapTopBar)
+      [RoadMapMainBox bringSubviewToFront:RoadMapTopBar];
    
    if (RoadMapBottomBar && RoadMapMoreBar) {
       [RoadMapMainBox bringSubviewToFront:RoadMapMoreBar];
@@ -659,13 +683,15 @@ static void roadmap_start_event (int event) {
 }
 
 int roadmap_main_should_mute () {
-	int shouldMute =  IsGoingToSuspend;
+	//int shouldMute =  IsInBackground;
 
-   return (shouldMute);
+   //return (shouldMute);
+   
+   return FALSE;
 }
 
 int roadmap_main_will_suspend () {
-   return (IsGoingToSuspend);
+   return (IsInBackground);
 }
 
 int roadmap_main_get_platform () {
@@ -869,12 +895,13 @@ void roadmap_main_set_backlight( int isAlwaysOn ) {
 }
 
 void roadmap_main_refresh_backlight (void) {
+   //if (!IsInBackground)
    roadmap_main_set_backlight (gsBacklightOn);
 }
 
 BOOL roadmap_main_should_rotate(UIInterfaceOrientation interfaceOrientation) {
-   if (IsLaunching)
-      return (interfaceOrientation == UIInterfaceOrientationPortrait);
+   //if (IsLaunching)
+   //   return (interfaceOrientation == UIInterfaceOrientationPortrait);
    
    return (interfaceOrientation != UIInterfaceOrientationPortraitUpsideDown);
 }
@@ -909,6 +936,50 @@ void roadmap_flurry_log_event (const char *event_name, const char *info_name, co
 #endif //FLURRY
 }
 
+static void roadmap_main_background_timeout(void) {
+   roadmap_log(ROADMAP_WARNING, "Shutting down due to inactivity...");
+   roadmap_main_exit();
+}
+
+static int get_bg_timeout(void) {
+   int bgTimeout = BACKGROUND_TIMEOUT;
+   int now = (int)time(NULL);
+   
+   if (now - gsLaunchTime < 5*60 || //running less than 5 min
+       navigate_main_near_destination()) //near destination
+      bgTimeout = bgTimeout /2;
+   
+   return bgTimeout;
+}
+
+static void roadmap_main_gps_listener (time_t gps_time,
+                                       const RoadMapGpsPrecision *dilution,
+                                       const RoadMapGpsPosition *position){
+   RoadMapPosition new_position;
+   int distance;
+
+   new_position.latitude = position->latitude;
+   new_position.longitude = position->longitude;
+   
+   if (gsLastPosition.longitude == -1) {
+      gsLastPosition = new_position;
+      return;
+   }
+   
+   distance = roadmap_math_distance (&gsLastPosition, &new_position);
+
+   if (distance >= 500) {
+      roadmap_log (ROADMAP_DEBUG, "roadmap_main_gps_listener() - user is active, expanding background run time");
+      roadmap_main_remove_periodic(roadmap_main_background_timeout);
+      roadmap_main_set_periodic(get_bg_timeout(), roadmap_main_background_timeout);
+      gsLastPosition = new_position;
+   }
+}
+
+BOOL roadmap_main_full_animation (void) {
+   return FALSE;
+   return IsBackgroundSupported;
+}
 
 
 int main (int argc, char **argv) {
@@ -956,7 +1027,7 @@ int main (int argc, char **argv) {
    roadmap_canvas_rect(&rect);
    RoadMapCanvasBox.frame = rect;
    [RoadMapCanvasBox layoutSubviews];
-   roadmap_start_screen_refresh(TRUE);
+   roadmap_main_screen_refresh(TRUE);
 }
 
 
@@ -1015,7 +1086,7 @@ int main (int argc, char **argv) {
 }
 
 - (void)viewWillDisappear:(BOOL)animated {
-   roadmap_start_screen_refresh(FALSE);
+   roadmap_main_screen_refresh(FALSE);
    roadmap_canvas_should_accept_layout(FALSE);
    if (!showing_modal)
       [RoadMapMainNavCont setNavigationBarHidden:NO animated:NO];
@@ -1023,7 +1094,7 @@ int main (int argc, char **argv) {
 
 - (void)viewDidAppear:(BOOL)animated
 {
-   //roadmap_start_screen_refresh(TRUE);
+   roadmap_main_screen_refresh(TRUE);
    [RoadMapMainViewController setTitle:[NSString stringWithUTF8String:roadmap_lang_get("back")]];
    //if (RoadMapCanvasBox)
      // roadmap_screen_redraw();
@@ -1079,7 +1150,6 @@ int main (int argc, char **argv) {
 		
 		// Main window
 		rect = [[UIScreen mainScreen] bounds];
-      //rect = [[UIScreen mainScreen] applicationFrame];
       RoadMapMainWindow = [[UIWindow alloc] initWithFrame:rect];
       RoadMapMainWindow.backgroundColor = roadmap_main_table_color();
       
@@ -1090,10 +1160,9 @@ int main (int argc, char **argv) {
 		[RoadMapMainBox setAutoresizingMask: UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth];
       
       // Top bar window
-      UIView *topBarView = roadmap_bar_create_top_bar ();
-      topBarView.tag = VIEW_TAG_TOP_BAR;
-		[RoadMapMainBox addSubview: topBarView];
-      gsTopBarHeight = topBarView.bounds.size.height;
+      RoadMapTopBar = roadmap_bar_create_top_bar ();
+		[RoadMapMainBox addSubview: RoadMapTopBar];
+      gsTopBarHeight = RoadMapTopBar.bounds.size.height;
       
 		//Create bottom bar
 		rect = RoadMapMainBox.bounds;
@@ -1111,33 +1180,12 @@ int main (int argc, char **argv) {
 		//Create view controller
 		RoadMapMainViewController = [[RoadMapViewController alloc] init];
 		RoadMapMainViewController.view = RoadMapMainBox;
-      //RoadMapMainBox = RoadMapMainViewController.view;
 		RoadMapMainNavCont = [[UINavigationController alloc] initWithRootViewController:RoadMapMainViewController];
 		
-		//[RoadMapMainNavCont setNavigationBarHidden:YES animated:NO];
 		[RoadMapMainWindow addSubview: RoadMapMainNavCont.view];
       
-      //bg image
-      /*
-      rect.origin.y += self.statusBarFrame.size.height;
-      RoadmapBgImageV = [[UIImageView alloc] initWithFrame:rect];
-      [RoadmapBgImageV setAutoresizesSubviews: YES];
-		[RoadmapBgImageV setAutoresizingMask: UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth];
-      RoadmapBgImageV.tag = VIEW_TAG_BG_IMAGE;
-      [RoadMapMainNavCont.view addSubview: RoadmapBgImageV];
-      [RoadMapMainNavCont.view sendSubviewToBack:RoadmapBgImageV];
-      //[RoadmapBgImageV release];
-		
-		//[RoadMapMainWindow setAutoresizesSubviews:YES];
-      
-      roadmap_main_adjust_skin();
-      */
-      
-      
       roadmap_main_add_canvas ();
-      roadmap_start_screen_refresh(FALSE);
-		
-		//[RoadMapMainWindow makeKeyAndVisible];
+      roadmap_main_screen_refresh(FALSE);
 	}
 
 
@@ -1157,7 +1205,8 @@ int main (int argc, char **argv) {
 {
 	[RoadMapMainNavCont dismissModalViewControllerAnimated:YES];
    if (roadmap_main_is_root())
-      roadmap_start_screen_refresh(TRUE);
+      roadmap_main_screen_refresh(TRUE);
+
    showing_modal = FALSE;
 }
 
@@ -1322,6 +1371,10 @@ int main (int argc, char **argv) {
     }
 }
 
+//////////////////////////////////
+//Moview Player notifications
+
+//Pre OS 4.0 handling
 -(void) moviePreloadDoneCallback:(NSNotification *)notification
 {
    MPMoviePlayerController *mp = [notification object];
@@ -1332,7 +1385,6 @@ int main (int argc, char **argv) {
    
    if (err) {
       roadmap_log(ROADMAP_WARNING, "Error trying to play video (err code: %d)", [err code]);
-      
       [[NSNotificationCenter defaultCenter]
        removeObserver: self
        name:MPMoviePlayerContentPreloadDidFinishNotification
@@ -1341,9 +1393,74 @@ int main (int argc, char **argv) {
       [mp release];
       
       roadmap_messagebox("Error", "Video could not start");
+   } else {
+      [mp play];
    }
+}
 
-   [mp play];
+//Changed load state (OS >= 4.0)
+-(void) movieLoadStateCallback:(NSNotification *)notification
+{
+   MPMoviePlayerController *mp = [notification object];
+   NSDictionary *userInfo = [notification userInfo];
+   NSError *err = [userInfo objectForKey:@"error"];
+   
+   if (err) {
+      roadmap_log(ROADMAP_WARNING, "Error trying to play video (err code: %d)", [err code]);
+      [[NSNotificationCenter defaultCenter]
+       removeObserver: self
+       name:MPMoviePlayerLoadStateDidChangeNotification
+       object:mp];
+      
+      [mp release];
+      
+      roadmap_messagebox("Error", "Video could not start");
+      return;
+   }
+   
+   if (mp.loadState == MPMovieLoadStatePlayable) {
+      [[NSNotificationCenter defaultCenter]
+       removeObserver: self
+       name:MPMoviePlayerLoadStateDidChangeNotification
+       object:mp];
+      
+      ssd_progress_msg_dialog_hide();
+      [RoadMapMainWindow addSubview:mp.view];
+      [mp play];
+      mp.fullscreen = YES;
+   }
+}
+
+//Stopped playing (OS >= 4.0)
+-(void) movieFinishedPlayingCallback:(NSNotification *)notification
+{
+   MPMoviePlayerController *mp = [notification object];
+   NSDictionary *userInfo = [notification userInfo];
+
+   ssd_progress_msg_dialog_hide();
+   
+   if (userInfo) {
+      NSError *err = [userInfo objectForKey:@"error"];
+      if (err) {
+         roadmap_log(ROADMAP_WARNING, "Error trying to play video (err code: %d)", [err code]);
+         
+         roadmap_messagebox("Error", "Video could not start");
+      }
+   }
+   
+   [[NSNotificationCenter defaultCenter]
+    removeObserver: self
+    name:MPMoviePlayerPlaybackDidFinishNotification
+    object:mp];
+   
+   [[NSNotificationCenter defaultCenter]
+    removeObserver: self
+    name:MPMoviePlayerDidExitFullscreenNotification
+    object:mp];
+   
+   [mp.view removeFromSuperview];
+   
+   [mp release];
 }
 
 - (void) playMovie: (const char *)url
@@ -1354,13 +1471,35 @@ int main (int argc, char **argv) {
       MPMoviePlayerController *mp = [[MPMoviePlayerController alloc] initWithContentURL:urlFromString];
       if (mp)
       {
-         [[NSNotificationCenter defaultCenter]
-          addObserver: self
-          selector:@selector(moviePreloadDoneCallback:)
-          name:MPMoviePlayerContentPreloadDidFinishNotification
-          object:mp];
-         
-         mp.scalingMode = MPMovieScalingModeFill;
+         if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4) {
+            //load state change
+            [[NSNotificationCenter defaultCenter]
+             addObserver: self
+             selector:@selector(movieLoadStateCallback:)
+             name:MPMoviePlayerLoadStateDidChangeNotification
+             object:mp];
+            
+            //finished playing
+            [[NSNotificationCenter defaultCenter]
+             addObserver: self
+             selector:@selector(movieFinishedPlayingCallback:)
+             name:MPMoviePlayerPlaybackDidFinishNotification
+             object:mp];
+            
+            //User pressed done
+            [[NSNotificationCenter defaultCenter]
+             addObserver: self
+             selector:@selector(movieFinishedPlayingCallback:)
+             name:MPMoviePlayerDidExitFullscreenNotification
+             object:mp];
+         } else {
+            [[NSNotificationCenter defaultCenter]
+             addObserver: self
+             selector:@selector(moviePreloadDoneCallback:)
+             name:MPMoviePlayerContentPreloadDidFinishNotification
+             object:mp];
+         }
+         //mp.scalingMode = MPMovieScalingModeFill;
          
          ssd_progress_msg_dialog_show(roadmap_lang_get("Starting video..."));
       } else {
@@ -1409,7 +1548,7 @@ int main (int argc, char **argv) {
    
    roadmap_path_free(source_directory);
    
-   
+   /* ==> takes too much time...
    //clean old map tiles (non-sqlite tiles)
    directory = roadmap_path_join(roadmap_path_preferred("maps"), "/77001");
    destinationStr = [NSString stringWithUTF8String:directory];
@@ -1418,6 +1557,7 @@ int main (int argc, char **argv) {
          NSLog(@"Error removing old map tiles");
    }
    roadmap_path_free(directory);
+    */
    
 
    //clean map edt
@@ -1434,13 +1574,15 @@ int main (int argc, char **argv) {
    srcStr = [NSString stringWithUTF8String:source_directory];   
    destinationStr = [NSString stringWithUTF8String:directory];
    error = nil;
-   
-   if (![fileManager fileExistsAtPath:destinationStr]) {
-      if (![fileManager copyItemAtPath:srcStr toPath:destinationStr error:&error])
-         roadmap_log (ROADMAP_ERROR, "Error copying sound directory");
-   } else {
-      roadmap_log (ROADMAP_WARNING, "Skipping copy of existing sound dir");
+   //remove old sound dir
+   if ([fileManager fileExistsAtPath:destinationStr]) {
+      roadmap_log (ROADMAP_WARNING, "Removing existing sound dir");
+      if (![fileManager removeItemAtPath:destinationStr error:&error])
+         roadmap_log (ROADMAP_ERROR, "Error removing old map tiles");
    }
+   //copy new sound
+   if (![fileManager copyItemAtPath:srcStr toPath:destinationStr error:&error])
+      roadmap_log (ROADMAP_ERROR, "Error copying sound directory");
    
    roadmap_path_free(source_directory);
    roadmap_path_free(directory);
@@ -1502,13 +1644,19 @@ void appExceptionHandler(NSException *exception)
    }
     */
 }
-
+extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 - (void)onSwapSplash
 {
+   /*
    [RoadMapMainWindow makeKeyAndVisible];
    if (RoadMapMainSplashWin)
       [RoadMapMainSplashWin release];
+    */
+   [RoadMapMainSplashView removeFromSuperview];
+   (*RoadMapCanvasConfigure) ();
    IsLaunching = 0;
+   
+   gsLaunchTime = (int)time (NULL);
 }
 
 - (void)onStart
@@ -1526,14 +1674,20 @@ void appExceptionHandler(NSException *exception)
       RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPHONE;
    }
    
+   if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)])
+      IsBackgroundSupported = [[UIDevice currentDevice] isMultitaskingSupported];
+   
    //set os version
    NSString *sysVersion = [[UIDevice currentDevice] systemVersion];
    if ([sysVersion compare:@"3.0"] == 0 ||
        [sysVersion compare:@"3.0.1"] == 0) {
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_30;
-   } else {
+   } else if ([sysVersion UTF8String][0] != '4'){
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
+   } else {
+      RoadMapMainOsVersion = ROADMAP_MAIN_OS_4;
    }
+
    
    NSString *deviceId = [[UIDevice currentDevice] uniqueIdentifier];
    NSString *time = [[NSDate date] description];
@@ -1567,11 +1721,14 @@ void appExceptionHandler(NSException *exception)
    roadmap_skin_register (roadmap_main_adjust_skin);
    
    
+   //[self onSwapSplash];
+   
    swapSplashTimer = [NSTimer scheduledTimerWithTimeInterval: 1.0
                                                       target: self
                                                     selector: @selector (onSwapSplash)
                                                     userInfo: nil
                                                      repeats: NO];
+    
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -1581,10 +1738,12 @@ void appExceptionHandler(NSException *exception)
    NSTimer *startTimer;
    CGRect rect;
    
-#ifdef FLURRY
-   [FlurryAPI startSession:[NSString stringWithUTF8String:FLURRY_API_KEY]];
-   NSSetUncaughtExceptionHandler(appExceptionHandler);
-#endif //FLURRY
+#if !TARGET_IPHONE_SIMULATOR
+   //register for push notifications
+   [[UIApplication sharedApplication] registerForRemoteNotificationTypes:(UIRemoteNotificationTypeBadge |
+                                                                          UIRemoteNotificationTypeSound |
+                                                                          UIRemoteNotificationTypeAlert)];
+#endif
    
    if (launchOptions != NULL) {
       launchURL = (NSURL *)[launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
@@ -1592,6 +1751,10 @@ void appExceptionHandler(NSException *exception)
          if (!roadmap_urlscheme_handle (launchURL))
             return NO;
    }
+   
+   
+   TheApp = self;
+   roadmap_main_new("", 0, 0);
    
    
    image = roadmap_iphoneimage_load("welcome");
@@ -1604,25 +1767,27 @@ void appExceptionHandler(NSException *exception)
    }
    if (image) {
       
-      UIImageView *RoadMapMainSplashView = [[UIImageView alloc] initWithImage:image];
+      RoadMapMainSplashView = [[UIImageView alloc] initWithImage:image];
       [image release];
-      RoadMapMainSplashWin = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].applicationFrame];
+      //RoadMapMainSplashWin = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].applicationFrame];
       
       rect = RoadMapMainSplashView.frame;
       
       if (rect.size.width <= 320){
-         rect.origin.y -= 20;
+         //rect.origin.y -= 20;
          RoadMapMainSplashView.frame = rect;
       } else {
-         RoadMapMainSplashView.frame = RoadMapMainSplashWin.bounds;
+         rect.origin.y += 20;
+         //RoadMapMainSplashView.frame = RoadMapMainWindow.bounds;
+         RoadMapMainSplashView.frame = rect;
       }
-      [RoadMapMainSplashWin addSubview: RoadMapMainSplashView];
+      //[RoadMapMainSplashWin addSubview: RoadMapMainSplashView];
+      //[RoadMapMainSplashView release];
+      //[RoadMapMainSplashWin makeKeyAndVisible];
+      [RoadMapMainWindow addSubview:RoadMapMainSplashView];
       [RoadMapMainSplashView release];
-      [RoadMapMainSplashWin makeKeyAndVisible];
+      [RoadMapMainWindow makeKeyAndVisible];
    }
-   
-   
-   TheApp = self;
    
    
    //Clear old version files
@@ -1635,6 +1800,13 @@ void appExceptionHandler(NSException *exception)
    } else {
       running_new_version = 1;
    }
+   
+#ifdef FLURRY
+   [FlurryAPI startSession:[NSString stringWithUTF8String:FLURRY_API_KEY]];
+   //[FlurryAPI setSessionReportsOnCloseEnabled:running_new_version];
+   [FlurryAPI setSessionReportsOnCloseEnabled:NO];
+   NSSetUncaughtExceptionHandler(appExceptionHandler);
+#endif //FLURRY
    
    if (running_new_version) {
       [self newVersionCleanup];
@@ -1650,19 +1822,6 @@ void appExceptionHandler(NSException *exception)
    
 	
    return YES;
-}
-
-
-- (void)applicationWillResignActive:(UIApplication *)application
-{
-	//NSLog (@"applicationWillResignActive\n");
-	IsGoingToSuspend = 1;
-}
-
-- (void)applicationDidBecomeActive:(UIApplication *)application
-{
-	//NSLog (@"applicationDidBecomeActive\n");
-	IsGoingToSuspend = 0;
 }
 
 - (void)applicationWillTerminate:(UIApplication *)application
@@ -1688,6 +1847,90 @@ void appExceptionHandler(NSException *exception)
 }
 
 
+/////////////////////////////
+//Push notification events
+- (void)application:(UIApplication *)app didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)devToken {
+   const void *devTokenBytes = [devToken bytes];
+   int size = [devToken length];
+   char* base64Text;
+   int text_length;
+   
+   text_length = roadmap_base64_get_buffer_size(size);
+   base64Text = (char*)malloc( text_length );
+   
+   if (!roadmap_base64_encode(devTokenBytes, size, &base64Text, text_length))
+      return;
+   roadmap_log(ROADMAP_DEBUG, "Received push token, base64 value: '%s'", base64Text);
+   
+   roadmap_push_notifications_set_token(base64Text);
+   free(base64Text);   
+}
+
+- (void)application:(UIApplication *)app didFailToRegisterForRemoteNotificationsWithError:(NSError *)err {
+   NSLog(@"Error in registration. Error: %@", err);
+}
+
+/////////////////////////////
+//Multitasking
+
+- (void)applicationWillResignActive:(UIApplication *)application
+{
+   if (!IsActive)
+      return;
+
+   IsActive = FALSE;
+   if (!IsBackgroundSupported)
+      return;
+   
+   gsLastPosition.longitude = gsLastPosition.latitude = -1;
+   
+   roadmap_main_set_periodic(get_bg_timeout(), roadmap_main_background_timeout);
+   roadmap_gps_register_listener (roadmap_main_gps_listener);
+}
+
+- (void)applicationDidBecomeActive:(UIApplication *)application
+{
+   if (IsActive) {
+      return;
+   }
+
+   IsActive = TRUE;
+   if (!IsBackgroundSupported)
+      return;
+   
+   roadmap_gps_unregister_listener (roadmap_main_gps_listener);
+   roadmap_main_remove_periodic(roadmap_main_background_timeout);
+}
+- (void)applicationDidEnterBackground:(UIApplication *)application
+{
+   if (IsInBackground)
+      return;
+
+   IsInBackground = TRUE;
+   if (!IsBackgroundSupported)
+      return;
+   
+   Realtime_SetBackground(TRUE);
+   
+   if (IsScreenRefresh)
+      roadmap_start_screen_refresh(FALSE);
+}
+
+- (void)applicationWillEnterForeground:(UIApplication *)application
+{
+   if (!IsInBackground) {
+      return;
+   }
+
+   IsInBackground = FALSE;
+   if (!IsBackgroundSupported)
+      return;
+   
+   Realtime_SetBackground(FALSE);
+   
+   if (IsScreenRefresh)
+      roadmap_start_screen_refresh(TRUE);   
+}
 
 
 /////////////////////////////
@@ -1699,7 +1942,7 @@ void appExceptionHandler(NSException *exception)
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
-   roadmap_log(ROADMAP_WARNING, "NSURLConnection failed");
+   roadmap_log(ROADMAP_WARNING, "NSURLConnection failed, error: '%s'", [[error description] UTF8String]);
    [connection release];
 }
 

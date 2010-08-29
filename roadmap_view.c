@@ -77,6 +77,14 @@ void roadmap_view_refresh (void) {
 
    const char *focus = roadmap_trip_get_focus_name();
    RoadMapViewIsGpsFocus = focus && !strcmp(focus, "GPS");
+   
+   if (RoadMapViewIsGpsFocus &&
+       roadmap_screen_get_orientation_mode() != ORIENTATION_FIXED &&
+       roadmap_screen_get_nonogl_view_mode() != VIEW_MODE_3D) {
+      roadmap_screen_move_center (-roadmap_screen_height()/6);
+   } else {
+      roadmap_screen_move_center (0);
+   }
 
    if (!navigate_main_alt_routes_display()){
       if (!navigate_track_enabled() && !navigate_offtrack())  {
@@ -130,8 +138,9 @@ void roadmap_view_refresh (void) {
       RoadMapViewAzymuth = 360 - roadmap_math_azymuth(pos, &RoadMapViewWayPoint);
 		RoadMapViewWayPoint.longitude = (RoadMapViewWayPoint.longitude + pos->longitude) / 2;
 		RoadMapViewWayPoint.latitude = (RoadMapViewWayPoint.latitude + pos->latitude) / 2;
-      roadmap_screen_move_center (100);
-		roadmap_screen_update_center(&RoadMapViewWayPoint);
+      //roadmap_screen_move_center (100);
+      roadmap_screen_move_center (0);
+		roadmap_screen_update_center_animated(&RoadMapViewWayPoint, 600, 0);
       return;
    }
    if (RoadMapViewState == VIEW_STATE_SHOW_ALT_ROUTE) {
@@ -143,13 +152,22 @@ void roadmap_view_refresh (void) {
        RoadMapViewAzymuth = 360 - roadmap_math_azymuth(pos, &RoadMapViewWayPoint);
        RoadMapViewWayPoint.longitude = (RoadMapViewWayPoint.longitude + pos->longitude) / 2;
        RoadMapViewWayPoint.latitude = (RoadMapViewWayPoint.latitude + pos->latitude) / 2;
-       roadmap_screen_move_center (roadmap_canvas_height()/3);
-       roadmap_screen_move_center (50);
-       roadmap_screen_update_center(&RoadMapViewWayPoint);
+       //roadmap_screen_move_center (roadmap_canvas_height()/3);
+       //roadmap_screen_move_center (50);
+      roadmap_screen_move_center (20);
+       roadmap_screen_update_center_animated(&RoadMapViewWayPoint, 600, 0);
        return;
    }
 
    if (RoadMapViewMode == VIEW_COMMUTE) return;
+   
+   if (RoadMapViewIsGpsFocus &&
+       roadmap_screen_get_orientation_mode() != ORIENTATION_FIXED &&
+       roadmap_screen_get_nonogl_view_mode() != VIEW_MODE_3D) {
+      roadmap_screen_move_center (-roadmap_screen_height()/6);
+   } else {
+      roadmap_screen_move_center (0);
+   }
 
    if (navigate_main_alt_routes_display())
       roadmap_alternative_route_get_waypoint (-1, &RoadMapViewWayPoint);

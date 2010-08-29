@@ -103,6 +103,39 @@ static RoadMapTracking  RoadMapConfirmedStreet = ROADMAP_TRACKING_NULL;
 static RoadMapNeighbour RoadMapConfirmedLine = ROADMAP_NEIGHBOUR_NULL;
 static RoadMapNeighbour RoadMapNeighbourhood[ROADMAP_NEIGHBOURHOUD];
 
+#define MAX_SEGMENT_CHANGED_CALLBACKS 5
+static RoadMapNavigateSegmentChangedCB NavigateSegmentChangedCB[MAX_SEGMENT_CHANGED_CALLBACKS];
+
+
+void roadmap_navigate_register_segment_changed(RoadMapNavigateSegmentChangedCB cb){
+   int index;
+   for (index = 0; index < MAX_SEGMENT_CHANGED_CALLBACKS; index++) {
+      if (NavigateSegmentChangedCB[index] == NULL){
+         NavigateSegmentChangedCB[index] = cb;
+         break;
+      }
+   }
+}
+
+void roadmap_navigate_unregister_segment_changed(RoadMapNavigateSegmentChangedCB cb){
+   int index;
+   for (index = 0; index < MAX_SEGMENT_CHANGED_CALLBACKS; index++) {
+      if (NavigateSegmentChangedCB[index] == cb){
+         NavigateSegmentChangedCB[index] = NULL;
+         break;
+      }
+   }
+}
+
+static void on_segment_changed_inform_clients(PluginLine *line, int direction){
+   int index;
+   for (index = 0; index < MAX_SEGMENT_CHANGED_CALLBACKS; index++) {
+      if (NavigateSegmentChangedCB[index] != NULL)
+         (*NavigateSegmentChangedCB[index])(line, direction);
+   }
+}
+
+
 static void roadmap_navigate_trace (const char *format, PluginLine *line) {
 
     char text[1024];
@@ -177,6 +210,7 @@ static void roadmap_navigate_set_mobile (const RoadMapGpsPosition *gps,
    }
 
    roadmap_trip_set_mobile ("GPS", &fixed_gps_pos);
+   roadmap_navigate_check_alerts (&fixed_gps_pos);
    RoadMapLatestUpdate = time(NULL);
 }
 
@@ -199,7 +233,7 @@ int roadmap_navigate_get_neighbours
     if (roadmap_math_point_is_visible (position)) {
 
        roadmap_math_coordinate (position, &focus_point);
-       roadmap_math_rotate_coordinates (1, &focus_point);
+       roadmap_math_rotate_project_coordinate (&focus_point);
 
        focus_point.x += accuracy;
        focus_point.y += accuracy;
@@ -686,15 +720,15 @@ int roadmap_navigate_is_jammed (PluginLine *line, int *direction) {
    int                  distance_to_end;
 
 	if (!RoadMapNavigateJammedSince) {
-      roadmap_log (ROADMAP_DEBUG, "Not in jammed state -- not sending data to server");
+      //roadmap_log (ROADMAP_DEBUG, "Not in jammed state -- not sending data to server");
       return 0;
    }
-   
+
    if (-1 == roadmap_navigate_get_current (&pos_curr, &currentLine, &currentDirection)) {
       roadmap_log (ROADMAP_ERROR, "Don't have current location -- can't decide jammed state");
-      return 0; 
+      return 0;
    }
-          
+
    // check if we are close to segment's end point
    if (ROUTE_DIRECTION_AGAINST_LINE == currentDirection) {
       roadmap_street_extend_line_ends(&currentLine, &pos_end, NULL, FLAG_EXTEND_FROM, NULL, NULL);
@@ -1011,6 +1045,8 @@ void roadmap_navigate_locate (const RoadMapGpsPosition *gps_position, time_t gps
          ("Enter street %N, %C|Enter street %N",
           &RoadMapConfirmedLine.line);
 
+         on_segment_changed_inform_clients(&RoadMapConfirmedLine.line, RoadMapConfirmedStreet.line_direction);
+
          roadmap_display_hide ("Approach");
 
          if (RoadMapRouteInfo.enabled) {
@@ -1081,17 +1117,13 @@ ret:
 }
 
 
-void roadmap_navigate_check_alerts (void) {
+void roadmap_navigate_check_alerts (RoadMapGpsPosition *gps_position) {
 
-	RoadMapGpsPosition gps_position = RoadMapLatestGpsPosition;
 
    if (RoadMapConfirmedLine.line.line_id == -1)
       return;
 
-	gps_position.longitude = RoadMapLatestPosition.longitude;
-	gps_position.latitude = RoadMapLatestPosition.latitude;
-
-	roadmap_alerter_check (&gps_position, &RoadMapConfirmedLine.line);
+	roadmap_alerter_check (gps_position, &RoadMapConfirmedLine.line);
 }
 
 

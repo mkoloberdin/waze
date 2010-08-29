@@ -1,4 +1,4 @@
-/* editor_points.c - New roads points 
+/* editor_points.c - New roads points
  *
  * LICENSE:
  *
@@ -22,7 +22,7 @@
  *
  * SYNOPSYS:
  *
- *   See editor_points.h 
+ *   See editor_points.h
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -110,22 +110,22 @@ static int editor_points_get_points_per_distance(){
 
 //////////////////////////////////////////////////////////////////////
 void editor_points_initialize (void) {
-	
+
   roadmap_config_declare ("session", &NewPointsSessionCfg, "0", NULL);
 
   roadmap_config_declare ("session", &OldPointsSessionCfg, "0", NULL);
-  
+
   roadmap_config_declare ("session", &ServerPointsTimeStampCfg, "0", NULL);
-  
+
   roadmap_config_declare ("session", &PointsLastUpdateTimeStampCfg, "0", NULL);
-  
+
   roadmap_config_declare ("preferences", &PointsPerDistanceCfg, "10", NULL);
-  
-  
+
+
   gOldPoints = editor_points_get_saved_old_points();
-  
+
   gTotalNewPoints = editor_points_get_saved_new_points();
-  
+
   gNewMunchingPoints = 0;
 }
 
@@ -137,11 +137,11 @@ void editor_points_hide (void) {
 
 //////////////////////////////////////////////////////////////////////
 void editor_points_display(int road_length){
-   
-   int points = road_length/editor_points_get_points_per_distance(); 
+
+   int points = road_length/editor_points_get_points_per_distance();
    if (points > 0)
       roadmap_message_set('*', "%d", points);
-   
+
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -168,7 +168,12 @@ void editor_points_add_new_points(int points){
 
 //////////////////////////////////////////////////////////////////////
 void editor_points_add(int road_length){
-   int points = road_length/editor_points_get_points_per_distance(); 
+
+	int points = road_length/editor_points_get_points_per_distance();
+
+   if (road_length < 0)
+      return;
+
    if (points > 0){
       gTotalNewPoints += points;
       editor_points_set_saved_new_points(gTotalNewPoints);
@@ -205,15 +210,15 @@ int editor_points_get_old_points(void){
 
 //////////////////////////////////////////////////////////////////////
 int editor_points_get_total_points(void){
-   return gOldPoints + gTotalNewPoints; 
+   return gOldPoints + gTotalNewPoints;
 }
 
 //////////////////////////////////////////////////////////////////////
 int editor_points_reset_munching (void) {
   int munching_points = gNewMunchingPoints;
-  
+
   gNewMunchingPoints = 0;
-  
+
   return munching_points;
 
 }

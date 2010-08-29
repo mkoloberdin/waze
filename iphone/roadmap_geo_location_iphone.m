@@ -96,8 +96,7 @@ void roadmap_geo_location_iphone(const char *metro,
 	UIButton *button = NULL;
 	
 	//background frame
-	CGFloat navHeight = self.navigationController.navigationBar.frame.size.height;
-	rect =  CGRectMake (5, 10, 310 /*scrollView.bounds.size.width - 10*/, 
+	rect =  CGRectMake (5, 0, 310 /*scrollView.bounds.size.width - 10*/, 
 						roadmap_main_get_mainbox_height()/* - navHeight - 6*/);
 	image = roadmap_iphoneimage_load("comments_alert");
 	if (image) {
@@ -108,6 +107,8 @@ void roadmap_geo_location_iphone(const char *metro,
 		[scrollView addSubview:bgView];
 		[bgView release];
 	}
+   
+   viewPosY += 10;
 	
 	//metro title
 	text = [NSString stringWithUTF8String:g_geo_info.metro];

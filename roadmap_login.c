@@ -336,7 +336,7 @@ int roadmap_login_on_create( const char *username, const char* password, const c
    sgIsCreateAccount = 1;
 #endif //IPHONE
    
-   ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating new account . . . " ) );
+   ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating account" ) );
 
    if ( !Realtime_CreateAccount( username, password, email, send_updates ) )
    {
@@ -462,32 +462,32 @@ void roadmap_login_update_details_on_response( roadmap_result rc )
       }
       case err_upd_account_invalid_user_name: //invalid user name
       {
-         roadmap_messagebox ("Error", "Invalid username");
+         roadmap_messagebox ("Oops", "Invalid username");
          break;
       }
       case err_upd_account_name_already_exists://user already exists
       {
-         roadmap_messagebox ("Error", "Username already exists");
+         roadmap_messagebox ("Oops", "This username already exists, please select another one");
          break;
       }
       case err_upd_account_invalid_password://invalid password
       {
-         roadmap_messagebox ("Error", "Invalid password");
+         roadmap_messagebox ("Oops", "Invalid password");
          break;
       }
       case err_upd_account_invalid_email:// invalid email
       {
-         roadmap_messagebox ("Error", "Invalid email address");
+         roadmap_messagebox ("Oops", "Invalid email address");
          break;
       }
       case err_upd_account_email_exists://Email address already exist
       {
-         roadmap_messagebox ("Error", "Email address already exist");
+         roadmap_messagebox ("Oops", "Email address already exist");
          break;
       }
       case err_upd_account_cannot_complete_request://internal server error cannot complete request
       {
-         roadmap_messagebox ("Error", "Failed to update account, please try again");
+         roadmap_messagebox ("Oops", "Failed to update account, please try again");
          break;
       }
       default:

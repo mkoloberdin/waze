@@ -52,7 +52,7 @@
       rect.origin.y = Y_MARGIN;
       rect.size.height -= Y_MARGIN *2;
       label = [[iphoneLabel alloc] initWithFrame:rect];
-      label.textColor = [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:0.85];
+      label.textColor = [UIColor colorWithRed:0.0 green:0.0 blue:0.0 alpha:0.65];
       label.backgroundColor = [UIColor clearColor];
       label.font = [UIFont boldSystemFontOfSize:14];
       label.shadowColor = [UIColor colorWithRed:1 green:1 blue:1 alpha:.35];

@@ -73,10 +73,10 @@ enum IDs {
 #define MAX_ALERTS 25
 #define ALERTS_PREFIX 1000
 
-#define MAP_SCHEMES 7   
-static char *scheme_labels[MAP_SCHEMES] = {"Default", "The Blues", "Mochaccino", "Snow Day", "Twilight", "Tutti-fruiti", "Rosebud"};
-static void *scheme_values[MAP_SCHEMES]= {"", "1", "2", "3", "4", "5", "6"};
-static void *scheme_icons[MAP_SCHEMES] = {"schema", "schema1", "schema2", "schema3", "schema4", "schema5", "schema6"};
+#define MAP_SCHEMES 9
+static char *scheme_labels[MAP_SCHEMES] = {"Vitamin C", "The Blues", "Mochaccino", "Snow Day", "Twilight", "Tutti-fruiti", "Rosebud", "Electrolytes", "Map editors"};
+static void *scheme_values[MAP_SCHEMES]= {"", "1", "2", "3", "4", "5", "6", "7", "8"};
+static void *scheme_icons[MAP_SCHEMES] = {"schema", "schema1", "schema2", "schema3", "schema4", "schema5", "schema6", "schema7", "schema8"};
 
 static RoadMapCallback id_callbacks[MAX_IDS];
 
@@ -197,7 +197,7 @@ void roadmap_map_settings_dialog_show(void){
 	
 	[tableView setBackgroundColor:roadmap_main_table_color()];
    if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [self.tableView setBackgroundView:nil];
+      [(id)(self.tableView) setBackgroundView:nil];
    tableView.rowHeight = 50;
    
    if (headersArray) {

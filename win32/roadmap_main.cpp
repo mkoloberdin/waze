@@ -159,7 +159,7 @@ static   RoadMapCallback menu_callbacks[MAX_MENU_ITEMS] = {0};
 static   RoadMapCallback tool_callbacks[MAX_TOOL_ITEMS] = {0};
 
 // timer stuff
-#define ROADMAP_MAX_TIMER 20
+#define ROADMAP_MAX_TIMER 30
 struct roadmap_main_timer {
    unsigned int id;
    RoadMapCallback callback;
@@ -168,7 +168,7 @@ struct roadmap_main_timer {
 static struct roadmap_main_timer RoadMapMainPeriodicTimer[ROADMAP_MAX_TIMER];
 
 // IO stuff
-#define ROADMAP_MAX_IO 16
+#define ROADMAP_MAX_IO 32
 static roadmap_main_io *RoadMapMainIo[ROADMAP_MAX_IO] = {0};
 
 static   HANDLE      VirtualSerialHandle      = 0;
@@ -242,7 +242,7 @@ static int VK_FUNC_SAMSUNG = 144;
 static BOOL FUNC_PRESSED = 0;
 static const int HASH_KEY = 120;
 static const int STAR_KEY = 119;
-static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour on moto q.	
+static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour on moto q.
 	switch(key){
 		case ('1') :
 			return 'e';
@@ -265,7 +265,7 @@ static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour o
 
 		default:
 			return key;
-	}	
+	}
 }
 
 static BOOL AppInstanceExists()
@@ -549,7 +549,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 {
    MSG      msg;
    LPTSTR   cmd_line = L"";
-#ifdef UNDER_CE
+#if defined (UNDER_CE) && !defined(EMBEDDED_CE)
 #ifndef  FORCE_PHONE_KEYBOARD_USAGE
    DWORD dwKeyboardStatus  = ::GetKeyboardStatus();
    DWORD dwKyeboardCaps    = (dwKeyboardStatus&ROADMAP_FULL_KEYBOARD);
@@ -561,7 +561,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
    cmd_line = lpCmdLine;
 #endif
-
+USING_PHONE_KEYPAD = FALSE;
 #ifdef WIN32_PROFILE
    //SuspendCAPAll();
 #endif
@@ -699,21 +699,21 @@ void OnSettingsChanged_EnableAutoSync(void)
 }
 #endif   // UNDER_CE
 
-static int urldecode(char *src, char *last, char *dest){ 
-  int code; 
-  for (; src != last; src++, dest++){ 
-    if (*src == '+') *dest = ' '; 
-    else if(*src == '%') { 
-      if(sscanf(src+1, "%2x", &code) != 1) code = '?'; 
-      *dest = code; 
-      src +=2; 
-    } 
-    else *dest = *src; 
-  } 
-  *dest   = '\n'; 
-  *++dest = '\0'; 
-  return 0; 
-} 
+static int urldecode(char *src, char *last, char *dest){
+  int code;
+  for (; src != last; src++, dest++){
+    if (*src == '+') *dest = ' ';
+    else if(*src == '%') {
+      if(sscanf(src+1, "%2x", &code) != 1) code = '?';
+      *dest = code;
+      src +=2;
+    }
+    else *dest = *src;
+  }
+  *dest   = '\n';
+  *++dest = '\0';
+  return 0;
+}
 
 extern "C" void ssd_dialog_wait ();
 BOOL InitInstance(HINSTANCE hInstance, LPTSTR lpCmdLine)
@@ -752,7 +752,7 @@ BOOL InitInstance(HINSTANCE hInstance, LPTSTR lpCmdLine)
 
    if (!MyRegisterClass(hInstance, g_szWindowClass))
       return FALSE;
-   
+
    if(WSAStartup(MAKEWORD(1,1), &wsaData) != 0)
       roadmap_log (ROADMAP_FATAL, "Can't initialize network");
 
@@ -951,7 +951,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       BOOL  bALT_IsDown    = (lParam & 0x20000000)? TRUE: FALSE;
       BOOL  bAlreadyPressed= (lParam & 0x40000000)? TRUE: FALSE;
       BOOL  bNowReleased   = (lParam & 0x80000000)? TRUE: FALSE;
-	  
+
 	  if ( (wParam==VK_FUNC_MOTOROLA)||(wParam==VK_FUNC_SAMSUNG)){
 		 FUNC_PRESSED = FALSE;
 	  }
@@ -968,7 +968,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       BOOL  bALT_IsDown    = (lParam & 0x20000000)? TRUE: FALSE;
       BOOL  bAlreadyPressed= (lParam & 0x40000000)? TRUE: FALSE;
       BOOL  bNowReleased   = (lParam & 0x80000000)? TRUE: FALSE;
-#ifndef TOUCH_SCREEN  
+#ifndef TOUCH_SCREEN
 	  if (!FUNC_PRESSED) // fix problem where key codes aren't received correctly
 		  Key = reMapNumbers(Key);
 #endif
@@ -1171,7 +1171,7 @@ void roadmap_main_new (const char *title, int width, int height)
 
       if (width == -1) width = CW_USEDEFAULT;
       if (height == -1) height = CW_USEDEFAULT;
-	  
+
       RoadMapMainWindow = CreateWindow(g_szWindowClass, szTitle, style,
          CW_USEDEFAULT, CW_USEDEFAULT, width, height, NULL,
          NULL, g_hInst, NULL);
@@ -1372,7 +1372,12 @@ void roadmap_main_new (const char *title, int width, int height)
       }
 
       roadmap_start_exit ();
+#ifdef EMBEDDED_CE
+	  exit( 0 );
+#else
+	  // Causes exceptions in CE PDA
       SendMessage(RoadMapMainWindow, WM_CLOSE, 0, 0);
+#endif
    }
 
    void roadmap_main_set_cursor (int cursor)
@@ -1553,7 +1558,7 @@ BOOL OnKeyDown( WORD key)
 		else
 			return OnChar('z');
    }
-   
+
 
 
    if( VK_None == vk)
@@ -1689,7 +1694,7 @@ void roadmap_main_maximize()
 BOOL roadmap_camera_take_picture(CameraImageFile*  image_file,
                                  CameraImageBuf*   image_thumbnail)
 {
-#ifdef UNDER_CE
+#ifndef EMBEDDED_CE
    SHCAMERACAPTURE   CCI;
    _bstr_t           w_output_dir( image_file->folder);
    _bstr_t           w_output_file(image_file->file);
@@ -1766,7 +1771,7 @@ BOOL roadmap_camera_take_picture(CameraImageFile*  image_file,
 
 int roadmap_device_get_battery_level()
 {
-#ifdef UNDER_CE
+#if defined (UNDER_CE) && !defined (EMBEDDED_CE)
    SYSTEM_POWER_STATUS_EX  SPS;
    const BOOL              realtime = FALSE;
 

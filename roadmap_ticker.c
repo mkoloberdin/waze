@@ -22,7 +22,7 @@
  *
  */
 
- #include <stdio.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -175,7 +175,7 @@ void roadmap_ticker_display() {
    text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2;
 	roadmap_canvas_draw_string_size (&text_position,
 	                                 allign |ROADMAP_CANVAS_TOP,
-	                                 14,roadmap_lang_get("Your Points (updated once a day)"));
+	                                 14,roadmap_lang_get("Your Points (updated daily)"));
 
    text_position.x = 4;
 	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
@@ -295,17 +295,19 @@ static int roadmap_ticker_short_click(RoadMapGuiPoint *point) {
    if (!gTickerOn)
       return 0;
 
+#ifdef PLAY_CLICK
 	if (!list) {
 		list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 		roadmap_sound_list_add (list, "click");
 		roadmap_res_get (RES_SOUND, 0, "click");
 	}
-
+#endif
     if (gTickerOn)
       if ((point->y >= (OpenIconRct.miny)) &&
         (point->y <= (OpenIconRct.maxy))) {
-
+#ifdef PLAY_CLICK
 			roadmap_sound_play_list (list);
+#endif
 			roadmap_ticker_hide();
             return 1;
         }
