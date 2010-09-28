@@ -24,7 +24,7 @@
 
 #include "roadmap_start.h"
 #include "roadmap_lang.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "iphoneWidgets.h"
 
 
@@ -35,10 +35,9 @@ iphoneCell *createActionCell (const char* action, int tag) {
 	const RoadMapAction *this_action;
    
    actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	img = roadmap_iphoneimage_load(action);
+	img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, action);
 	if (img) {
       actionCell.imageView.image = img;
-		[img release];
 	}
 	
 	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];

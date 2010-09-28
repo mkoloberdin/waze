@@ -81,7 +81,7 @@
 #define SSD_DIALOG_NO_SCROLL      0x100000
 #define SSD_DIALOG_NO_BACK        0x200000
 #define SSD_DIALOG_ADDITION_BELOW 0x400000
-
+#define SSD_DIALOG_MODAL          0x800000
 
 /* Container flags */
 #define SSD_CONTAINER_BORDER 	    0x1000
@@ -300,4 +300,5 @@ BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point,
 void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight );
 void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent );
 SsdWidget ssd_widget_set_recalculate( BOOL value );
+int ssd_widget_get_flags ( SsdWidget w );
 #endif // __SSD_WIDGET_H_

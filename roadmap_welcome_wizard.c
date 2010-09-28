@@ -54,9 +54,13 @@
 #include "Realtime/RealtimeAlerts.h"
 #include "roadmap_native_keyboard.h"
 #include "roadmap_disclaimer.h"
+#include "roadmap_browser.h"
 #ifdef   TOUCH_SCREEN
    #include "ssd/ssd_keyboard.h"
 #endif //TOUCH_SCREEN
+#ifdef ANDROID
+   #include "roadmap_androidmsgbox.h"
+#endif
 
 // Context menu:
 typedef enum welcome_wizard_context_menu_items
@@ -98,10 +102,8 @@ static char * INTRO_ENG[NUMBER_OF_LINES_INTRO] = {INTR_ENG_0,INTR_ENG_1,INTR_ENG
 static char * INTRO_ESP[NUMBER_OF_LINES_INTRO] = {INTR_ESP_0,INTR_ESP_1,INTR_ESP_2,INTR_ESP_3};
 
 
-
+static void terms_of_use_native();
 static void add_intro_texts(SsdWidget group, int tab_flag);
-
-
 
 extern RoadMapConfigDescriptor RT_CFG_PRM_NKNM_Var;
 ////   First time
@@ -129,6 +131,12 @@ static RoadMapConfigDescriptor WELCOME_WIZ_SHOW_INTRO_SCREEN_Var =
                            ROADMAP_CONFIG_ITEM(
                                     WELCOME_WIZ_TAB,
                                     WELCOME_WIZ_SHOW_INTRO_SCREEN_Name);
+
+static RoadMapConfigDescriptor WELOCME_WIZ_GUIDED_TOUR_URL_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    WELCOME_WIZ_TAB,
+                                    WELOCME_WIZ_GUIDED_TOUR_URL_Name);
+
 
 static SsdWidget gAddressResultList = NULL;
 static RoadMapCallback gCallback;
@@ -264,6 +272,7 @@ static int end_button_callback (SsdWidget widget, const char *new_value) {
    set_first_time_no();
    ssd_dialog_hide_all (dec_ok);
 
+   roadmap_welcome_guided_tour();
    return 1;
 }
 #else //TOUCH_SCREEN
@@ -271,6 +280,7 @@ static int end_button_callback (SsdWidget widget, const char *new_value) {
 static int on_softkey_finish(SsdWidget widget, const char *new_value, void *context){
    set_first_time_no();
    ssd_dialog_hide_all (dec_ok);
+   roadmap_welcome_guided_tour();
    return 0;
 }
 #endif //TOUCH_SCREEN
@@ -1344,12 +1354,12 @@ static void create_intro_screen(){
 }
 
 
+
 ///////////////////////////////////////////////////////////////
 // Terms of use
 //////////////////////////////////////////////////////////////
-static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *new_value) {
-
-   if (!strcmp(widget->name, "Accept")){
+static void on_terms_accepted( void )
+{
 #ifdef _WIN32
          const char *age_restriction_checkbox   = ssd_dialog_get_data( "age_restriction_checkbox" );
          BOOL  bAgeRestrictionAccepted = !strcmp( age_restriction_checkbox, "yes" );
@@ -1359,18 +1369,39 @@ static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *ne
 #endif
          set_terms_accepted();
          if (is_show_intro_screen())
-         	create_intro_screen();
+            create_intro_screen();
          else
-         	callGlobalCallback(NULL, NULL, NULL);
-         return 1;
+            callGlobalCallback(NULL, NULL, NULL);
+}
+///////////////////////////////////////////////////////////////
+static void on_terms_declined( void )
+{
+   roadmap_main_exit();
+}
+///////////////////////////////////////////////////////////////
+static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *new_value) {
+
+   if (!strcmp(widget->name, "Accept")){
+      on_terms_accepted();
    }
    else if (!strcmp(widget->name, "Decline")){
-      roadmap_main_exit();
+      on_terms_declined();
    }
 
    return 1;
 }
-
+///////////////////////////////////////////////////////////////
+static void on_terms_callback( int res_code, void *context )
+{
+   if ( res_code == dec_ok )
+   {
+      on_terms_accepted();
+   }
+   else
+   {
+      on_terms_declined();
+   }
+}
 
 
 //////////////////////////////////////////////////////////////
@@ -1578,7 +1609,11 @@ void roadmap_term_of_use(RoadMapCallback callback){
   roadmap_bottom_bar_hide();
 #endif
 
+#if defined(RIMAPI) || defined(ANDROID)
+  terms_of_use_native();
+#else
   term_of_use_dialog();
+#endif
 }
 
 
@@ -1804,3 +1839,132 @@ BOOL roadmap_welcome_on_preferences( void )
 
    return TRUE;
 }
+
+
+
+///////////////////////////////////////////////////////////////
+
+/*
+ * Creates the url for the web based guided tour with the parameters of device and screen dimenstions
+ */
+static const char* guided_tour_url(void)
+{
+   static char s_url[WELCOME_WIZ_URL_MAXLEN] = {0};
+   const char* resolution_code = "sd";
+   const char* on_skip_action = "dialog_hide_current";
+   const char* on_close_action = "dialog_hide_current";
+   if ( s_url[0] == 0 )
+   {
+      roadmap_config_declare( WELCOME_WIZ_ENABLE_CONFIG_TYPE, &WELOCME_WIZ_GUIDED_TOUR_URL_Var, WELOCME_WIZ_GUIDED_TOUR_URL_Default, NULL );
+   }
+
+   if ( roadmap_screen_is_ld_screen() )
+      resolution_code = "ld";
+   if ( roadmap_screen_is_hd_screen() )
+      resolution_code = "hd";
+
+   snprintf( s_url, sizeof( s_url ), "%s?deviceid=%d&on_skip=%s&on_close=%s&resolution=%s&width=%d",
+         roadmap_config_get( &WELOCME_WIZ_GUIDED_TOUR_URL_Var ), RT_DEVICE_ID, on_skip_action, on_close_action, resolution_code,
+         roadmap_canvas_width() );
+
+   return s_url;
+}
+
+/*
+ * Feature enabled checker
+ */
+static BOOL is_guided_tour_enabled(void){
+
+#ifdef ANDROID
+   return TRUE;
+#else
+   return FALSE;
+#endif
+
+
+}
+
+
+/*
+ * Shows the guided tour
+ */
+void roadmap_welcome_guided_tour( void )
+{
+   const char* url;
+
+   if ( !is_guided_tour_enabled() )
+   {
+      roadmap_log( ROADMAP_WARNING, "Feature is disabled. Guided tour cannot be shown" );
+      return;
+   }
+
+   url = guided_tour_url();
+
+   /*
+    * Checks if feature enabled
+    */
+   if ( !url || !url[0] )
+   {
+      roadmap_log( ROADMAP_ERROR, "Url initialization problem. Guided tour cannot be shown" );
+      return;
+   }
+
+   roadmap_log( ROADMAP_INFO, "Showing the guided tour from url: %s", url );
+
+   roadmap_browser_show( "Guided tour", url, NULL, BROWSER_FLAG_WINDOW_NO_TITLE_BAR|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL );
+}
+
+#if defined(RIMAPI) || defined(ANDROID)
+
+#define MAX_DISC_LEN 6000
+static void terms_of_use_native(){
+   int i;
+   int j;
+   const char* system_lang;
+   char ** disclaimer ;
+   int left_size = MAX_DISC_LEN;
+   char text[MAX_DISC_LEN];
+   char * cursor = &text[0];
+   text[0] = 0;
+
+   system_lang = roadmap_lang_get_system_lang();
+
+   if (strstr(system_lang,"esp"))
+      disclaimer = &DISCLAIMER_ESP[0][0];
+   else if (!strcmp("heb",system_lang))
+      disclaimer = &DISCLAIMER_HEB[0][0];
+   else // default is english disclaimer
+      disclaimer = &DISCLAIMER_ENG[0][0];
+   if(is_show_intro_screen())
+         i = 1;
+   else
+         i = 0;
+   for (;i<NUMBER_OF_DISCLAIMER_PARTS;i++){
+         for (j=0;j<NUMBER_OF_LINES_PER_PART_DISC;j++){
+            if (!strcmp(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC],"")){// reached an empty screen - got to the last available text
+               break;
+         }else{
+            int size_of_string_to_add = strlen(disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC]);
+            if(size_of_string_to_add >= left_size){
+               i = NUMBER_OF_DISCLAIMER_PARTS;
+               break; // exit loop, text excedes buffer size.
+            }
+            left_size -= size_of_string_to_add;
+            strcat(cursor, disclaimer[j+i*NUMBER_OF_LINES_PER_PART_DISC]);
+            cursor +=  size_of_string_to_add;
+            strcat(cursor, "\n\n");
+            cursor += 2;
+            left_size -=2;
+         }
+      }
+   }
+#if defined(RIMAPI)
+   NOPH_FreemapMainScreen_popUpYesNoDialog(&text[0], roadmap_lang_get("Accept"), roadmap_lang_get("Decline"),rim_terms_of_use_accepted, rim_terms_of_use_declined,0);
+#endif / RIMAPI
+
+#if defined(ANDROID)
+   roadmap_androidmsgbox_show( roadmap_lang_get ("Terms of use"), &text[0], roadmap_lang_get("Accept"), roadmap_lang_get("Decline"), NULL, on_terms_callback );
+#endif
+}
+
+#endif

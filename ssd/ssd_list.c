@@ -669,9 +669,9 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
         ssd_widget_set_color(row, "#000000","#ffffff");
         label = ssd_text_new ("label", "", 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
         if (data->labels_w != NULL)
-           ssd_text_set_color(label, "#ffffff");
-        ssd_widget_set_callback (row, label_callback);
+           ssd_widget_set_color(label, "#ffffff", "#b0d504");
 
+        ssd_widget_set_callback (row, label_callback);
         image_con = ssd_container_new ("icon_container", NULL, icon_container_width,
                row_height-10,  SSD_ALIGN_VCENTER);
 

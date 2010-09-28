@@ -309,8 +309,11 @@ SsdWidget create_quick_setting_menu(){
 		  ssd_widget_add (quick_container, box);
    	  }
    	  //View 2D/3D
-   	  if ( !roadmap_screen_is_hd_screen() )
-   	  {
+
+#ifndef OPENGL
+        if ( !roadmap_screen_is_hd_screen() )
+        {
+#endif
            box = ssd_container_new ("View group", NULL, SSD_MAX_SIZE, height,
                                SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
            ssd_widget_set_color (box, NULL, NULL);
@@ -329,7 +332,9 @@ SsdWidget create_quick_setting_menu(){
            ssd_widget_add(box, space(1));
            ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
            ssd_widget_add (quick_container, box);
-   	  }
+#ifndef OPENGL
+        }
+#endif
 
    	  //Light day/night
    	  box = ssd_container_new ("Light group", NULL, SSD_MAX_SIZE, height,
@@ -609,7 +614,7 @@ void roadmap_general_settings_show(void) {
 
 
    // Native keyboard - for android only at this time
-#if (defined(_WIN32) || defined(ANDROID))
+#if defined(_WIN32)
    box = ssd_container_new ( "Native keyboard container", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    ssd_widget_set_color (box, "#000000", "#ffffff");

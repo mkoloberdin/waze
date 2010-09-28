@@ -45,7 +45,7 @@
 #include "roadmap_navigate.h"
 #include "ssd/ssd_keyboard.h"
 #include "ssd/ssd_generic_list_dialog.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_checklist.h"
 #include "roadmap_analytics.h"
 
@@ -113,11 +113,10 @@ void roadmap_car_dialog (RoadMapCallback callback) {
 			
 			//set icon
 			icon = roadmap_path_join("cars", *cursor2);
-			image = roadmap_iphoneimage_load(icon);
+			image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
 			roadmap_path_free(icon);
 			if (image) {
 				[dict setValue:image forKey:@"image"];
-				[image release];
 			}
 			
 			if (roadmap_config_match(&CarCfg,*cursor2)) {

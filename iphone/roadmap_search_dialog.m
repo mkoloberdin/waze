@@ -29,7 +29,7 @@
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneWidgets.h"
 #include "widgets/iphoneTableHeader.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_list_menu.h"
 #include "local_search.h"
 #include "roadmap_iphonesearch_dialog.h"
@@ -98,10 +98,7 @@ void roadmap_search_menu (void) {
 {
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
-   
+   roadmap_main_set_table_color(tableView);
    tableView.rowHeight = 60;
 }
 
@@ -174,10 +171,9 @@ void roadmap_search_menu (void) {
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_iphoneimage_load("search_address");
+         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "search_address");
          if (img) {
             [dict setObject:img forKey:@"image"];
-            [img release];
          }
          
          [dict setObject:accessoryType forKey:@"accessory"];
@@ -216,10 +212,9 @@ void roadmap_search_menu (void) {
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_iphoneimage_load(local_search_get_icon_name());
+         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, local_search_get_icon_name());
          if (img) {
             [dict setObject:img forKey:@"image"];
-            [img release];
          }
          
          [dict setObject:accessoryType forKey:@"accessory"];
@@ -253,10 +248,9 @@ void roadmap_search_menu (void) {
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_iphoneimage_load("");
+         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "");
          if (img) {
             [dict setObject:img forKey:@"image"];
-            [img release];
          }
          
          [dict setObject:accessoryType forKey:@"accessory"];
@@ -488,9 +482,7 @@ void roadmap_search_menu (void) {
 
 - (void) viewWillAppear:(BOOL)animated
 {
-   [gTableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(gTableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(gTableView);
    
    [self hideCoverView];
    [self refreshFavorites];
@@ -526,10 +518,9 @@ void roadmap_search_menu (void) {
       for (i = 0; i < fav_count; i++) {
          actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"test"] autorelease];
          actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get(labels[i])];
-         image = roadmap_iphoneimage_load(icons[i]);
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icons[i]);
          if (image) {
             actionCell.imageView.image = image;
-            [image release];
          }
          [groupArray addObject:actionCell];
       }

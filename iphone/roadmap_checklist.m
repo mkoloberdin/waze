@@ -25,7 +25,7 @@
 #include "roadmap_main.h"
 #include "roadmap_lang.h"
 #include "roadmap_iphonemain.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_device_events.h"
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneTableHeader.h"
@@ -43,10 +43,8 @@
    iphoneTableHeader *header;
    
 	UITableView *tableView = [self tableView];
-	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   
+   roadmap_main_set_table_color(tableView);
    tableView.rowHeight = gRowHeight;
    
    if (headersArray) {
@@ -143,6 +141,10 @@
    if (headersArray)
       [headersArray release];
 	
+   UITableView *tableView = (UITableView *)self.view;
+   tableView.delegate = nil;
+   tableView.dataSource = nil;
+   
 	[super dealloc];
 }
 
@@ -194,10 +196,9 @@
 		if ([dict objectForKey:@"accessory"]){
 			NSNumber *accessoryType = (NSNumber *)[dict objectForKey:@"accessory"];
 			if ([accessoryType integerValue] == UITableViewCellAccessoryCheckmark) {
-				image = roadmap_iphoneimage_load("v");
+				image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "v");
 				if (image) {
 					imageView = [[UIImageView alloc] initWithImage:image];
-					[image release];
 					cell.accessoryView = imageView;
 					[imageView release];
 				} else

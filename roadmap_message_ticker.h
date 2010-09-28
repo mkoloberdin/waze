@@ -29,4 +29,5 @@ void roadmap_message_ticker_show(const char *title, const char* text, const char
 void roadmap_message_ticker_show_cb(const char *title, const char* text, const char* icon, int timer, RoadMapCallback callback);
 void roadmap_message_ticker_initialize(void);
 BOOL roadmap_message_ticker_is_on(void);
+void roadmap_message_ticker_display(void);
 #endif /* ROAADMAP_MESSAGE_TICKER_H_ */

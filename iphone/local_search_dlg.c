@@ -209,7 +209,7 @@ static void on_address_resolved( void*                context,
    }
 	
 	roadmap_list_menu_generic(roadmap_lang_get(local_search_get_provider_label()), size, results, (void *)indexes, 
-							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 90, TRUE, NULL);
+							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 90, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
 }
 
 
@@ -499,7 +499,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
     */
       
 	
-	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected, NULL, NULL, NULL, 60, FALSE, NULL);
+	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected, NULL, NULL, NULL, 60, 0, NULL);
 
 
    return 0;

@@ -31,7 +31,7 @@
 #include "roadmap_iphonemain.h"
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneCellEdit.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "RealtimeAlerts.h"
 #include "roadmap_device_events.h"
 #include "RealtimeMapProblem.h"
@@ -144,9 +144,7 @@ void RTAlerts_report_map_problem() {
 {
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
@@ -179,10 +177,9 @@ void RTAlerts_report_map_problem() {
 		cell.tag = i;
       
 		if (i == gMapProblemsCount - 1) { // default selection
-			image = roadmap_iphoneimage_load("v");
+			image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "v");
 			if (image) {
 				imageView = [[UIImageView alloc] initWithImage:image];
-				[image release];
 				cell.accessoryView = imageView;
 				[imageView release];
 			} else
@@ -258,10 +255,9 @@ void RTAlerts_report_map_problem() {
 		for (i = 0; i < gMapProblemsCount; ++i) {
 			cell = (iphoneCell *)[(NSArray *)[dataArray objectAtIndex:indexPath.section] objectAtIndex:i];
 			if (tag == i) {
-				image = roadmap_iphoneimage_load("v");
+				image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "v");
 				if (image) {
 					imageView = [[UIImageView alloc] initWithImage:image];
-					[image release];
 					cell.accessoryView = imageView;
 					[imageView release];
 				} else

@@ -28,7 +28,7 @@
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
 #include "roadmap_lang.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_device_events.h"
 
 #include "roadmap_geo_location_info.h"
@@ -98,11 +98,10 @@ void roadmap_geo_location_iphone(const char *metro,
 	//background frame
 	rect =  CGRectMake (5, 0, 310 /*scrollView.bounds.size.width - 10*/, 
 						roadmap_main_get_mainbox_height()/* - navHeight - 6*/);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -268,19 +267,16 @@ void roadmap_geo_location_iphone(const char *metro,
 	rect = CGRectMake(progressBarPosX, viewPosY, progressBarWidth, LABEL_HEIGHT);
 	sliderView = [[UISlider alloc] initWithFrame:rect];
 	sliderView.maximumValue = 100;
-	image = roadmap_iphoneimage_load("progress_wazzy");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "progress_wazzy");
 	if (image)
 		[sliderView setThumbImage:image forState:UIControlStateNormal];
-	[image release];
-	image = roadmap_iphoneimage_load("progress_left_fill");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "progress_left_fill");
 	if (image) {
 		[sliderView setMinimumTrackImage:[image stretchableImageWithLeftCapWidth:image.size.width-1 topCapHeight:0] forState:UIControlStateNormal];
-		[image release];
 	}
-	image = roadmap_iphoneimage_load("progress_right");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "progress_right");
 	if (image) {
 		[sliderView setMaximumTrackImage:[image stretchableImageWithLeftCapWidth:1 topCapHeight:0] forState:UIControlStateNormal];
-		[image release];
 	}
 	[sliderView setValue:g_geo_info.overall_score animated:YES]; //TODO: move this to did appear
 	sliderView.userInteractionEnabled = NO;
@@ -332,15 +328,13 @@ void roadmap_geo_location_iphone(const char *metro,
 	//let me in button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
 	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Let me in")] forState:UIControlStateNormal];
-	image = roadmap_iphoneimage_load("button_up");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
 	if (image) {
 		[button setBackgroundImage:[image stretchableImageWithLeftCapWidth:20 topCapHeight:10] forState:UIControlStateNormal];
-		[image release];
 	}
-	image = roadmap_iphoneimage_load("button_down");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
 	if (image) {
 		[button setBackgroundImage:[image stretchableImageWithLeftCapWidth:20 topCapHeight:10] forState:UIControlStateHighlighted];
-		[image release];
 	}
 	rect = CGRectMake((bgView.frame.size.width - BUTTON_WIDTH)/2, viewPosY, BUTTON_WIDTH, BUTTON_HEIGHT);
 	[button setFrame:rect];

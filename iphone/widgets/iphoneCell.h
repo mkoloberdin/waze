@@ -28,10 +28,12 @@
 @interface iphoneCell : UITableViewCell {
 	UILabel *rightLabel;
 	UILabel *leftLabel;
+   BOOL enableCell;
 }
 
 @property (nonatomic, retain) UILabel *rightLabel;
 @property (nonatomic, retain) UILabel *leftLabel;
+@property (nonatomic) BOOL enableCell;
 
 @end
 

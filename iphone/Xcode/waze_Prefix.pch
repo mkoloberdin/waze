@@ -6,6 +6,9 @@
 #define USE_FRIBIDI
 #define OPENGL
 #define VIEW_MODE_3D_OGL
+//#define OPENGL_DEBUG
+//#define DEBUG_TIME
+
 
 //fribidi defines
 #define FRIBIDI_EXPORTS                1

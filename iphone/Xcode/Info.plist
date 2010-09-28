@@ -32,13 +32,13 @@
 		</dict>
 	</array>
 	<key>CFBundleVersion</key>
-	<string>2.0.0.0</string>
+	<string>2.0.1.0</string>
 	<key>CFBundleGetInfoString</key>
 	<string></string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>SBUsesNetwork</key>
-	<true/>
+	<false/>
 	<key>SignerIdentity</key>
 	<string>Apple iPhone OS Application Signing</string>
 	<key>UIRequiresPersistentWiFi</key>

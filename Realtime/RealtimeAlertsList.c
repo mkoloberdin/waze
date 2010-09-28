@@ -42,6 +42,7 @@
 #include "roadmap_math.h"
 #include "roadmap_navigate.h"
 #include "roadmap_groups.h"
+#include "roadmap_start.h"
 #include "ssd/ssd_keyboard.h"
 #include "ssd/ssd_generic_list_dialog.h"
 #include "ssd/ssd_confirm_dialog.h"
@@ -391,6 +392,12 @@ static void populate_list(){
 
         alert = RTAlerts_Get(index);
 
+       if (alert->bArchive) {
+          iAlertCount--;
+          index++;
+          continue;
+       }
+
         if (g_list_filter == filter_on_route){
            if (!RTAlerts_isAlertOnRoute (alert->iID)){
               iAlertCount--;
@@ -614,7 +621,11 @@ static void populate_list(){
         ssd_widget_add(icon_container, text_w);
 
         if (alert->sGroup[0] != 0){
-           icon_w =  ssd_bitmap_new ("group_icon",alert->sGroupIcon, SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM);
+           if (alert->sGroupIcon[0] != 0)
+              icon_w =  ssd_bitmap_new ("group_icon",alert->sGroupIcon, SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM);
+            else
+               icon_w =  ssd_bitmap_new ("group_icon","groups_default_icons", SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM);
+
            ssd_widget_add(icon_container, icon_w);
         }
 
@@ -938,11 +949,11 @@ static void add_no_route_msg(SsdWidget dialog){
             SSD_MIN_SIZE, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ALIGN_VCENTER);
    ssd_widget_set_color(group2, NULL, NULL);
 
-   text = ssd_text_new ("empty list text", roadmap_lang_get("No route"), 22,SSD_ALIGN_CENTER|SSD_END_ROW);
-   ssd_text_set_color(text, "#24323a");
+   text = ssd_text_new ("empty list text", roadmap_lang_get("No route"), 20,SSD_ALIGN_CENTER|SSD_END_ROW);
+   ssd_text_set_color(text, "#ffffff");
    ssd_widget_add (group2, text);
    ssd_dialog_add_vspace(group2, 20, 0);
-   text = ssd_text_new ("empty list text", roadmap_lang_get("You should be in navigation mode to view events on your route"), 18,SSD_ALIGN_CENTER);
+   text = ssd_text_new ("empty list text", roadmap_lang_get("You should be in navigation mode to view events on your route"), 14,SSD_ALIGN_CENTER);
    ssd_text_set_color(text, "#24323a");
    ssd_widget_add (group2, text);
    ssd_widget_add( group, group2);
@@ -951,30 +962,51 @@ static void add_no_route_msg(SsdWidget dialog){
 
 }
 
+int on_button_show_no_groups (SsdWidget widget, const char *new_value){
+   ssd_dialog_hide_all(dec_close);
+#ifdef ANDROID
+   roadmap_groups_show();
+#else
+   start_more_menu();
+#endif
+   return 1;
+}
+
 static void add_no_group_msg(SsdWidget dialog){
+   SsdWidget bitmap;
    SsdWidget group, group2;
+   SsdWidget button;
    SsdWidget text;
 
    group = ssd_container_new ("no_group_msg", NULL,
             SSD_MAX_SIZE, SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW);
    ssd_widget_set_color(group, NULL, NULL);
 
+   ssd_dialog_add_vspace(group, 10, 0);
+   bitmap = ssd_bitmap_new("noGroupImage","no_groups", SSD_END_ROW|SSD_ALIGN_CENTER);
+   ssd_widget_add(group, bitmap);
+
    group2 = ssd_container_new ("no_group_msg.txt_container", NULL,
-            SSD_MIN_SIZE, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ALIGN_VCENTER);
+            SSD_MIN_SIZE, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW);
    ssd_widget_set_color(group2, NULL, NULL);
 
-   text = ssd_text_new ("no_group_msg text1", roadmap_lang_get("No groups"), 22,SSD_ALIGN_CENTER|SSD_END_ROW);
-   ssd_text_set_color(text, "#24323a");
+   text = ssd_text_new ("no_group_msg text1", roadmap_lang_get("No groups events :("), 20,SSD_ALIGN_CENTER|SSD_END_ROW);
+   ssd_text_set_color(text, "#ffffff");
    ssd_widget_add (group2, text);
    ssd_dialog_add_vspace(group2, 20, 0);
-   text = ssd_text_new ("no_group_msg text2", roadmap_lang_get("You're not following any groups - but you should!"), 16,SSD_ALIGN_CENTER|SSD_END_ROW);
+   text = ssd_text_new ("no_group_msg text2", roadmap_lang_get("You're not following any groups - but you should!"), 14,SSD_ALIGN_CENTER|SSD_END_ROW);
    ssd_text_set_color(text, "#24323a");
    ssd_widget_add (group2, text);
    ssd_dialog_add_vspace(group2, 5, SSD_END_ROW);
-   text = ssd_text_new ("no_group_msg text2", roadmap_lang_get("Go to 'Groups' in main menu to find or create a group"), 16,SSD_ALIGN_CENTER);
+   text = ssd_text_new ("no_group_msg text2", roadmap_lang_get("Go to 'Groups' in main menu to find or create a group"), 14,SSD_ALIGN_CENTER);
    ssd_text_set_color(text, "#24323a");
    ssd_widget_add (group2, text);
    ssd_widget_add( group, group2);
+
+   ssd_dialog_add_vspace(group2, 20, 0);
+   button = ssd_button_label("Go", roadmap_lang_get("Ok"), SSD_WS_TABSTOP|SSD_ALIGN_CENTER, on_button_show_no_groups);
+   ssd_widget_add(group, button);
+
    ssd_widget_add( dialog, group);
    ssd_widget_hide(group);
 
@@ -1238,7 +1270,7 @@ void RealtimeAlertsListGroup(void){
    g_list_filter = filter_group;
    ShowListMenu();
 
-   if (RealTimeLoginState() && (roadmap_groups_get_num_following() == 0)){
+   if (RealTimeLoginState()){
       report_list_all();
    }
 }

@@ -36,7 +36,7 @@
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (138)
+#define  RTNET_PROTOCOL_VERSION                 (140)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -114,7 +114,7 @@
             RTNET_CREATENEWROADS_BUFFERSIZE     +  \
             MESSAGE_MAX_SIZE__SeeMe             +  \
             MESSAGE_MAX_SIZE__UserPoints)
-#define  MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_,_AllowNewRoadCount_) \
+#define  MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_,_AllowNewRoadCount_,_ExternalPoiDisplayedCount_) \
          (  HTTP_HEADER_MAX_SIZE                                           +  \
             CUSTOM_HEADER_MAX_SIZE                                         +  \
             MESSAGE_MAX_SIZE__At                                           +  \
@@ -123,9 +123,8 @@
             RTNET_GPSPATH_BUFFERSIZE__dynamic(_GPSPointsCount_)            +  \
             RTNET_NODEPATH_BUFFERSIZE__dynamic(_NodesPointsCount_)         +  \
             RTNET_CREATENEWROADS_BUFFERSIZE__dynamic(_AllowNewRoadCount_)  +  \
+            RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE__dynamic(_ExternalPoiDisplayedCount_)  +  \
             MESSAGE_MAX_SIZE__SeeMe                                        +  \
-            MESSAGE_MAX_SIZE__SetMood                                      +  \
-            MESSAGE_MAX_SIZE__Location                                     +  \
             MESSAGE_MAX_SIZE__UserPoints)
 
 // Buffer sizes for GPS path string
@@ -195,6 +194,13 @@
                             RTNET_NODEPATH_BUFFERSIZE_time_offset     + \
                             RTNET_NODEPATH_BUFFERSIZE_row_count       + \
                             RTNET_NODEPATH_BUFFERSIZE_rows__dynamic(_n_))
+
+#define RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_command_name  20
+#define RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_int_id        11
+#define  RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE__dynamic(_n_)                         \
+                           (RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_command_name    +  \
+                            RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_int_id * _n_)
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -290,7 +296,7 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_5GetGeoConfig               ("GetGeoServerConfig,%d,%s,%d,%s,%s")
 #define  RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints        ("BridgeTo,SCOREBOARD,getPoints,8,period,%s,geography,%s,from_rank,%s,count,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4PushNotificationsSet       ("BridgeTo,PUSHNOTIFICATIONS,setService,8,token,%s,score,%s,updates,%s,friends,%s\n")
-#define  RTNET_FORMAT_NETPACKET_2FacebookPermissions        ("BridgeTo,FACEBOOKPERMISSIONS,facebook_permissions,4,show_name,%s,show_picture,%s\n")
+#define  RTNET_FORMAT_NETPACKET_4FacebookPermissions        ("BridgeTo,FACEBOOKPERMISSIONS,facebook_permissions,8,show_name,%s,show_picture,%s,show_facebook_profile,%s,show_twitter_profile,%s\n")
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -325,6 +331,11 @@ DECLARE_WEBSVC_PARSER(CollectBonusRes)
 DECLARE_WEBSVC_PARSER(OpenMessageTicker)
 DECLARE_WEBSVC_PARSER(UserGroups)
 DECLARE_WEBSVC_PARSER(OpenMoodSelection)
+DECLARE_WEBSVC_PARSER(UserGroups)
+DECLARE_WEBSVC_PARSER(AddExternalPoiType)
+DECLARE_WEBSVC_PARSER(AddExternalPoi)
+DECLARE_WEBSVC_PARSER(RmExternalPoi)
+DECLARE_WEBSVC_PARSER(SetExternalPoiDrawOrder)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 

@@ -653,7 +653,7 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 				RoadMapGuiPoint points[3];
 				RoadMapPen pointer_pen;
 				roadmap_math_coordinate (position, points);
-				roadmap_screen_rotate_coordinate ( points );
+				roadmap_math_rotate_project_coordinate ( points );
 				if (points[0].y > (point.y +10) ){
 				points[1].x = point.x;
 				points[1].y = point.y+s_images[border_black_bottom_no_frame].height-3;

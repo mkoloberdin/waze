@@ -1161,13 +1161,13 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    if ((w->flags & SSD_DIALOG_FLOAT) && !(w->flags & SSD_DIALOG_TRANSPARENT)){
       if ((size->width == SSD_MAX_SIZE) && ((max->width >= roadmap_canvas_width()) || (max->width >= roadmap_canvas_height()))){
          if (roadmap_canvas_width() > roadmap_canvas_height())
-#ifdef IPHONE
-            size->width = 320;
-#else
             size->width = roadmap_canvas_height();
-#endif //IPHONE
          else
             size->width = roadmap_canvas_width()-20;
+#ifdef IPHONE
+         size->width = 320 * roadmap_screen_get_screen_scale() / 100;
+#endif
+         
       }else
          if (size->width == SSD_MAX_SIZE) size->width = max->width -20;
       if (size->height== SSD_MAX_SIZE) size->height= max->height - total_height_below;
@@ -1179,8 +1179,8 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    }
 
 #ifdef IPHONE_NATIVE
-   if (size->width > 320)
-      size->width = 320;
+   if (size->width > 320 * roadmap_screen_get_screen_scale() / 100)
+      size->width = 320 * roadmap_screen_get_screen_scale() / 100;
 #endif //IPHONE
 
    if ((size->height >= 0) && (size->width >= 0)) {
@@ -1322,6 +1322,10 @@ void ssd_widget_hide (SsdWidget w) {
 
 void ssd_widget_show (SsdWidget w) {
    w->flags &= ~SSD_WIDGET_HIDE;
+}
+int ssd_widget_get_flags ( SsdWidget w )
+{
+   return w->flags;
 }
 
 

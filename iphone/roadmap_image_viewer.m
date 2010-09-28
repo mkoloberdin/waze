@@ -48,15 +48,15 @@ void roadmap_image_viewer_show(const char** images, int count) {
    
    if (gIndex  == 0) {
       button = NULL;
-      navItem.hidesBackButton = YES;
    }
    else {
       button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Back")]
                                                 style:UIBarButtonItemStylePlain target:self action:@selector(backButton)];
-      navItem.hidesBackButton = NO;
    }
    [navItem setLeftBarButtonItem: button];
-	[button release];
+   if (button) {
+      [button release];
+   }
    
    if (gIndex < gCount - 1)
       button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Next")]
@@ -143,6 +143,10 @@ void roadmap_image_viewer_show(const char** images, int count) {
 	UIView *containerView = [[UIView alloc] initWithFrame:rect];
 	self.view = containerView;
 	[containerView release]; // decrement retain count
+   
+   
+   UINavigationItem *navItem = [self navigationItem];
+   navItem.hidesBackButton = YES;
 }
 
 - (void) show: (const char **) images

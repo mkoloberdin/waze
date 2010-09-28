@@ -1,36 +1,10 @@
 /*
- * SGI FREE SOFTWARE LICENSE B (Version 2.0, Sept. 18, 2008)
- * Copyright (C) 1991-2000 Silicon Graphics, Inc. All Rights Reserved.
- *
- * Permission is hereby granted, free of charge, to any person obtaining a
- * copy of this software and associated documentation files (the "Software"),
- * to deal in the Software without restriction, including without limitation
- * the rights to use, copy, modify, merge, publish, distribute, sublicense,
- * and/or sell copies of the Software, and to permit persons to whom the
- * Software is furnished to do so, subject to the following conditions:
- *
- * The above copyright notice including the dates of first publication and
- * either this permission notice or a reference to
- * http://oss.sgi.com/projects/FreeB/
- * shall be included in all copies or substantial portions of the Software.
- *
- * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
- * OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
- * SILICON GRAPHICS, INC. BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
- * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
- * OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
- * SOFTWARE.
- *
- * Except as contained in this notice, the name of Silicon Graphics, Inc.
- * shall not be used in advertising or otherwise to promote the sale, use or
- * other dealings in this Software without prior written authorization from
- * Silicon Graphics, Inc.
- */
-
-/*
  *  gluUnproject.c
  *  waze
+ *
+ *  Created by Ehud Shabtai on 7/26/10.
+ *  Copyright 2010 waze. All rights reserved.
+ *
  */
 
 #include "glu.h"
@@ -54,7 +28,10 @@ static void __gluMultMatrixVecd(const GLfloat matrix[16], const GLfloat in[4],
  */ 
 static int __gluInvertMatrixd(const GLfloat m[16], GLfloat invOut[16]) 
 { 
-    GLfloat inv[16]; 
+    GLfloat det;
+	int i;
+	GLfloat inv[16]; 
+
     inv[0]    =  m[5]*m[10]*m[15]    - m[5]*m[11]*m[14]    - m[9]*m[6]*m[15] 
 	+ m[9]*m[7]*m[14]        + m[13]*m[6]*m[11]    - m[13]*m[7]*m[10]; 
     inv[4]    = - m[4]*m[10]*m[15]    + m[4]*m[11]*m[14]    + m[8]*m[6]*m[15] 
@@ -87,13 +64,15 @@ static int __gluInvertMatrixd(const GLfloat m[16], GLfloat invOut[16])
 	- m[4]*m[3]*m[9]        - m[8]*m[1]*m[7]    + m[8]*m[3]*m[5]; 
     inv[15] =  m[0]*m[5]*m[10]        - m[0]*m[6]*m[9]    - m[4]*m[1]*m[10] 
 	+ m[4]*m[2]*m[9]        + m[8]*m[1]*m[6]    - m[8]*m[2]*m[5]; 
-    GLfloat det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12]; 
+
+    det = m[0]*inv[0] + m[1]*inv[4] + m[2]*inv[8] + m[3]*inv[12]; 
+
     if( det == 0 ) 
     { 
         return GL_FALSE; 
     } 
     det = 1.0 / det; 
-    for( int i=0; i<16; ++i ) 
+    for( i=0; i<16; ++i ) 
     { 
         invOut[i] = inv[i] * det; 
     } 
@@ -115,7 +94,7 @@ static void __gluMultMatricesd(const GLfloat a[16], const GLfloat b[16],
         } 
     } 
 }
-GLAPI GLint GLAPIENTRY gluUnProjectf(GLfloat winx, GLfloat winy, GLfloat winz, 
+GLint GLAPIENTRY gluUnProjectf(GLfloat winx, GLfloat winy, GLfloat winz, 
 				  const GLfloat modelMatrix[16],  
 				  const GLfloat projMatrix[16], 
 				  const GLint viewport[4], 
@@ -153,4 +132,4 @@ GLAPI GLint GLAPIENTRY gluUnProjectf(GLfloat winx, GLfloat winy, GLfloat winz,
     *objz = out[2];
 	
     return GL_TRUE; 
-} 
+}

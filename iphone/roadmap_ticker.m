@@ -58,7 +58,7 @@
 #include "roadmap_display.h"
 #include "roadmap_lang.h"
 #include "roadmap_device_events.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_iphonemain.h"
 #include "roadmap_iphonecanvas.h"
 #include "ssd/ssd_dialog.h"
@@ -225,12 +225,11 @@ void roadmap_ticker_initialize(void){
 	
 	//Opened ticker view
 	//Set background
-	image = roadmap_iphoneimage_load("TickerBackground");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "TickerBackground");
 	if (image) { 
 		rect.size.height = [image size].height;
 		imageView = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:image.size.width/2
 																				   topCapHeight:image.size.height]];
-		[image release];
 		gTickerView = [[RoadMapTickerView alloc] initWithFrame:rect];
       [gTickerView setAutoresizesSubviews: YES];
       [gTickerView setAutoresizingMask: UIViewAutoresizingFlexibleWidth];
@@ -262,11 +261,10 @@ void roadmap_ticker_initialize(void){
 	[label release];
 	
 	//Set gained box
-	image = roadmap_iphoneimage_load("TickerSilverBox");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "TickerSilverBox");
 	if (image) {
 		imageView = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:image.size.width/2
                                                                                 topCapHeight:image.size.height]];
-		[image release];
 		rect = [imageView frame];
 		rect.origin.x = posX;
 		rect.origin.y = ([gTickerView frame].size.height - [imageView frame].size.height) - 5;
@@ -302,7 +300,7 @@ void roadmap_ticker_initialize(void){
 		return;
 	}
 	
-	image = roadmap_iphoneimage_load(TICKER_DIVIDER);
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, TICKER_DIVIDER);
 	if (image) {
 		imageView = [[UIImageView alloc] initWithImage:image];
 		rect = [imageView frame];
@@ -315,10 +313,7 @@ void roadmap_ticker_initialize(void){
 		rect.origin.x = posX + (roadmap_canvas_width() - posX) /2;
 		[imageView setFrame:rect];
 		[gTickerView addSubview:imageView];
-		[imageView release];
-		
-		[image release];
-		
+		[imageView release];		
 	} else {
 		roadmap_log (ROADMAP_ERROR, "roadmap_ticker - cannot load %s image ", TICKER_DIVIDER);
 		return;

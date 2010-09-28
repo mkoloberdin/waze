@@ -54,7 +54,7 @@
 #include "ssd_contextmenu.h"
 
 
-#define	SCROLL_AFTER_END_COUNTER 4
+#define	SCROLL_AFTER_END_COUNTER 16
 #define ALIGN_FOCUS_TIMEOUT		 40
 
 struct ssd_dialog_item;
@@ -960,8 +960,6 @@ void ssd_dialog_refresh_current_softkeys(){
    set_softkeys(RoadMapDialogCurrent);
 }
 
-#define SCROLL_AFTER_END_COUNTER 8
-
 static void keep_dragging (void) {
    SsdDialog dialog = RoadMapDialogCurrent;
    RoadMapGuiPoint point;
@@ -1041,12 +1039,12 @@ int ssd_dialog_drag_end (RoadMapGuiPoint *point) {
    time_diff = dialog->drag_end_time_ms - dialog->drag_start_time_ms;
    drag_diff = abs(dialog->drag_end_motion.y - dialog->drag_start_point.y);
    if (time_diff > 0)
-      speed = (int)(drag_diff*10)/time_diff;
+      speed = (int)(drag_diff*5)/time_diff;
 
-#if 1
+#ifdef OPENGL
    if ((dialog->scroll_counter < SCROLL_AFTER_END_COUNTER) &&  (drag_diff > 40)){
       dialog->drag_speed = speed;
-      roadmap_main_set_periodic (30, keep_dragging);
+      roadmap_main_set_periodic (10, keep_dragging);
       dialog->time_active = TRUE;
       return 1;
    }
@@ -1165,6 +1163,10 @@ SsdWidget ssd_dialog_activate (const char *name, void *context) {
    dialog->context = context;
 
    dialog->activated_prev = RoadMapDialogCurrent;
+   if (RoadMapDialogCurrent && (RoadMapDialogCurrent->container->flags & SSD_DIALOG_MODAL)){
+      ssd_dialog_hide (RoadMapDialogCurrent->name, dec_close);
+      dialog->activated_prev = NULL;
+   }
 
    if (!RoadMapDialogCurrent) {
       roadmap_keyboard_register_to_event__key_pressed( OnKeyPressed);

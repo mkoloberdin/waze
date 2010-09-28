@@ -69,6 +69,10 @@
 
 #include "roadmap_editbox.h"
 
+#ifdef ANDROID
+#include "roadmap_androidmain.h"
+#endif
+
 #ifdef IPHONE
 #include "iphone/roadmap_list_menu.h"
 
@@ -286,8 +290,8 @@ static int roadmap_address_show (const char 			*city,
   	      }
   	   }
   	   else{
-  	       char full_address[ADDRESS_STRING_MAX_SIZE+1];
-
+  	          static char full_address[ADDRESS_STRING_MAX_SIZE+1];
+  	          full_address[0] = 0;
   	          if( create_address_string( full_address, city, street_name, street_number_image))
   	          {
   	             if( !address_search_auto_search( full_address))
@@ -516,12 +520,14 @@ static BOOL keyboard_callback(  int         exit_code,
    else{
       coordinates.latitude = atoi(argv[5]);
       coordinates.longitude = atoi(argv[6]);
-      roadmap_trip_server_create_poi(value, &coordinates, TRUE);
    }
     argv[4] = (char *)value;
    argv[ahi_synced] = "false";
    roadmap_history_add ('F', (const char **)argv);
    roadmap_history_save();
+
+   if (value[0] != 0)
+      roadmap_trip_server_create_poi(value, &coordinates, TRUE);
 
 #ifdef IPHONE
 	roadmap_main_show_root(0);
@@ -837,7 +843,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context){
                               on_option_selected,
                               NULL,
                               &menu_context,
-                              NULL, 60, FALSE, NULL);
+                              NULL, 60, 0, NULL);
 #endif //IPHONE
 
    return 0;
@@ -1086,7 +1092,7 @@ void roadmap_search_history (char category, const char *title) {
                               history_callback,
                               NULL,
                               &context,
-                              on_options, 60, TRUE, NULL);
+                              on_options, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
 #endif //IPHONE
 }
 
@@ -1182,13 +1188,21 @@ void search_menu_search_local(void){
 }
 
 /////////////////////////////////////////////////////////////////////
-#ifdef IPHONE_NATIVE
 void roamdmap_search_address_book(void){
+#ifdef IPHONE_NATIVE
    roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHAB_NAME, NULL, NULL);
 
    address_book_dlg_show(NULL, NULL);
-}
 #endif //IPHONE_NATIVE
+#ifdef ANDROID
+   roadmap_main_show_contacts();
+#endif
+#ifdef _WIN32
+   roadmap_main_search_contacts();
+#endif
+
+}
+
 
 SsdWidget create_quick_search_menu(){
 
@@ -1235,15 +1249,15 @@ void roadmap_search_top_three_fav (char ***labels_o, void ***values_o, char ***i
       }
       if (labels[count]) free (labels[count]);
       labels[count] = strdup(str);
-      
+
       values[count] = history;
-      
+
       count++;
-      
+
       history = roadmap_history_before ('F', history);
       if (history == prev) break;
    }
-   
+
    if (homeIndex != -1){  // Home entry exists
       swap(&values[0],homeIndex,0);
       swap((void **)&labels[0], homeIndex,0);
@@ -1260,17 +1274,17 @@ void roadmap_search_top_three_fav (char ***labels_o, void ***values_o, char ***i
       swap((void **)&labels[0], workIndex,newWorkIndex);
       swap((void **)&icons[0], workIndex,newWorkIndex);
    }
-   
+
    if (count > 3)
       count = 3;
-   
+
    *labels_o = labels;
    *values_o = values;
    *icons_o = icons;
    *count_o = count;
    *callback_o = quick_favorites_callback;
 }
-   
+
 #ifndef IPHONE_NATIVE
 static SsdWidget get_favorites_widget( SsdWidget list, int *f_count){
    SsdWidget favorites_container = NULL;
@@ -1601,71 +1615,7 @@ void roadmap_search_menu(void){
 
 }
 
-void roadmap_search_menu_old(void){
-   int                  count;
-   RoadMapGpsPosition   MyLocation;
-   RoadMapPosition      position;
 
-   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHMENU_NAME, NULL, NULL);
-
-   if( roadmap_navigate_get_current( &MyLocation, NULL, NULL) == -1)
-   {
-       position.latitude = 0;
-       position.longitude = 0;
-   }
-   else{
-       position.latitude = MyLocation.latitude;
-       position.longitude = MyLocation.longitude;
-   }
-
-	if (ssd_dialog_is_currently_active()) {
-		if (!strcmp(ssd_dialog_currently_active_name(), SEARCH_MENU_DLG_NAME )){
-			ssd_dialog_hide_current(dec_close);
-			roadmap_screen_refresh ();
-			return;
-		}
-	}
-
-   if( !s_main_menu)
-   {
-      s_main_menu = roadmap_factory_load_menu("quick.menu", RoadMapStartActions);
-
-      if( !s_main_menu)
-      {
-         assert(0);
-         return;
-      }
-   }
-
-   if( !get_menu_item_names( "search_menu", s_main_menu, grid_menu_labels, &count))
-   {
-      assert(0);
-      return;
-   }
-
-
-   if ( !ssd_dialog_exists( SEARCH_MENU_DLG_NAME ) )
-   {
-      SsdWidget additionalSearchContainer = create_additional_search_container();
-      s_search_menu = ssd_menu_new_cb( SEARCH_MENU_DLG_NAME, additionalSearchContainer, NULL, grid_menu_labels, RoadMapStartActions, SSD_CONTAINER_TITLE,on_search_dlg_close );
-      ssd_dialog_activate ( SEARCH_MENU_DLG_NAME, NULL );
-   }
-   else{
-      SsdWidget text;
-      SsdWidget dialog = ssd_dialog_activate ( SEARCH_MENU_DLG_NAME, NULL );
-      update_favorites_widget(dialog);
-      text = ssd_widget_get(dialog, "edit");
-      if (text){
-         ssd_text_set_text(text,"");
-         ssd_widget_set_focus(text->parent);
-         if (!roadmap_native_keyboard_enabled() )
-            resert_edit_box(text->parent);
-      }
-   }
-   ssd_dialog_draw ();
-
-
-}
 #else
    /*
    void roadmap_search_menu(void){
@@ -1742,7 +1692,7 @@ void roadmap_search_menu_old(void){
 }
     */
 #endif //IPHONE_NATIVE
-   
+
 #else
 
 void roadmap_search_menu(void){

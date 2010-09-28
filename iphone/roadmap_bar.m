@@ -50,14 +50,13 @@
 #include "roadmap_config.h"
 #include "roadmap_map_settings.h"
 #include "roadmap_groups.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "Realtime/RealtimeAlerts.h"
 
 #include "roadmap_iphonebar.h"
 
 #define MAX_STATES 50
 #define TOP_BAR_IMAGE 		"top_bar_background" 
-#define BOTTOM_BAR_IMAGE 	"bottom_bar_background"
 #define BOTTOM_BUTTON		"toolbar_button_up"
 #define BOTTOM_BUTTON_SEL	"toolbar_button_down"
 
@@ -314,7 +313,7 @@ static void roadmap_bar_decode_icon
       
       roadmap_bar_decode_arg (arg, sizeof(arg), argv[i], argl[i]);
 
-	   UIImage *image = roadmap_iphoneimage_load(arg);
+	   UIImage *image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, arg);
 	  
       if (image == NULL) {
             roadmap_log (ROADMAP_ERROR,
@@ -727,16 +726,14 @@ static void roadmap_bottom_bar_set_ui  (BarObjectTable_s *BarObjectTable) {
 	UIBarButtonItem *flexSpacer = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace
 																				target:nil action:nil]; 
 
-	UIImage *img = roadmap_iphoneimage_load(BOTTOM_BUTTON);
+	UIImage *img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, BOTTOM_BUTTON);
 	UIImage *buttonImage;
 	if (img) {
 		buttonImage = [img stretchableImageWithLeftCapWidth:5 topCapHeight:5];
-		[img release];
 	}
 
-	img = roadmap_iphoneimage_load(BOTTOM_BUTTON_SEL);
+	img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, BOTTOM_BUTTON_SEL);
 	UIImage *buttonImageSel = [img stretchableImageWithLeftCapWidth:5 topCapHeight:5];
-	[img release];
    
 	
 	for (i=0; i < BarObjectTable->count; i++) {
@@ -856,16 +853,14 @@ static void roadmap_more_bar_set_ui  (BarObjectTable_s *BarObjectTable) {
 	UIBarButtonItem *flexSpacer = [[UIBarButtonItem alloc] initWithBarButtonSystemItem: UIBarButtonSystemItemFlexibleSpace
                                                                                target:nil action:nil]; 
    
-	UIImage *img = roadmap_iphoneimage_load(BOTTOM_BUTTON);
+	UIImage *img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, BOTTOM_BUTTON);
 	UIImage *buttonImage;
 	if (img) {
 		buttonImage = [img stretchableImageWithLeftCapWidth:5 topCapHeight:0];
-		[img release];
 	}
    
-	img = roadmap_iphoneimage_load(BOTTOM_BUTTON_SEL);
+	img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, BOTTOM_BUTTON_SEL);
 	UIImage *buttonImageSel = [img stretchableImageWithLeftCapWidth:5 topCapHeight:0];
-	[img release];
    
 	
    //[buttonArray addObject:flexSpacer];
@@ -1080,7 +1075,7 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 		   image_name = table->object[i]->bar_image_fn->bar_text_fn();
 		   if (image_name && *image_name &&
              strcmp(image_name, table->object[i]->last_image_fn_icon)){
-            UIImage *image = roadmap_iphoneimage_load(image_name);
+            UIImage *image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, image_name);
 		      if (image) {
                UIImageView *imageView = (UIImageView *)[topBarView viewWithTag:i];
                if (imageView) {
@@ -1095,8 +1090,6 @@ void draw_top_bar_objects(BarObjectTable_s *table){
                   rect.origin = CGPointMake(ObjectLocation.x, ObjectLocation.y);
                   imageView.frame = rect;
                }
-               
-               [image release];
              
                strncpy_safe(table->object[i]->last_image_fn_icon, image_name, sizeof(table->object[i]->last_image_fn_icon));
             }
@@ -1403,7 +1396,7 @@ UIView *roadmap_bar_create_top_bar () {
    [topBarView setAutoresizesSubviews: YES];
    [topBarView setAutoresizingMask: UIViewAutoresizingFlexibleWidth];
 
-	UIImage *topBarImage = roadmap_iphoneimage_load(TOP_BAR_IMAGE);
+	UIImage *topBarImage = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, TOP_BAR_IMAGE);
 	
 	if (topBarImage) {
       rect = topBarView.frame;
@@ -1411,7 +1404,6 @@ UIView *roadmap_bar_create_top_bar () {
       topBarView.frame = rect;
 		UIImageView *topBarImageV = [[UIImageView alloc] initWithImage:
                                    [topBarImage stretchableImageWithLeftCapWidth:0 topCapHeight:0]];
-      [topBarImage release];
 		//position of bar bg
 		rect = topBarView.bounds;
 		[topBarImageV setFrame: rect];
@@ -1564,7 +1556,8 @@ UIToolbar *roadmap_bar_create_more_bar (void) {
    
    if (bottomBarView) {
       rect = bottomBarView.frame;
-      rect.size.height -= 9;
+      if (roadmap_main_get_platform() != ROADMAP_MAIN_PLATFORM_IPAD)
+         rect.size.height -= 9;
       if (isShown)
          rect.origin.y -= rect.size.height;
    } else {

@@ -103,6 +103,7 @@ void roadmap_ticker_display() {
 	int point_start_x = 190;
 	int rank_start_x = 270;
    int new_pnts_start_x = 50;
+   RoadMapImage x_image = NULL;
 
    const char * point_text = NULL;
 
@@ -125,7 +126,7 @@ void roadmap_ticker_display() {
     }
 
 
-    if (gTickerHide && (!roadmap_message_format (text, sizeof(text), "%X"))){
+    if (gTickerHide ){
 		gTickerOn = FALSE;
 	 	return;
 	}
@@ -278,6 +279,16 @@ void roadmap_ticker_display() {
   	            ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
                      14,text);
    }
+
+#ifdef TOUCH_SCREEN
+   x_image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "x_close");
+   if ( x_image ) {
+       position.x = roadmap_canvas_width() - roadmap_canvas_image_width(x_image) - 5;
+       position.y = roadmap_bar_top_height() + gMiddleImageSize.height -roadmap_canvas_image_height(x_image) -5;
+       roadmap_canvas_draw_image ( x_image, &position, 0, IMAGE_NORMAL);
+   }
+#endif
+
 }
 
 void roadmap_ticker_supress_hide(void){

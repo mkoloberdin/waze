@@ -29,7 +29,7 @@
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneCellSwitch.h"
 #include "widgets/iphoneTableHeader.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_map_download.h"
 #include "roadmap_net_mon.h"
 #include "roadmap_download_settings.h"
@@ -113,9 +113,7 @@ void roadmap_download_settings_dialog_show(void){
    
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -139,9 +137,7 @@ void roadmap_download_settings_dialog_show(void){
 	NSMutableArray *groupArray = NULL;
 	iphoneCell *callbackCell = NULL;
 	iphoneCellSwitch *swCell = NULL;
-	UIImage *img = NULL;
    iphoneTableHeader *header = NULL;
-	char *icon_name;
    char str[512];
 	
 	
@@ -156,13 +152,7 @@ void roadmap_download_settings_dialog_show(void){
    //download map
    if (roamdmap_map_download_enabled()) {
       callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-      icon_name = "download_map";
-      img = roadmap_iphoneimage_load(icon_name);
-      if (img) {
-         callbackCell.imageView.image = img;
-         [img release];
-      }
-      //[callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+      callbackCell.imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "download_map");
       [callbackCell setTag:ID_DOWNLOAD_MAP];
       id_callbacks[ID_DOWNLOAD_MAP] = map_download;
       callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Download map of my area")];
@@ -171,13 +161,7 @@ void roadmap_download_settings_dialog_show(void){
    
    //clear tiles cache
    callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-   icon_name = "refresh_map";
-   img = roadmap_iphoneimage_load(icon_name);
-   if (img) {
-      callbackCell.imageView.image = img;
-      [img release];
-   }
-   //[callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   callbackCell.imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "refresh_map");
    [callbackCell setTag:ID_REFRESH_MAP];
    id_callbacks[ID_REFRESH_MAP] = map_refresh;
    callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Refresh map of my area")];

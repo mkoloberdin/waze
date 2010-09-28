@@ -53,20 +53,24 @@
 
 #if defined(__SYMBIAN32__) || defined(J2ME)
 #define	TM_MAX_CONCURRENT		1
-#elif defined(IPHONE) || defined(ANDROID) 
+#elif defined(IPHONE) || defined(ANDROID)
 #define	TM_MAX_CONCURRENT		6
 #else
 #define	TM_MAX_CONCURRENT		3
 #endif
 
 #ifdef _WIN32
+#ifdef OPENGL
+#define TM_MAX_QUEUE                256
+#else
 #define TM_MAX_QUEUE						128
+#endif
 #else
 #define TM_MAX_QUEUE						256
 #endif
 
-#define TM_RETRY_CONNECTION_SECONDS	10
-#define TM_HTTP_TIMEOUT_SECONDS		5
+#define TM_RETRY_CONNECTION_SECONDS	20
+#define TM_HTTP_TIMEOUT_SECONDS		20
 
 typedef struct {
 
@@ -211,12 +215,12 @@ static void http_cb_error (void *context, int connection_failure, const char *fo
 	// Update the refresh progress also in case of error on tile
    tile_refresh_cb( conn->tile_index );
 
-	if (connection_failure) {
-	   // The callback responsibility to "null" the context in case of failure
-	   // The memory is deallocated out of this function
-	   // The timeout value is irrelevant in case of known failure
-	   conn->http_context  = NULL;
-	   conn->time_out = 0;
+   // The callback responsibility to "null" the context in case of failure
+   // The memory is deallocated out of this function
+   // The timeout value is irrelevant in case of known failure
+   conn->http_context  = NULL;
+   conn->time_out = 0;
+   if (connection_failure) {
 		on_connection_failure (conn);
 		return;
 	}
@@ -529,7 +533,7 @@ static void queue_tile (int index, int priority, RoadMapCallback on_loaded) {
 void roadmap_tile_request (int index, int priority, int force_update, RoadMapCallback on_loaded) {
 
 	int *tile_status = roadmap_tile_status_get (index);
-   
+
    if (!tile_status)
       return;
 
@@ -650,7 +654,7 @@ static void refresh_all_tiles( void )
    roadmap_tile_remove_all( fips );
    ssd_progress_msg_dialog_hide();
    roadmap_screen_refresh();
-   
+
    if ( roadmap_locator_activate( fips ) != ROADMAP_US_OK )
       roadmap_log( ROADMAP_ERROR, "Problem activating locator" );
 
@@ -668,7 +672,7 @@ static void refresh_all_tiles( void )
  * Tiles refresh interface
  */
 void roadmap_tile_refresh_all( void )
-{ 
+{
    if ( TilesRefreshTotalCount >= 0 )
    {
       roadmap_log( ROADMAP_WARNING, "Previous 'refresh tiles' request still in progress." );

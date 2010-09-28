@@ -34,7 +34,7 @@
 #include "roadmap_car.h"
 #include "roadmap_path.h"
 
-#include "roadmap_iphonelogin.h"
+#include "roadmap_login_dlg.h"
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
 #include "widgets/iphoneCell.h"
@@ -47,7 +47,7 @@
 #include "roadmap_start.h"
 #include "roadmap_social.h"
 #include "roadmap_messagebox.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "ssd_progress_msg_dialog.h"
 #include "roadmap_device_events.h"
 #include "roadmap_social_dialog.h"
@@ -222,10 +222,7 @@ void roadmap_twitter_setting_dialog(void) {
    iphoneTableFooter *footer = NULL;
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
-   tableView.rowHeight = 50;
+   roadmap_main_set_table_color(tableView);   tableView.rowHeight = 50;
    
    if (headersArray) {
       for (i = 0; i < [headersArray count]; ++i) {
@@ -350,11 +347,7 @@ void roadmap_twitter_setting_dialog(void) {
       cell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"cell_icon"] autorelease];
       
       cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("Account details")];
-      image = roadmap_iphoneimage_load("Tweeter-logo");
-      if (image) {
-         cell.imageView.image = image;
-         [image release];
-      }
+      cell.imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Tweeter-logo");
       [groupArray addObject:cell];
    }
    
@@ -367,15 +360,14 @@ void roadmap_twitter_setting_dialog(void) {
       cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("Status: not logged in")];
    if (!isTwitter) {
       if (roadmap_facebook_logged_in()) {
-         image = roadmap_iphoneimage_load("facebook_disconnect");
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "facebook_disconnect");
          [cell setTag:ID_FACEBOOK_DISCONNECT];
       } else {
-         image = roadmap_iphoneimage_load("facebook_connect");
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "facebook_connect");
          [cell setTag:ID_FACEBOOK_CONNECT];
       }
       if (image) {
          cell.imageView.image = image;
-         [image release];
       }
    }
    [groupArray addObject:cell];
@@ -407,6 +399,7 @@ void roadmap_twitter_setting_dialog(void) {
 	[dataArray addObject:groupArray];
    
    //Facebook details
+   /*
    if (!isTwitter) {
       groupArray = [NSMutableArray arrayWithCapacity:1];
       
@@ -440,7 +433,7 @@ void roadmap_twitter_setting_dialog(void) {
       
       [dataArray addObject:groupArray];
    }
-   
+   */
    
    //group #2
    groupArray = [NSMutableArray arrayWithCapacity:1];
@@ -554,19 +547,17 @@ void roadmap_twitter_setting_dialog(void) {
    UIImage *image;
    
    if (roadmap_facebook_logged_in()) {
-      image = roadmap_iphoneimage_load("facebook_disconnect");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "facebook_disconnect");
       [cell setTag:ID_FACEBOOK_DISCONNECT];
       cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("Status: logged in")];
    } else {
-      image = roadmap_iphoneimage_load("facebook_connect");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "facebook_connect");
       [cell setTag:ID_FACEBOOK_CONNECT];
       cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("Status: not logged in")];
    }
    
    cell.imageView.image = image;
    [cell layoutSubviews];
-   if (image)
-      [image release]; 
 }
 
 - (void) showFacebook
@@ -602,7 +593,7 @@ void roadmap_twitter_setting_dialog(void) {
       facebook_dialog_closing();
       
 	if (isPrivacyModified) {
-      roadmap_facebook_send_permissions();
+      roadmap_social_send_permissions();
       isPrivacyModified = FALSE;
    }
 	[dataArray release];
@@ -631,10 +622,9 @@ void roadmap_twitter_setting_dialog(void) {
    UIImage *image = NULL;
    UIImageView *accessoryView = NULL;
    
-   image = roadmap_iphoneimage_load("v");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "v");
    if (image) {
       accessoryView = [[UIImageView alloc] initWithImage:image];
-      [image release];
    }
 
    int tag = [cell tag];
@@ -752,7 +742,10 @@ void roadmap_twitter_setting_dialog(void) {
 }
 
 - (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section {
-   return [footersArray objectAtIndex:section];
+   if (footersArray)
+      return [footersArray objectAtIndex:section];
+   else
+      return NULL;
 }
 
 - (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {

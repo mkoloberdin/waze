@@ -50,7 +50,8 @@
 	[[self contentView] addSubview:textView];
    
    [self setSelectionStyle:UITableViewCellSelectionStyleNone];
-	
+	[self setBackgroundColor:[UIColor whiteColor]];
+   
 	return self;
 }
 

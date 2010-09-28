@@ -60,7 +60,7 @@
 #include "iphone/roadmap_list_menu.h"
 #include "iphone/roadmap_iphonelist_menu.h"
 #include "iphone/widgets/iphoneLabel.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_path.h"
 #include "roadmap_main.h"
 
@@ -85,23 +85,25 @@ static SsdWidget   tabs[tab__count];
 #define MAX_ALERT_ADD_ONS  10
 
 typedef struct AlertList_s{
-	char *type_str[MAX_ALERTS_ENTRIES];
+   char *type_str[MAX_ALERTS_ENTRIES];
    char *location_str[MAX_ALERTS_ENTRIES];
-	char *detail[MAX_ALERTS_ENTRIES];
-	char *distance[MAX_ALERTS_ENTRIES];
-	char *unit[MAX_ALERTS_ENTRIES];
-	char *more_info[MAX_ALERTS_ENTRIES];
-	char *value[MAX_ALERTS_ENTRIES];
-	char *icon[MAX_ALERTS_ENTRIES];
+   char *detail[MAX_ALERTS_ENTRIES];
+   char *distance[MAX_ALERTS_ENTRIES];
+   char *unit[MAX_ALERTS_ENTRIES];
+   char *more_info[MAX_ALERTS_ENTRIES];
+   char *value[MAX_ALERTS_ENTRIES];
+   char *icon[MAX_ALERTS_ENTRIES];
    char *group_icon[MAX_ALERTS_ENTRIES];
    char *group_name[MAX_ALERTS_ENTRIES];
-	char *attachment[MAX_ALERTS_ENTRIES];
+   char *attachment[MAX_ALERTS_ENTRIES];
    char *addons[MAX_ALERTS_ENTRIES][MAX_ALERT_ADD_ONS];
    int iAddonsCount[MAX_ALERTS_ENTRIES];
-	int type[MAX_ALERTS_ENTRIES];
-	int iDistnace[MAX_ALERTS_ENTRIES];
-	UIView *view[MAX_ALERTS_ENTRIES];
-	int iCount;
+   int type[MAX_ALERTS_ENTRIES];
+   int iDistnace[MAX_ALERTS_ENTRIES];
+   UIView *view[MAX_ALERTS_ENTRIES];
+   BOOL bOldAlert[MAX_ALERTS_ENTRIES];
+   int iCount;
+   int iOldAlertsCount;
 }AlertList;
 
 static AlertList gAlertListTable;
@@ -136,18 +138,10 @@ static int initialized = 0;
 
 #define MAX_IMG_ITEMS      100
 
-typedef struct ImageList_s{
-	char *icon[MAX_IMG_ITEMS];
-	UIImage *image[MAX_IMG_ITEMS];
-	int iCount;
-}ImageList;
-
-static ImageList gImageList;
-
 static const char* selector_options[3] = {"Around me", "On route", "My Groups"};
 static list_menu_selector gFilterSelector;
 
-static void	show_types_list(BOOL refresh);
+static void	show_types_list(BOOL refresh, BOOL no_animation);
 static void on_tab_gain_focus(int type);
 #define TYPES_LIST 1
 #define ALERTS_LIST 2
@@ -160,12 +154,13 @@ static int RealtimeAlertsListCallBack(SsdWidget widget, const char *new_value,
    int alertId;
    
    alertId = atoi((const char*)value);
-   if (RTAlerts_Get_Number_of_Comments(alertId) == 0)
+   if (RTAlerts_Get_Number_of_Comments(alertId) == 0 &&
+       !RTAlerts_isAlertArchive(alertId))
    {
 		roadmap_main_show_root(0);
       RTAlerts_Popup_By_Id(alertId,FALSE);
    }
-   else
+   else if (RTAlerts_Get_Number_of_Comments(alertId) > 0)
    {
       RealtimeAlertCommentsList(alertId);
    }
@@ -299,29 +294,11 @@ static int RealtimeAlertsDeleteCallBack(SsdWidget widget, const char *new_value,
                               NULL,
                               (void *)value,            
                               NULL,
-                              60, FALSE, NULL);
+                              60, 0, NULL);
    
    return FALSE;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////
-UIImage *getImage (char *icon) {
-	int i;
-	
-	for (i = 0; i < gImageList.iCount; ++i) {
-		if (strcmp(icon, gImageList.icon[i]) == 0)
-			return (gImageList.image[i]);
-	}
-	
-	if (i >= MAX_IMG_ITEMS)
-		return NULL;
-	
-	gImageList.image[i] = roadmap_iphoneimage_load(icon);
-	gImageList.icon[i] = strdup(icon);
-	gImageList.iCount++;
-	
-	return (gImageList.image[i]);
-}
 
 @interface AlertCellView : UIView {
 }
@@ -392,7 +369,6 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
       
       //view to hold the index
       view = [[UIView alloc] initWithFrame:CGRectZero];
-      view.tag = index;
       [cellView addSubview:view];
       [view release];
 		
@@ -506,6 +482,9 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
    while ([cellView viewWithTag:ADDON_TAG] != NULL) {
       [[cellView viewWithTag:ADDON_TAG] removeFromSuperview];
    }
+   
+   view = (UIView *)[[cellView subviews] objectAtIndex:0];
+   view.tag = index;
 	
 	for (i = 0; i < [[cellView subviews] count]; i++) {
 		view = (UIView *) [[cellView subviews] objectAtIndex:i];
@@ -513,7 +492,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
 		switch (view.tag) {
 			case ICON_TAG:
 				//Set alert icon
-				img = getImage(gAlertListTable.icon[index]);
+				img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, gAlertListTable.icon[index]);
 				[(UIImageView *)view setImage:img];
 				if (img) {
 					rect = gRectIcon;
@@ -526,7 +505,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
             for (j = 0 ; j < gAlertListTable.iAddonsCount[index]; j++){
                char *AddOn = gAlertListTable.addons[index][j];
                if (AddOn) {
-                  img = getImage(AddOn);
+                  img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, AddOn);
                   imgView = [[UIImageView alloc] initWithImage:img];
                   imgView.tag = ADDON_TAG;
                   rect = gRectIcon;
@@ -542,7 +521,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
          case GROUP_ICON_TAG:
 				//Set group icon
             if (gAlertListTable.group_icon[index] && gAlertListTable.group_icon[index][0]) {
-               img = getImage(gAlertListTable.group_icon[index]);
+               img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, gAlertListTable.group_icon[index]);
                [(UIImageView *)view setImage:img];
                if (img) {
                   rect = gRectGroupIcon;
@@ -577,7 +556,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
 			case ATTCH_ICON_TAG:
 				//set attachment icon
 				if (gAlertListTable.attachment[index]) {
-					img = getImage(gAlertListTable.attachment[index]);
+					img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, gAlertListTable.attachment[index]);
 					[(UIImageView *)view setImage:img];
 					if (img) {
 						rect = gRectAttachment;
@@ -600,7 +579,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
          case GROUP_ICON_TAG:
 				//Set group icon
             if (gAlertListTable.group_icon[index] && gAlertListTable.group_icon[index][0]) {
-               img = getImage(gAlertListTable.group_icon[index]);
+               img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, gAlertListTable.group_icon[index]);
                [(UIImageView *)view setImage:img];
                if (img) {
                   rect = gRectGroupIcon;
@@ -615,7 +594,7 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
          case GROUP_BUTTON_TAG:
 				//set group button
             if (gAlertListTable.group_icon[index] && gAlertListTable.group_icon[index][0]) {
-               img = getImage("group_in_events");
+               img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "group_in_events");
                if (img) {
                   [(UIButton*)view setBackgroundImage:[img stretchableImageWithLeftCapWidth:10 topCapHeight:0]
                                              forState:UIControlStateNormal];
@@ -635,9 +614,6 @@ void RealtimeAlertsListViewForCell (void *value, CGRect viewRect, UIView *parent
 				break;
 		}
 	}
-   
-	
-	return;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -711,6 +687,7 @@ static void RealtimeAlertsListShow(BOOL refresh)
 {
 	const char *title;
    list_menu_empty_message empty_message, *p_empty_message = NULL;
+   list_menu_sections sections, *p_sections = NULL;
    int count;
    
 	
@@ -756,18 +733,34 @@ static void RealtimeAlertsListShow(BOOL refresh)
       count = gTabAlertList.iCount;
    }
    
+   if (g_list_filter == filter_group &&
+       gTabAlertList.iOldAlertsCount > 0) {
+      sections.count = 2;
+      sections.items[0] = gTabAlertList.iCount - gTabAlertList.iOldAlertsCount;
+      sections.items[1] = gTabAlertList.iOldAlertsCount;
+      strncpy_safe (sections.titles[0], "Live events", sizeof(sections.titles[0]));
+      if (gTabAlertList.iCount - gTabAlertList.iOldAlertsCount == 0) {
+         snprintf (sections.footers[0], sizeof(sections.footers[0]), "\n\n(%s)\n\n\n\n\n", roadmap_lang_get("no relevant events"));
+      } else {
+         strncpy_safe (sections.footers[0], "", sizeof(sections.footers[0]));
+      }
+      strncpy_safe (sections.titles[1], "Previous events", sizeof(sections.titles[0]));
+      strncpy_safe (sections.footers[1], "", sizeof(sections.footers[0]));
+      p_sections = &sections;
+   }
+   
    if (!refresh || !g_alerts_list) {
       g_alerts_list = roadmap_list_menu_custom (roadmap_lang_get(title), count,
                                                 (const void **)&gTabAlertList.value[0], get_selector(),
                                                 RealtimeAlertsListCallBack, RealtimeAlertsDeleteCallBack,
                                                 NULL, RealtimeAlertsListViewForCell, (void *)ALERTS_LIST,
-                                                ALERT_LIST_HEIGHT, FALSE, p_empty_message);
+                                                ALERT_LIST_HEIGHT, FALSE, p_empty_message, p_sections);
    } else {
       roadmap_list_menu_custom_refresh (g_alerts_list, roadmap_lang_get(title), count,
                                         (const void **)&gTabAlertList.value[0], get_selector(),
                                         RealtimeAlertsListCallBack, RealtimeAlertsDeleteCallBack,
                                         NULL, RealtimeAlertsListViewForCell, (void *)ALERTS_LIST,
-                                        ALERT_LIST_HEIGHT, FALSE, p_empty_message);
+                                        ALERT_LIST_HEIGHT, FALSE, p_empty_message, p_sections);
    }
 }
 
@@ -847,6 +840,7 @@ static int count_tab(int tab, int num, int types,...){
 static void populate_tab(int tab, int num, int types,...){
 	int i;
 	int count = 0;
+   int old_count = 0;
 	va_list ap;
 	int type;
 		
@@ -870,8 +864,12 @@ static void populate_tab(int tab, int num, int types,...){
 				gTabAlertList.type[count] = gAlertListTable.type[i];
 				gTabAlertList.iDistnace[count] = gAlertListTable.iDistnace[i];
             gTabAlertList.iAddonsCount[count] = gAlertListTable.iAddonsCount[i];
+            gTabAlertList.bOldAlert[count] = gAlertListTable.bOldAlert[i];
             for (k = 0; k < gTabAlertList.iAddonsCount[count]; k++)
                gTabAlertList.addons[count][k] = gAlertListTable.addons[i][k];
+            
+            if (gAlertListTable.bOldAlert[i])
+               old_count++;
             
 				count++;
 			}
@@ -880,6 +878,7 @@ static void populate_tab(int tab, int num, int types,...){
 		va_end(ap);
 	 }
 	 gTabAlertList.iCount = count;
+   gTabAlertList.iOldAlertsCount = old_count;
 }
 
 
@@ -891,6 +890,7 @@ static void populate_list(){
    int iCount = -1;
    int index;
    int iAlertCount;
+   int iOldAlertsCount = 0;
    RTAlert *alert;
    char AlertStr[700];
    char str[100];
@@ -906,6 +906,7 @@ static void populate_list(){
    char unit_str[20];
    char detail_str[RT_ALERT_DESCRIPTION_MAXSIZE + 50 + 1]; // 50 for additional text
    int i, j;
+   int num_sections = 1;
    RoadMapPosition context_save_pos;
    int context_save_zoom;
    time_t now;
@@ -923,213 +924,242 @@ static void populate_list(){
       gAlertListTable.type_str[i] = NULL;
       gAlertListTable.location_str[i] = NULL;
       gAlertListTable.detail[i] = NULL;
-      gAlertListTable.more_info[i] = NULL;
       gAlertListTable.distance[i] = NULL;
       gAlertListTable.unit[i] = NULL;
+      gAlertListTable.more_info[i] = NULL;
       gAlertListTable.value[i] = NULL;
       gAlertListTable.icon[i] = NULL;
       gAlertListTable.group_icon[i] = NULL;
       gAlertListTable.group_name[i] = NULL;
       gAlertListTable.attachment[i] = NULL;
+      gAlertListTable.bOldAlert[i] = FALSE;
    }
    
    iCount = 0;
-   index = 0;
-   
-   iAlertCount = RTAlerts_Count();
    
    roadmap_math_get_context(&context_save_pos, &context_save_zoom);
    
-   while ((iAlertCount > 0) && (iCount < MAX_ALERTS_ENTRIES))    {
-      
-      AlertStr[0] = 0;
-      
-      alert = RTAlerts_Get(index);
-      
-      if (g_list_filter == filter_on_route){
-         if (!RTAlerts_isAlertOnRoute (alert->iID)){
-            iAlertCount--;
-            index++;
-            continue;
-         }
+   if (g_list_filter == filter_group)
+      num_sections = 2;
+   
+   for (i = 0; i < num_sections; i++) {
+      if (i == 1) {
+         RTAlerts_Sort_List(sort_recency);
       }
-      
-      if (g_list_filter == filter_group){
-         if (alert->iGroupRelevance == GROUP_RELEVANCE_NONE){
-            iAlertCount--;
-            index++;
-            continue;
-         }
-      }
-      
-      position.longitude = alert->iLongitude;
-      position.latitude = alert->iLatitude;
-      
-      roadmap_math_set_context((RoadMapPosition *)&position, 20);
-      
-      if (alert->iType == RT_ALERT_TYPE_ACCIDENT)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Accident"));
-      else if (alert->iType == RT_ALERT_TYPE_POLICE)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Police"));
-      else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Traffic jam"));
-      else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO){
-         if (alert->iSubType == LIGHT_TRAFFIC)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Light traffic"));
-         else if (alert->iSubType == MODERATE_TRAFFIC)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Moderate traffic"));
-         else if (alert->iSubType == HEAVY_TRAFFIC)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Heavy traffic"));
-         else if (alert->iSubType == STAND_STILL_TRAFFIC)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Complete standstill"));
-         else
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Traffic"));
-      }
-      else if (alert->iType == RT_ALERT_TYPE_HAZARD)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Hazard"));        
-      else if (alert->iType == RT_ALERT_TYPE_OTHER)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Other"));        
-      else if (alert->iType == RT_ALERT_TYPE_CONSTRUCTION)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Road construction"));        
-      else if (alert->iType == RT_ALERT_TYPE_PARKING)
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s", roadmap_lang_get("Parking"));        
-      else
-         snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                  - strlen(AlertStr), "%s",
-                  roadmap_lang_get("Chit chat"));
-      
-      
-      if (roadmap_navigate_get_current(&CurrentPosition, &line, &Direction)
-          == -1)
-      {
-         // check the distance to the alert
-         gps_pos = roadmap_trip_get_position("Location");
-         if (gps_pos != NULL)
-         {
-            current_pos.latitude = gps_pos->latitude;
-            current_pos.longitude = gps_pos->longitude;
-         }
-         else
-         {
-            current_pos.latitude = -1;
-            current_pos.longitude = -1;
-         }
-      }
-      else
-      {
-         current_pos.latitude = CurrentPosition.latitude;
-         current_pos.longitude = CurrentPosition.longitude;
-      }
-      
-      if ((current_pos.latitude != -1) && (current_pos.longitude != -1))
-      {
-         distance = roadmap_math_distance(&current_pos, &position);
-         distance_far = roadmap_math_to_trip_distance(distance);
+      iAlertCount = RTAlerts_Count();
+      index = 0;
+      while ((iAlertCount > 0) && (iCount < MAX_ALERTS_ENTRIES))    {
          
-         if (distance_far > 0)
+         AlertStr[0] = 0;
+         
+         alert = RTAlerts_Get(index);
+         
+         if (i == 0) {
+            if (alert->bArchive) {
+               iAlertCount--;
+               index++;
+               continue;
+            }
+            if (g_list_filter == filter_on_route){
+               if (!RTAlerts_isAlertOnRoute (alert->iID)){
+                  iAlertCount--;
+                  index++;
+                  continue;
+               }
+            }
+            
+            if (g_list_filter == filter_group){
+               if (alert->iGroupRelevance == GROUP_RELEVANCE_NONE){
+                  iAlertCount--;
+                  index++;
+                  continue;
+               }
+            }
+         } else {
+            if (alert->bArchive) {
+               gAlertListTable.bOldAlert[iCount] = TRUE;
+            } else {
+               iAlertCount--;
+               index++;
+               continue;
+            }
+
+         }
+         
+         
+         position.longitude = alert->iLongitude;
+         position.latitude = alert->iLatitude;
+         
+         roadmap_math_set_context((RoadMapPosition *)&position, 20);
+         
+         if (alert->iType == RT_ALERT_TYPE_ACCIDENT)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Accident"));
+         else if (alert->iType == RT_ALERT_TYPE_POLICE)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Police"));
+         else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Traffic jam"));
+         else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO){
+            if (alert->iSubType == LIGHT_TRAFFIC)
+               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                        - strlen(AlertStr), "%s", roadmap_lang_get("Light traffic"));
+            else if (alert->iSubType == MODERATE_TRAFFIC)
+               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                        - strlen(AlertStr), "%s", roadmap_lang_get("Moderate traffic"));
+            else if (alert->iSubType == HEAVY_TRAFFIC)
+               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                        - strlen(AlertStr), "%s", roadmap_lang_get("Heavy traffic"));
+            else if (alert->iSubType == STAND_STILL_TRAFFIC)
+               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                        - strlen(AlertStr), "%s", roadmap_lang_get("Complete standstill"));
+            else
+               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                        - strlen(AlertStr), "%s", roadmap_lang_get("Traffic"));
+         }
+         else if (alert->iType == RT_ALERT_TYPE_HAZARD)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Hazard"));        
+         else if (alert->iType == RT_ALERT_TYPE_OTHER)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Other"));        
+         else if (alert->iType == RT_ALERT_TYPE_CONSTRUCTION)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Road construction"));        
+         else if (alert->iType == RT_ALERT_TYPE_PARKING)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s", roadmap_lang_get("Parking"));        
+         else
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                     - strlen(AlertStr), "%s",
+                     roadmap_lang_get("Chit chat"));
+         
+         
+         if (roadmap_navigate_get_current(&CurrentPosition, &line, &Direction)
+             == -1)
          {
-            int tenths = roadmap_math_to_trip_distance_tenths(distance);
-            snprintf(dist_str, sizeof(dist_str), "%d.%d", distance_far, tenths
-                     % 10);
-            snprintf(unit_str, sizeof(unit_str), "%s",
-                     roadmap_lang_get(roadmap_math_trip_unit()));
+            // check the distance to the alert
+            gps_pos = roadmap_trip_get_position("Location");
+            if (gps_pos != NULL)
+            {
+               current_pos.latitude = gps_pos->latitude;
+               current_pos.longitude = gps_pos->longitude;
+            }
+            else
+            {
+               current_pos.latitude = -1;
+               current_pos.longitude = -1;
+            }
          }
          else
          {
-            snprintf(dist_str, sizeof(dist_str), "%d", distance);
-            snprintf(unit_str, sizeof(unit_str), "%s",
-                     roadmap_lang_get(roadmap_math_distance_unit()));
+            current_pos.latitude = CurrentPosition.latitude;
+            current_pos.longitude = CurrentPosition.longitude;
          }
+         
+         if ((current_pos.latitude != -1) && (current_pos.longitude != -1))
+         {
+            distance = roadmap_math_distance(&current_pos, &position);
+            distance_far = roadmap_math_to_trip_distance(distance);
+            
+            if (distance_far > 0)
+            {
+               int tenths = roadmap_math_to_trip_distance_tenths(distance);
+               snprintf(dist_str, sizeof(dist_str), "%d.%d", distance_far, tenths
+                        % 10);
+               snprintf(unit_str, sizeof(unit_str), "%s",
+                        roadmap_lang_get(roadmap_math_trip_unit()));
+            }
+            else
+            {
+               snprintf(dist_str, sizeof(dist_str), "%d", distance);
+               snprintf(unit_str, sizeof(unit_str), "%s",
+                        roadmap_lang_get(roadmap_math_distance_unit()));
+            }
+         }
+         
+         snprintf(location_str, sizeof(location_str), "%s", alert->sLocationStr);
+         
+         
+         snprintf(str, sizeof(str), "%d", alert->iID);
+         
+         snprintf(detail_str, sizeof(detail_str), "%s", alert->sDescription);
+         gAlertListTable.detail[iCount] = strdup(detail_str);
+         
+         // Display when the alert was generated
+         now = time(NULL);
+         timeDiff = (int)difftime(now, (time_t)alert->iReportTime);
+         if (timeDiff <0)
+            timeDiff = 0;
+         
+         if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
+            snprintf(detail_str, sizeof(detail_str),
+                     "%s", roadmap_lang_get("Updated "));
+         else
+            snprintf(detail_str, sizeof(detail_str),
+                     "%s",/*roadmap_lang_get("Reported ")*/"");
+         
+         
+         if (timeDiff < 60)
+            snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+                     - strlen(detail_str),
+                     roadmap_lang_get("%d seconds ago"), timeDiff);
+         else if ((timeDiff > 60) && (timeDiff < 3600))
+            snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+                     - strlen(detail_str),
+                     roadmap_lang_get("%d minutes ago"), timeDiff/60);
+         else
+            snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+                     - strlen(detail_str),
+                     roadmap_lang_get("%2.1f hours ago"), (float)timeDiff
+                     /3600);
+         
+         
+         if (alert->sReportedBy[0] != 0)
+            snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+                     - strlen(detail_str),
+                     " %s %s",roadmap_lang_get("by"), alert->sReportedBy);
+         if (alert->sGroup[0] != 0)
+            snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
+                     - strlen(detail_str),
+                     "\n%s: %s",roadmap_lang_get("group"), alert->sGroup);
+         gAlertListTable.more_info[iCount] = strdup(detail_str);
+         
+         gAlertListTable.type_str[iCount] = strdup(AlertStr);
+         gAlertListTable.location_str[iCount] = strdup(location_str);
+         gAlertListTable.distance[iCount] = strdup(dist_str);
+         gAlertListTable.unit[iCount] = strdup(unit_str);
+         gAlertListTable.value[iCount] = strdup(str);
+         gAlertListTable.icon[iCount] = strdup(RTAlerts_Get_Icon(alert->iID));
+         if (alert->sGroupIcon && alert->sGroupIcon[0])
+            gAlertListTable.group_icon[iCount] = strdup(alert->sGroupIcon);
+         else if (alert->sGroup && alert->sGroup[0])
+            gAlertListTable.group_icon[iCount] = strdup("groups_default_icons");
+         gAlertListTable.group_name[iCount] = strdup(alert->sGroup);
+         if (RTAlerts_Has_Image(alert->iID))
+            gAlertListTable.attachment[iCount] = strdup ("attachment");
+         gAlertListTable.type[iCount] = alert->iType;
+         gAlertListTable.iDistnace[iCount] = distance;
+         
+         //Set addons
+         gAlertListTable.iAddonsCount[iCount] = RTAlerts_Get_Number_Of_AddOns(alert->iID);
+         for (j = 0 ; j < gAlertListTable.iAddonsCount[iCount]; j++){
+            gAlertListTable.addons[iCount][j] = strdup(RTAlerts_Get_AddOn(alert->iID, j));
+         }
+         
+         
+         
+            iCount++;
+         if (i == 1)
+            iOldAlertsCount++;
+         iAlertCount--;
+         index++;
       }
-      
-      snprintf(location_str, sizeof(location_str), "%s", alert->sLocationStr);
-      
-      
-      snprintf(str, sizeof(str), "%d", alert->iID);
-      
-      snprintf(detail_str, sizeof(detail_str), "%s", alert->sDescription);
-      gAlertListTable.detail[iCount] = strdup(detail_str);
-      
-      // Display when the alert was generated
-      now = time(NULL);
-      timeDiff = (int)difftime(now, (time_t)alert->iReportTime);
-      if (timeDiff <0)
-         timeDiff = 0;
-      
-      if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO)
-         snprintf(detail_str, sizeof(detail_str),
-                  "%s", roadmap_lang_get("Updated "));
-      else
-         snprintf(detail_str, sizeof(detail_str),
-                  "%s",/*roadmap_lang_get("Reported ")*/"");
-      
-      
-      if (timeDiff < 60)
-         snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-                  - strlen(detail_str),
-                  roadmap_lang_get("%d seconds ago"), timeDiff);
-      else if ((timeDiff > 60) && (timeDiff < 3600))
-         snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-                  - strlen(detail_str),
-                  roadmap_lang_get("%d minutes ago"), timeDiff/60);
-      else
-         snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-                  - strlen(detail_str),
-                  roadmap_lang_get("%2.1f hours ago"), (float)timeDiff
-                  /3600);
-        
-      
-      if (alert->sReportedBy[0] != 0)
-         snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-                  - strlen(detail_str),
-                  " %s %s",roadmap_lang_get("by"), alert->sReportedBy);
-      if (alert->sGroup[0] != 0)
-         snprintf(detail_str + strlen(detail_str), sizeof(detail_str)
-                  - strlen(detail_str),
-                  "\n%s: %s",roadmap_lang_get("group"), alert->sGroup);
-      gAlertListTable.more_info[iCount] = strdup(detail_str);
-      
-      gAlertListTable.type_str[iCount] = strdup(AlertStr);
-      gAlertListTable.location_str[iCount] = strdup(location_str);
-      gAlertListTable.distance[iCount] = strdup(dist_str);
-      gAlertListTable.unit[iCount] = strdup(unit_str);
-      gAlertListTable.value[iCount] = strdup(str);
-      gAlertListTable.icon[iCount] = strdup(RTAlerts_Get_Icon(alert->iID));
-      if (alert->sGroupIcon && alert->sGroupIcon[0])
-         gAlertListTable.group_icon[iCount] = strdup(alert->sGroupIcon);
-      else if (alert->sGroup && alert->sGroup[0])
-         gAlertListTable.group_icon[iCount] = strdup("groups_default_icons");
-      gAlertListTable.group_name[iCount] = strdup(alert->sGroup);
-      if (RTAlerts_Has_Image(alert->iID))
-         gAlertListTable.attachment[iCount] = strdup ("attachment");
-      gAlertListTable.type[iCount] = alert->iType;
-      gAlertListTable.iDistnace[iCount] = distance;
-      
-      //Set addons
-      gAlertListTable.iAddonsCount[iCount] = RTAlerts_Get_Number_Of_AddOns(alert->iID);
-      for (j = 0 ; j < gAlertListTable.iAddonsCount[iCount]; j++){
-         gAlertListTable.addons[iCount][j] = strdup(RTAlerts_Get_AddOn(alert->iID, j));
-      }
-      
-      
-      iCount++;
-      iAlertCount--;
-      index++;
    }
    
    gAlertListTable.iCount = iCount;
+   gAlertListTable.iOldAlertsCount = iOldAlertsCount;
    
    roadmap_math_set_context(&context_save_pos, context_save_zoom);
 }
@@ -1296,10 +1326,10 @@ static int on_selector (SsdWidget widget, const char* selection,const void *valu
    
    if ((int)context == TYPES_LIST) {
       free_list();
-      show_types_list(TRUE);
+      show_types_list(TRUE, FALSE);
    } else if ((int)context == ALERTS_LIST) {
       free_list();
-      show_types_list(TRUE);
+      show_types_list(TRUE, FALSE);
       RealtimeAlertsListShow(TRUE);
    }
    
@@ -1307,7 +1337,7 @@ static int on_selector (SsdWidget widget, const char* selection,const void *valu
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
-static void	show_types_list(BOOL refresh){
+static void	show_types_list(BOOL refresh, BOOL no_animation){
 	const char* tabs_titles[tab__count]; //for iPhone, these are not actually tabs...
 	const char* tabs_icons[tab__count];
 	const char* tabs_values[tab__count];
@@ -1315,6 +1345,7 @@ static void	show_types_list(BOOL refresh){
    char str_count[20];
    list_menu_empty_message empty_message, *p_empty_message = NULL;
    int count;
+   int flags = LIST_MENU_ADD_NEXT_BUTTON;
    
    message_init(&empty_message);
    
@@ -1384,16 +1415,19 @@ static void	show_types_list(BOOL refresh){
       count = tab__count;
    }
    
+   if (no_animation)
+      flags |= LIST_MENU_NO_ANIMATION;
+   
    if (!refresh || !g_list_menu)
       g_list_menu = roadmap_list_menu_generic("Events", count, tabs_titles, 
                                               (const void**)tabs_values, tabs_icons, tabs_item_count, 
                                               get_selector(), on_type_selected, NULL,
-                                              (void *)TYPES_LIST, NULL, 60, 2, p_empty_message);
+                                              (void *)TYPES_LIST, NULL, 60, flags, p_empty_message);
    else
       roadmap_list_menu_generic_refresh(g_list_menu, "Events", count, tabs_titles, 
                                         (const void**)tabs_values, tabs_icons, tabs_item_count, 
                                         get_selector(), on_type_selected, NULL,
-                                        (void *)TYPES_LIST, NULL, 60, 2, p_empty_message);
+                                        (void *)TYPES_LIST, NULL, 60, flags, p_empty_message);
    
    
 	
@@ -1414,7 +1448,6 @@ static void init(){
 		gColorType = [[UIColor alloc] initWithRed:1.0f green:0.45 blue:0.0f alpha:1.0f]; //orange
       gColorUnit = [UIColor lightGrayColor];
 		initialized = 1;
-		gImageList.iCount = 0;
       
       gFilterSelector.items = selector_options;
       gFilterSelector.count = 3;
@@ -1428,14 +1461,16 @@ static void init(){
 void RealtimeAlertsList(){
 	init();
    g_list_filter = filter_none;
-	show_types_list(FALSE);
+	show_types_list(FALSE, FALSE);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeAlertsListGroup(){
 	init();
    g_list_filter = filter_group;
-	show_types_list(FALSE);
+	show_types_list(FALSE, TRUE);
+   on_tab_gain_focus(tab_all);
+   RealtimeAlertsListShow(FALSE);
 }
 
 

@@ -87,9 +87,11 @@ static void init_containers (void) {
    RoadMapImage cursor_image;
    pen = roadmap_canvas_create_pen ("ssd_text_pen");
    roadmap_canvas_set_foreground (def_color);
+#ifndef IPHONE
    cursor_image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, "cursor" );
    cursor_width = roadmap_canvas_image_width( cursor_image );
    cursor_height = roadmap_canvas_image_height( cursor_image );
+#endif
    initialized = 1;
 }
 

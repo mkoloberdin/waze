@@ -91,7 +91,7 @@ typedef void (*RoadMapScreenSubscriber) (void);
 RoadMapScreenSubscriber roadmap_screen_subscribe_after_refresh
                                     (RoadMapScreenSubscriber handler);
 
-void roadmap_screen_subscribe_after_flow_control_refresh
+RoadMapScreenSubscriber roadmap_screen_subscribe_after_flow_control_refresh
                                     (RoadMapScreenSubscriber handler);
 
 int  roadmap_screen_draw_one_line (RoadMapPosition *from,
@@ -150,10 +150,12 @@ int roadmap_screen_not_touched_state(void);
 void roadmap_screen_touched(void);
 void roadmap_screen_touched_off(void);
 
-
+int roadmap_screen_is_ld_screen( void );
 int roadmap_screen_is_hd_screen( void );
 void roadmap_screen_set_screen_type( int screen_type );
 int roadmap_screen_get_screen_type( void );
+void roadmap_screen_set_screen_scale( int screen_scale );
+int roadmap_screen_get_screen_scale( void );
 int roadmap_screen_adjust_height( int orig_height );
 int roadmap_screen_adjust_width( int orig_width );
 

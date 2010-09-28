@@ -61,7 +61,9 @@
 #include "RealtimePrivacy.h"
 #include "RealtimeOffline.h"
 #include "RealtimeBonus.h"
+#include "RealtimeExternalPoi.h"
 #include "RealtimeSystemMessage.h"
+#include "RealtimeExternalPoiNotifier.h"
 #include "roadmap_geo_config.h"
 #include "../roadmap_download_settings.h"
 #include "../websvc_trans/string_parser.h"
@@ -127,6 +129,8 @@ static int                    gs_iWazerNearbyState       = 0;
 static time_t                 gs_WazerNearbyLastShown    = 0;
 
 static RoadMapScreenSubscriber realtime_prev_after_refresh = NULL;
+static RoadMapScreenSubscriber realtime_prev_after_flow_control = NULL;
+
 #define WAZER_NEARBY_TIME        15
 #define WAZER_NEARBY_SLEEP_TIME  300
 #define BACKGROUND_CYCLE_TIME    (5*60)
@@ -616,6 +620,8 @@ BOOL Realtime_Initialize()
    StatusStatistics_Init   ( &gs_ST);
    RTAlerts_Init();
    RealtimeBonus_Init();
+   RealtimeExternalPoi_Init();
+
    RTNet_Init();
    Realtime_LoginDetailsInit();
    Realtime_SessionDetailsInit();
@@ -662,6 +668,7 @@ void Realtime_Terminate()
    Realtime_Stop( FALSE /* Enable Logout? */);
    RTNet_Term();
    RealtimeBonus_Term();
+   RealtimeExternalPoi_Term();
    RTAlerts_Term();
    RTTrafficInfo_Term();
 
@@ -694,7 +701,7 @@ BOOL Realtime_Start()
 
    roadmap_main_set_periodic( Realtime_GetKeepALiveRateRateinMilliseconds(), OnKeepAliveTimer_Realtime);
 
-   roadmap_screen_subscribe_after_flow_control_refresh( OnMapMoved);
+   realtime_prev_after_flow_control = roadmap_screen_subscribe_after_flow_control_refresh( OnMapMoved);
 
    OnTimer_Realtime();
 
@@ -1195,6 +1202,18 @@ void OnAsyncOperationCompleted_CreateAccount( void* ctx, roadmap_result rc)
    roadmap_login_update_details_on_response( rc );
 }
 
+void OnAsyncOperationCompleted_ExternalPoiDisplayed( void* ctx, roadmap_result rc)
+{
+   if( succeeded == rc)
+   {
+      roadmap_log( ROADMAP_DEBUG, "OnAsyncOperationCompleted_ExternalPoiDisplayed() - TRANSACTION COMPLETED");
+   }
+   else
+      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_ExternalPoiDisplayed(POST) - had failed");
+
+   OnTransactionCompleted( ctx, rc);
+}
+
 
 BOOL HaveNodePathToSend()
 { return (1 <= gs_pPI->num_nodes);}
@@ -1218,6 +1237,16 @@ BOOL SendMessage_NodePath( char* packet_only)
    return bRes;
 }
 
+BOOL SendMessage_ExternalPoiDisplayed (char* packet_only)
+{
+   BOOL  bRes;
+
+    bRes = RTNet_ExternalPoiDisplayed( &gs_CI,
+                            OnAsyncOperationCompleted_ExternalPoiDisplayed,
+                            packet_only);
+
+    return bRes;
+}
 void OnAsyncOperationCompleted_GPSPath( void* ctx, roadmap_result rc)
 {
    if( succeeded != rc)
@@ -1390,6 +1419,35 @@ void OnAsyncOperationCompleted_FacebookPermissions( void* ctx, roadmap_result rc
 
    OnTransactionCompleted( ctx, rc);
 }
+
+void OnAsyncOperationCompleted_ExternalPoiNotifyOnPopUp( void* ctx, roadmap_result rc)
+{
+   if( succeeded != rc)
+      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_ExternalPoiNotifyOnPopUp (POST)  failed (rc=%d)", rc);
+
+
+   OnTransactionCompleted( ctx, rc);
+}
+
+
+void OnAsyncOperationCompleted_ExternalPoiNotifyOnNavigate( void* ctx, roadmap_result rc)
+{
+   if( succeeded != rc)
+      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_FacebookPermissions(POST)  failed (rc=%d)", rc);
+
+
+   OnTransactionCompleted( ctx, rc);
+}
+
+void OnAsyncOperationCompleted_NotifySplashUpdateTime( void* ctx, roadmap_result rc)
+{
+   if( succeeded != rc)
+      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_NotifySplashUpdateTime(POST)  failed (rc=%d)", rc);
+
+
+   OnTransactionCompleted( ctx, rc);
+}
+
 BOOL HaveCreateNewRoadsToSend()
 {
    return (0 < gs_pPI->num_update_toggles);
@@ -1657,6 +1715,12 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
    allowPing   = Realtime_AllowPing();
 
    eVisability = ERTVisabilityGroup_from_string( roadmap_config_get( &RT_CFG_PRM_VISGRP_Var));
+   if (eVisability == VisGrp_Invisible) {
+      roadmap_config_set (&RT_CFG_PRM_VISGRP_Var, RT_CFG_PRM_VISGRP_Anonymous);
+      roadmap_config_save(FALSE);
+      eVisability = VisGrp_Anonymous;
+      roadmap_messagebox("Privacy", "Your privacy was previously set to invisible. Since this option was removed, you are now set to 'Anonymous'. Check your privacy settings for new options");
+   }
    eVisabilityReport = ERTVisabilityReport_from_string(roadmap_config_get( &RT_CFG_PRM_VISREP_Var));
 
    if (roadmap_facebook_logged_in()) {
@@ -1665,7 +1729,7 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
             eVisability = eVisability | Visability_FacebookNameEnabled;
          else if (roadmap_facebook_get_show_name() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS)
             eVisability = eVisability | Visability_FacebookNameFriends;
-         
+
          if (roadmap_facebook_get_show_picture() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED)
             eVisability = eVisability | Visability_FacebookPicEnabled;
          else if (roadmap_facebook_get_show_picture() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS)
@@ -1676,7 +1740,7 @@ BOOL SendMessage_SetMyVisability( char* packet_only)
             eVisabilityReport = eVisabilityReport | Visability_FacebookNameEnabled;
          else if (roadmap_facebook_get_show_name() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS)
             eVisabilityReport = eVisabilityReport | Visability_FacebookNameFriends;
-         
+
          if (roadmap_facebook_get_show_picture() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED)
             eVisabilityReport = eVisabilityReport | Visability_FacebookPicEnabled;
          else if (roadmap_facebook_get_show_picture() == ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS)
@@ -1923,7 +1987,7 @@ BOOL Realtime_SendCurrenScreenEdges()
       return FALSE;
    }
 
-   roadmap_math_screen_edges( &MapPosition);
+   roadmap_math_displayed_screen_edges( &MapPosition);
 
    bRes = RTNet_MapDisplyed(  &gs_CI,
                               &MapPosition,
@@ -1994,7 +2058,8 @@ BOOL SendAllMessagesTogether_SendPart1( BOOL bSummaryOnly)
    Packet = ebuffer_alloc( &buf,
                            MESSAGE_MAX_SIZE__AllTogether__dynamic( 0,
                                                                    0,
-                                                                   RTTRK_CREATENEWROADS_MAX_TOGGLES));
+                                                                   RTTRK_CREATENEWROADS_MAX_TOGGLES,
+                                                                   0));
    p = Packet;
 
    if( !bSummaryOnly)
@@ -2123,6 +2188,7 @@ BOOL SendAllMessagesTogether_SendPart2( BOOL bFirstCycle)
    Packet = ebuffer_alloc( &buf,
                            MESSAGE_MAX_SIZE__AllTogether__dynamic( RTTRK_GPSPATH_MAX_POINTS,
                                                                    RTTRK_NODEPATH_MAX_POINTS,
+                                                                   0,
                                                                    0));
 
    p = Packet;
@@ -2164,6 +2230,17 @@ BOOL SendAllMessagesTogether_SendPart2( BOOL bFirstCycle)
       }
       p = Packet + strlen(Packet);
    }
+
+   // External POI displayed
+   if (!RealtimeExternalPoiNotifier_DisplayedList_IsEmpty()){
+      if (!SendMessage_ExternalPoiDisplayed( p))
+      {
+         roadmap_log( ROADMAP_ERROR, "RealtimeExternalPoiNotifier_DisplayedList_IsEmpty(PRE) - 'SendMessage_NodePath()' had failed");
+          return FALSE;
+      }
+      p = Packet + strlen(Packet);
+   }
+
 
    if( 0 < strlen( Packet)) {
       bRes = RTNet_GeneralPacket( &gs_CI,
@@ -2290,7 +2367,15 @@ BOOL SendAllMessagesTogether_BuildPacket( BOOL bSummaryOnly, char* Packet)
    }
 
 
-
+   // External POI displayed
+   if (!RealtimeExternalPoiNotifier_DisplayedList_IsEmpty()){
+      if (!SendMessage_ExternalPoiDisplayed( p))
+      {
+         roadmap_log( ROADMAP_ERROR, "RealtimeExternalPoiNotifier_DisplayedList_IsEmpty(PRE) - 'SendMessage_NodePath()' had failed");
+          return FALSE;
+      }
+      p = Packet + strlen(Packet);
+   }
 
    if( 0 < strlen( Packet))
       return TRUE;
@@ -2304,6 +2389,7 @@ BOOL SendAllMessagesTogether( BOOL bSummaryOnly, BOOL bCalledAfterLogin)
    ebuffer  Packet;
    int      iGPSPointsCount;
    int      iNodePointsCount;
+   int      iExternalPoiDisplayedCount;
    int      iAllowNewRoadsCount;
    char*    Buffer = NULL;
    BOOL     bTransactionStarted = FALSE;
@@ -2314,6 +2400,7 @@ BOOL SendAllMessagesTogether( BOOL bSummaryOnly, BOOL bCalledAfterLogin)
    iGPSPointsCount      = gs_pPI->num_points;
    iNodePointsCount     = gs_pPI->num_nodes;
    iAllowNewRoadsCount  = gs_pPI->num_update_toggles;
+   iExternalPoiDisplayedCount = RealtimeExternalPoiNotifier_DisplayedList_Count();
 
    if (GPSPointsMultipleCycles()) {
       roadmap_log( ROADMAP_WARNING, "SendAllMessagesTogether() - Long data, splitting packets...");
@@ -2325,7 +2412,8 @@ BOOL SendAllMessagesTogether( BOOL bSummaryOnly, BOOL bCalledAfterLogin)
       Buffer               = ebuffer_alloc( &Packet,
                              MESSAGE_MAX_SIZE__AllTogether__dynamic(iGPSPointsCount,
                                                                     iNodePointsCount,
-                                                                    iAllowNewRoadsCount));
+                                                                    iAllowNewRoadsCount,
+                                                                    iExternalPoiDisplayedCount));
       if( SendAllMessagesTogether_BuildPacket( bSummaryOnly, Buffer))
          bTransactionStarted = RTNet_GeneralPacket(&gs_CI,
                                                    Buffer,
@@ -2581,8 +2669,13 @@ static ECycleType Realtime_GetCycleType(void)
 		 (!gs_bHadAtleastOneGoodSession) ||
 		 (gs_CI.LastError >= network_errors &&
 		  gs_CI.LastError <= network_errors_end) ||
-        gs_CI.LastError == err_rt_unknown_login_id)
+        gs_CI.LastError == err_rt_unknown_login_id ||
+       websvc_trans_getLastNetConnectRes()==LastNetConnect_Failure)
 	{
+      if (s_lastCommCheck > 0 &&
+          timeNow >= s_lastCommCheck + gs_iMaxCommCheckSeconds*2)
+         s_lastCommCheck = 0;
+
 		if( 0 == s_lastCommCheck ||
 			 timeNow < s_lastCommCheck + gs_iMaxCommCheckSeconds)
 		{
@@ -3490,13 +3583,19 @@ void OnMapMoved(void)
 {
    if( !gs_bRunning)
    {
+      if (realtime_prev_after_flow_control) {
+         (*realtime_prev_after_flow_control) ();
+      }
       assert(0);
       return;
    }
 
-   if( !gs_CI.bLoggedIn)
+   if( !gs_CI.bLoggedIn){
+      if (realtime_prev_after_flow_control) {
+         (*realtime_prev_after_flow_control) ();
+      }
       return;
-
+   }
    if( !gs_bMapMoveTimerWasSet)
    {
       roadmap_main_set_periodic( MAP_DRAG_EVENT__PEEK_INTERVAL, OnTimePassedFromLastMapDragEvent);
@@ -3504,6 +3603,10 @@ void OnMapMoved(void)
    }
 
    gs_TimeOfLastMapMoveEvent = time(NULL);
+
+   if (realtime_prev_after_flow_control) {
+      (*realtime_prev_after_flow_control) ();
+   }
 }
 
 void OnDeviceEvent( device_event event, void* context)
@@ -4062,18 +4165,58 @@ BOOL Realtime_ReportAbuse (int                  iAlertID,
 
 
 BOOL  Realtime_FacebookPermissions ( int                 iShowFacebookName,
-                                     int                 iShowFacebookPicture){
+                                     int                 iShowFacebookPicture,
+                                     int                 iShowFacebookProfile,
+                                     int                 iShowTwitterProfile){
 
-    BOOL bRes;
-    bRes = RTNet_FacebookPermissions(&gs_CI,
+   BOOL bRes;
+   bRes = RTNet_FacebookPermissions(&gs_CI,
                                     iShowFacebookName,
                                     iShowFacebookPicture,
+                                    iShowFacebookProfile,
+                                    iShowTwitterProfile,
                                     OnAsyncOperationCompleted_FacebookPermissions);
-    if( !bRes)
-       roadmap_log( ROADMAP_ERROR, "Realtime_FacebookPermissions - failed bRes=%d",bRes);
+   if( !bRes)
+      roadmap_log( ROADMAP_ERROR, "Realtime_FacebookPermissions - failed bRes=%d",bRes);
 
-    return bRes;
+   return bRes;
 }
+
+
+BOOL  Realtime_ExternalPoiNotifyOnPopUp ( int iID){
+   BOOL bRes;
+   bRes = RTNet_ExternalPoiNotifyOnPopUp (&gs_CI,
+                                   iID,
+                                   OnAsyncOperationCompleted_ExternalPoiNotifyOnPopUp);
+   if( !bRes)
+      roadmap_log( ROADMAP_ERROR, "Realtime_ExternalPoiNotifyOnPopUp - failed bRes=%d",bRes);
+
+   return bRes;
+}
+
+BOOL  Realtime_ExternalPoiNotifyOnNavigate ( int iID){
+   BOOL bRes;
+   bRes = RTNet_ExternalPoiNotifyOnNavigate(&gs_CI,
+                                   iID,
+                                   OnAsyncOperationCompleted_ExternalPoiNotifyOnNavigate);
+   if( !bRes)
+      roadmap_log( ROADMAP_ERROR, "Realtime_ExternalPoiNotifyOnNavigate - failed bRes=%d",bRes);
+
+   return bRes;
+}
+
+
+BOOL Realtime_NotifySplashUpdateTime (const char *update_time){
+   BOOL bRes;
+   bRes = RTNet_NotifySplashUpdateTime (&gs_CI,
+                                        update_time,
+                                        OnAsyncOperationCompleted_NotifySplashUpdateTime);
+   if( !bRes)
+      roadmap_log( ROADMAP_ERROR, "Realtime_NotifySplashUpdateTime - failed bRes=%d",bRes);
+
+   return bRes;
+}
+
 static BOOL keyboard_callback(int         exit_code,
                               const char* value,
                               void*       context)
@@ -4137,7 +4280,8 @@ void Realtime_DumpOffline (void)
       Buffer               = ebuffer_alloc( &Packet,
                                 MESSAGE_MAX_SIZE__AllTogether__dynamic(RTTRK_GPSPATH_MAX_POINTS,
                                                                        RTTRK_NODEPATH_MAX_POINTS,
-                                                                       RTTRK_CREATENEWROADS_MAX_TOGGLES));
+                                                                       RTTRK_CREATENEWROADS_MAX_TOGGLES,
+                                                                       0));
 
       pi = *pOrigPI;
 
@@ -4367,3 +4511,33 @@ void Realtime_SetBackground(BOOL isInBackground) {
    gs_bInBackground = isInBackground;
 }
 
+BOOL Realtime_IsAnonymous (void) {
+   return (roadmap_config_match(&RT_CFG_PRM_VISGRP_Var, RT_CFG_PRM_VISGRP_Anonymous));
+}
+
+BOOL Realtime_AnonymousMsg (void) {
+   if (Realtime_IsAnonymous()) {
+      roadmap_messagebox_timeout("Hey there", "When pinging, chit-chatting or commenting you can't be 'Anonymous'. Go to Settings > Profile > Privacy to change your status", 8);
+      return TRUE;
+   } else {
+      return FALSE;
+   }
+}
+
+static void onRandomConfirm(int exit_code, void *data){
+	if (exit_code==dec_yes) {
+#ifdef IPHONE_NATIVE
+      roadmap_main_show_root(FALSE);
+#endif //IPHONE_NATIVE
+		roadmap_login_details_dialog_show();
+   }
+}
+
+BOOL Realtime_RandomUserMsg (void) {
+   if (Realtime_is_random_user()){
+      ssd_confirm_dialog_custom_timeout("Oops","You need to be a registered user in order to send pings, chit-chat or comment.", FALSE, onRandomConfirm, NULL, "Register", "Not now", 8);
+      return TRUE;
+   } else {
+      return FALSE;
+   }
+}

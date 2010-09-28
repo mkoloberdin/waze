@@ -56,8 +56,9 @@
 #include "local_search_dlg.h"
 #include "../roadmap_bar.h"
 #include "../roadmap_device_events.h"
+#include "roadmap_editbox.h"
 
-#ifdef TOUCH_SCREEN
+#if defined(TOUCH_SCREEN) && !defined(ANDROID)
    #define  USE_ONSCREEN_KEYBOARD
 #endif   // TOUCH_SCREEN
 
@@ -113,16 +114,16 @@ static BOOL on_keyboard_closed(  int         exit_code,
 	edit     = ssd_widget_get( edit_cont,GSD_IC_EDITBOX_NAME);
 
     if( dec_ok != exit_code){
-		ssd_dialog_hide_current( dec_close);
-		roadmap_screen_refresh();
+       ssd_dialog_hide_current( dec_close);
+       roadmap_screen_refresh();
         return TRUE;
     }
 
-    if( value && (*value))
-       strcpy( search_context[s_type].c_saved_txt, value);
+      if( value && (*value))
+         strcpy( search_context[s_type].c_saved_txt, value);
 
     ssd_text_set_text(edit, value );
-    (*search_context[s_type].c_on_search)();
+      (*search_context[s_type].c_on_search)();
 
     return TRUE;
 }
@@ -142,7 +143,7 @@ void generic_search_dlg_switch_gui(void)
       ssd_dialog_set_current_scroll_flag(TRUE);
    else
    {
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(ANDROID)
     ssd_dialog_draw ();
 
     roadmap_main_set_periodic( 50, reopen_keyboard);
@@ -165,9 +166,9 @@ void generic_search_dlg_switch_gui(void)
 void reopen_keyboard(void)
 {
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(ANDROID))
     ShowEditbox(roadmap_lang_get( search_context[s_type].c_dlg_title), search_context[s_type].c_saved_txt,
-            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
+            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric | EEditBoxEmbedded | EEditBoxActionSearch );
     roadmap_main_remove_periodic( reopen_keyboard);
 #else
    if( search_context[s_type].c_saved_cb){
@@ -178,8 +179,6 @@ void reopen_keyboard(void)
    roadmap_main_remove_periodic( reopen_keyboard);
 #endif
 }
-
-
 
 
 void on_dlg_closed( int exit_code, void* context)
@@ -417,7 +416,8 @@ void generic_search_dlg_show( search_types   type,
                               PFN_ON_DIALOG_CLOSED cbOnClosed,
                               RoadMapCallback on_search,
                               GenericSearchOnReopen on_reopen,
-                              void*           context)
+                              void*           context,
+                              BOOL            is_auto)
 {
    SsdWidget dialog     = NULL;
    SsdWidget edit       = NULL;
@@ -452,7 +452,7 @@ void generic_search_dlg_show( search_types   type,
    ssd_dialog_activate( dlg_name, NULL);
 
    if( !search_context[s_type].c_1st)
-      generic_search_dlg_switch_gui();
+         generic_search_dlg_switch_gui();
 
    edit_cont= ssd_widget_get( dialog, GSD_IC_EDITBOX_CNT_NAME);
    edit     = ssd_widget_get(edit_cont,GSD_IC_EDITBOX_NAME);
@@ -463,17 +463,20 @@ void generic_search_dlg_show( search_types   type,
       ssd_text_reset_text( edit);
 
    ssd_dialog_set_current_scroll_flag(FALSE);
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(ANDROID)
 
    button = ssd_widget_get( dialog, GSD_IC_BUTTON_NAME);
-   ssd_widget_hide(button);
+   if ( button )
+      ssd_widget_hide(button);
    ssd_widget_hide(edit_cont);
 
    ssd_dialog_activate( dlg_name, NULL );
 
    ssd_dialog_draw ();
 
-   roadmap_main_set_periodic( 50, reopen_keyboard);
+   if (!is_auto)
+      roadmap_main_set_periodic( 50, reopen_keyboard);
 
 #else
    update_editbox_topspace();
@@ -536,13 +539,17 @@ static void on_device_event( device_event event, void* context )
    }
 }
 
+void generic_search_dlg_update_text( const char* text, search_types type )
+{
+   strncpy_safe( search_context[type].c_saved_txt, text, sizeof( search_context[type].c_saved_txt ) );
+}
 
 void generic_search_dlg_reopen_native_keyboard(void)
 {
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if ( (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))  || defined(ANDROID) )
 
     ShowEditbox(roadmap_lang_get( search_context[s_type].c_dlg_title), search_context[s_type].c_saved_txt,
-            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
+            on_keyboard_closed, NULL, EEditBoxStandard | EEditBoxAlphaNumeric |EEditBoxEmbedded|EEditBoxActionSearch );
 #else
    if ( roadmap_native_keyboard_enabled() )
    {

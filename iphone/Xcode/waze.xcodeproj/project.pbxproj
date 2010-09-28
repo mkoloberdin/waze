@@ -186,6 +186,9 @@
 		82027E08108F75D800D99ACC /* roadmap_download_settings.c in Sources */ = {isa = PBXBuildFile; fileRef = 82027E06108F75D800D99ACC /* roadmap_download_settings.c */; };
 		8206AD90106B719000852482 /* AddressBook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8206AD8F106B719000852482 /* AddressBook.framework */; };
 		8206AD9B106B71A700852482 /* AddressBookUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8206AD9A106B71A700852482 /* AddressBookUI.framework */; };
+		820C54651223D7C900EF3D94 /* RealtimeExternalPoi.c in Sources */ = {isa = PBXBuildFile; fileRef = 820C54621223D7C900EF3D94 /* RealtimeExternalPoi.c */; };
+		820C54661223D7C900EF3D94 /* RealtimeExternalPoiDlg.c in Sources */ = {isa = PBXBuildFile; fileRef = 820C54631223D7C900EF3D94 /* RealtimeExternalPoiDlg.c */; };
+		820C54671223D7C900EF3D94 /* RealtimeExternalPoiNotifier.c in Sources */ = {isa = PBXBuildFile; fileRef = 820C54641223D7C900EF3D94 /* RealtimeExternalPoiNotifier.c */; };
 		82100A6C10B4050400398CFF /* roadmap_prompts.c in Sources */ = {isa = PBXBuildFile; fileRef = 82100A6B10B4050400398CFF /* roadmap_prompts.c */; };
 		82100A6F10B4052B00398CFF /* roadmap_res_download.c in Sources */ = {isa = PBXBuildFile; fileRef = 82100A6D10B4052B00398CFF /* roadmap_res_download.c */; };
 		82100A7210B4056100398CFF /* mkgmtime.c in Sources */ = {isa = PBXBuildFile; fileRef = 82100A7010B4056100398CFF /* mkgmtime.c */; };
@@ -343,12 +346,10 @@
 		829002C50FD57C5900342373 /* roadmap_geo_location_iphone.m in Sources */ = {isa = PBXBuildFile; fileRef = 829002C40FD57C5900342373 /* roadmap_geo_location_iphone.m */; };
 		8293B587113FEE2E00FB0113 /* roadmap_border_ogl.c in Sources */ = {isa = PBXBuildFile; fileRef = 8293B544113FEA6400FB0113 /* roadmap_border_ogl.c */; };
 		8293B6581143A53900FB0113 /* roadmap_http_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = 8293B6561143A53900FB0113 /* roadmap_http_comp.c */; };
-		8293B6801143B59000FB0113 /* roadmap_browser.m in Sources */ = {isa = PBXBuildFile; fileRef = 8293B67F1143B59000FB0113 /* roadmap_browser.m */; };
 		82963DF8106B6F9100D89200 /* roadmap_address_book.m in Sources */ = {isa = PBXBuildFile; fileRef = 82963DF6106B6F9100D89200 /* roadmap_address_book.m */; };
 		8298A409103C46E1007F7014 /* roadmap_map_download.c in Sources */ = {isa = PBXBuildFile; fileRef = 8298A407103C46E1007F7014 /* roadmap_map_download.c */; };
 		8298A79D103D3853007F7014 /* roadmap_login.c in Sources */ = {isa = PBXBuildFile; fileRef = 8298A79C103D3853007F7014 /* roadmap_login.c */; };
 		8298A849103D4C2C007F7014 /* roadmap_version.c in Sources */ = {isa = PBXBuildFile; fileRef = 8298A847103D4C2C007F7014 /* roadmap_version.c */; };
-		8298AAD7103D8E92007F7014 /* roadmap_iphonelogin.m in Sources */ = {isa = PBXBuildFile; fileRef = 8233B1450FC6DB9E0036B34D /* roadmap_iphonelogin.m */; };
 		829DE0F011B6C8A600BA2416 /* roadmap_social_image.c in Sources */ = {isa = PBXBuildFile; fileRef = 829DE0EE11B6C8A600BA2416 /* roadmap_social_image.c */; };
 		82A0F60D0FE7F26600AE87B0 /* RealtimeMapProblem.m in Sources */ = {isa = PBXBuildFile; fileRef = 82A0F60C0FE7F26600AE87B0 /* RealtimeMapProblem.m */; };
 		82A647BD0F9928E400150DCD /* roadmap_search.c in Sources */ = {isa = PBXBuildFile; fileRef = 82A647BC0F9928E400150DCD /* roadmap_search.c */; };
@@ -394,6 +395,10 @@
 		82DC6CA511AC12B000E9FF0E /* roadmap_base64.c in Sources */ = {isa = PBXBuildFile; fileRef = 82DC6CA311AC12B000E9FF0E /* roadmap_base64.c */; };
 		82DF56D61014E47E00C94DC6 /* roadmap_geo_config.c in Sources */ = {isa = PBXBuildFile; fileRef = 82DF56D51014E47E00C94DC6 /* roadmap_geo_config.c */; };
 		82E99C3C10039A6600C2EEE6 /* roadmap_tripserver.c in Sources */ = {isa = PBXBuildFile; fileRef = 82E99C3A10039A6600C2EEE6 /* roadmap_tripserver.c */; };
+		82EB4C2C1222636B0069679C /* roadmap_login_dlg.m in Sources */ = {isa = PBXBuildFile; fileRef = 82EB4C2B1222636B0069679C /* roadmap_login_dlg.m */; };
+		82EB54FC1222BC100069679C /* roadmap_glmatrix.c in Sources */ = {isa = PBXBuildFile; fileRef = 82EB54FA1222BC100069679C /* roadmap_glmatrix.c */; };
+		82EB55561222C25D0069679C /* roadmap_browser.c in Sources */ = {isa = PBXBuildFile; fileRef = 82EB55551222C25D0069679C /* roadmap_browser.c */; };
+		82EB555B1222C2A50069679C /* roadmap_browser_iphone.m in Sources */ = {isa = PBXBuildFile; fileRef = 82EB555A1222C2A50069679C /* roadmap_browser_iphone.m */; };
 		82EC8E5D1158EDD900CF9040 /* editor_street_bar_dialog.m in Sources */ = {isa = PBXBuildFile; fileRef = 82EC8E5C1158EDD900CF9040 /* editor_street_bar_dialog.m */; };
 		82EDE461105E650900207E1C /* generic_search.c in Sources */ = {isa = PBXBuildFile; fileRef = 82EDE45F105E650900207E1C /* generic_search.c */; };
 		82EDE8381062396700207E1C /* AVFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 82EDE8371062396700207E1C /* AVFoundation.framework */; };
@@ -588,6 +593,12 @@
 		82027E07108F75D800D99ACC /* roadmap_download_settings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_download_settings.h; path = ../../roadmap_download_settings.h; sourceTree = SOURCE_ROOT; };
 		8206AD8F106B719000852482 /* AddressBook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBook.framework; path = System/Library/Frameworks/AddressBook.framework; sourceTree = SDKROOT; };
 		8206AD9A106B71A700852482 /* AddressBookUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AddressBookUI.framework; path = System/Library/Frameworks/AddressBookUI.framework; sourceTree = SDKROOT; };
+		820C54621223D7C900EF3D94 /* RealtimeExternalPoi.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = RealtimeExternalPoi.c; sourceTree = "<group>"; };
+		820C54631223D7C900EF3D94 /* RealtimeExternalPoiDlg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = RealtimeExternalPoiDlg.c; sourceTree = "<group>"; };
+		820C54641223D7C900EF3D94 /* RealtimeExternalPoiNotifier.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = RealtimeExternalPoiNotifier.c; sourceTree = "<group>"; };
+		820C54681223D7D600EF3D94 /* RealtimeExternalPoi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RealtimeExternalPoi.h; sourceTree = "<group>"; };
+		820C54691223D7D600EF3D94 /* RealtimeExternalPoiDlg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RealtimeExternalPoiDlg.h; sourceTree = "<group>"; };
+		820C546A1223D7D600EF3D94 /* RealtimeExternalPoiNotifier.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RealtimeExternalPoiNotifier.h; sourceTree = "<group>"; };
 		82100A6A10B4050400398CFF /* roadmap_prompts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_prompts.h; path = ../../roadmap_prompts.h; sourceTree = SOURCE_ROOT; };
 		82100A6B10B4050400398CFF /* roadmap_prompts.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_prompts.c; path = ../../roadmap_prompts.c; sourceTree = SOURCE_ROOT; };
 		82100A6D10B4052B00398CFF /* roadmap_res_download.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_res_download.c; path = ../../roadmap_res_download.c; sourceTree = SOURCE_ROOT; };
@@ -684,13 +695,11 @@
 		8233B11A0FC6DB9E0036B34D /* RealtimeAlertsList.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = RealtimeAlertsList.m; path = ../../../../iphone/src/iphone/RealtimeAlertsList.m; sourceTree = SOURCE_ROOT; };
 		8233B11B0FC6DB9E0036B34D /* roadmap_bar.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_bar.m; path = ../../../../iphone/src/iphone/roadmap_bar.m; sourceTree = SOURCE_ROOT; };
 		8233B11C0FC6DB9E0036B34D /* roadmap_camera.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_camera.m; path = ../../../../iphone/src/iphone/roadmap_camera.m; sourceTree = SOURCE_ROOT; };
-		8233B11D0FC6DB9E0036B34D /* roadmap_canvas.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_canvas.m; path = ../../../../iphone/src/iphone/roadmap_canvas.m; sourceTree = SOURCE_ROOT; };
 		8233B11E0FC6DB9E0036B34D /* roadmap_car.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_car.m; path = ../../../../iphone/src/iphone/roadmap_car.m; sourceTree = SOURCE_ROOT; };
 		8233B11F0FC6DB9E0036B34D /* roadmap_checklist.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_checklist.h; path = ../../../../iphone/src/iphone/roadmap_checklist.h; sourceTree = SOURCE_ROOT; };
 		8233B1200FC6DB9E0036B34D /* roadmap_checklist.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_checklist.m; path = ../../../../iphone/src/iphone/roadmap_checklist.m; sourceTree = SOURCE_ROOT; };
 		8233B1210FC6DB9E0036B34D /* roadmap_device.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_device.c; path = ../../../../iphone/src/iphone/roadmap_device.c; sourceTree = SOURCE_ROOT; };
 		8233B1220FC6DB9E0036B34D /* roadmap_dialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_dialog.m; path = ../../../../iphone/src/iphone/roadmap_dialog.m; sourceTree = SOURCE_ROOT; };
-		8233B1230FC6DB9E0036B34D /* roadmap_editbox.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_editbox.h; path = ../../../../iphone/src/iphone/roadmap_editbox.h; sourceTree = SOURCE_ROOT; };
 		8233B1240FC6DB9E0036B34D /* roadmap_editbox.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_editbox.m; path = ../../../../iphone/src/iphone/roadmap_editbox.m; sourceTree = SOURCE_ROOT; };
 		8233B1250FC6DB9E0036B34D /* roadmap_fileselection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_fileselection.m; path = ../../../../iphone/src/iphone/roadmap_fileselection.m; sourceTree = SOURCE_ROOT; };
 		8233B1260FC6DB9E0036B34D /* roadmap_general_settings.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_general_settings.m; path = ../../../../iphone/src/iphone/roadmap_general_settings.m; sourceTree = SOURCE_ROOT; };
@@ -723,7 +732,6 @@
 		8233B1420FC6DB9E0036B34D /* roadmap_sound.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_sound.m; path = ../../../../iphone/src/iphone/roadmap_sound.m; sourceTree = SOURCE_ROOT; };
 		8233B1430FC6DB9E0036B34D /* roadmap_ticker.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_ticker.m; path = ../../../../iphone/src/iphone/roadmap_ticker.m; sourceTree = SOURCE_ROOT; };
 		8233B1440FC6DB9E0036B34D /* roadmap_welcome_wizard.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_welcome_wizard.m; path = ../../../../iphone/src/iphone/roadmap_welcome_wizard.m; sourceTree = SOURCE_ROOT; };
-		8233B1450FC6DB9E0036B34D /* roadmap_iphonelogin.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_iphonelogin.m; path = ../../../../iphone/src/iphone/roadmap_iphonelogin.m; sourceTree = SOURCE_ROOT; };
 		8233B1470FC6DB9E0036B34D /* iphoneCell.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iphoneCell.h; sourceTree = "<group>"; };
 		8233B1480FC6DB9E0036B34D /* iphoneCell.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = iphoneCell.m; sourceTree = "<group>"; };
 		8233B1490FC6DB9E0036B34D /* iphoneCellEdit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = iphoneCellEdit.h; sourceTree = "<group>"; };
@@ -912,7 +920,6 @@
 		8293B6561143A53900FB0113 /* roadmap_http_comp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_http_comp.c; path = ../../roadmap_http_comp.c; sourceTree = SOURCE_ROOT; };
 		8293B6571143A53900FB0113 /* roadmap_http_comp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_http_comp.h; path = ../../roadmap_http_comp.h; sourceTree = SOURCE_ROOT; };
 		8293B67D1143B4E800FB0113 /* roadmap_browser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_browser.h; path = ../../roadmap_browser.h; sourceTree = SOURCE_ROOT; };
-		8293B67F1143B59000FB0113 /* roadmap_browser.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_browser.m; path = ../roadmap_browser.m; sourceTree = SOURCE_ROOT; };
 		8293B6851143B6AE00FB0113 /* roadmap_iphonebrowser.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_iphonebrowser.h; path = ../roadmap_iphonebrowser.h; sourceTree = SOURCE_ROOT; };
 		82963DF6106B6F9100D89200 /* roadmap_address_book.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_address_book.m; path = ../roadmap_address_book.m; sourceTree = SOURCE_ROOT; };
 		82963DF7106B6F9100D89200 /* roadmap_address_book.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_address_book.h; path = ../roadmap_address_book.h; sourceTree = SOURCE_ROOT; };
@@ -922,7 +929,6 @@
 		8298A847103D4C2C007F7014 /* roadmap_version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_version.c; path = ../../../../iphone/src/iphone/roadmap_version.c; sourceTree = SOURCE_ROOT; };
 		8298A848103D4C2C007F7014 /* roadmap_version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_version.h; path = ../../../../iphone/src/iphone/roadmap_version.h; sourceTree = SOURCE_ROOT; };
 		8298AA91103D8B04007F7014 /* roadmap_help.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_help.h; path = ../../../../iphone/src/roadmap_help.h; sourceTree = SOURCE_ROOT; };
-		8298AB64103DB534007F7014 /* roadmap_iphonelogin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_iphonelogin.h; path = ../../../../iphone/src/iphone/roadmap_iphonelogin.h; sourceTree = SOURCE_ROOT; };
 		829DE0EE11B6C8A600BA2416 /* roadmap_social_image.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_social_image.c; path = ../../roadmap_social_image.c; sourceTree = SOURCE_ROOT; };
 		829DE0EF11B6C8A600BA2416 /* roadmap_social_image.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_social_image.h; path = ../../roadmap_social_image.h; sourceTree = SOURCE_ROOT; };
 		82A0B42810E8D873005AA83A /* roadmap_canvas_font.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_canvas_font.c; path = ../../ogl/roadmap_canvas_font.c; sourceTree = SOURCE_ROOT; };
@@ -1109,6 +1115,12 @@
 		82E17361114FD1CA00B5C904 /* ft2build.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ft2build.h; sourceTree = "<group>"; };
 		82E99C3A10039A6600C2EEE6 /* roadmap_tripserver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_tripserver.c; path = ../../../../iphone/src/roadmap_tripserver.c; sourceTree = SOURCE_ROOT; };
 		82E99C3B10039A6600C2EEE6 /* roadmap_tripserver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_tripserver.h; path = ../../../../iphone/src/roadmap_tripserver.h; sourceTree = SOURCE_ROOT; };
+		82EB4C2A1222636B0069679C /* roadmap_login_dlg.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_login_dlg.h; path = ../roadmap_login_dlg.h; sourceTree = SOURCE_ROOT; };
+		82EB4C2B1222636B0069679C /* roadmap_login_dlg.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_login_dlg.m; path = ../roadmap_login_dlg.m; sourceTree = SOURCE_ROOT; };
+		82EB54FA1222BC100069679C /* roadmap_glmatrix.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_glmatrix.c; path = ../../ogl/roadmap_glmatrix.c; sourceTree = SOURCE_ROOT; };
+		82EB54FB1222BC100069679C /* roadmap_glmatrix.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = roadmap_glmatrix.h; path = ../../ogl/roadmap_glmatrix.h; sourceTree = SOURCE_ROOT; };
+		82EB55551222C25D0069679C /* roadmap_browser.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = roadmap_browser.c; path = ../../roadmap_browser.c; sourceTree = SOURCE_ROOT; };
+		82EB555A1222C2A50069679C /* roadmap_browser_iphone.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = roadmap_browser_iphone.m; path = ../roadmap_browser_iphone.m; sourceTree = SOURCE_ROOT; };
 		82EC8E5B1158EDD900CF9040 /* editor_street_bar_dialog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = editor_street_bar_dialog.h; path = ../editor_street_bar_dialog.h; sourceTree = SOURCE_ROOT; };
 		82EC8E5C1158EDD900CF9040 /* editor_street_bar_dialog.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = editor_street_bar_dialog.m; path = ../editor_street_bar_dialog.m; sourceTree = SOURCE_ROOT; };
 		82EDE45F105E650900207E1C /* generic_search.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = generic_search.c; sourceTree = "<group>"; };
@@ -1230,6 +1242,8 @@
 		350E71340F223618000CF87B /* iphone */ = {
 			isa = PBXGroup;
 			children = (
+				82B5429F1152509B0085BEFD /* FlurryLibWithLocation */,
+				8293B366113E96E100FB0113 /* chomp-connect-iphoneos */,
 				8233B10D0FC6DB9E0036B34D /* address_search_dlg.c */,
 				82783D90103AA92300588B54 /* local_search_dlg.c */,
 				82C0394311E0BA2200E1954D /* single_search_dlg.c */,
@@ -1252,10 +1266,9 @@
 				8231F502110CAEF900372915 /* roadmap_alternative_routes_dialog.m */,
 				8231F503110CAEF900372915 /* roadmap_alternative_routes_dialog.h */,
 				8233B11B0FC6DB9E0036B34D /* roadmap_bar.m */,
-				8293B67F1143B59000FB0113 /* roadmap_browser.m */,
+				82EB555A1222C2A50069679C /* roadmap_browser_iphone.m */,
 				8293B6851143B6AE00FB0113 /* roadmap_iphonebrowser.h */,
 				8233B11C0FC6DB9E0036B34D /* roadmap_camera.m */,
-				8233B11D0FC6DB9E0036B34D /* roadmap_canvas.m */,
 				82D2D72D10E25C1E0059DA61 /* roadmap_canvas_ogl.m */,
 				8233B11E0FC6DB9E0036B34D /* roadmap_car.m */,
 				8233B11F0FC6DB9E0036B34D /* roadmap_checklist.h */,
@@ -1268,7 +1281,6 @@
 				82D19DE71095EC3B0081692B /* roadmap_iphonedownload_settings_dialog.h */,
 				82D19DBA1095D93A0081692B /* roadmap_download_settings_dialog.h */,
 				82D19D991095B71B0081692B /* roadmap_download_settings_dialog.m */,
-				8233B1230FC6DB9E0036B34D /* roadmap_editbox.h */,
 				8233B1240FC6DB9E0036B34D /* roadmap_editbox.m */,
 				8233B1250FC6DB9E0036B34D /* roadmap_fileselection.m */,
 				82D27F9510BE728A00B652BD /* roadmap_foursquare_dialog.m */,
@@ -1293,8 +1305,6 @@
 				8233B12D0FC6DB9E0036B34D /* roadmap_iphoneimage.m */,
 				8233B12E0FC6DB9E0036B34D /* roadmap_iphonelist_menu.h */,
 				8233B12F0FC6DB9E0036B34D /* roadmap_iphonelocation.h */,
-				8233B1450FC6DB9E0036B34D /* roadmap_iphonelogin.m */,
-				8298AB64103DB534007F7014 /* roadmap_iphonelogin.h */,
 				8233B1300FC6DB9E0036B34D /* roadmap_iphonemain.h */,
 				82759E3811F450C00091AD42 /* roadmap_iphonemessage_ticker.h */,
 				8233B1310FC6DB9E0036B34D /* roadmap_iphonemessagebox.h */,
@@ -1309,15 +1319,16 @@
 				8233B1370FC6DB9E0036B34D /* roadmap_list_menu.m */,
 				8233B1380FC6DB9E0036B34D /* roadmap_location.h */,
 				8233B1390FC6DB9E0036B34D /* roadmap_location.m */,
-				8298AB64103DB534007F7014 /* roadmap_iphonelogin.h */,
+				82EB4C2A1222636B0069679C /* roadmap_login_dlg.h */,
+				82EB4C2B1222636B0069679C /* roadmap_login_dlg.m */,
 				8233B13A0FC6DB9E0036B34D /* roadmap_main.m */,
 				82AD43AA1097377F0062FC35 /* roadmap_map_settings_dialog.m */,
 				82AD43AB1097377F0062FC35 /* roadmap_map_settings_dialog.h */,
 				82AD43AD1097378F0062FC35 /* roadmap_iphonemap_settings_dialog.h */,
 				82F9B9FA1057DBC700646D53 /* roadmap_iphonemedia_player.h */,
-				82759E2011F43E770091AD42 /* roadmap_message_ticker.m */,
 				82F9B9741057D31500646D53 /* roadmap_media_player.h */,
 				82F9B9751057D31500646D53 /* roadmap_media_player.m */,
+				82759E2011F43E770091AD42 /* roadmap_message_ticker.m */,
 				8233B13B0FC6DB9E0036B34D /* roadmap_messagebox.m */,
 				8233B13C0FC6DB9E0036B34D /* roadmap_mood.m */,
 				823E8D5210453C13000E5171 /* roadmap_iphoneradio.h */,
@@ -1403,6 +1414,7 @@
 				8293B548113FEA8600FB0113 /* roadmap_border.h */,
 				359F217A0F222DBB00DAB09A /* roadmap_border.c */,
 				8293B544113FEA6400FB0113 /* roadmap_border_ogl.c */,
+				82EB55551222C25D0069679C /* roadmap_browser.c */,
 				8293B67D1143B4E800FB0113 /* roadmap_browser.h */,
 				821B77880F743C830093E5C5 /* roadmap_camera.h */,
 				8272911F0F81589900F41FB8 /* roadmap_camera_defs.h */,
@@ -1698,6 +1710,9 @@
 				82BFD1560F69A98600D10814 /* RealtimeAlertsList.h */,
 				82AD45D2109840B40062FC35 /* RealtimeBonus.h */,
 				82BFD1570F69A98600D10814 /* RealtimeDefs.h */,
+				820C54681223D7D600EF3D94 /* RealtimeExternalPoi.h */,
+				820C54691223D7D600EF3D94 /* RealtimeExternalPoiDlg.h */,
+				820C546A1223D7D600EF3D94 /* RealtimeExternalPoiNotifier.h */,
 				82BFD1580F69A98600D10814 /* RealtimeMath.h */,
 				82BFD1590F69A98600D10814 /* RealtimeNet.h */,
 				82BFD15A0F69A98600D10814 /* RealtimeNetDefs.h */,
@@ -1713,6 +1728,9 @@
 				359F21630F222DBB00DAB09A /* RealtimeAlerts.c */,
 				82AD45D0109840AB0062FC35 /* RealtimeBonus.c */,
 				359F21650F222DBB00DAB09A /* RealtimeDefs.c */,
+				820C54621223D7C900EF3D94 /* RealtimeExternalPoi.c */,
+				820C54631223D7C900EF3D94 /* RealtimeExternalPoiDlg.c */,
+				820C54641223D7C900EF3D94 /* RealtimeExternalPoiNotifier.c */,
 				359F21660F222DBB00DAB09A /* RealtimeMath.c */,
 				359F21670F222DBB00DAB09A /* RealtimeNet.c */,
 				359F21680F222DBB00DAB09A /* RealtimeNetDefs.c */,
@@ -2168,6 +2186,20 @@
 			name = animation;
 			sourceTree = "<group>";
 		};
+		8293B366113E96E100FB0113 /* chomp-connect-iphoneos */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = "chomp-connect-iphoneos";
+			sourceTree = SOURCE_ROOT;
+		};
+		82B5429F1152509B0085BEFD /* FlurryLibWithLocation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = FlurryLibWithLocation;
+			sourceTree = SOURCE_ROOT;
+		};
 		82D2D71F10E25B470059DA61 /* ogl */ = {
 			isa = PBXGroup;
 			children = (
@@ -2178,6 +2210,8 @@
 				82A0B42810E8D873005AA83A /* roadmap_canvas_font.c */,
 				82A0B42910E8D873005AA83A /* roadmap_canvas_font.h */,
 				82D2D72A10E25B5E0059DA61 /* roadmap_canvas.c */,
+				82EB54FA1222BC100069679C /* roadmap_glmatrix.c */,
+				82EB54FB1222BC100069679C /* roadmap_glmatrix.h */,
 			);
 			name = ogl;
 			sourceTree = "<group>";
@@ -2369,7 +2403,14 @@
 			isa = PBXProject;
 			buildConfigurationList = C01FCF4E08A954540054247B /* Build configuration list for PBXProject "waze" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 29B97314FDCFA39411CA2CEA /* CustomTemplate */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -2641,7 +2682,6 @@
 				8298A409103C46E1007F7014 /* roadmap_map_download.c in Sources */,
 				8298A79D103D3853007F7014 /* roadmap_login.c in Sources */,
 				8298A849103D4C2C007F7014 /* roadmap_version.c in Sources */,
-				8298AAD7103D8E92007F7014 /* roadmap_iphonelogin.m in Sources */,
 				82F65782104A817900AA36CB /* roadmap_image_viewer.m in Sources */,
 				82F65924104B970500AA36CB /* roadmap_introduction.m in Sources */,
 				82F9B9761057D31500646D53 /* roadmap_media_player.m in Sources */,
@@ -2715,7 +2755,6 @@
 				82232A36113D3FBC008B3FFA /* geom.c in Sources */,
 				8293B587113FEE2E00FB0113 /* roadmap_border_ogl.c in Sources */,
 				8293B6581143A53900FB0113 /* roadmap_http_comp.c in Sources */,
-				8293B6801143B59000FB0113 /* roadmap_browser.m in Sources */,
 				82B7851C11480E6500C19C95 /* roadmap_tile_storage_sqlite.c in Sources */,
 				824C4A5411568247001AD848 /* editor_street_bar.c in Sources */,
 				824C563E1157AC9D001AD848 /* roadmap_scoreboard.c in Sources */,
@@ -2773,6 +2812,13 @@
 				82C0435A11E0E2B400E1954D /* roadmap_search_dialog.m in Sources */,
 				82C0437F11E0EB2400E1954D /* iphoneWidgets.m in Sources */,
 				82759E2111F43E770091AD42 /* roadmap_message_ticker.m in Sources */,
+				82EB4C2C1222636B0069679C /* roadmap_login_dlg.m in Sources */,
+				82EB54FC1222BC100069679C /* roadmap_glmatrix.c in Sources */,
+				82EB55561222C25D0069679C /* roadmap_browser.c in Sources */,
+				82EB555B1222C2A50069679C /* roadmap_browser_iphone.m in Sources */,
+				820C54651223D7C900EF3D94 /* RealtimeExternalPoi.c in Sources */,
+				820C54661223D7C900EF3D94 /* RealtimeExternalPoiDlg.c in Sources */,
+				820C54671223D7C900EF3D94 /* RealtimeExternalPoiNotifier.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2787,7 +2833,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
-					"\"$(DEVELOPER_DIR)_30/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.sdk/System/Library/Frameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -2796,12 +2841,7 @@
 				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/../../freetype.iphone/lib\"",
-					"\"$(SRCROOT)/../../freetype.iphone\"",
-					"\"$(SRCROOT)/../../freetype.oldiphone/lib\"",
 					"\"$(SRCROOT)/../../freetype\"",
-					"\"$(SRCROOT)/../Flurry iPhone SDK v1.4/FlurryLibWithLocation\"",
-					"\"$(SRCROOT)/../flurry/FlurryLibWithLocation\"",
 				);
 				PRODUCT_NAME = waze;
 				USER_HEADER_SEARCH_PATHS = ../../../../iphone/src;
@@ -2816,19 +2856,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
-					"\"$(DEVELOPER_DIR)_30/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.sdk/System/Library/Frameworks\"",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = waze_Prefix.pch;
 				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/../../freetype.iphone/lib\"",
-					"\"$(SRCROOT)/../../freetype.iphone\"",
-					"\"$(SRCROOT)/../../freetype.oldiphone/lib\"",
 					"\"$(SRCROOT)/../../freetype\"",
-					"\"$(SRCROOT)/../Flurry iPhone SDK v1.4/FlurryLibWithLocation\"",
-					"\"$(SRCROOT)/../flurry/FlurryLibWithLocation\"",
 				);
 				PRODUCT_NAME = waze;
 				USER_HEADER_SEARCH_PATHS = ../../../../iphone/src;
@@ -2841,8 +2875,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Don't Code Sign";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: waze";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 2;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -2869,8 +2902,7 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = wazeSDK;
-				PROVISIONING_PROFILE = "";
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "7934AC16-E46A-4D34-9EAC-90FD79645D0A";
 				SDKROOT = iphoneos4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USER_HEADER_SEARCH_PATHS = "";
@@ -2885,19 +2917,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
-					"\"$(DEVELOPER_DIR)_30/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.sdk/System/Library/Frameworks\"",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = waze_Prefix.pch;
 				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/../../freetype.iphone/lib\"",
-					"\"$(SRCROOT)/../../freetype.iphone\"",
-					"\"$(SRCROOT)/../../freetype.oldiphone/lib\"",
 					"\"$(SRCROOT)/../../freetype\"",
-					"\"$(SRCROOT)/../Flurry iPhone SDK v1.4/FlurryLibWithLocation\"",
-					"\"$(SRCROOT)/../flurry/FlurryLibWithLocation\"",
 				);
 				PRODUCT_NAME = waze;
 				USER_HEADER_SEARCH_PATHS = ../../../../iphone/src;
@@ -2910,8 +2936,7 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = Entitlements.plist;
-				CODE_SIGN_IDENTITY = "iPhone Developer";
-				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Don't Code Sign";
+				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Distribution: waze";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 2;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -2938,8 +2963,7 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = wazeSDK;
-				PROVISIONING_PROFILE = "";
-				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
+				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "4305493E-85CD-4F60-879D-5A3E38914AE6";
 				SDKROOT = iphoneos4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USER_HEADER_SEARCH_PATHS = "";
@@ -2954,19 +2978,13 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
-					"\"$(DEVELOPER_DIR)_30/Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS3.0.sdk/System/Library/Frameworks\"",
 				);
 				GCC_PRECOMPILE_PREFIX_HEADER = YES;
 				GCC_PREFIX_HEADER = waze_Prefix.pch;
 				INFOPLIST_FILE = Info.plist;
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/../../freetype.iphone/lib\"",
-					"\"$(SRCROOT)/../../freetype.iphone\"",
-					"\"$(SRCROOT)/../../freetype.oldiphone/lib\"",
 					"\"$(SRCROOT)/../../freetype\"",
-					"\"$(SRCROOT)/../Flurry iPhone SDK v1.4/FlurryLibWithLocation\"",
-					"\"$(SRCROOT)/../flurry/FlurryLibWithLocation\"",
 				);
 				PRODUCT_NAME = waze;
 				USER_HEADER_SEARCH_PATHS = ../../../../iphone/src;
@@ -2978,7 +2996,6 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 2;
@@ -2997,9 +3014,8 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = wazeSDK;
-				PROVISIONING_PROFILE = "";
 				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
-				SDKROOT = iphoneos4.0;
+				SDKROOT = iphoneos4.1;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				USER_HEADER_SEARCH_PATHS = "";
 			};
@@ -3010,7 +3026,6 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
-				CODE_SIGN_IDENTITY = "iPhone Developer";
 				"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "iPhone Developer";
 				GCC_C_LANGUAGE_STANDARD = c99;
 				GCC_OPTIMIZATION_LEVEL = 2;
@@ -3040,7 +3055,6 @@
 				);
 				PREBINDING = NO;
 				PRODUCT_NAME = wazeSDK;
-				PROVISIONING_PROFILE = "";
 				"PROVISIONING_PROFILE[sdk=iphoneos*]" = "";
 				SDKROOT = iphoneos4.0;
 				TARGETED_DEVICE_FAMILY = "1,2";

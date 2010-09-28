@@ -47,22 +47,18 @@
 #include "ssd/ssd_bitmap.h"
 #include "ssd/ssd_separator.h"
 
-#ifdef IPHONE
-#include "iphone/privacy_settings.h"
-#endif //IPHONE
-
 #ifndef TOUCH_SCREEN
 static BOOL g_context_menu_is_active= FALSE;
 #endif
 
-#define NUM_CHECKBOXES_DRIVING   3
+#define NUM_CHECKBOXES_DRIVING   2
 #define NUM_CHECKBOXES_REPORTING 2
 
 static SsdWidget CheckboxDriving[NUM_CHECKBOXES_DRIVING];
-static SsdWidget CheckboxReporting[NUM_CHECKBOXES_REPORTING];
+//static SsdWidget CheckboxReporting[NUM_CHECKBOXES_REPORTING];
 
 static ERTVisabilityGroup gState = VisGrp_Anonymous;
-static ERTVisabilityReport gReportState = VisRep_Anonymous;
+//static ERTVisabilityReport gReportState = VisRep_Anonymous;
 
 extern RoadMapConfigDescriptor RT_CFG_PRM_VISGRP_Var;
 extern RoadMapConfigDescriptor RT_CFG_PRM_VISREP_Var;
@@ -70,7 +66,7 @@ extern RoadMapConfigDescriptor RT_CFG_PRM_VISREP_Var;
 void save_changes () {
    int i;
    const char *selected;
-   
+
    for (i = 0; i < NUM_CHECKBOXES_DRIVING; i++) {
       selected = ssd_dialog_get_data (CheckboxDriving[i]->name);
       if (!strcmp (selected, "yes")) {
@@ -81,21 +77,22 @@ void save_changes () {
    gState = ERTVisabilityGroup_from_string (CheckboxDriving[i]->name);
    roadmap_config_set (&RT_CFG_PRM_VISGRP_Var,
             (const char *) CheckboxDriving[i]->name);
-   
-   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
-      selected = ssd_dialog_get_data (CheckboxReporting[i]->name);
-      if (!strcmp (selected, "yes")) {
-         break;
-      }
-   }
-   gReportState = ERTVisabilityReport_from_string (CheckboxReporting[i]->name);
-   
-   roadmap_config_set (&RT_CFG_PRM_VISREP_Var,
-            (const char *) CheckboxReporting[i]->name);
-   
-   roadmap_config_save (TRUE);
-   
+
+//   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
+//      selected = ssd_dialog_get_data (CheckboxReporting[i]->name);
+//      if (!strcmp (selected, "yes")) {
+//         break;
+//      }
+//   }
+//   gReportState = ERTVisabilityReport_from_string (CheckboxReporting[i]->name);
+//
+//   roadmap_config_set (&RT_CFG_PRM_VISREP_Var,
+//            (const char *) CheckboxReporting[i]->name);
+
+   roadmap_config_save (FALSE);
+
    OnSettingsChanged_VisabilityGroup ();
+   roadmap_social_send_permissions();
 }
 #ifndef TOUCH_SCREEN
 
@@ -103,7 +100,7 @@ void save_changes () {
 static void on_option_selected( BOOL made_selection,
          ssd_cm_item_ptr item,
          void* context)
-{  
+{
 
    privacy_context_menu_items selection;
 
@@ -115,7 +112,7 @@ static void on_option_selected( BOOL made_selection,
 
    selection = item->id;
    switch( selection)
-   {  
+   {
 
       case privacy_cm_save:
       save_changes();
@@ -186,26 +183,30 @@ static void set_softkeys( SsdWidget dialog)
 static int checkbox_callback (SsdWidget widget, const char *new_value) {
    int i;
    for (i = 0; i < NUM_CHECKBOXES_DRIVING; i++) {
-      if (CheckboxDriving[i] && strcmp (widget->parent->name,
-               CheckboxDriving[i]->name))
-         CheckboxDriving[i]->set_data (CheckboxDriving[i], "no");
-      else
-         CheckboxDriving[i]->set_data (CheckboxDriving[i], "yes");
+      if (CheckboxDriving[i]) {
+         if (strcmp (widget->parent->name,
+                     CheckboxDriving[i]->name))
+            CheckboxDriving[i]->set_data (CheckboxDriving[i], "no");
+         else
+            CheckboxDriving[i]->set_data (CheckboxDriving[i], "yes");
+      }
    }
    return 1;
 }
 
-int rep_checkbox_callback (SsdWidget widget, const char *new_value) {
-   int i;
-   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
-      if (CheckboxReporting[i] && strcmp (widget->parent->name,
-               CheckboxReporting[i]->name))
-         CheckboxReporting[i]->set_data (CheckboxReporting[i], "no");
-      else
-         CheckboxReporting[i]->set_data (CheckboxReporting[i], "yes");
-   }
-   return 1;
-}
+//int rep_checkbox_callback (SsdWidget widget, const char *new_value) {
+//   int i;
+//   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
+//      if (CheckboxReporting[i]) {
+//         if (strcmp (widget->parent->name,
+//                     CheckboxReporting[i]->name))
+//            CheckboxReporting[i]->set_data (CheckboxReporting[i], "no");
+//         else
+//            CheckboxReporting[i]->set_data (CheckboxReporting[i], "yes");
+//      }
+//   }
+//   return 1;
+//}
 
 static void on_close_dialog (int exit_code, void* context) {
 #ifdef TOUCH_SCREEN
@@ -223,8 +224,8 @@ static void create_dialog (void) {
    int tab_flag = SSD_WS_TABSTOP;
 #else
    int tab_flag = SSD_WS_TABSTOP;
-#endif   
-   
+#endif
+
 #ifdef TOUCH_SCREEN
    if (roadmap_screen_is_hd_screen())
       container_height = 60;
@@ -232,28 +233,28 @@ static void create_dialog (void) {
       container_height = 40;
 #endif
 
-   
+
    dialog = ssd_dialog_new (PRIVACY_DIALOG, roadmap_lang_get (
             PRIVACY_TITLE), on_close_dialog, SSD_CONTAINER_TITLE);
-   
+
 #ifdef TOUCH_SCREEN
    space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE
             | SSD_END_ROW);
    ssd_widget_set_color (space, NULL, NULL);
    ssd_widget_add (dialog, space);
-   
+
 #endif
    box = ssd_container_new ("Privacy Heading group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
-   
+
    ssd_widget_add (box, ssd_text_new ("privacy_heading_label",
             roadmap_lang_get ("Display my location on waze mobile and web maps as follows:"), 14,
             SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE|tab_flag));
    ssd_widget_set_color (box, NULL, NULL);
-   
-   
+
+
    ssd_widget_set_color (box, NULL, NULL);
-   
+
    //////////////////////////////////////////////////
    // * Driving
    //////////////////////////////////////////////////
@@ -264,58 +265,58 @@ static void create_dialog (void) {
    ssd_widget_add (driving, box);
    box = ssd_container_new ("Driving Heading group", NULL, SSD_MIN_SIZE, 22,
             SSD_WIDGET_SPACE | SSD_END_ROW);
-   
+
    ssd_widget_add (box, ssd_text_new ("driving_heading_label",
             roadmap_lang_get ("When driving"), 14, SSD_TEXT_LABEL
                      | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW));
-   
+
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (driving, box);
-   
+
    //////////////////////////////////////////////////
    // * Nickname
    //////////////////////////////////////////////////
    box = ssd_container_new ("Nickname group", NULL, SSD_MIN_SIZE,
                   container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
-   
+
    if (gState == VisGrp_NickName)
       checked = TRUE;
    else
       checked = FALSE;
-   
+
    CheckboxDriving[i] = ssd_checkbox_new (RT_CFG_PRM_VISGRP_Nickname, checked,
             SSD_ALIGN_VCENTER, checkbox_callback, NULL, NULL,
             CHECKBOX_STYLE_ROUNDED);
    ssd_widget_add (box, CheckboxDriving[i]);
    i++;
-   
+
    icon[0] = "privacy_nickname";
    icon[1] = NULL;
-   
+
    ssd_widget_add (box, ssd_button_new ("privacy_nickname", "privacy_nickname",
             (const char **) &icon[0], 1, SSD_ALIGN_VCENTER, NULL));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (driving, box);
-   
+
    ssd_widget_add (box, ssd_text_new ("Nickname", roadmap_lang_get (
             "Nickname"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
-   
+
    ssd_widget_add (box, ssd_bitmap_new ("On_map_nickname", "On_map_nickname",
             SSD_ALIGN_VCENTER));
-   
+
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    //////////////////////////////////////////////////
    // * Anonymous
    //////////////////////////////////////////////////
    box = ssd_container_new ("Anonymous group", NULL, SSD_MIN_SIZE,
                   container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
-   
+
    if (gState == VisGrp_Anonymous)
       checked = TRUE;
    else
       checked = FALSE;
-   
+
    CheckboxDriving[i] = ssd_checkbox_new (RT_CFG_PRM_VISGRP_Anonymous, checked,
             SSD_ALIGN_VCENTER, checkbox_callback, NULL, NULL,
             CHECKBOX_STYLE_ROUNDED);
@@ -323,20 +324,20 @@ static void create_dialog (void) {
    i++;
    icon[0] = "privacy_anonymous";
    icon[1] = NULL;
-   
+
    ssd_widget_add (box, ssd_button_new ("privacy_anonymous",
             "privacy_anonymous", (const char **) &icon[0], 1,
             SSD_ALIGN_VCENTER, NULL));
-   
+
    ssd_widget_add (box, ssd_text_new ("Anonymous text", roadmap_lang_get (
             "Anonymous"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
    ssd_widget_add (box, ssd_bitmap_new ("On_map_anonymous", "On_map_anonymous",
             SSD_ALIGN_VCENTER));
-   
+
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (driving, box);
-   
+   /*
    //////////////////////////////////////////////////
    // * Invisible
    //////////////////////////////////////////////////
@@ -347,7 +348,7 @@ static void create_dialog (void) {
       checked = TRUE;
    else
       checked = FALSE;
-   
+
    CheckboxDriving[i] = ssd_checkbox_new (RT_CFG_PRM_VISGRP_Invisible, checked,
             SSD_ALIGN_VCENTER, checkbox_callback, NULL, NULL,
             CHECKBOX_STYLE_ROUNDED);
@@ -355,19 +356,19 @@ static void create_dialog (void) {
    i++;
    icon[0] = "privacy_invisible";
    icon[1] = NULL;
-   
+
    ssd_widget_add (box, ssd_button_new ("privacy_invisible",
             "privacy_invisible", (const char **) &icon[0], 1,
             SSD_ALIGN_VCENTER, NULL));
    ssd_widget_add (box, ssd_text_new ("Invisible Text", roadmap_lang_get (
             "Don't show me"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE
             | SSD_END_ROW));
-   
+
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (driving, box);
-   
+*/
    ssd_widget_add (dialog, driving);
-   
+/*
    //////////////////////////////////////////////////
    // * Report
    //////////////////////////////////////////////////
@@ -376,17 +377,17 @@ static void create_dialog (void) {
             SSD_MIN_SIZE, SSD_START_NEW_ROW | SSD_WIDGET_SPACE | SSD_END_ROW
                      | SSD_ROUNDED_CORNERS | SSD_ROUNDED_WHITE
                      | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
-   
+
    box = ssd_container_new ("Reporting Heading group", NULL, SSD_MIN_SIZE,
                   container_height, SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_add (box, ssd_text_new ("reporting_heading_label",
             roadmap_lang_get ("When reporting"), 14, SSD_TEXT_LABEL
                      | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW));
-   
+
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (report, box);
-   
+
    i = 0;
    //////////////////////////////////////////////////
    // * Report Nickname
@@ -397,25 +398,25 @@ static void create_dialog (void) {
       checked = TRUE;
    else
       checked = FALSE;
-   
+
    CheckboxReporting[i] = ssd_checkbox_new (RT_CFG_PRM_VISREP_Nickname,
             checked, SSD_ALIGN_VCENTER, rep_checkbox_callback, NULL, NULL,
             CHECKBOX_STYLE_ROUNDED);
    ssd_widget_add (box, CheckboxReporting[i]);
    i++;
-   
+
    space = ssd_container_new ("spacer1", NULL, 10, 14, 0);
    ssd_widget_set_color (space, NULL, NULL);
    ssd_widget_add (box, space);
-   
+
    ssd_widget_add (box, ssd_text_new ("Report Nickname", roadmap_lang_get (
             "Nickname"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE
             | SSD_END_ROW));
-   
+
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (report, box);
-   
+
    //////////////////////////////////////////////////
    // * Report Anonymous
    //////////////////////////////////////////////////
@@ -425,25 +426,25 @@ static void create_dialog (void) {
       checked = TRUE;
    else
       checked = FALSE;
-   
+
    CheckboxReporting[i] = ssd_checkbox_new (RT_CFG_PRM_VISREP_Anonymous,
             checked, SSD_ALIGN_VCENTER, rep_checkbox_callback, NULL, NULL,
             CHECKBOX_STYLE_ROUNDED);
    ssd_widget_add (box, CheckboxReporting[i]);
    i++;
-   
+
    space = ssd_container_new ("spacer1", NULL, 10, 14, 0);
    ssd_widget_set_color (space, NULL, NULL);
    ssd_widget_add (box, space);
-   
+
    ssd_widget_add (box, ssd_text_new ("Report Anonymous", roadmap_lang_get (
             "Anonymous"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
-   
+
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (report, box);
-   
+
    ssd_widget_add (dialog, report);
-   
+   */
 #ifndef TOUCH_SCREEN
    set_softkeys(dialog);
 #endif
@@ -452,9 +453,9 @@ static void create_dialog (void) {
 static void set_state () {
    gState = ERTVisabilityGroup_from_string (roadmap_config_get (
             &RT_CFG_PRM_VISGRP_Var));
-   
-   gReportState = ERTVisabilityReport_from_string (roadmap_config_get (
-            &RT_CFG_PRM_VISREP_Var));
+
+//   gReportState = ERTVisabilityReport_from_string (roadmap_config_get (
+//            &RT_CFG_PRM_VISREP_Var));
 }
 
 void update_checked () {
@@ -468,49 +469,49 @@ void update_checked () {
       else
          ssd_dialog_set_data (CheckboxDriving[i]->name, "no");
    }
-   
-   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
-      if (!strcmp (ERTVisabilityReport_to_string (gReportState),
-               CheckboxReporting[i]->name))
-         ssd_dialog_set_data (CheckboxReporting[i]->name, "yes");
-      else
-         ssd_dialog_set_data (CheckboxReporting[i]->name, "no");
-   }
+
+//   for (i = 0; i < NUM_CHECKBOXES_REPORTING; i++) {
+//      if (!strcmp (ERTVisabilityReport_to_string (gReportState),
+//               CheckboxReporting[i]->name))
+//         ssd_dialog_set_data (CheckboxReporting[i]->name, "yes");
+//      else
+//         ssd_dialog_set_data (CheckboxReporting[i]->name, "no");
+//   }
 }
 
 int RealtimePrivacyState () {
-   
+
    if (!RealTimeLoginState ()) return 0;
-   
+
 #ifdef IPHONE
 	set_state();
 #endif //IPHONE
-   
+
    return gState;
 }
 
 void RealtimePrivacyInit () {
-   
+
    set_state ();
-   
+
 }
 
 void RealtimePrivacySettings (void) {
 #ifndef IPHONE
 
    set_state ();
-   
+
    if (!ssd_dialog_activate (PRIVACY_DIALOG, NULL)) {
-      
+
       create_dialog ();
       ssd_dialog_activate (PRIVACY_DIALOG, NULL);
    }
    update_checked ();
-	
+
 #else
-	
+
 	privacy_settings_show();
-	
+
 #endif //IPHONE
 }
 

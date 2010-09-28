@@ -55,7 +55,7 @@ BOOL  Realtime_IsInTransaction();
 BOOL  Realtime_IsEnabled();
 BOOL  Realtime_SendCurrenScreenEdges();
 BOOL  Realtime_SendCurrentViewDimentions();
-BOOL Realtime_VerifyLoginDetails( PFN_LOGINTESTRES pfn );
+BOOL  Realtime_VerifyLoginDetails( PFN_LOGINTESTRES pfn );
 
 BOOL  Realtime_ReportOnNavigation( const RoadMapPosition* cordinates, address_info_ptr ai);
 BOOL  Realtime_RequestRoute(int						iRoute,
@@ -164,8 +164,17 @@ void Realtime_CheckDumpOfflineAfterCrash(void);
 void Realtime_SetBackground(BOOL isInBackground);
 void Realtime_SetIsNewbie(BOOL isNewbie);
 void Realtime_SetIsNewbieConfig(BOOL isNewbie);
-BOOL  Realtime_FacebookPermissions ( int iShowFacebookName,  int iShowFacebookPicture);
+BOOL  Realtime_FacebookPermissions ( int iShowFacebookName, int iShowFacebookPicture, int iShowFacebookProfile, int iShowTwitterProfile);
+BOOL Realtime_IsAnonymous (void);
+BOOL Realtime_AnonymousMsg (void);
+BOOL Realtime_RandomUserMsg (void);
+
+BOOL  Realtime_ExternalPoiNotifyOnPopUp ( int iID);
+BOOL  Realtime_ExternalPoiNotifyOnNavigate ( int iID);
+BOOL Realtime_NotifySplashUpdateTime (const char *update_time);
+
 BOOL SendMessage_At( char* packet_only, BOOL refreshUsers);
+BOOL SendMessage_ExternalPoiDisplayed (char* packet_only);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

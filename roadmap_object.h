@@ -60,6 +60,10 @@
 #define OBJECT_ANIMATION_FADE_OUT      0x8
 #define OBJECT_ANIMATION_WHEN_VISIBLE  0x10
 
+#define OBJECT_PRIORITY_DEFAULT 0
+#define OBJECT_PRIORITY_NORMAL  1
+#define OBJECT_PRIORITY_HIGH    2
+#define OBJECT_PRIORITY_HIGHEST 3
 
 void roadmap_object_add (RoadMapDynamicString origin,
                          RoadMapDynamicString id,
@@ -71,6 +75,16 @@ void roadmap_object_add (RoadMapDynamicString origin,
                          int                       animation,
                          RoadMapDynamicString text);
 
+void roadmap_object_add_with_priority (RoadMapDynamicString origin,
+                         RoadMapDynamicString id,
+                         RoadMapDynamicString name,
+                         RoadMapDynamicString sprite,
+                         RoadMapDynamicString      image,
+                         const RoadMapGpsPosition *position,
+                         const RoadMapGuiPoint    *offset,
+                         int                       animation,
+                         RoadMapDynamicString text,
+                         int priority);
 void roadmap_object_move (RoadMapDynamicString id,
                           const RoadMapGpsPosition *position);
 
@@ -92,6 +106,7 @@ typedef void (*RoadMapObjectAction) (const char *name,
 
 void roadmap_object_set_action (RoadMapDynamicString id,
                                 RoadMapObjectAction action);
+void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom);
 
 void roadmap_object_iterate (RoadMapObjectAction action);
 
@@ -112,6 +127,7 @@ RoadMapObjectMonitor roadmap_object_register_monitor
 void roadmap_object_disable_short_click(void);
 void roadmap_object_enable_short_click(void);
 BOOL roadmap_object_short_ckick_enabled(void);
-
+void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom);
+BOOL roadmap_object_exists(RoadMapDynamicString id);
 #endif // INCLUDE__ROADMAP_OBJECT__H
 

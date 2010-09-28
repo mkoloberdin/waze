@@ -32,6 +32,8 @@
 #endif //CHOMP
 #include "roadmap_recommend.h"
 #include "ssd/ssd_confirm_dialog.h"
+#include "roadmap_res.h"
+#include "roadmap_device_events.h"
 #include "roadmap_iphonerecommend.h"
 
 #include "roadmap_analytics.h"
@@ -49,6 +51,14 @@ static const char* ANALYTICS_EVENT_RECOMMEND_NAME         = "RECOMMEND";
 static const char* ANALYTICS_EVENT_RECOMMENDAPPSTORE_NAME = "RECOMMEND_APPSTORE";
 static const char* ANALYTICS_EVENT_RECOMMENDCHOMP_NAME    = "RECOMMEND_CHOMP";
 static const char* ANALYTICS_EVENT_RECOMMENDEMAIL_NAME    = "RECOMMEND_EMAIL";
+
+
+enum Tags {
+   ID_TAG_IMAGE = 1,
+   ID_TAG_TITLE,
+   ID_TAG_TEXT,
+   ID_TAG_BUTTON
+};
 
 
 void roadmap_recommend_email() {
@@ -116,6 +126,13 @@ void roadmap_recommend_appstore () {
    ssd_confirm_dialog("Exit Application", "Waze will now close and you'll be redirected to the Appstore", TRUE, recommend_appstore_cb, NULL);
 }
 
+void roadmap_recommend_rate_us(RoadMapCallback on_close) {
+   RoadMapRateUsView *dialog;
+   
+   dialog = [[RoadMapRateUsView alloc] init];
+   [dialog show:on_close];
+}
+
 void roadmap_recommend() {
    roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMEND_NAME, NULL, NULL);
    
@@ -129,9 +146,6 @@ void roadmap_recommend() {
 //////////////////////////////////////////////////////////////////
 
 @implementation RoadMapEmailView
-
-
-
 
 /////////////////////////////
 // MFMailComposeViewControllerDelegate delegate
@@ -172,3 +186,189 @@ void roadmap_recommend() {
 
 @end
 #endif //CHOMP
+
+
+//////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////
+
+@implementation RoadMapRateUsView
+
+- (void) resizeViews
+{
+   int viewPosY = 10;
+   CGRect rect;
+   UIImageView *imageView;
+   UILabel *label;
+   UIButton *button;
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   
+   //Set image pos
+   imageView = (UIImageView *)[scrollView viewWithTag:ID_TAG_IMAGE];
+   if (!imageView)
+      return;
+   rect = imageView.frame;
+   rect.origin.x = (scrollView.bounds.size.width - imageView.bounds.size.width) /2;
+   rect.origin.y = viewPosY;
+   imageView.frame = rect;
+   viewPosY += 70;
+   
+   //Set title size/pos
+   label = (UILabel *)[scrollView viewWithTag:ID_TAG_TITLE];
+   if (!label)
+      return;
+   [label sizeToFit];
+   rect = label.frame;
+   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+   rect.origin.y = viewPosY;
+   label.frame = rect;
+   viewPosY += label.bounds.size.height + 5;
+   
+   //Set title size/pos
+   label = (UILabel *)[scrollView viewWithTag:ID_TAG_TEXT];
+   if (!label)
+      return;
+   rect = label.frame;
+   rect.size.width = scrollView.bounds.size.width - 40;
+   label.frame = rect;
+   [label sizeToFit];
+   rect = label.frame;
+   rect = label.frame;
+   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+   rect.origin.y = viewPosY;
+   label.frame = rect;
+   viewPosY += label.bounds.size.height + 5;
+   
+   //Set button pos
+   button = (UIButton *)[scrollView  viewWithTag:ID_TAG_BUTTON];
+   if (!button)
+      return;
+   rect = label.frame;
+   rect.size.width = scrollView.bounds.size.width - 40;
+   label.frame = rect;
+   [label sizeToFit];
+   rect = label.frame;
+   rect.size = button.bounds.size;
+   rect.origin.x = (scrollView.bounds.size.width - button.bounds.size.width) / 2;
+   rect.origin.y = viewPosY;
+	[button setFrame:rect];
+   viewPosY += button.bounds.size.height + 20;
+   
+   [scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+}
+
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
+   return roadmap_main_should_rotate (interfaceOrientation);
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+   roadmap_device_event_notification( device_event_window_orientation_changed);
+}
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
+   [self resizeViews];
+}
+
+- (void) onRate
+{
+   roadmap_main_pop_view(NO);
+   recommend_appstore_cb(dec_yes, NULL);
+   if (onCloseCallback)
+      onCloseCallback();
+}
+
+- (void) onSkip
+{
+   roadmap_main_pop_view(YES);
+   if (onCloseCallback)
+      onCloseCallback();
+}
+
+- (void)show: (RoadMapCallback)onClose
+{
+	CGRect rect;
+	UIImage *image;
+	UIImageView *imageView;
+	NSString *text;
+	UILabel *label;
+	UIButton *button;
+	rect = [[UIScreen mainScreen] applicationFrame];
+	rect.origin.x = 0;
+	rect.origin.y = 0;
+	rect.size.height = roadmap_main_get_mainbox_height();
+	UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
+	self.view = scrollView;
+	[scrollView release]; // decrement retain count
+	[scrollView setDelegate:self];
+	
+	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Rate us")]];
+   onCloseCallback = onClose;
+	
+	//hide left button
+	UINavigationItem *navItem = [self navigationItem];
+	[navItem setHidesBackButton:YES];
+   UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Skip")]
+                                                                 style:UIBarButtonItemStyleDone target:self action:@selector(onSkip)];
+   [navItem setRightBarButtonItem:barButton];
+	[barButton release];
+	
+	//set UI elements
+	
+	//background frame
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_bg");
+	if (image) {
+		imageView = [[UIImageView alloc] initWithImage:image];
+      imageView.tag = ID_TAG_IMAGE;
+		[scrollView addSubview:imageView];
+		[imageView release];
+	}
+	
+	//title
+   text = [NSString stringWithUTF8String:"we love you!"];
+   label = [[UILabel alloc] initWithFrame:CGRectZero];
+	[label setText:text];
+	[label setTextAlignment:UITextAlignmentCenter];
+	[label setFont:[UIFont boldSystemFontOfSize:24]];
+   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+   [label setBackgroundColor:[UIColor clearColor]];
+   [label setTextColor:[UIColor whiteColor]];
+   label.tag = ID_TAG_TITLE;
+	[scrollView addSubview:label];
+	[label release];
+
+   //Message
+   text = [NSString stringWithUTF8String:"Can we assume that the feeling's mutual? If you've been enjoyning our app, we'd really appreciate it if you could leave us a nice review in the Appstore.\nIt'll really help us grow :)\n "];
+   label = [[UILabel alloc] initWithFrame:CGRectZero];
+	[label setText:text];
+	[label setNumberOfLines:0];
+   [label setLineBreakMode:UILineBreakModeWordWrap];
+	[label setTextAlignment:UITextAlignmentCenter];
+	[label setFont:[UIFont boldSystemFontOfSize:17]];
+   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+   [label setBackgroundColor:[UIColor clearColor]];
+   [label setTextColor:[UIColor whiteColor]];
+   label.tag = ID_TAG_TEXT;
+	[scrollView addSubview:label];
+	[label release];
+   
+	//Rate button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Rate")] forState:UIControlStateNormal];
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateNormal];
+	}
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateHighlighted];
+	}
+   [button sizeToFit];
+   button.tag = ID_TAG_BUTTON;
+	[button addTarget:self action:@selector(onRate) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+
+   [self resizeViews];
+	
+	roadmap_main_push_view(self);
+}
+
+@end

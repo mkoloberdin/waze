@@ -43,6 +43,7 @@
 	[[self contentView] addSubview:labelView];
 	
 	[self setSelectionStyle:UITableViewCellSelectionStyleNone];
+   [self setBackgroundColor:[UIColor whiteColor]];
 	
 	return self;
 }

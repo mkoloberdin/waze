@@ -534,6 +534,23 @@ static SsdWidget get_result_container()
 static void on_auto_search_completed( int exit_code, void* context)
 { ssd_dialog_hide_all( dec_close);}
 
+
+void address_search_dlg_show_auto( PFN_ON_DIALOG_CLOSED cbOnClosed,
+                              void*                context)
+{
+   generic_search_dlg_show( search_address,
+                            ASD_DIALOG_NAME,
+                            ASD_DIALOG_TITLE,
+                            on_options,
+                            on_back,
+                            get_result_container(),
+                            cbOnClosed,
+                            on_search,
+                            address_search_dlg_show,
+                            context,TRUE);
+
+}
+
 BOOL address_search_auto_search( const char* address)
 {
    SsdWidget edit    = NULL;
@@ -544,7 +561,7 @@ BOOL address_search_auto_search( const char* address)
 //      return FALSE;
 //   }
 
-   address_search_dlg_show( on_auto_search_completed, (void*)address);
+   address_search_dlg_show_auto( on_auto_search_completed, (void*)address);
 
    edit  = generic_search_dlg_get_search_edit_box(search_address);
 
@@ -566,7 +583,7 @@ void address_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                             cbOnClosed,
                             on_search,
                             address_search_dlg_show,
-                            context);
+                            context,FALSE);
 
 }
 

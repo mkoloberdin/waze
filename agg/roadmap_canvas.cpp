@@ -917,6 +917,7 @@ static int roadmap_canvas_agg_get_screen_type( int width, int height )
 
 void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, int stride) {
 
+   roadmap_log( ROADMAP_ERROR, "roadmap_canvas_agg_configure, height =%d width=%d",height, width);
    agg_rbuf.attach(buf, width, height, stride);
 
    agg_renb.attach(agg_pixf);

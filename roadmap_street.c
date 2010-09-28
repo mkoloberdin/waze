@@ -670,8 +670,7 @@ static int roadmap_street_get_distance_with_shape
 
       roadmap_shape_get_position (i, &current.to);
 
-      if (roadmap_math_line_is_visible (&current.from, &current.to) &&
-          roadmap_math_get_visible_coordinates (&current.from, &current.to,
+      if (roadmap_math_get_visible_coordinates (&current.from, &current.to,
                                                 NULL, NULL)) {
 
          current.distance =
@@ -687,8 +686,7 @@ static int roadmap_street_get_distance_with_shape
 
    roadmap_line_to (line, &current.to);
 
-   if (roadmap_math_line_is_visible (&current.from, &current.to) &&
-          roadmap_math_get_visible_coordinates (&current.from, &current.to,
+   if (roadmap_math_get_visible_coordinates (&current.from, &current.to,
                                                 NULL, NULL)) {
 
       current.distance =
@@ -709,8 +707,7 @@ static int roadmap_street_get_distance_no_shape
    roadmap_line_from (line, &neighbour->from);
    roadmap_line_to   (line, &neighbour->to);
 
-   if (roadmap_math_line_is_visible (&neighbour->from, &neighbour->to) &&
-       roadmap_math_get_visible_coordinates (&neighbour->from, &neighbour->to,
+   if (roadmap_math_get_visible_coordinates (&neighbour->from, &neighbour->to,
                                              NULL, NULL)) {
 
       neighbour->distance =

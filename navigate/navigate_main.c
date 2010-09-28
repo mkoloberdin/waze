@@ -970,7 +970,8 @@ static void navigate_main_on_segments (NavigateRouteRC rc, const NavigateRouteRe
 
 		else if (res->route_status == ROUTE_UPDATE) {
 			refresh_eta (TRUE);
-			if (navigate_main_ETA_enabled()) {
+			if (navigate_main_ETA_enabled() &&
+             navigate_main_state() == 0) {
 				navigate_play_sound();
 			   roadmap_messagebox_timeout ("ETA Updated", "Due to change in traffic conditions ETA was updated", 5);
 			}
@@ -2037,7 +2038,7 @@ static void navigate_main_init_pens (void) {
 void navigate_main_shutdown (void) {
    if ( roadmap_config_match(&NavigateConfigNavigating,"1")) {
        if ( navigate_is_auto_zoom())
-       {                              // if in autozoom and navigating, reset zoom to default
+       {                              // if in autozoom and navigating, reset roadm to default
           roadmap_math_zoom_reset(); // so next time it won't start out in strange zoom
        }
 
@@ -2636,6 +2637,10 @@ void navigate_main_draw_route_number(void){
    RoadMapGuiPoint icon_screen_point;
    RoadMapPosition *outline_points;
    int i;
+#ifdef VIEW_MODE_3D_OGL
+    int OGL_2Dmode= FALSE;
+    int OGL_3Dmode= (roadmap_screen_get_view_mode()== VIEW_MODE_3D);
+#endif
    int count = 0;
 
    RoadMapImage image;
@@ -2653,9 +2658,6 @@ void navigate_main_draw_route_number(void){
    }
 
 #ifdef VIEW_MODE_3D_OGL
-    int OGL_2Dmode= FALSE;
-    int OGL_3Dmode= (roadmap_screen_get_view_mode()== VIEW_MODE_3D);
-
     roadmap_canvas3_set3DMode(OGL_3Dmode);
 #endif// VIEW_MODE_3D_OGL
 
@@ -2755,7 +2757,10 @@ void navigate_main_screen_repaint (int max_pen) {
 		}
 
       roadmap_square_set_current (segment->square);
-      if (segment->cfcc != last_cfcc) {
+#ifndef VIEW_MODE_3D_OGL
+      if (segment->cfcc != last_cfcc)
+#endif //VIEW_MODE_3D_OGL
+      {
          RoadMapPen layer_pen =
                roadmap_layer_get_pen (segment->cfcc, 0, 0);
          int width;
@@ -2770,7 +2775,31 @@ void navigate_main_screen_repaint (int max_pen) {
          if (width < ROUTE_PEN_WIDTH) {
             width = ROUTE_PEN_WIDTH;
          }
-
+         
+#ifdef VIEW_MODE_3D_OGL
+         if (roadmap_screen_get_view_mode() == VIEW_MODE_3D &&
+             width < 20) {
+            int factor;
+            RoadMapGuiPoint points[2];
+            roadmap_math_coordinate (&segment->from_pos, &points[0]);
+            roadmap_math_coordinate (&segment->to_pos, &points[1]);
+            roadmap_math_rotate_project_coordinate (&points[0]);
+            roadmap_math_rotate_project_coordinate (&points[1]);
+            if ((points[0].y < roadmap_screen_height()/2 ||
+                points[1].y < roadmap_screen_height()/2) &&
+                abs(points[0].y - points[1].y) < abs(points[0].x - points[1].x)/2) {
+               if (points[0].y < points[1].y)
+                  factor = (1 + 2*(roadmap_screen_height() - points[0].y) / (roadmap_screen_height()));
+               else
+                  factor = (1 + 2*(roadmap_screen_height() - points[1].y) / (roadmap_screen_height()));
+               if (factor > 2)
+                  factor = 2;
+               width *= factor;
+            }         
+         }
+            
+#endif //VIEW_MODE_3D_OGL
+            
          if (width != current_width) {
 
             RoadMapPen previous_pen;
@@ -3365,7 +3394,7 @@ void navigate_main_list(void){
                               NULL,
                               NULL,
                               height,
-                              FALSE,
+                              0,
                               NULL);
 #endif //IPHONE
 

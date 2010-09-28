@@ -405,7 +405,7 @@ static void AddBonusToMap(RTBonus *pApdon, BOOL isCustom){
    Pos.speed = 0;
    Pos.steering = 0;
    roadmap_object_add (Group, GUI_ID, Name, Sprite, Image, &Pos, NULL, OBJECT_ANIMATION_POP_IN | OBJECT_ANIMATION_WHEN_VISIBLE, Text);
-   
+
    pApdon->displayed = TRUE;
    roadmap_object_set_action (GUI_ID, OnbonusShortClick);
    roadmap_string_release (Group);
@@ -428,7 +428,7 @@ static void display_ticker(void){
    }
    else{
       ticker_closed_cb();
-}
+   }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

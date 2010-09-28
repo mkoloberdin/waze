@@ -28,10 +28,12 @@
 #include "roadmap_iphonelist_menu.h"
 #include "roadmap_path.h"
 #include "roadmap_lang.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_device_events.h"
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneCellML.h"
+#include "widgets/iphoneTableHeader.h"
+#include "widgets/iphoneTableFooter.h"
 
 
 
@@ -71,7 +73,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                         void*                  context,
                                         SsdSoftKeyCallback     detail_button_callback,
                                         int                    list_height,
-                                        int                    add_next_button,
+                                        int                    flags,
                                         list_menu_empty_message* empty_message) {
 	
    if (!list)
@@ -91,7 +93,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                       andContext:context
                          andDetailButtonCallback:detail_button_callback
                                    andListHeight:list_height
-                              andAddDetailButton:add_next_button
+                                        andFlags:flags
                                       andRefresh:TRUE
                                         andEmpty:empty_message];
 }
@@ -108,7 +110,7 @@ void* roadmap_list_menu_generic (const char*          title,
                                  void*                context,
                                  SsdSoftKeyCallback   detail_button_callback,
                                  int                  list_height,
-                                 int                  add_next_button,
+                                 int                  flags,
                                  list_menu_empty_message* empty_message) {
 	
 	RoadMapListMenu *RoadMapListViewCont = [[RoadMapListMenu alloc] initWithStyle:UITableViewStyleGrouped];
@@ -125,7 +127,7 @@ void* roadmap_list_menu_generic (const char*          title,
                                       andContext:context
                          andDetailButtonCallback:detail_button_callback
                                    andListHeight:list_height
-                              andAddDetailButton:add_next_button
+                                        andFlags:flags
                                       andRefresh:FALSE
                                         andEmpty:empty_message];
    return (void*) RoadMapListViewCont;
@@ -144,7 +146,8 @@ void roadmap_list_menu_custom_refresh (void*                  list,
                                        void*                  context, 
                                        int                    list_height,
                                        BOOL                   add_next_button,
-                                       list_menu_empty_message* empty_message) {
+                                       list_menu_empty_message* empty_message,
+                                       list_menu_sections       *sections) {
 	
    if (!list)
       return;
@@ -163,7 +166,8 @@ void roadmap_list_menu_custom_refresh (void*                  list,
                                   andListHeight:list_height
                              andAddDetailButton:add_next_button
                                      andRefresh:TRUE
-                                       andEmpty:empty_message];
+                                       andEmpty:empty_message
+                                    andSections:sections];
 }
 
 void* roadmap_list_menu_custom (const char*           title,
@@ -177,7 +181,8 @@ void* roadmap_list_menu_custom (const char*           title,
                                 void*                 context, 
                                 int                   list_height,
                                 BOOL                  add_next_button,
-                                list_menu_empty_message* empty_message) {
+                                list_menu_empty_message* empty_message,
+                                list_menu_sections       *sections) {
 	
 	RoadMapListMenu *RoadMapListViewCont = [[RoadMapListMenu alloc] initWithStyle:UITableViewStyleGrouped];
 	
@@ -193,7 +198,8 @@ void* roadmap_list_menu_custom (const char*           title,
                                   andListHeight:list_height
                              andAddDetailButton:add_next_button
                                      andRefresh:FALSE
-                                       andEmpty:empty_message];
+                                       andEmpty:empty_message
+                                    andSections:sections];
    return (void*) RoadMapListViewCont;
 }
 
@@ -202,6 +208,8 @@ void* roadmap_list_menu_custom (const char*           title,
 @implementation RoadMapListMenu
 @synthesize dismissListCallback;
 @synthesize dataArray;
+@synthesize headersArray;
+@synthesize footersArray;
 @synthesize emptyListView;
 
 - (id)initWithStyle:(UITableViewStyle)style
@@ -209,6 +217,8 @@ void* roadmap_list_menu_custom (const char*           title,
 	self = [super initWithStyle:style];
 	
 	dataArray = [[NSMutableArray arrayWithCapacity:1] retain];
+   headersArray = NULL;
+   footersArray = NULL;
 	dismissListCallback = NULL;
    exit_code = dec_close;
    
@@ -255,14 +265,29 @@ void* roadmap_list_menu_custom (const char*           title,
 - (void) viewDidLoad
 {
 	UITableView *tableView = [self tableView];
+   int i;
+   iphoneTableHeader *header;
+   iphoneTableFooter *footer;
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
    
    if (tableHeight > 0) {
 		[tableView setRowHeight:tableHeight];
 	}
+   
+   if (headersArray) {
+      for (i = 0; i < [headersArray count]; ++i) {
+         header = [headersArray objectAtIndex:i];
+         [header layoutIfNeeded];
+      }
+   }
+   
+   if (footersArray) {
+      for (i = 0; i < [footersArray count]; ++i) {
+         footer = [footersArray objectAtIndex:i];
+         [footer layoutIfNeeded];
+      }
+   }
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
@@ -356,11 +381,10 @@ void* roadmap_list_menu_custom (const char*           title,
 					[dict setObject:str forKey:@"text"];
 				}
 				
-				img = roadmap_iphoneimage_load(item);
+				img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, item);
 				
 				if (img) {
 					[dict setObject:img forKey:@"image"];
-					[img release];
 				}
 				
 				if (this_action->callback) {
@@ -392,11 +416,10 @@ void* roadmap_list_menu_custom (const char*           title,
             [dict setObject:str forKey:@"text"];
          }
          
-         img = roadmap_iphoneimage_load(additional_item);
+         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, additional_item);
          
          if (img) {
             [dict setObject:img forKey:@"image"];
-            [img release];
          }
          
          if (this_action->callback) {
@@ -420,9 +443,10 @@ void* roadmap_list_menu_custom (const char*           title,
                          andValues:(const void**)values
                           andIcons:(const char**)icons
                     andRightLabels:(const char**)right_labels
-                andAddDetailButton:(int)add_next_button
+                          andFlags:(int)flags
+                       andSections:(list_menu_sections *)sections
 {
-	int i;
+	int i, next_section = 0, current_section = 0;
 	NSString *str = NULL;
 	UIImage *img = NULL;
 	NSMutableDictionary *dict = NULL;
@@ -433,8 +457,22 @@ void* roadmap_list_menu_custom (const char*           title,
    [dataArray removeAllObjects];
 	
 	groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   if (sections)
+      next_section = sections->items[0];
 	
 	for (i = 0; i < count; ++i) {
+      if (sections && next_section == i) {
+			[dataArray addObject:groupArray];
+			groupArray = [NSMutableArray arrayWithCapacity:1];
+         
+         current_section++;
+         if (current_section < sections->count)
+            next_section += sections->items[current_section];
+         else
+            next_section = -1;
+      }
+      
 		dict = [NSMutableDictionary dictionaryWithCapacity:1];
 		
 		if (labels) {
@@ -446,11 +484,10 @@ void* roadmap_list_menu_custom (const char*           title,
 		
 		if (icons) {
 			if (icons[i]) {
-				img = roadmap_iphoneimage_load(icons[i]);
+				img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icons[i]);
 				
 				if (img) {
 					[dict setObject:img forKey:@"image"];
-					[img release];
 				}
 			}
 		}
@@ -468,9 +505,9 @@ void* roadmap_list_menu_custom (const char*           title,
 		}
 		
       if (((int) values[i] != LIST_MENU_NO_ACTION)) {
-         if (add_next_button == 1)
+         if (flags & LIST_MENU_ADD_DETAIL_BUTTON)
             accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryDetailDisclosureButton];
-         else if (add_next_button == 2)
+         else if (flags & LIST_MENU_ADD_NEXT_BUTTON)
             accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryDisclosureIndicator];
          else
             accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryNone];
@@ -510,16 +547,44 @@ void* roadmap_list_menu_custom (const char*           title,
          
          //set custom icon
          if (icons && icons[index]) {
-            img = roadmap_iphoneimage_load(icons[index]);
+            img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icons[index]);
             
             if (img) {
                [dict setObject:img forKey:@"image"];
-               [img release];
             }
          }
          index++;
       }
    }   
+}
+
+- (void) populateHeaders:(list_menu_sections *)sections
+{
+   int i;
+   iphoneTableHeader *header;
+   iphoneTableFooter *footer;
+   
+   if (sections == NULL) {
+      headersArray = NULL;
+      footersArray = NULL;
+      return;
+   }
+   
+   headersArray = [[NSMutableArray arrayWithCapacity:sections->count] retain];
+   for (i = 0; i < sections->count; i++) {
+      header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT) ];
+      [header setText:roadmap_lang_get(sections->titles[i])];
+      [headersArray addObject:header];
+      [header release];
+   }
+   
+   footersArray = [[NSMutableArray arrayWithCapacity:sections->count] retain];
+   for (i = 0; i < sections->count; i++) {
+      footer = [[iphoneTableFooter alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT) ];
+      [footer setText:roadmap_lang_get(sections->footers[i])];
+      [footersArray addObject:footer];
+      [footer release];
+   }
 }
 
 - (void) activateSimpleWithName:(const char           *)name
@@ -540,6 +605,7 @@ void* roadmap_list_menu_custom (const char*           title,
    UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")]
                                                                  style:UIBarButtonItemStyleDone target:self action:@selector(onClose)];
    [navItem setRightBarButtonItem:barButton];
+   [barButton release];
 	
 	dismissListCallback = on_dialog_closed;
 	listData.on_item_selected = NULL;
@@ -641,7 +707,7 @@ void* roadmap_list_menu_custom (const char*           title,
       button.tag = TAG_BUTTON;
       button.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
       button.autoresizesSubviews = YES;
-      image = roadmap_iphoneimage_load("button_up");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
       [button setBackgroundImage:image forState:UIControlStateNormal];
       [button addTarget:self action:@selector(onEmptyMsgButton) forControlEvents:UIControlEventTouchUpInside];
       [emptyListView addSubview:button];
@@ -671,7 +737,7 @@ void* roadmap_list_menu_custom (const char*           title,
    } else {
       //top image
       imageView = (UIImageView *)[emptyListView viewWithTag:TAG_TOP_IMAGE];
-      imageView.image = roadmap_iphoneimage_load(empty_message->top_image);
+      imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, empty_message->top_image);
       [imageView sizeToFit];
       rect = imageView.frame;
       rect.origin.x = (viewRect.size.width - imageView.bounds.size.width )/2;
@@ -701,7 +767,7 @@ void* roadmap_list_menu_custom (const char*           title,
 
       //bottom image
       imageView = (UIImageView *)[emptyListView viewWithTag:TAG_BOTTOM_IMAGE];
-      imageView.image = roadmap_iphoneimage_load(empty_message->bottom_image);
+      imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, empty_message->bottom_image);
       [imageView sizeToFit];
       
       rect = imageView.frame;
@@ -745,7 +811,7 @@ void* roadmap_list_menu_custom (const char*           title,
                        andContext:(void*)context
           andDetailButtonCallback:(SsdSoftKeyCallback)detail_button_callback
                     andListHeight:(int)list_height
-               andAddDetailButton:(int)add_next_button
+                         andFlags:(int)flags
                        andRefresh:(BOOL)refresh
                          andEmpty:(list_menu_empty_message*)empty_message
 {
@@ -771,12 +837,12 @@ void* roadmap_list_menu_custom (const char*           title,
 	listData.context = context;
 	listData.detail_button_callback = detail_button_callback;
    
-	[self populateListDataWithCount:count andLabels:labels andValues:values andIcons:icons andRightLabels:right_labels andAddDetailButton:add_next_button];
+	[self populateListDataWithCount:count andLabels:labels andValues:values andIcons:icons andRightLabels:right_labels andFlags:flags andSections:NULL];
    
    if (refresh)
       [self.tableView reloadData];
    else
-      roadmap_main_push_view (self);
+      roadmap_main_push_view_custom (self, !(flags & LIST_MENU_NO_ANIMATION));
    
    if (count == 0) {
       [self showEmptyMessage:empty_message];
@@ -799,6 +865,7 @@ void* roadmap_list_menu_custom (const char*           title,
               andAddDetailButton:(BOOL)add_next_button
                       andRefresh:(BOOL)refresh
                         andEmpty:(list_menu_empty_message*)empty_message
+                     andSections:(list_menu_sections*)sections
 {
    tableHeight = list_height;
 	
@@ -809,6 +876,7 @@ void* roadmap_list_menu_custom (const char*           title,
    UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")]
                                                                  style:UIBarButtonItemStyleDone target:self action:@selector(onClose)];
    [navItem setRightBarButtonItem:barButton];
+   [barButton release];
 	
 	listData.on_item_selected = on_item_selected;
 	listData.on_item_deleted = on_item_deleted;
@@ -822,8 +890,11 @@ void* roadmap_list_menu_custom (const char*           title,
 	listData.detail_button_callback = left_softkey_callback;
 	listData.custom_view_callback = custom_view_callback;
 	
-	
-	[self populateListDataWithCount:count andLabels:NULL andValues:values andIcons:NULL andRightLabels:NULL andAddDetailButton:add_next_button];
+      
+   [self populateHeaders:sections];
+
+	[self populateListDataWithCount:count andLabels:NULL andValues:values andIcons:NULL andRightLabels:NULL
+                          andFlags:(add_next_button ? LIST_MENU_ADD_DETAIL_BUTTON : 0) andSections:sections];
 	
    if (refresh)
       [self.tableView reloadData];
@@ -847,6 +918,12 @@ void* roadmap_list_menu_custom (const char*           title,
    
 	[dataArray release];
 	dataArray = NULL;
+   
+   if (headersArray)
+      [headersArray release];
+   
+   if (footersArray)
+      [footersArray release];
    
    if (emptyListView != NULL)
       [emptyListView release];
@@ -1003,5 +1080,48 @@ void* roadmap_list_menu_custom (const char*           title,
 	}
 }
 
+//Tableview headers and footers
+- (UIView *)tableView:(UITableView *)tableView viewForHeaderInSection:(NSInteger)section {
+   if (headersArray)
+      return [headersArray objectAtIndex:section];
+   else
+      return NULL;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForHeaderInSection:(NSInteger)section {
+   if (!headersArray)
+      return 0;
+   
+   iphoneTableHeader *header = [headersArray objectAtIndex:section];
+   
+   [header layoutIfNeeded];
+   
+   if ([[header getText] isEqualToString:@""])
+      return 0;
+   else
+      return header.bounds.size.height; 
+   
+}
+
+- (UIView *)tableView:(UITableView *)tableView viewForFooterInSection:(NSInteger)section {
+   if (footersArray)
+      return [footersArray objectAtIndex:section];
+   else
+      return NULL;
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForFooterInSection:(NSInteger)section {
+   if (!footersArray)
+      return 0;
+   
+   iphoneTableFooter *footer = [footersArray objectAtIndex:section];
+   
+   [footer layoutIfNeeded];
+   
+   if ([[footer getText] isEqualToString:@""])
+      return 0;
+   else
+      return footer.bounds.size.height;  
+}
 
 @end

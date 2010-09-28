@@ -63,14 +63,14 @@
 
 #define OPTIMIZE_SQRT
 
-#define FONT_DEFAULT_SIZE  14
-#define Z_LEVEL            -6
-#define MAX_AA_SIZE        32
-#define IMAGE_HINT         "image"
-#define MAX_TEX_UNITS      8
+#define FONT_DEFAULT_SIZE        14
+#define Z_LEVEL                  -6
+#define MAX_AA_SIZE              32
+#define IMAGE_HINT               "image"
+#define MAX_TEX_UNITS            8
 
 #ifndef MIN
-#define MIN(A,B)	({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; })
+#define MIN(A,B)	( __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __a : __b; )
 #endif
 #ifndef MAX
 #define MAX(A,B)	({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
@@ -81,6 +81,8 @@
 
 #define 	OGL_TEX_NEXT_POINT_OFFSET					0.0001F
 
+#define OGL_FLT_SHIFT_VALUE                     0.5F        // Shifting of the central filter point
+                                                            // in terms of subpixel accuracy
 // some convienence constants for the texture dimensions:
 // point size, size minus one, half size squared, double size, point center, radius squared
 #define psz (phf * 2)
@@ -90,16 +92,15 @@
 #define pct (psz + phf)
 #define prs ((phf-1)*(phf-1))
 
-
 #define CANVAS_IMAGE_FROM_BUF_TYPE		"IMAGE_FROM_BUF"
-#define CANVAS_IMAGE_NEW_TYPE			"IMAGE_NEW"
+#define CANVAS_IMAGE_NEW_TYPE			   "IMAGE_NEW"
 
 #define CANVAS_INVALID_TEXTURE_ID		0xFFFFFFFFL
 
 #define OGL_FLT_SHIFT_VALUE                     0.5F        // Shifting of the central filter point
 // in terms of subpixel accuracy
-#define OGL_FLT_SHIFT_POS( coord ) ( (GLfloat) coord + OGL_FLT_SHIFT_VALUE )      // positive shift
-#define OGL_FLT_SHIFT_NEG( coord ) ( (GLfloat) coord - OGL_FLT_SHIFT_VALUE )      // negative shift
+#define OGL_FLT_SHIFT_POS( coord ) ( (GLfloat) coord + shift_value )      // positive shift
+#define OGL_FLT_SHIFT_NEG( coord ) ( (GLfloat) coord - shift_value )      // negative shift
 
 enum states {
    CANVAS_GL_STATE_NOT_READY = 0,
@@ -156,7 +157,8 @@ static float 					RoadMapAAFactor 	= 0.0F;
 static RoadMapImage RMUnmanagedImages[OGL_UNMANAGED_IMAGES_LIST_SIZE] = {0};
 
 /* Multiple lines buffer */
-static roadmap_gl_vertex Glpoints[12288];
+#define GL_POINTS_SIZE     12288
+static roadmap_gl_vertex Glpoints[GL_POINTS_SIZE];
 
 static roadmap_gl_poly_vertex GLcombined[1024];
 static int                 GlcombinedCount;
@@ -166,7 +168,7 @@ static GLenum              GlpointsType;
 static GLuint  tex_units[MAX_TEX_UNITS];
 static GLint   num_tex_units;
 static int     current_tex_unit;
-
+static GLint   max_tex_units = MAX_TEX_UNITS;
 
 #if !defined(INLINE_DEC)
 #define INLINE_DEC
@@ -174,7 +176,7 @@ static int     current_tex_unit;
 
 static void generate_aa_tex();
 INLINE_DEC float frsqrtes_nr(float x);
-
+static void draw_triangles( int vertex_count, unsigned long texture );
 
 /* The canvas callbacks: all callbacks are initialized to do-nothing
  * functions, so that we don't care checking if one has been setup.
@@ -207,7 +209,7 @@ static RoadMapImage roadmap_canvas_load_bmp ( const char *full_name, RoadMapImag
 
 BOOL roadmap_canvas_is_ready( void )
 {
-   return ( RoadMapCanvasSavedState == CANVAS_GL_STATE_NOT_READY );
+   return ( RoadMapCanvasSavedState != CANVAS_GL_STATE_NOT_READY );
 }
 
 INLINE_DEC BOOL is_canvas_ready_src_line( int line )
@@ -614,6 +616,8 @@ void roadmap_canvas_get_formated_text_extents (const char *text, int s, int *wid
 	int bold;
    const wchar_t* p;
    float x = 0;
+   float s_factor;
+   int length;
    RoadMapFontImage *fontImage;
    wchar_t wstr[255];
 
@@ -636,7 +640,7 @@ void roadmap_canvas_get_formated_text_extents (const char *text, int s, int *wid
 	else
 		bold = FALSE;
 
-   int length = roadmap_canvas_ogl_to_wchar (text, wstr, 255);
+   length = roadmap_canvas_ogl_to_wchar (text, wstr, 255);
    if (length <=0)  {
       return;
    }
@@ -647,6 +651,7 @@ void roadmap_canvas_get_formated_text_extents (const char *text, int s, int *wid
    }
 
    size = floor( s * RoadMapFontFactor );
+   s_factor = (float)size / ACTUAL_FONT_SIZE(size);
 
 	roadmap_canvas_font_metrics (size, ascent, descent, bold);
 
@@ -655,7 +660,7 @@ void roadmap_canvas_get_formated_text_extents (const char *text, int s, int *wid
    while(*p) {
 		fontImage =  roadmap_canvas_font_tex(*p, size, bold);
          // increment pen position
-      x += fontImage->advance_x;
+      x += fontImage->advance_x*s_factor;
       ++p;
    }
 
@@ -737,8 +742,8 @@ RoadMapPen roadmap_canvas_create_pen (const char *name) {
 static void set_color (const char *color, BOOL foreground) {
    
    float r, g, b, a;
-   a = 1.0;
    int high, i, low;
+   a = 1.0;
    
    if (*color == '#') {
       int ir, ig, ib, ia;
@@ -797,6 +802,16 @@ void roadmap_canvas_set_background (const char *color) {
    set_color(color, FALSE);
 }
 
+void roadmap_canvas_set_max_tex_units( int units_num )
+{
+   if (units_num < MAX_TEX_UNITS)
+	   max_tex_units = units_num;
+   else
+		max_tex_units = MAX_TEX_UNITS;
+
+}
+
+
 void roadmap_canvas_set_linestyle (const char *style) {
    /*
    if (strcasecmp (style, "dashed") == 0) {
@@ -838,8 +853,6 @@ void roadmap_canvas_erase (void)
 void roadmap_canvas_erase_area (const RoadMapGuiRect *rect)
 {
 
-	if ( !set_state(CANVAS_GL_STATE_GEOMETRY, 0) )
-		return;
 
    GLfloat glpoints[4*3] = {
       rect->minx * 1.0f, rect->miny * 1.0f, Z_LEVEL,
@@ -848,7 +861,10 @@ void roadmap_canvas_erase_area (const RoadMapGuiRect *rect)
       rect->minx * 1.0f, (rect->maxy +1) * 1.0f, Z_LEVEL
    };
 
-   glVertexPointer(3, GL_FLOAT, 0, glpoints);
+	if ( !set_state(CANVAS_GL_STATE_GEOMETRY, 0) )
+		return;
+
+	glVertexPointer(3, GL_FLOAT, 0, glpoints);
    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
    check_gl_error();
 
@@ -917,9 +933,10 @@ void roadmap_canvas_draw_formated_string_size (RoadMapGuiPoint *position,
    default:
       return;
    }
-
+   {
    RoadMapGuiPoint start = {x, y+text_height};
    roadmap_canvas_draw_formated_string_angle (&start, position, 0, size, font_type, text);
+   }
 }
 
 void roadmap_canvas_draw_string_size (RoadMapGuiPoint *position,
@@ -939,18 +956,18 @@ void roadmap_canvas_draw_string  (RoadMapGuiPoint *position,
 
 #ifdef USE_FRIBIDI
 static wchar_t* bidi_string(wchar_t *logical) {
+   FriBidiChar *visual;
+   FriBidiStrIndex *ltov, *vtol;
+   FriBidiLevel *levels;
+   FriBidiStrIndex new_len;
+   fribidi_boolean log2vis;
+
 
    FriBidiCharType base = FRIBIDI_TYPE_ON;
    size_t len;
 
    len = wcslen(logical);
 
-   FriBidiChar *visual;
-
-   FriBidiStrIndex *ltov, *vtol;
-   FriBidiLevel *levels;
-   FriBidiStrIndex new_len;
-   fribidi_boolean log2vis;
 
    if ( len > 1000000 )
    {
@@ -974,17 +991,49 @@ static wchar_t* bidi_string(wchar_t *logical) {
 
    new_len = len;
 
+   visual[len] = 0;
    return (wchar_t *)visual;
 
 }
 #endif
+/*
+ * Auxiliary function drawing triangles from the global array Glpoints
+ */
+static inline void draw_triangles( int vertex_count, unsigned long texture )
+{
+   set_state( CANVAS_GL_STATE_IMAGE, texture );
+
+   glVertexPointer( 3, GL_FLOAT, sizeof( roadmap_gl_vertex ), &Glpoints[0].x );
+   glTexCoordPointer( 2, GL_FLOAT, sizeof( roadmap_gl_vertex ),  &Glpoints[0].tx );
+   glDrawArrays( GL_TRIANGLES, 0, vertex_count );
+   check_gl_error();
+}
 
 void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
                                        RoadMapGuiPoint *center,
                                                 int angle, int s, int font_type,
                                                 const char *text){
-   int size;
+   int size, i;
    wchar_t wstr[255];
+   wchar_t *bidi_text;
+   const wchar_t* p;
+   const wchar_t* p_start;
+   float x, y;
+   float width;
+   float height;
+   float x_offset, y_offset;
+   float x_offset_norm, y_offset_norm, width_norm, height_norm;
+   RoadMapFontImage *fontImage;
+   RoadMapImage image, outline_image;
+   roadmap_gl_vertex * glpoints = &Glpoints[0];
+   GLfloat texCoords[2*4] = {0};
+   int bold;
+   float s_factor;
+   float translate_x, translate_y;
+   int vertex_count = 0;
+   unsigned long outline_texture = 0;
+   unsigned long normal_texture = 0;
+   const GLfloat shift = -1.0f/(2.0f* CANVAS_ATLAS_TEX_SIZE);
    int length = roadmap_canvas_ogl_to_wchar (text, wstr, 255);
 
    if (length <=0) return;
@@ -993,28 +1042,22 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
 	   return;
 
 #ifdef USE_FRIBIDI
-   wchar_t *bidi_text = bidi_string(wstr);
-   const wchar_t* p = bidi_text;
+   bidi_text = bidi_string(wstr);
+   p_start = bidi_text;
 #else
-   const wchar_t* p = wstr;
+   p_start = wstr;
 #endif
 
-   double x  = position->x;
-   double y  = position->y;
-   float width;
-   float height;
-   float x_offset, y_offset;
+   x  = position->x;
+   y  = position->y;
 
    if (s <= 0)
       s = FONT_DEFAULT_SIZE;
 
    size = floor(s * RoadMapFontFactor);
+   
+   s_factor = (float)size / ACTUAL_FONT_SIZE(size);
 
-
-   RoadMapFontImage *fontImage;
-   RoadMapImage image, outline_image;
-
-	int bold;
 
 	if (font_type & FONT_TYPE_BOLD)
 		bold = TRUE;
@@ -1026,104 +1069,200 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
    glTranslatef(x, y, 0);
    glRotatef(angle, 0, 0, 1);
    check_gl_error();
+
    x = 0;
    y = 0;
 
-   while(*p) {
-      //roadmap_log (ROADMAP_INFO, "--->>> drawing character: %ld", *p);
-		fontImage =  roadmap_canvas_font_tex(*p, size, bold);
-      image = fontImage->image;
-      outline_image = fontImage->outline_image;
+   if ( font_type & FONT_TYPE_OUTLINE )
+   {
+      select_background_color( CurrentPen );
 
-      if (image) {
-         if ((font_type & FONT_TYPE_OUTLINE) &&
-             outline_image) {
-            
-            width = outline_image->width;
-            height = outline_image->height;
-            x_offset = outline_image->offset.x;
-            y_offset = outline_image->offset.y;
-            
-            GLfloat glpoints[] = {
-               x -0.5, y -0.5, Z_LEVEL,
-               x + width +0.5, y -0.5, Z_LEVEL,
-               x -0.5, y + height +0.5, Z_LEVEL,
-               x + width +0.5, y + height +0.5, Z_LEVEL,
-            };
-            
-            GLfloat shift = -1.0f/(2.0f* CANVAS_ATLAS_TEX_SIZE);
-            
-            GLfloat texCoords[] = {
-               (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift, (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift,
-               (GLfloat)(x_offset + width) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift, (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift,
-               (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift, (GLfloat)(y_offset + height) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift,
-               (GLfloat)(x_offset + width) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift, (GLfloat)(y_offset + height) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift,
-            };
-            
-            select_background_color(CurrentPen);
-            
-            glPushMatrix();
-            glTranslatef(fontImage->left - (outline_image->width - image->width)*0.5f, 0, 0);
-            glTranslatef(0, -fontImage->top - (outline_image->height - image->height)*0.5f, 0);
-            
-            set_state(CANVAS_GL_STATE_IMAGE, outline_image->texture);
-            
-            glVertexPointer(3, GL_FLOAT, 0, glpoints);
-            glTexCoordPointer(2, GL_FLOAT, 0, texCoords);
-            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-            check_gl_error();
-            
-            
-            glPopMatrix();
-            
-            roadmap_canvas_select_pen(CurrentPen);
+      p = p_start;
+      while( *p )
+      {
+         //roadmap_log (ROADMAP_INFO, "--->>> drawing character: %ld", *p);
+         fontImage =  roadmap_canvas_font_tex( *p, size, bold );;
+         image = fontImage->image;
+         outline_image = fontImage->outline_image;
+
+         if (image) {
+               if ( outline_image ) {
+
+               if ( !outline_texture )
+               {
+                  outline_texture = outline_image->texture;
+               }
+               else if ( outline_texture != outline_image->texture )
+               {
+                  // We should swap the atlas - not efficient. That means that the initial allocation
+                  // was not enough. Should be adjusted in the next releases
+                  //roadmap_log( ROADMAP_INFO, "The atlas swap is occurred while drawing outline labels !!! " );
+
+                  // Flush the previous array
+                  draw_triangles( vertex_count, outline_texture );
+                  outline_texture = outline_image->texture;
+                  vertex_count = 0;
+               }
+
+
+               glpoints = &Glpoints[vertex_count];
+
+               width = outline_image->width;
+               height = outline_image->height;
+               x_offset = outline_image->offset.x;
+               y_offset = outline_image->offset.y;
+               translate_x = (fontImage->left*s_factor - (outline_image->width - image->width)*s_factor*0.5f);
+               translate_y = (-fontImage->top*s_factor - (outline_image->height - image->height)*s_factor*0.5f);
+               /*
+                * Normalization
+                */
+               x_offset_norm = (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+               width_norm = (GLfloat)width / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+               y_offset_norm = (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+               height_norm = (GLfloat)height / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+
+               /*
+                * First triangle
+                */
+               glpoints[0].z =
+               glpoints[1].z =
+               glpoints[2].z = Z_LEVEL;
+
+               glpoints[0].x = x -0.5 + translate_x;
+               glpoints[0].y = y -0.5 + translate_y;
+               glpoints[1].x = x + width*s_factor +0.5 + translate_x;
+               glpoints[1].y = y -0.5 + translate_y;
+               glpoints[2].x = x -0.5 + translate_x;
+               glpoints[2].y = y + height*s_factor +0.5 + translate_y;
+               // Textures
+               glpoints[0].tx = x_offset_norm + shift;
+               glpoints[0].ty = y_offset_norm  + shift;
+               glpoints[1].tx = x_offset_norm + width_norm - shift;
+               glpoints[1].ty = y_offset_norm + shift;
+               glpoints[2].tx = x_offset_norm  + shift;
+               glpoints[2].ty = y_offset_norm + height_norm - shift;
+               vertex_count += 3;
+               glpoints += 3;
+
+               /*
+                * Second triangle
+                */
+                // Just copy the last two points to be the first in the second triangle
+                memcpy( glpoints, glpoints - 2, 2*sizeof( roadmap_gl_vertex ) );
+                glpoints[2].x = x + width*s_factor +0.5 + translate_x;
+                glpoints[2].y = y + height*s_factor +0.5 + translate_y;
+                glpoints[2].z = Z_LEVEL;
+                glpoints[2].tx = x_offset_norm + width_norm - shift;
+                glpoints[2].ty = y_offset_norm + height_norm - shift;
+                vertex_count += 3;
+            }
+         }// if ( image )
+         else {
+            if (*p != 32)
+               roadmap_log (ROADMAP_DEBUG, "Invalid texture when loading character: %ld", *p);
          }
+
+         ++p;
+         x += fontImage->advance_x*s_factor;
+      } // while
+            
+      // Flush the buffer
+      draw_triangles( vertex_count, outline_texture );
+   }
+            
+            
+   x = 0;
+   y = 0;
+   vertex_count = 0;
+   p = p_start;
+            
+   roadmap_canvas_select_pen(CurrentPen);
+            
+   while( *p )
+   {
+      //roadmap_log (ROADMAP_INFO, "--->>> drawing character: %ld", *p);
+      fontImage =  roadmap_canvas_font_tex( *p, size, bold );;
+      image = fontImage->image;
+            
+      if (image) {
+
+         if ( !normal_texture )
+         {
+            normal_texture = image->texture;
+         }
+         else if ( normal_texture != image->texture )
+         {
+            // We should swap the atlas - not efficient. That means that the initial allocation
+            // was not enough. Should be adjusted in the next releases
+            //roadmap_log( ROADMAP_INFO, "The atlas swap is occurred while drawing labels !!! " );
          
+            // Flush the previous array
+            draw_triangles( vertex_count, normal_texture );
+            normal_texture = image->texture;
+            vertex_count = 0;
+         }
+
+         glpoints = &Glpoints[vertex_count];
          width = image->width;
          height = image->height;
          x_offset = image->offset.x;
          y_offset = image->offset.y;
+         translate_x = fontImage->left*s_factor;
+         translate_y = -fontImage->top*s_factor;
+         /*
+          * Normalization
+          */
+         x_offset_norm = (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+         width_norm = (GLfloat)width / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+         y_offset_norm = (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
+         height_norm = (GLfloat)height / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
 
-         GLfloat glpoints[] = {
-            x -0.5, y -0.5, Z_LEVEL,
-            x + width +0.5, y -0.5, Z_LEVEL,
-            x -0.5, y + height +0.5, Z_LEVEL,
-            x + width +0.5, y + height +0.5, Z_LEVEL,
-         };
+         /*
+          * First triangle
+          */
+         glpoints[0].z =
+         glpoints[1].z =
+         glpoints[2].z = Z_LEVEL;
          
-         GLfloat shift = -1.0f/(2.0f* CANVAS_ATLAS_TEX_SIZE);
+         glpoints[0].x = x -0.5 + translate_x;
+         glpoints[0].y = y -0.5 + translate_y;
+         glpoints[1].x = x + width*s_factor +0.5 + translate_x;
+         glpoints[1].y = y -0.5 + translate_y;
+         glpoints[2].x = x -0.5 + translate_x;
+         glpoints[2].y = y + height*s_factor +0.5 + translate_y;
+         // Textures
+         glpoints[0].tx = x_offset_norm + shift;
+         glpoints[0].ty = y_offset_norm  + shift;
+         glpoints[1].tx = x_offset_norm + width_norm - shift;
+         glpoints[1].ty = y_offset_norm + shift;
+         glpoints[2].tx = x_offset_norm  + shift;
+         glpoints[2].ty = y_offset_norm + height_norm - shift;
+         vertex_count += 3;
+         glpoints += 3;
 
-         GLfloat texCoords[] = {
-            (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift, (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift,
-            (GLfloat)(x_offset + width) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift, (GLfloat)y_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift,
-            (GLfloat)x_offset / (GLfloat)CANVAS_ATLAS_TEX_SIZE + shift, (GLfloat)(y_offset + height) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift,
-            (GLfloat)(x_offset + width) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift, (GLfloat)(y_offset + height) / (GLfloat)CANVAS_ATLAS_TEX_SIZE - shift,
-         };
+         /*
+          * Second triangle
+          */
+          // Just copy the last two points to be the first in the second triangle
 
-         glPushMatrix();
-         glTranslatef(fontImage->left, 0, 0);
-         glTranslatef(0, -fontImage->top, 0);
+          memcpy( glpoints, glpoints - 2, 2*sizeof( roadmap_gl_vertex ) );
+          glpoints[2].x = x + width*s_factor +0.5 + translate_x;
+          glpoints[2].y = y + height*s_factor +0.5 + translate_y;
+          glpoints[2].z = Z_LEVEL;
+          glpoints[2].tx = x_offset_norm + width_norm - shift;
+          glpoints[2].ty = y_offset_norm + height_norm - shift;
+          vertex_count += 3;
 
-         set_state(CANVAS_GL_STATE_IMAGE, image->texture);
-
-         glVertexPointer(3, GL_FLOAT, 0, glpoints);
-         glTexCoordPointer(2, GL_FLOAT, 0, texCoords);
-         roadmap_canvas_color_fix();	/* Android only. Empty for others */
-         glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-         check_gl_error();
-
-
-         glPopMatrix();
-
-         // increment pen position
-         x += fontImage->advance_x;
-      } else {
+      }// if ( image )
+      else {
          if (*p != 32)
             roadmap_log (ROADMAP_DEBUG, "Invalid texture when loading character: %ld", *p);
-         x += fontImage->advance_x;
       }
       ++p;
-   }
+     x += fontImage->advance_x*s_factor;
+   } // while
+
+   draw_triangles( vertex_count, normal_texture );
 
    glPopMatrix();
    check_gl_error();
@@ -1173,8 +1312,7 @@ void roadmap_canvas_draw_multiple_lines (int count, int *lines, RoadMapGuiPoint 
       return;
    }
 #endif
-   
-   roadmap_gl_vertex glpoints[8];
+   roadmap_gl_vertex glpoints[10];
    roadmap_gl_vertex *gl_array = Glpoints;
    int phf = MAX_AA_SIZE;
    float r = CurrentPen->lineWidth;
@@ -1184,93 +1322,47 @@ void roadmap_canvas_draw_multiple_lines (int count, int *lines, RoadMapGuiPoint 
    int i;
    float x, y, x1, y1;
    float perp_y, perp_x, perpd, factor;
-   float width; 			// = (maxr+1.0f)*0.5f;
-   float unit_x, unit_y;
+   float width;         // = (maxr+1.0f)*0.5f;
    float parl_x, parl_y;
-   
+
    int pts_count = 0;
-   
-   if ( !is_canvas_ready() )
+
+   if ( !is_canvas_ready())
       return;
-   
+
    generate_aa_tex();
-   
+
    set_state(CANVAS_GL_STATE_IMAGE, RoadMapAATex);
-   
+
    glpoints[0].z = glpoints[1].z =
    glpoints[2].z = glpoints[3].z =
    glpoints[4].z = glpoints[5].z =
-   glpoints[6].z = glpoints[7].z = Z_LEVEL;
-   
-   glpoints[3].tx = glpoints[1].tx = glpoints[5].tx = glpoints[7].tx =
-   glpoints[0].ty = glpoints[1].ty = glpoints[6].ty = glpoints[7].ty = (float)(psz-bord)/(float)pdb;
-   glpoints[2].tx = glpoints[0].tx = glpoints[4].tx = glpoints[6].tx = (float)(pdb+bord)/(float)pdb;
-   glpoints[3].ty = glpoints[2].ty = (float)(pct)/(float)pdb;
-   glpoints[5].ty = glpoints[4].ty = (float)(pct + 0.0001f)/(float)pdb;
-   
+   glpoints[6].z = glpoints[7].z =
+   glpoints[8].z = glpoints[9].z = Z_LEVEL;
+   glpoints[4].tx = glpoints[2].tx = glpoints[6].tx = glpoints[8].tx =
+   glpoints[1].ty = glpoints[2].ty = glpoints[7].ty = glpoints[8].ty = (float)(psz-bord)/(float)pdb;
+   glpoints[3].tx = glpoints[1].tx = glpoints[5].tx = glpoints[7].tx = (float)(pdb+bord)/(float)pdb;
+   glpoints[4].ty = glpoints[3].ty = (float)(pct)/(float)pdb;
+   glpoints[6].ty = glpoints[5].ty = (float)(pct + 0.0001f)/(float)pdb;
+   glpoints[0].tx = glpoints[0].ty = glpoints[9].tx = glpoints[9].ty = 0;
    for (i = 0; i < count; ++i) {
-      
+
       count_of_points = *lines;
       prev = points;
       points++;
       count_of_points--;
-      
+
       while (count_of_points) {
          x1 = (float)prev->x;
          y1 = (float)prev->y;
          x = (float)points->x;
          y = (float)points->y;
-         /*
-         
-         ///// test points
-         int phf = MAX_AA_SIZE;
-         float point_border = 2;
-         GLfloat points_test[] = {
-            x-2,      y-2, Z_LEVEL +1,
-            x+2, y-2, Z_LEVEL +1,
-            x+2, y+2, Z_LEVEL +1,
-            x-2,      y+2, Z_LEVEL +1
-         };
-   
-         GLfloat tex_test[] = {
-            (psz-point_border)/pdb, (psz-point_border)/pdb,
-            (pdb+point_border)/pdb, (psz-point_border)/pdb,
-            (pdb+point_border)/pdb, (pdb+point_border)/pdb,
-            (psz-point_border)/pdb, (pdb+point_border)/pdb
-         };
-          
-         glVertexPointer(3, GL_FLOAT, 0, points_test);
-         glTexCoordPointer(2, GL_FLOAT, 0, tex_test);
-         glColor4f(1.0f, 0, 1.0f, 1.0f);
-         glDrawArrays(GL_TRIANGLE_FAN, 0, 3);
-         check_gl_error();
-         roadmap_canvas_select_pen(CurrentPen);
-         ///// test points - end
-         */
-         
          perp_y = x1-x;
          perp_x = y-y1;
          factor = perp_y*perp_y+perp_x*perp_x;
-         
-         if ((perp_x < 2 && perp_x > -2) &&
-             (perp_y < 2 && perp_y > -2)) {
-            //prev = points;
-            //points++;
-            //count_of_points--;
-            //continue;
-                        
-            /*
-            //printf("draw mult lines - small line: %f, %f\n", perp_x, perp_y);
-            test_avi_small++;
-            if (perp_x == 0 && perp_y == 0)
-               test_avi_zero++;
-             */
-         }
-         
-         
          if (factor) {
             perpd = frsqrtes_nr(factor);
-            perp_y *= perpd;				// normalize to 1px
+            perp_y *= perpd;           // normalize to 1px
             perp_x *= perpd;
             x1 -= perp_y*0.5f;
             y1 += perp_x*0.5f;
@@ -1278,44 +1370,30 @@ void roadmap_canvas_draw_multiple_lines (int count, int *lines, RoadMapGuiPoint 
             perp_y = 0.0f;
             perp_x = 1.0f;
          }
-         
+
          width = (r+1.0f)*0.5f;
-         unit_x = -perp_y;
-         unit_y = perp_x;
          perp_y *= width;
          perp_x *= width;
          parl_x = -perp_y;
          parl_y =  perp_x;
-         
          glpoints[0].x = x1-perp_x-parl_x;		glpoints[0].y = y1-perp_y-parl_y;
-         glpoints[1].x = x1+perp_x-parl_x;		glpoints[1].y = y1+perp_y-parl_y;
-         glpoints[2].x = x1-perp_x;			glpoints[2].y = y1-perp_y;
-         glpoints[3].x = x1+perp_x;			glpoints[3].y = y1+perp_y;
-         glpoints[4].x = x-perp_x;				glpoints[4].y = y-perp_y;
-         glpoints[5].x = x+perp_x;				glpoints[5].y = y+perp_y;
-         glpoints[6].x = x-perp_x+parl_x;		glpoints[6].y = y-perp_y+parl_y;
-         glpoints[7].x = x+perp_x+parl_x;		glpoints[7].y = y+perp_y+parl_y;
-         
-         memcpy(gl_array, glpoints, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         memcpy(gl_array, glpoints+1, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         memcpy(gl_array, glpoints+2, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         memcpy(gl_array, glpoints+3, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         memcpy(gl_array, glpoints+4, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         memcpy(gl_array, glpoints+5, sizeof(*glpoints) * 3);
-         gl_array += 3;
-         
-         pts_count += 18;
-         if ((pts_count + 18) >= (sizeof(Glpoints) / sizeof(Glpoints[0]))) {
+         glpoints[1].x = x1-perp_x-parl_x;      glpoints[1].y = y1-perp_y-parl_y;
+         glpoints[2].x = x1+perp_x-parl_x;      glpoints[2].y = y1+perp_y-parl_y;
+         glpoints[3].x = x1-perp_x;       glpoints[3].y = y1-perp_y;
+         glpoints[4].x = x1+perp_x;       glpoints[4].y = y1+perp_y;
+         glpoints[5].x = x-perp_x;           glpoints[5].y = y-perp_y;
+         glpoints[6].x = x+perp_x;           glpoints[6].y = y+perp_y;
+         glpoints[7].x = x-perp_x+parl_x;    glpoints[7].y = y-perp_y+parl_y;
+         glpoints[8].x = x+perp_x+parl_x;    glpoints[8].y = y+perp_y+parl_y;
+         glpoints[9].x = x+perp_x+parl_x;    glpoints[9].y = y+perp_y+parl_y;
+         memcpy(gl_array, glpoints, sizeof(*glpoints) * 10);
+         pts_count += 10;
+         gl_array += 10;
+         if ((pts_count + 10) >= GL_POINTS_SIZE) {
             glVertexPointer(3, GL_FLOAT, sizeof(roadmap_gl_vertex), &Glpoints[0].x);
             glTexCoordPointer(2, GL_FLOAT, sizeof(roadmap_gl_vertex), &Glpoints[0].tx);
-            
             roadmap_canvas_color_fix();	/* Android only. Empty for others */
-            glDrawArrays(GL_TRIANGLES, 0, pts_count);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, pts_count);
             check_gl_error();
             gl_array = Glpoints;
             pts_count = 0;
@@ -1327,17 +1405,16 @@ void roadmap_canvas_draw_multiple_lines (int count, int *lines, RoadMapGuiPoint 
       }
       lines++;
    }
-   
+
    if (pts_count) {
       glVertexPointer(3, GL_FLOAT, sizeof(roadmap_gl_vertex), &Glpoints[0].x);
       glTexCoordPointer(2, GL_FLOAT, sizeof(roadmap_gl_vertex), &Glpoints[0].tx);
       
       roadmap_canvas_color_fix();	/* Android only. Empty for others */
-      glDrawArrays(GL_TRIANGLES, 0, pts_count);
+      glDrawArrays(GL_TRIANGLE_STRIP, 0, pts_count);
       check_gl_error();
    }
 }
-
 
 void roadmap_canvas_draw_multiple_tex_lines (int count, int *lines, RoadMapGuiPoint *points, int fast_draw,
                                              RoadMapImage image, int opposite) {   
@@ -1391,6 +1468,8 @@ void roadmap_canvas_draw_multiple_tex_lines (int count, int *lines, RoadMapGuiPo
       count_of_points--;
       
       while (count_of_points) {
+		 float coord_y;
+
          x1 = (float)prev->x;
          y1 = (float)prev->y;
          x = (float)points->x;
@@ -1425,7 +1504,7 @@ void roadmap_canvas_draw_multiple_tex_lines (int count, int *lines, RoadMapGuiPo
          distance = roadmap_math_screen_distance(prev, points, 0);
          if (distance < 1)
             distance = 1;
-         float coord_y = (float)distance / (float)image->height  / size_factor;
+         coord_y = (float)distance / (float)image->height  / size_factor;
          if (coord_y <= 0.00001f) {
             prev = points;
             points++;
@@ -1537,13 +1616,14 @@ void tcbError(GLenum errorCode)
    roadmap_log (ROADMAP_WARNING, "tcbError: %d", errorCode);
 }
 
-
+#ifndef _WIN32
 void roadmap_canvas_draw_multiple_polygons (int count, int *polygons, RoadMapGuiPoint *points, int filled,
                                             int fast_draw) {
    int i;
    int count_of_points;
    float saved_line_width;
    BOOL shouldAA;
+   GLUtesselator *tess;
 
    GLfloat glpoints[1024*3];
    GLdouble coords[1024*3];
@@ -1554,7 +1634,9 @@ void roadmap_canvas_draw_multiple_polygons (int count, int *polygons, RoadMapGui
    if (!set_state(CANVAS_GL_STATE_GEOMETRY, 0))
       return;
    
-   GLUtesselator *tess = gluNewTess();
+
+   tess = gluNewTess();
+
    gluTessCallback (tess, GLU_TESS_BEGIN, tcbBegin);
    gluTessCallback (tess, GLU_TESS_VERTEX, tcbVertex);
    gluTessCallback (tess, GLU_TESS_END, tcbEnd);
@@ -1635,6 +1717,96 @@ void roadmap_canvas_draw_multiple_polygons (int count, int *polygons, RoadMapGui
    end_fast_draw (fast_draw);
    
 }
+#else
+void roadmap_canvas_draw_multiple_polygons (int count, int *polygons, RoadMapGuiPoint *points, int filled,
+                                            int fast_draw) {
+   int i;
+   int count_of_points;
+   float saved_line_width;
+   BOOL shouldAA;
+   //roadmap_log (ROADMAP_INFO, "\n\nroadmap_canvas_draw_multiple_polygons");
+   GLfloat glpoints[512*3];
+   RoadMapGuiPoint first_point;
+
+   RoadMapGuiPoint closed_loop_points[513];
+   int count_of_lines;
+
+   if ( !set_state(CANVAS_GL_STATE_GEOMETRY, 0, ) )
+   		return;
+
+   set_fast_draw (fast_draw);
+
+
+
+	for (i = 0; i < count; ++i) {
+
+      count_of_points = *polygons;
+
+      first_point = points[0];
+
+      shouldAA = !fast_draw;
+      if (count_of_points > 2 &&
+          ((points[0].x == points[1].x ||
+           points[1].x == points[2].x) &&
+           (points[0].y == points[1].y ||
+           points[1].y == points[2].y)))
+         shouldAA = FALSE; //Try to identify vert/hor lines in polygon and skip anti aliasing
+
+      while (count_of_points > 512) {
+         roadmap_canvas_convert_points (glpoints, points, 512);
+         glVertexPointer(3, GL_FLOAT, 0, glpoints);
+         roadmap_canvas_color_fix();	/* Android only. Empty for others */
+         if (filled)
+            glDrawArrays(GL_TRIANGLE_FAN, 0, 512);
+         else
+            glDrawArrays(GL_LINE_STRIP, 0, 512);
+         check_gl_error();
+
+         points += 1023;
+         count_of_points -= 511;
+      }
+
+      memcpy(closed_loop_points, points, sizeof(RoadMapGuiPoint) * (count_of_points +1));
+      if (first_point.x != points[count_of_points -1].x ||
+          first_point.y != points[count_of_points -1].y) {
+         closed_loop_points[count_of_points] = first_point;
+         count_of_lines = count_of_points + 1;
+      } else {
+         count_of_lines = count_of_points;
+      }
+
+      if (!filled || shouldAA) {
+         saved_line_width = CurrentPen->lineWidth;
+         CurrentPen->lineWidth = 2.0f;
+         roadmap_canvas_draw_multiple_lines(1, &count_of_lines, closed_loop_points, fast_draw);
+         set_state(CANVAS_GL_STATE_GEOMETRY, 0);
+         CurrentPen->lineWidth = saved_line_width;
+      }// else
+         //roadmap_log(ROADMAP_DEBUG, "NO AA (pen: %s)", CurrentPen->name);
+
+      if (filled) {
+         int poly_count = roadmap_canvas_convert_polygons (glpoints, closed_loop_points, count_of_points);
+         if (poly_count < 1) {
+            //roadmap_log(ROADMAP_DEBUG, "Could not triangulate polygon (pen: %s)", CurrentPen->name);
+         } else {
+            glVertexPointer(3, GL_FLOAT, 0, glpoints);
+            roadmap_canvas_color_fix();	/* Android only. Empty for others */
+            glDrawArrays(GL_TRIANGLES, 0, poly_count);
+            check_gl_error();
+         }
+      }
+
+
+
+      points += count_of_points;
+      polygons += 1;
+   }
+
+   end_fast_draw (fast_draw);
+
+}
+#endif //_WIN32
+
 
 void roadmap_canvas_draw_multiple_circles (int count, RoadMapGuiPoint *centers, int *radius,
 									int filled, int fast_draw) {
@@ -1668,7 +1840,7 @@ void roadmap_canvas_draw_multiple_circles (int count, RoadMapGuiPoint *centers, 
       size = r+1.0f;
       centx = centers[i].x- size*0.5f;
       centy = centers[i].y- size*0.5f;
-
+	  {
       GLfloat glpoints[] = {
          centx,      centy, Z_LEVEL,
          centx+size, centy, Z_LEVEL,
@@ -1688,6 +1860,7 @@ void roadmap_canvas_draw_multiple_circles (int count, RoadMapGuiPoint *centers, 
       glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 
       check_gl_error();
+	  }
    }
 
    set_state(CANVAS_GL_STATE_GEOMETRY, 0);
@@ -1775,7 +1948,7 @@ static RoadMapImage roadmap_canvas_load_png ( const char *full_name, RoadMapImag
   int i,j;
   unsigned char *buf;
   RoadMapImage image;
-
+  GLubyte* temp_buf;
 
   buf = read_png_file(full_name, &img_w, &img_h, &stride);
 
@@ -1810,7 +1983,7 @@ static RoadMapImage roadmap_canvas_load_png ( const char *full_name, RoadMapImag
       {
          roadmap_log( ROADMAP_FATAL, "Allocation %d, %d, %d, %d exception: %s", img_w, img_h, width, height, full_name );
       }
-      GLubyte* temp_buf= malloc(4 * width * height);
+      temp_buf= malloc(4 * width * height);
       
       for( j = 0; j < height; j++) {
          for( i = 0; i < width; i++){
@@ -1967,7 +2140,7 @@ BOOL roadmap_canvas_set_image_texture( RoadMapImage image )
    
    if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
        image->height <= CANVAS_ATLAS_TEX_SIZE) {
-      if (!roadmap_canvas_atlas_insert (IMAGE_HINT, &image)) {
+      if (!roadmap_canvas_atlas_insert (IMAGE_HINT, &image, GL_LINEAR, GL_NEAREST)) {
          roadmap_log (ROADMAP_ERROR, "Could not cache image '%s' in texture atlas !", SAFE_STR( image->full_path));
          return FALSE;
       }
@@ -1977,7 +2150,7 @@ BOOL roadmap_canvas_set_image_texture( RoadMapImage image )
       image->texture = textures[0];
       
       set_state( CANVAS_GL_STATE_IMAGE, image->texture );
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, next_pot( image->width ), next_pot( image->height ), 0, GL_RGBA, GL_UNSIGNED_BYTE, image->buf );
       
@@ -2069,52 +2242,60 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
                                 int opacity, int mode )
 {
    int tex_size_w, tex_size_h;
+   float shift_value = OGL_FLT_SHIFT_VALUE;
    
    if ( !draw_image_prepare( image, opacity, mode ) )
    {
       return;
-   }
-   
-   GLfloat glpoints[] = {
-      top_left_pos->x, top_left_pos->y, Z_LEVEL,
-      bottom_right_pos->x , top_left_pos->y, Z_LEVEL,
-      bottom_right_pos->x , bottom_right_pos->y, Z_LEVEL,
-      top_left_pos->x, bottom_right_pos->y, Z_LEVEL
-   };
-   
-   GLfloat x_offset = image->offset.x;
-   GLfloat y_offset = image->offset.y;
-   
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
-      tex_size_h = tex_size_w = CANVAS_ATLAS_TEX_SIZE;
-   } else {
-      tex_size_w = next_pot(image->width);
-      tex_size_h = next_pot(image->height);
-   }
+   }  
 
-   
-   GLfloat texCoords[] = {
-      OGL_FLT_SHIFT_POS( x_offset )/ (GLfloat)tex_size_w, OGL_FLT_SHIFT_POS( y_offset )/ (GLfloat)tex_size_h,
-      OGL_FLT_SHIFT_NEG( x_offset + image->width ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_POS( y_offset )/ (GLfloat)tex_size_h,
-      OGL_FLT_SHIFT_NEG( x_offset + image->width ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_NEG( y_offset + image->height ) / (GLfloat)tex_size_h,
-      OGL_FLT_SHIFT_POS( x_offset ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_NEG( y_offset + image->height ) / (GLfloat)tex_size_h
-   };
-   
-   
-   //glBindTexture( GL_TEXTURE_2D, image->texture );
-   glVertexPointer( 3, GL_FLOAT, 0, glpoints );
-   glTexCoordPointer( 2, GL_FLOAT, 0, texCoords );
-   glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
-   check_gl_error();
-   
-   if (CurrentPen)
-      roadmap_canvas_select_pen(CurrentPen);
-   
-   
-   if ( mode == IMAGE_NOBLEND )
    {
-      glEnable( GL_BLEND );
+      GLfloat glpoints[] = {
+         top_left_pos->x, top_left_pos->y, Z_LEVEL,
+         bottom_right_pos->x , top_left_pos->y, Z_LEVEL,
+         bottom_right_pos->x , bottom_right_pos->y, Z_LEVEL,
+         top_left_pos->x, bottom_right_pos->y, Z_LEVEL
+      };
+      
+      GLfloat x_offset = image->offset.x;
+      GLfloat y_offset = image->offset.y;
+      
+      if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
+          image->height <= CANVAS_ATLAS_TEX_SIZE) {
+         tex_size_h = tex_size_w = CANVAS_ATLAS_TEX_SIZE;
+      } else {
+         tex_size_w = next_pot(image->width);
+         tex_size_h = next_pot(image->height);
+      }
+      
+      if (bottom_right_pos->x == top_left_pos->x + image->width &&
+          bottom_right_pos->y == top_left_pos->y + image->height) { //for non scaled images, use nearest filter
+         shift_value = 0.0F;
+      } else {
+         shift_value = OGL_FLT_SHIFT_VALUE;
+      }
+      
+      {
+         GLfloat texCoords[] = {
+            OGL_FLT_SHIFT_POS( x_offset )/ (GLfloat)tex_size_w, OGL_FLT_SHIFT_POS( y_offset )/ (GLfloat)tex_size_h,
+            OGL_FLT_SHIFT_NEG( x_offset + image->width ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_POS( y_offset )/ (GLfloat)tex_size_h,
+            OGL_FLT_SHIFT_NEG( x_offset + image->width ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_NEG( y_offset + image->height ) / (GLfloat)tex_size_h,
+            OGL_FLT_SHIFT_POS( x_offset ) / (GLfloat)tex_size_w, OGL_FLT_SHIFT_NEG( y_offset + image->height ) / (GLfloat)tex_size_h
+         };
+         
+         glVertexPointer( 3, GL_FLOAT, 0, glpoints );
+         glTexCoordPointer( 2, GL_FLOAT, 0, texCoords );
+         glDrawArrays( GL_TRIANGLE_FAN, 0, 4 );
+         check_gl_error();
+         
+         if (CurrentPen)
+            roadmap_canvas_select_pen(CurrentPen);
+         
+         if ( mode == IMAGE_NOBLEND )
+         {
+            glEnable( GL_BLEND );
+         }
+      }
    }
 }
 /*
@@ -2165,6 +2346,7 @@ void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoin
       bottom_tex = (GLfloat)image->height / (GLfloat)next_pot(image->height);
    }
    
+   {
    GLfloat glpoints[] = {
       // Top Left Rectangle
       top_left_pos->x, top_left_pos->y, Z_LEVEL,
@@ -2243,7 +2425,8 @@ void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoin
    glTexCoordPointer( 2, GL_FLOAT, 0, texCoords );
    glDrawArrays( GL_TRIANGLE_STRIP, 0, scMapPointsCount );
    check_gl_error();
-   
+   }
+
    if (CurrentPen)
       roadmap_canvas_select_pen(CurrentPen);
    if ( mode == IMAGE_NOBLEND )
@@ -2288,9 +2471,9 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
 
 void roadmap_canvas_free_image (RoadMapImage image)
 {
+   GLuint item;
    if (!image)
       return;
-   GLuint item;
 
    roadmap_log (ROADMAP_INFO, "Freeing image id: %d. Address: 0x%x. Path: %s", image->texture, image, SAFE_STR( image->full_path ) );
 
@@ -2321,10 +2504,10 @@ void roadmap_canvas_free_image (RoadMapImage image)
 
 void roadmap_canvas_image_invalidate( RoadMapImage image )
 {
-   if ( !image )
-      return;
 
    GLuint texture;
+   if ( !image )
+      return;
 
    texture = image->texture;
    image->texture = CANVAS_INVALID_TEXTURE_ID;
@@ -2362,9 +2545,9 @@ RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int h
 
    GLuint uWidth;
    GLuint uHeight;
+   int i, j;
    RoadMapImage image = malloc(sizeof(roadmap_canvas_image));
    roadmap_check_allocated (image);
-   int i, j;
 
    image->width = width;
    image->height = height;
@@ -2376,10 +2559,11 @@ RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int h
        image->height <= CANVAS_ATLAS_TEX_SIZE) {
       image->buf = buf;
    } else {
+      GLubyte* temp_buf;
       uWidth = next_pot(image->width);
       uHeight = next_pot(image->height);
       
-      GLubyte* temp_buf= malloc(4 * uWidth * uHeight);
+      temp_buf= malloc(4 * uWidth * uHeight);
       roadmap_check_allocated (temp_buf);
       
       for( j = 0; j < uHeight; j++) {
@@ -2445,7 +2629,7 @@ int roadmap_canvas_buf_from_image( RoadMapImage image, unsigned char** image_buf
    }
    
    *image_buf = new_buf;
-   
+
    return (4 * image->width * image->height);
 }
 
@@ -2459,6 +2643,14 @@ int roadmap_canvas_get_generic_screen_type( int width, int height )
 	{
 		screen_type = RM_SCREEN_TYPE_HD_GENERIC;
 	}
+   /*
+    * Temporary just simple classification
+    */
+   if ( width <= 240 || height <= 240 )
+   {
+      screen_type = RM_SCREEN_TYPE_LD_GENERIC;
+   }
+
 
 	return screen_type;
 }
@@ -2490,12 +2682,15 @@ void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, f
        * Texture units
        */
       glGetIntegerv(GL_MAX_TEXTURE_UNITS, &num_tex_units);
-      roadmap_log(ROADMAP_DEBUG, "Number of texture units: %d", (int)num_tex_units);
-      if (num_tex_units > MAX_TEX_UNITS)
-         num_tex_units = MAX_TEX_UNITS;
+
+      if (num_tex_units > max_tex_units )
+         num_tex_units = max_tex_units;
       for (i = 0; i < num_tex_units; i++) {
          tex_units[i] = CANVAS_INVALID_TEXTURE_ID;
       }
+
+      roadmap_log(ROADMAP_INFO, "Number of texture units: %d", (int)num_tex_units);
+
       current_tex_unit = 0;
       
       /*
@@ -2610,9 +2805,11 @@ static void generate_aa_tex_f() { //filled version
          float T = 0.0f;
          float ys = 0.0f;
          while (x > y) {
+            float L;
+   	    float D;	
             ys = (float)(y*y);
-            float L = sqrt(prs - ys);
-            float D = ceilf(L)-L;
+           L = sqrt(prs - ys);
+           D = ceilf(L)-L;
             if (D < T) x--;
             for(ax=y; ax<x; ax++)
             {
@@ -2724,9 +2921,11 @@ static void generate_aa_tex_nf() { //no fill version
       float T = 0.0f;
       float ys = 0.0f;
       while (x > y) {
+         float L;
+         float D;
          ys = (float)(y*y);
-         float L = sqrt(prs - ys);
-         float D = ceilf(L)-L;
+        L = sqrt(prs - ys);
+        D = ceilf(L)-L;
          if (D < T) x--;
          for(ax=x - 1; ax<x; ax++)
          {
@@ -2804,6 +3003,7 @@ static void generate_aa_tex() {
 
 void roadmap_canvas_shutdown()
 {
+   int i;
 	RoadMapCanvasSavedState = CANVAS_GL_STATE_NOT_READY;
 	//glDeleteTextures( 1, &RoadMapAATexNf );
 	RoadMapAATexNf = 0;
@@ -2812,6 +3012,12 @@ void roadmap_canvas_shutdown()
 	roadmap_canvas_font_shutdown();
 	unmanaged_list_invalidate();
    roadmap_canvas_atlas_clean(IMAGE_HINT);
+   // Tex units reset
+   for (i = 0; i < num_tex_units; i++) {
+      tex_units[i] = CANVAS_INVALID_TEXTURE_ID;
+   }
+   current_tex_unit = 0;
+
 }
 
 

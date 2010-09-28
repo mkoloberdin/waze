@@ -140,17 +140,17 @@ const char *roadmap_groups_get_active_group_name(void){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_groups_set_active_group_icon(char *name){
-   
+
    if (name && *name){
-      
+
       strncpy(g_ActiveGroupIcon, name, sizeof(g_ActiveGroupIcon));
-      
+
       snprintf(g_ActiveGroupWazerIcon, GROUP_ICON_MAX_SIZE, "wazer_%s", name);
-      
+
       // preload my active groups icon
       if (roadmap_res_get(RES_BITMAP,RES_SKIN, name) == NULL)
          roadmap_res_download(RES_DOWNLOAD_IMAGE, name, NULL, "",FALSE, 0, NULL, NULL );
-      
+
       // preload my active groups wazer icon
       if (roadmap_res_get(RES_BITMAP,RES_SKIN, g_ActiveGroupWazerIcon) == NULL)
          roadmap_res_download(RES_DOWNLOAD_IMAGE, g_ActiveGroupWazerIcon, NULL, "",FALSE, 0, NULL, NULL );
@@ -181,7 +181,7 @@ void roadmap_groups_add_following_group_icon(int index, char *name){
 
    if (name && *name){
       g_FollowingGroupIcons[index] = strdup(name);
-}
+   }
    else{
       g_FollowingGroupIcons[index] = strdup("groups_default_icons");
    }
@@ -271,7 +271,7 @@ void roadmap_groups_init(void){
 
    roadmap_config_declare_enumeration ("user", &RoadMapConfigGroupsPopUpReports, NULL, POPUP_REPORT_VAL_NONE, POPUP_REPORT_VAL_FOLLOWING_GROUPS,POPUP_REPORT_VAL_ONLY_MAIN_GROUP, NULL);
 
-   roadmap_config_declare_enumeration ("user", &RoadMapConfigGroupsShowWazers, NULL, SHOW_WAZER_GROUP_VAL_MAIN, SHOW_WAZER_GROUP_VAL_FOLLOWING,SHOW_WAZER_GROUP_VAL_ALL, NULL);
+   roadmap_config_declare_enumeration ("user", &RoadMapConfigGroupsShowWazers, NULL, SHOW_WAZER_GROUP_VAL_FOLLOWING, SHOW_WAZER_GROUP_VAL_MAIN, SHOW_WAZER_GROUP_VAL_ALL, NULL);
 
    roadmap_config_declare_enumeration ("user", &RoadMapConfigGroupsTipShown, NULL, "no", "yes", NULL);
 
@@ -353,24 +353,82 @@ static const char *create_url(void) {
    append_current_location(url + strlen(url));
    return &url[0];
 }
+/*************************************************************************************************
+ * void roadmap_groups_browser_btn_close_cb( void )
+ * Custom button callback - Groups browser
+ *
+ */
+void roadmap_groups_browser_btn_close_cb( void )
+{
+   ssd_dialog_hide_current( dec_ok );
+
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static void configure_browser( RMBrowserAttributes* attrs )
+{
+   RMBrTitleAttributes *title_attrs;
+
+   roadmap_browser_reset_attributes( attrs );
+
+   /*
+    * Note: Platform that uses cutomized ssd browser has to implement
+    * roadmap_groups_browser_btn_XXX_cb for the desired buttons at the title bar
+    * Now only android implements it. AGA
+    */
+
+   title_attrs = &attrs->title_attrs;
+   title_attrs->title = "Groups";
+
+   // Close button
+   roadmap_browser_set_button_attrs( title_attrs, BROWSER_FLAG_TITLE_BTN_RIGHT2, "Close",
+         roadmap_groups_browser_btn_close_cb, "button_small_up", "button_small_down" );
+
+#ifdef ANDROID
+   // Home button
+   roadmap_browser_set_button_attrs( title_attrs, BROWSER_FLAG_TITLE_BTN_LEFT1, "Home",
+         roadmap_groups_browser_btn_home_cb, "button_small_up", "button_small_down" );
+   // Back button
+   roadmap_browser_set_button_attrs( title_attrs, BROWSER_FLAG_TITLE_BTN_LEFT2, "Back",
+         roadmap_groups_browser_btn_back_cb, "button_small_up", "button_small_down" );
+#endif
+}
 
 static void on_close_cb(void){
    Realtime_SendCurrenScreenEdges();
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_groups_show(void){
+   RMBrowserAttributes attrs;
+   int flags;
+
    if (!roadmap_groups_feature_enabled())
       return;
 
-   roadmap_browser_show( "Groups", create_url(), on_close_cb, BROWSER_BAR_EXTENDED );
+   flags = BROWSER_FLAG_TITLE_BTN_LEFT1|BROWSER_FLAG_TITLE_BTN_LEFT2|BROWSER_FLAG_TITLE_BTN_RIGHT2;
+
+   attrs.on_close_cb = on_close_cb;
+
+   configure_browser( &attrs );
+
+
+   roadmap_browser_show_extended( create_url(), flags, &attrs );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_groups_show_group(const char *group_name){
+   RMBrowserAttributes attrs;
+   int flags;
+
    if (!roadmap_groups_feature_enabled())
       return;
 
-   roadmap_browser_show( "Groups", create_group_url(group_name), on_close_cb, BROWSER_BAR_EXTENDED );
+   if (!(group_name && *group_name))
+      return;
+
+   flags = BROWSER_FLAG_TITLE_BTN_LEFT1|BROWSER_FLAG_TITLE_BTN_LEFT2|BROWSER_FLAG_TITLE_BTN_RIGHT2;
+   attrs.on_close_cb = on_close_cb;
+   configure_browser( &attrs );
+   roadmap_browser_show_extended( create_group_url( group_name ), flags, &attrs );
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -474,6 +532,7 @@ void roadmap_groups_dialog (RoadMapCallback callback) {
    static char *labels[MAX_GROUPS] ;
    static void *values[MAX_GROUPS] ;
    static void *icons[MAX_GROUPS];
+   int num_following;
 
    if (roadmap_screen_is_hd_screen()){
       row_height = 80;
@@ -489,10 +548,12 @@ void roadmap_groups_dialog (RoadMapCallback callback) {
 
     active_name = roadmap_groups_get_active_group_name();
     count = roadmap_groups_get_num_following();
+    num_following = roadmap_groups_get_num_following();
     if (active_name[0] != 0){
-    values[0] = (void *)roadmap_groups_get_active_group_name();
-    icons[0]   = (void *) roadmap_groups_get_active_group_icon();
+       values[0] = (void *)roadmap_groups_get_active_group_name();
+       icons[0]   = (void *) roadmap_groups_get_active_group_icon();
        labels[0] = (char *)active_name;
+       num_following -= 1;
     }
     else{
        values[0] = "";
@@ -500,16 +561,16 @@ void roadmap_groups_dialog (RoadMapCallback callback) {
        labels[0] = (char *)roadmap_lang_get("No group");
     }
 
-    for (i = 0; i< roadmap_groups_get_num_following(); i++){
+    for (i = 0; i< num_following; i++){
        values[i+1] = (void *)roadmap_group_get_following_name(i);
        icons[i+1]   = (void *) roadmap_group_get_following_icon(i);
        labels[i+1] = (char *) roadmap_group_get_following_name(i);
     }
 
     if (active_name[0] != 0){
-    values[i] = "";
-    icons[i]   = NULL;
-    labels[i] = (char *)roadmap_lang_get("No group");
+       values[count] = "";
+       icons[count]   = NULL;
+       labels[count] = (char *)roadmap_lang_get("No group");
     }
 
     ssd_list_populate (list, count+1, (const char **)labels, (const void **)values, (const char **)icons, NULL, groups_callback, NULL, FALSE);

@@ -46,7 +46,7 @@
 #include "roadmap_res.h"
 #include "roadmap_sound.h"
 #include "roadmap_screen.h"
-#include "roadmap_animation.h"
+#include "animation/roadmap_animation.h"
 #include "roadmap_time.h"
 
 #include "roadmap_object.h"
@@ -84,14 +84,15 @@ struct RoadMapObjectDescriptor {
 
    int animation;
    int animation_state;
-   
+
    int min_zoom;
    int max_zoom;
    int scale;
    int opacity;
-   
+   int priority;
+
    RoadMapSize image_size;
-   
+
 
    struct RoadMapObjectDescriptor *next;
    struct RoadMapObjectDescriptor *previous;
@@ -106,9 +107,11 @@ static RoadMapObject *RoadmapObjectList = NULL;
 static BOOL initialized = FALSE;
 
 static RoadMapObject *roadmap_object_search (RoadMapDynamicString id);
+#ifdef OPENGL
 static void animation_set_callback (void *context);
 static void animation_ended_callback (void *context);
 static uint32_t last_animation_time = 0;
+
 
 static RoadMapAnimationCallbacks gAnimationCallbacks =
 {
@@ -121,10 +124,10 @@ static void animation_set_callback (void *context) {
    RoadMapAnimation *animation = (RoadMapAnimation *)context;
    int i;
    RoadMapObject *object = roadmap_object_search(roadmap_string_new(animation->object_id));
-   
+
    if (object == NULL)
       return;
-   
+
    for (i = 0; i < animation->properties_count; i++) {
       switch (animation->properties[i].type) {
          case ANIMATION_PROPERTY_SCALE:
@@ -142,12 +145,13 @@ static void animation_set_callback (void *context) {
 static void animation_ended_callback (void *context) {
    RoadMapAnimation *animation = (RoadMapAnimation *)context;
    RoadMapObject *object = roadmap_object_search(roadmap_string_new(animation->object_id));
-   
-   if (object && 
+
+   if (object &&
        (object->animation & OBJECT_ANIMATION_POP_IN) &&
        (object->animation_state == animate_in)) {
-      object->animation_state = animate_in_p2;
+
       RoadMapAnimation *animation = roadmap_animation_create();
+      object->animation_state = animate_in_p2;
       if (animation) {
          strncpy_safe(animation->object_id, roadmap_string_get(object->id), ANIMATION_MAX_OBJECT_LENGTH);
          animation->properties_count = 1;
@@ -159,13 +163,20 @@ static void animation_ended_callback (void *context) {
          animation->callbacks = &gAnimationCallbacks;
          roadmap_animation_register(animation);
       }
-   } else if (object && 
+   } else if (object &&
              (object->animation & OBJECT_ANIMATION_POP_IN)) {
       object->animation_state = idle;
    }
 }
 
+#endif
 
+BOOL roadmap_object_exists(RoadMapDynamicString id) {
+   if (roadmap_object_search (id) == NULL)
+      return FALSE;
+   else
+      return TRUE;
+}
 
 void roadmap_object_disable_short_click(void){
    short_click_enabled = FALSE;
@@ -197,12 +208,12 @@ static BOOL out_of_zoom(RoadMapObject *cursor) {
 static BOOL is_visible(RoadMapObject *cursor) {
    RoadMapPosition position;
    BOOL visible;
-   
+
    position.latitude = cursor->position.latitude;
    position.longitude = cursor->position.longitude;
-   
+
    visible = !out_of_zoom(cursor) && roadmap_math_point_is_visible(&position);
-   
+
 #ifdef VIEW_MODE_3D_OGL
    if (roadmap_screen_get_view_mode() == VIEW_MODE_3D &&
        roadmap_canvas3_get_angle() > 0.8) {
@@ -215,7 +226,7 @@ static BOOL is_visible(RoadMapObject *cursor) {
       }
    }
 #endif
-   
+
    return visible;
 }
 
@@ -230,6 +241,7 @@ static RoadMapObject *roadmap_object_search (RoadMapDynamicString id) {
    return NULL;
 }
 
+#ifdef OPENGL
 void set_animation (RoadMapObject *cursor) {
    uint32_t now = roadmap_time_get_millis();
    if (is_visible(cursor) && (cursor->animation & OBJECT_ANIMATION_POP_IN)) {
@@ -239,7 +251,7 @@ void set_animation (RoadMapObject *cursor) {
 
          strncpy_safe(animation->object_id, roadmap_string_get(cursor->id), ANIMATION_MAX_OBJECT_LENGTH);
          animation->properties_count = 2;
-         
+
          //scale
          animation->properties[0].type = ANIMATION_PROPERTY_SCALE;
          animation->properties[0].from = 20;
@@ -250,7 +262,7 @@ void set_animation (RoadMapObject *cursor) {
          animation->properties[1].from = 100;
          animation->properties[1].to = 255;
          cursor->opacity = 1;
-         
+
          //animation->is_linear = 1;
          animation->duration = 300;
          if (last_animation_time == 0)
@@ -264,21 +276,21 @@ void set_animation (RoadMapObject *cursor) {
          roadmap_animation_register(animation);
       }
    }
-   
+
    if (is_visible(cursor) && (cursor->animation & OBJECT_ANIMATION_FADE_IN)) {
       RoadMapAnimation *animation = roadmap_animation_create();
       if (animation) {
          cursor->animation_state = animate_in;
-         
+
          strncpy_safe(animation->object_id, roadmap_string_get(cursor->id), ANIMATION_MAX_OBJECT_LENGTH);
          animation->properties_count = 1;
-         
+
          //opacity
          animation->properties[0].type = ANIMATION_PROPERTY_OPACITY;
          animation->properties[0].from = 1;
          animation->properties[0].to = 255;
          cursor->opacity = 1;
-         
+
          //animation->is_linear = 1;
          animation->duration = 300;
          animation->timing = ANIMATION_TIMING_EASY_IN | ANIMATION_TIMING_EASY_OUT;
@@ -295,6 +307,34 @@ void set_animation (RoadMapObject *cursor) {
       }
    }
 }
+#endif
+
+
+static RoadMapObject *object_insert_sort (RoadMapObject *list_head, RoadMapObject *new_obj) {
+   RoadMapObject *prev = list_head;
+   RoadMapObject *curr = list_head;
+
+   if (list_head == NULL || new_obj->priority >= list_head->priority) {
+      new_obj->next = list_head;
+      new_obj->previous = NULL;
+      if (new_obj->next != NULL) {
+         new_obj->next->previous = new_obj;
+      }
+      return new_obj;
+   } else {
+      while (curr && curr->priority > new_obj->priority) {
+         prev = curr;
+         curr = curr->next;
+      }
+
+      prev-> next = new_obj;
+      new_obj->previous = prev;
+      new_obj->next = curr;
+      if (curr)
+         curr->previous = new_obj;
+      return list_head;
+   }
+}
 
 
 void roadmap_object_add (RoadMapDynamicString origin,
@@ -307,11 +347,27 @@ void roadmap_object_add (RoadMapDynamicString origin,
                          int                       animation,
                          RoadMapDynamicString text) {
 
-   RoadMapObject *cursor = roadmap_object_search (id);
 
-   if (cursor == NULL) {
+    roadmap_object_add_with_priority(origin,id,name,sprite,image,position,offset,animation,text,OBJECT_PRIORITY_DEFAULT);
+}
+void roadmap_object_add_with_priority (RoadMapDynamicString origin,
+                         RoadMapDynamicString id,
+                         RoadMapDynamicString name,
+                         RoadMapDynamicString sprite,
+                         RoadMapDynamicString      image,
+                         const RoadMapGpsPosition *position,
+                         const RoadMapGuiPoint    *offset,
+                         int                       animation,
+                         RoadMapDynamicString text,
+                         int priority) {
+
+   RoadMapObject *cursor;
+
+   if (!roadmap_object_exists(id)) {
 
       cursor = calloc (1, sizeof(RoadMapObject));
+      roadmap_check_allocated(cursor);
+
       if (cursor == NULL) {
          roadmap_log (ROADMAP_ERROR, "no more memory");
          return;
@@ -331,9 +387,11 @@ void roadmap_object_add (RoadMapDynamicString origin,
 
       cursor->listener = roadmap_object_null_listener;
 
-      cursor -> action = NULL;
+      cursor->action = NULL;
+
       cursor->min_zoom = -1;
       cursor->max_zoom = -1;
+      cursor->priority = priority;
       cursor->scale = 100;
       cursor->opacity = 255;
 
@@ -344,20 +402,21 @@ void roadmap_object_add (RoadMapDynamicString origin,
       roadmap_string_lock(image);
       roadmap_string_lock(text);
 
-      cursor->previous  = NULL;
-      cursor->next      = RoadmapObjectList;
-      RoadmapObjectList = cursor;
-
-      if (cursor->next != NULL) {
-         cursor->next->previous = cursor;
-      }
+      RoadmapObjectList = object_insert_sort(RoadmapObjectList, cursor);
+//      cursor->previous  = NULL;
+//      cursor->next      = RoadmapObjectList;
+//      RoadmapObjectList = cursor;
+//      if (cursor->next != NULL) {
+//         cursor->next->previous = cursor;
+//      }
 
       if (position) {
          cursor->position = *position;
          (*cursor->listener) (id, position);
-         
+
+#ifdef OPENGL
          set_animation(cursor);
-         
+
          if (!is_visible(cursor) &&
              (animation & OBJECT_ANIMATION_WHEN_VISIBLE) &&
              ((animation & OBJECT_ANIMATION_POP_IN) ||
@@ -365,9 +424,10 @@ void roadmap_object_add (RoadMapDynamicString origin,
              cursor->animation_state = animate_in_pending;
          else if (!is_visible(cursor))
             cursor->animation_state = idle;
-         
+
+#endif
       }
-     
+
       (*RoadMapObjectFirstMonitor) (id);
    }
 }
@@ -423,25 +483,15 @@ void roadmap_object_remove (RoadMapDynamicString id) {
 void roadmap_object_iterate (RoadMapObjectAction action) {
 
    RoadMapObject *cursor;
-/*
-   for (cursor = RoadmapObjectList; cursor != NULL; cursor = cursor->next) {
 
-      (*action) (roadmap_string_get(cursor->name),
-                 roadmap_string_get(cursor->sprite),
-                 roadmap_string_get(cursor->image),
-                 &(cursor->position),
-                 is_visible(cursor),
-                 cursor->scale,
-                 roadmap_string_get(cursor->id));
-   }
- */
    for (cursor = RoadmapObjectList; cursor->next != NULL; cursor = cursor->next);
-   
+
    for ( ; cursor != NULL ; cursor = cursor->previous) {
+#ifdef OPENGL
       if (is_visible(cursor) &&
-         cursor->animation_state == animate_in_pending)
+          cursor->animation_state == animate_in_pending)
          set_animation(cursor);
-      
+#endif
       (*action) (roadmap_string_get(cursor->name),
                  roadmap_string_get(cursor->sprite),
                  roadmap_string_get(cursor->image),
@@ -452,7 +502,7 @@ void roadmap_object_iterate (RoadMapObjectAction action) {
                  cursor->opacity,
                  roadmap_string_get(cursor->id),
                  roadmap_string_get(cursor->text));
-}
+   }
 }
 
 
@@ -602,9 +652,9 @@ void roadmap_object_set_action (RoadMapDynamicString id,
 
 void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom) {
    RoadMapObject *object = roadmap_object_search (id);
-   
+
    if (object == NULL) return;
-   
+
    if (min_zoom != -1)
       object->min_zoom = min_zoom;
    if (max_zoom != -1)

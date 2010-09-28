@@ -38,7 +38,7 @@
 #include "roadmap_history.h"
 #include "roadmap_social.h"
 #include "roadmap_geo_location_info.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "widgets/iphoneLabel.h"
 #include "roadmap_login.h"
 #include "ssd_progress_msg_dialog.h"
@@ -278,11 +278,10 @@ void roadmap_welcome_wizard(void){
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      scrollView.bounds.size.height - 30);//,
 //					  roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -313,15 +312,13 @@ void roadmap_welcome_wizard(void){
 	//Accept button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
 	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Accept")] forState:UIControlStateNormal];
-	image = roadmap_iphoneimage_load("button_up");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
 	}
-	image = roadmap_iphoneimage_load("button_down");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateHighlighted];
-		[image release];
 	}
    [button sizeToFit];
    rect.size = button.bounds.size;
@@ -385,10 +382,10 @@ void roadmap_welcome_wizard(void){
 	roadmap_welcome_wizard_set_first_time_no();
    is_wizard_shown = 0;
    
+   roadmap_main_show_root(NO);
+   
    if (gAfterCreate)
-      roadmap_introduction_show_auto();
-   else
-      roadmap_main_show_root(NO);
+      roadmap_help_nutshell();
 }
 
 - (void) onFacebookNext
@@ -403,12 +400,16 @@ void roadmap_welcome_wizard(void){
    if (view) {
       roadmap_facebook_set_show_name(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
       roadmap_facebook_set_show_picture(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
+      roadmap_facebook_set_show_profile(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
+      roadmap_twitter_set_show_profile(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
    } else {
       roadmap_facebook_set_show_name(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
       roadmap_facebook_set_show_picture(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
+      roadmap_facebook_set_show_profile(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
+      roadmap_twitter_set_show_profile(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED);
    }
    
-   roadmap_facebook_send_permissions();
+   roadmap_social_send_permissions();
    
    WelcomeWizardView *endDialog = [[WelcomeWizardView alloc] init];
    [endDialog showEnd];
@@ -544,15 +545,13 @@ void roadmap_welcome_wizard(void){
    UIImage *imgButtonUp;
    UIImage *imgButtonDown;
    
-   image = roadmap_iphoneimage_load("welcome_btn");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("welcome_btn_h");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
    
    
@@ -561,11 +560,10 @@ void roadmap_welcome_wizard(void){
 	//background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("Bubble_02");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -584,10 +582,9 @@ void roadmap_welcome_wizard(void){
    viewPosY += label.bounds.size.height + 10;
    
    //Waze logo
-   image = roadmap_iphoneimage_load("welcome_logo");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_logo");
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       rect = imageView.bounds;
       rect.origin.x = (bgView.bounds.size.width - imageView.bounds.size.width) /2;
       rect.origin.y = viewPosY;
@@ -599,7 +596,7 @@ void roadmap_welcome_wizard(void){
    
    //Accound updated text
    text = [NSString stringWithUTF8String:
-           roadmap_lang_get("Your account has been updated")];
+           roadmap_lang_get("Your account has been created!")];
    rect = bgView.frame;
    rect.size.width = bgView.bounds.size.width - 120;
    rect.size.height = TEXT_HEIGHT * 2;
@@ -615,9 +612,27 @@ void roadmap_welcome_wizard(void){
 	[label release];
    viewPosY += label.bounds.size.height + 5;
    
+   //Take a moment text
+   text = [NSString stringWithUTF8String:
+           roadmap_lang_get("Take a moment to click through the following screens to familiarize yourself with waze...")];
+   rect = bgView.frame;
+   rect.size.width = bgView.bounds.size.width - 60;
+   rect.size.height = TEXT_HEIGHT * 3;
+   rect.origin.y += viewPosY;
+   rect.origin.x += 30;
+	label = [[iphoneLabel alloc] initWithFrame:rect];
+	[label setText:text];
+	[label setTextAlignment:UITextAlignmentCenter];
+   [label setFont:[UIFont systemFontOfSize:16]];
+   [label setNumberOfLines:3];
+   label.textColor = [UIColor darkGrayColor];
+	[bgView addSubview:label];
+	[label release];
+   viewPosY += label.bounds.size.height + 5;
+   
 	//Close button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Start wazing")] forState:UIControlStateNormal];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Go")] forState:UIControlStateNormal];
 	if (imgButtonUp)
 		[button setBackgroundImage:imgButtonUp forState:UIControlStateNormal];
 	if (imgButtonDown)
@@ -652,18 +667,16 @@ void roadmap_welcome_wizard(void){
    
    if (button.tag == ID_PING_CHECKED) {
       button.tag = ID_PING_UNCHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_off");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_off");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }
       Realtime_Set_AllowPing(FALSE);
    } else {
       button.tag = ID_PING_CHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_on");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }      
       Realtime_Set_AllowPing(TRUE);
    }
@@ -696,25 +709,22 @@ void roadmap_welcome_wizard(void){
 	
    //UI elements
    
-   image = roadmap_iphoneimage_load("welcome_btn");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("welcome_btn_h");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
 	
    //background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("Bubble_02");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -755,10 +765,9 @@ void roadmap_welcome_wizard(void){
    
    //Ping checkbox
    button = [UIButton buttonWithType:UIButtonTypeCustom];
-   image = roadmap_iphoneimage_load("default_checkbox_on");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateNormal];
-      [image release];
    }
    button.tag = ID_PING_CHECKED;
    rect = bgView.frame;
@@ -834,18 +843,16 @@ void roadmap_welcome_wizard(void){
    
    if (button.tag == ID_FACEBOOK_CHECKED) {
       button.tag = ID_FACEBOOK_UNCHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_off");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_off");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }
       
    } else {
       button.tag = ID_FACEBOOK_CHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_on");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }      
    }
    
@@ -877,25 +884,22 @@ void roadmap_welcome_wizard(void){
 	
    //UI elements
    
-   image = roadmap_iphoneimage_load("welcome_btn");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:0 topCapHeight:0];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("welcome_btn_h");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:0 topCapHeight:0];
-      [image release];
    }
 	
    //background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("Bubble_02");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -931,10 +935,9 @@ void roadmap_welcome_wizard(void){
    
    //Facebook checkbox
    button = [UIButton buttonWithType:UIButtonTypeCustom];
-   image = roadmap_iphoneimage_load("default_checkbox_on");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateNormal];
-      [image release];
    }
    button.tag = ID_FACEBOOK_CHECKED;
    rect = bgView.frame;
@@ -966,14 +969,13 @@ void roadmap_welcome_wizard(void){
    viewPosY += TEXT_HEIGHT *2 + 20;
    
    //Connect button
-	image = roadmap_iphoneimage_load("facebook_connect");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "facebook_connect");
    if (image) {
       rect.origin.y = viewPosY;
       rect.origin.x = bgView.bounds.size.width/2 + 20;
       rect.size = image.size;
       button = [UIButton buttonWithType:UIButtonTypeCustom];
       [button setBackgroundImage:image forState:UIControlStateNormal];
-      [image release];
       [button addTarget:self action:@selector(onFacebookConnect) forControlEvents:UIControlEventTouchUpInside];
       button.frame = rect;
       [scrollView addSubview:button];
@@ -1016,18 +1018,16 @@ void roadmap_welcome_wizard(void){
    
    if (button.tag == ID_TWITTER_CHECKED) {
       button.tag = ID_TWITTER_UNCHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_off");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_off");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }
       
    } else {
       button.tag = ID_TWITTER_CHECKED;
-      image = roadmap_iphoneimage_load("default_checkbox_on");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
       if (image) {
          [button setBackgroundImage:image forState:UIControlStateNormal];
-         [image release];
       }      
    }
    
@@ -1075,25 +1075,22 @@ void roadmap_welcome_wizard(void){
    
    //UI elements
    
-   image = roadmap_iphoneimage_load("welcome_btn");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("welcome_btn_h");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
 	
    //background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("Bubble_02");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Bubble_02");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -1102,7 +1099,7 @@ void roadmap_welcome_wizard(void){
    //Twitter icon
    rect = bgView.frame;
    rect.origin.y += viewPosY;
-   image = roadmap_iphoneimage_load("welcome_twitter");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_twitter");
    if (image) {
       //if (!roadmap_lang_rtl())
          rect.origin.x += 5;
@@ -1110,7 +1107,6 @@ void roadmap_welcome_wizard(void){
       //   rect.origin.x += bgView.bounds.size.width - 5 - image.size.width;
       rect.size = image.size;
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       [imageView setFrame:rect];
       [scrollView addSubview:imageView];
       [imageView release];
@@ -1206,10 +1202,9 @@ void roadmap_welcome_wizard(void){
    
    //Tweet checkbox
    button = [UIButton buttonWithType:UIButtonTypeCustom];
-   image = roadmap_iphoneimage_load("default_checkbox_on");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "default_checkbox_on");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateNormal];
-      [image release];
    }
    button.tag = ID_TWITTER_CHECKED;
    rect = bgView.frame;
@@ -1294,15 +1289,13 @@ void roadmap_welcome_wizard(void){
    
    gAfterCreate = 0;
    
-   image = roadmap_iphoneimage_load("welcome_btn");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("welcome_btn_h");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn_h");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
 	
 	//[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Personalize later")]];
@@ -1313,11 +1306,10 @@ void roadmap_welcome_wizard(void){
 	//background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -1393,15 +1385,13 @@ void roadmap_welcome_wizard(void){
    
    gAfterCreate = 0;
    
-   image = roadmap_iphoneimage_load("button_up");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
    if (image) {
       imgButtonUp = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
    if (image) {
       imgButtonDown = [image stretchableImageWithLeftCapWidth:10 topCapHeight:10];
-      [image release];
    }
 	
 	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Personalize your account")]];
@@ -1416,11 +1406,10 @@ void roadmap_welcome_wizard(void){
 	//background frame
 	rect = CGRectMake(5, 5, scrollView.bounds.size.width - 10,
                      roadmap_main_get_mainbox_height() - 55);
-	image = roadmap_iphoneimage_load("comments_alert");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		bgView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[bgView setFrame:rect];
 		[scrollView addSubview:bgView];
 		[bgView release];
@@ -1428,7 +1417,7 @@ void roadmap_welcome_wizard(void){
    
    //Info icon
    rect.origin.y = viewPosY;
-   image = roadmap_iphoneimage_load("Info");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "Info");
    if (image) {
       if (!roadmap_lang_rtl())
          rect.origin.x = 5;
@@ -1436,7 +1425,6 @@ void roadmap_welcome_wizard(void){
          rect.origin.x = bgView.bounds.size.width - 5 - image.size.width;
       rect.size = image.size;
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       [imageView setFrame:rect];
       [bgView addSubview:imageView];
       [imageView release];

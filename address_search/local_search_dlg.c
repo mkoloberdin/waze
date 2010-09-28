@@ -458,7 +458,8 @@ void local_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                              cbOnClosed,
                              on_search,
                              local_search_dlg_show,
-                             context);
+                             context,
+                             FALSE);
 }
 
 /* Allows other windows to be closed */

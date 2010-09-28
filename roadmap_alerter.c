@@ -400,7 +400,10 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
    get_street_from_line(line->square,line->line_id, &street_name);
    strncpy_safe (current_street_name, street_name, sizeof (current_street_name));
    // go over priorities one by one from highest to lowest.
-   for (j=0; ((j< num_priorities)&&(!found_alert)); j++){
+   for (j=0; (j< num_priorities); j++){
+
+      if ( found_alert )   // Removed from the "for" condition due to some problem in android gcc AGA
+         break;
 
 		// loop all the providers for an alert
 		for (i = 0 ; ((i < RoadMapAlertProviders.count)&&(!found_alert)); i++){

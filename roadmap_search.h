@@ -20,7 +20,7 @@
  *   along with RoadMap; if not, write to the Free Software
  *   Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
- #ifndef ROADMAP_SEARCH_H_
+#ifndef ROADMAP_SEARCH_H_
 #define ROADMAP_SEARCH_H_
 
 #include "address_search/address_search.h"
@@ -52,9 +52,10 @@ void search_menu_search_address(void);
 void search_menu_single_search(void);
 void search_menu_search_local(void);
 void search_menu_my_saved_places(void);
-#ifdef IPHONE_NATIVE
-void roamdmap_search_address_book(void);
-#endif //IPHONE_NATIVE
 void search_menu_geo_reminders(void);
+
+#if defined (IPHONE) || defined (_WIN32) || defined(ANDROID)
+void roamdmap_search_address_book(void);
 void search_menu_set_local_search_attrs( void );
+#endif
 #endif /*ROADMAP_SEARCH_H_*/

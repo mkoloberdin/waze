@@ -48,7 +48,7 @@
 #include "ssd/ssd_generic_list_dialog.h"
 #include "Realtime.h"
 #include "roadmap_mood.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "widgets/iphoneTableHeader.h"
 #include "roadmap_checklist.h"
 #include "roadmap_analytics.h"
@@ -135,10 +135,9 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
       mood_value[count] = strdup("wazer_baby");
       text = [NSString stringWithUTF8String:roadmap_lang_get("Waze newbie")];
       [dict setValue:text forKey:@"text"];
-      image = roadmap_iphoneimage_load("wazer_baby");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "wazer_baby");
       if (image) {
          [dict setValue:image forKey:@"image"];
-         [image release];
       }
       [dict setObject:accessoryType forKey:@"accessory"];
       [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
@@ -163,10 +162,9 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
    mood_value[count] = strdup("wazer_gold");
    text = [NSString stringWithUTF8String:roadmap_lang_get(mood_value[count])];
    [dict setValue:text forKey:@"text"];
-   image = roadmap_iphoneimage_load("wazer_gold");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "wazer_gold");
    if (image) {
       [dict setValue:image forKey:@"image"];
-      [image release];
    }
    if (roadmap_config_match(&MoodCfg,mood_value[count])) {
       [dict setObject:accessoryType forKey:@"accessory"];
@@ -183,10 +181,9 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
    mood_value[count] = strdup("wazer_silver");
    text = [NSString stringWithUTF8String:roadmap_lang_get(mood_value[count])];
    [dict setValue:text forKey:@"text"];
-   image = roadmap_iphoneimage_load("wazer_silver");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "wazer_silver");
    if (image) {
       [dict setValue:image forKey:@"image"];
-      [image release];
    }
    if (roadmap_config_match(&MoodCfg,mood_value[count])) {
       [dict setObject:accessoryType forKey:@"accessory"];
@@ -203,10 +200,9 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
    mood_value[count] = strdup("wazer_bronze");
    text = [NSString stringWithUTF8String:roadmap_lang_get(mood_value[count])];
    [dict setValue:text forKey:@"text"];
-   image = roadmap_iphoneimage_load("wazer_bronze");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "wazer_bronze");
    if (image) {
       [dict setValue:image forKey:@"image"];
-      [image release];
    }
    if (roadmap_config_match(&MoodCfg,mood_value[count])) {
       [dict setObject:accessoryType forKey:@"accessory"];

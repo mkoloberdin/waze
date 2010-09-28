@@ -29,6 +29,11 @@
 #include "ssd/ssd_generic_list_dialog.h"
 
 #define LIST_MENU_NO_ACTION   -1
+#define LIST_MENU_MAX_GROUPS  10
+
+#define LIST_MENU_ADD_NEXT_BUTTON      0x01  //DisclosureIndicator
+#define LIST_MENU_ADD_DETAIL_BUTTON    0x02  //DetailDisclosureButton
+#define LIST_MENU_NO_ANIMATION         0x04  //push view without animation
 
 typedef struct {
    int                  count;
@@ -46,6 +51,14 @@ typedef struct {
    char              button_text[128];
    RoadMapCallback   button_cb;
 } list_menu_empty_message;
+
+typedef char section_title[256];
+typedef struct {
+   int               count;
+   int               items[LIST_MENU_MAX_GROUPS];
+   section_title     titles[LIST_MENU_MAX_GROUPS];
+   section_title     footers[LIST_MENU_MAX_GROUPS];
+} list_menu_sections;
 
 
 void roadmap_list_menu_simple (const char             *name,
@@ -72,7 +85,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                         void*                  context,
                                         SsdSoftKeyCallback     detail_button_callback,
                                         int                    list_height,
-                                        int                    add_next_button,
+                                        int                    flags,
                                         list_menu_empty_message* empty_message);
 
 void* roadmap_list_menu_generic (const char*          title,
@@ -87,7 +100,7 @@ void* roadmap_list_menu_generic (const char*          title,
                                  void*                context,
                                  SsdSoftKeyCallback   detail_button_callback,
                                  int                  list_height,
-                                 int                  add_next_button,
+                                 int                  flags,
                                  list_menu_empty_message* empty_message);
 
 

@@ -38,7 +38,8 @@ void roadmap_list_menu_custom_refresh (void*                  list,
                                        void*                  context, 
                                        int                    list_height,
                                        BOOL                   add_next_button,
-                                       list_menu_empty_message* empty_message);
+                                       list_menu_empty_message* empty_message,
+                                       list_menu_sections         *sections);
 
 void* roadmap_list_menu_custom (const char*           title,
                                 int                   count,
@@ -51,7 +52,8 @@ void* roadmap_list_menu_custom (const char*           title,
                                 void*                 context, 
                                 int                   list_height,
                                 BOOL                  add_next_button,
-                                list_menu_empty_message* empty_message);
+                                list_menu_empty_message* empty_message,
+                                list_menu_sections          *sections);
 
 
 
@@ -60,6 +62,8 @@ void* roadmap_list_menu_custom (const char*           title,
    int                     exit_code;
    int                     tableHeight;
 	NSMutableArray				*dataArray;
+   NSMutableArray          *headersArray;
+   NSMutableArray          *footersArray;
    UIScrollView            *emptyListView;
    RoadMapCallback         emptyListCb;
 	struct {
@@ -74,6 +78,8 @@ void* roadmap_list_menu_custom (const char*           title,
 
 @property (nonatomic) PFN_ON_DIALOG_CLOSED		dismissListCallback;
 @property (nonatomic, retain) NSMutableArray    *dataArray;
+@property (nonatomic, retain) NSMutableArray    *headersArray;
+@property (nonatomic, retain) NSMutableArray    *footersArray;
 @property (nonatomic, retain) UIView            *emptyListView;
 
 - (void) activateSimpleWithName:(const char           *)name
@@ -97,7 +103,7 @@ void* roadmap_list_menu_custom (const char*           title,
                        andContext:(void*)context
           andDetailButtonCallback:(SsdSoftKeyCallback)detail_button_callback
                     andListHeight:(int)list_height
-               andAddDetailButton:(int)add_next_button
+                         andFlags:(int)flags
                        andRefresh:(BOOL)refresh
                          andEmpty:(list_menu_empty_message*)empty_message;
 
@@ -113,7 +119,8 @@ void* roadmap_list_menu_custom (const char*           title,
                    andListHeight:(int)list_height
               andAddDetailButton:(BOOL)add_next_button
                       andRefresh:(BOOL)refresh
-                        andEmpty:(list_menu_empty_message*)empty_message;
+                        andEmpty:(list_menu_empty_message*)empty_message
+                     andSections:(list_menu_sections*)sections;
 
 @end
 

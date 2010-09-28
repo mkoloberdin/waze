@@ -134,17 +134,23 @@ int roadmap_location_denied () {
 
 
 - (id) init {
-    self = [super init];
-    if (self != nil) {
-        self.locationManager = [[CLLocationManager alloc] init];
-        self.locationManager.delegate = self;
-        self.locationManager.distanceFilter = kCLDistanceFilterNone;
-        self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
-        
-        RoadMapLocationManager = self.locationManager;
-    }
+   self = [super init];
+   if (self != nil) {
+      self.locationManager = [[CLLocationManager alloc] init];
+      self.locationManager.delegate = self;
+      
+      //set filter
+      self.locationManager.distanceFilter = kCLDistanceFilterNone;
+      //set accuracy
+//      if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4) //TODO: make this >= 4.0
+//         self.locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+//      else
+         self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
+      
+      RoadMapLocationManager = self.locationManager;
+   }
    
-    return self;
+   return self;
 }
 
 - (void)locationManager:(CLLocationManager *)manager
@@ -264,8 +270,8 @@ int roadmap_location_denied () {
   
    
 #ifdef DEBUG
-   longitude = 34878593;
-   latitude = 32196208;
+   //longitude = 34878593;
+   //latitude = 32196208;
    //longitude = -78549870;
    //latitude = -259970;
 #endif

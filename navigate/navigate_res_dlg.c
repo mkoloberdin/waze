@@ -236,7 +236,7 @@ void navigate_res_update_ETA_widget(SsdWidget container, int iRouteDistance, int
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance, SsdCallback callback){
+SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance, BOOL showAltBtn, SsdCallback callback){
    SsdWidget ETA_container, inner_container, button, text;
    char *icon[3];
    int inner_width;
@@ -272,7 +272,7 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    
    // Add Alternatives buttons
 #ifdef TOUCH_SCREEN   
-   if (roadmap_alternative_feature_enabled() && RealTimeLoginState ()){
+   if (roadmap_alternative_feature_enabled() && RealTimeLoginState () && showAltBtn){
       icon[0] = "alternative_button";
       icon[1] = "alternative_button_s";
       icon[2] = NULL;
@@ -356,9 +356,11 @@ static void navigate_res_dlg_set_softkeys(SsdWidget dlg){
 
    ssd_widget_set_right_softkey_callback(dlg, Drive_sk_cb);
    ssd_widget_set_right_softkey_text(dlg, roadmap_lang_get("Drive"));
-
-   ssd_widget_set_left_softkey_callback(dlg, Alternatives_sk_cb);
-   ssd_widget_set_left_softkey_text(dlg, roadmap_lang_get("Alternatives"));
+   
+   if (roadmap_alternative_feature_enabled() && RealTimeLoginState()){
+      ssd_widget_set_left_softkey_callback(dlg, Alternatives_sk_cb);
+      ssd_widget_set_left_softkey_text(dlg, roadmap_lang_get("Alternatives"));
+   }
 
 }
 #endif //TOUCH_SCREEN
@@ -401,7 +403,7 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
    
     
 
-   ssd_widget_add(dialog, navigate_res_ETA_widget(iRouteDistance, iRouteLenght, via, TRUE, on_alt_routes_btn_cb));
+   ssd_widget_add(dialog, navigate_res_ETA_widget(iRouteDistance, iRouteLenght, via, TRUE, FALSE, NULL));
     
    if (show_diclaimer){
       ssd_widget_add (dialog, space (3));
@@ -416,6 +418,11 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
    
    button = ssd_button_label("Drive_button", roadmap_lang_get("Drive"), SSD_ALIGN_CENTER|SSD_WS_TABSTOP|SSD_WS_DEFWIDGET, on_drive_btn_cb);
    ssd_widget_add(dialog, button);
+   
+   if (roadmap_alternative_feature_enabled() && RealTimeLoginState()){
+      button = ssd_button_label("Alt_button", roadmap_lang_get("Alternatives"), SSD_ALIGN_CENTER|SSD_WS_TABSTOP|SSD_WS_DEFWIDGET, on_alt_routes_btn_cb);
+      ssd_widget_add(dialog, button);
+   }
 #else
    navigate_res_dlg_set_softkeys(dialog);
 #endif

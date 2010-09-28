@@ -49,6 +49,7 @@
 void roadmap_main_present_modal (UIViewController *modalController);
 void roadmap_main_dismiss_modal (void);
 void roadmap_main_push_view (UIViewController *modalController);
+void roadmap_main_push_view_custom (UIViewController *modalController, BOOL animated);
 void roadmap_main_show_view (UIView *View);
 BOOL roadmap_main_should_rotate(UIInterfaceOrientation interfaceOrientation);
 void roadmap_main_get_bounds(CGRect *bounds);
@@ -78,7 +79,7 @@ UIColor *roadmap_main_table_color (void);
 
 -(void) presentModalView: (UIViewController*) modalController;
 -(void) dismissModalView;
--(void) pushView: (UIViewController*) modalController;
+-(void) pushView: (UIViewController*) modalController animated:(BOOL) animated;
 -(void) popView: (BOOL) animated;
 -(void) showRoot: (BOOL) animated;
 -(void) newWithTitle: (const char *)title andWidth: (int) width andHeight: (int) height;

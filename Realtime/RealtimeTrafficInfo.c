@@ -267,6 +267,7 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 	alert.bAlertByMe = FALSE;
 	alert.iLatitude = pTrafficInfo->geometry[index].latitude;
 	alert.iLongitude = pTrafficInfo->geometry[index].longitude;
+   alert.bArchive = FALSE;
 
 	return RTAlerts_Add(&alert);
 

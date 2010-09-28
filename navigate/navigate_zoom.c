@@ -57,7 +57,7 @@ void navigate_zoom_update (int distance,
    }
 
    if (distance < 100) distance = 100;
-   
+
 #if 0
    if (distance > 500) {
       units = roadmap_screen_height();
@@ -69,12 +69,11 @@ void navigate_zoom_update (int distance,
 #if 0
    if (distance <= 500) {
       distance *= 3;
-      if (distance > 500) 
+      if (distance > 500)
       	distance = 500;
    }
 #endif
-   
-#ifdef VIEW_MODE_3D_OGL
+
    if (roadmap_screen_get_view_mode() == VIEW_MODE_3D){
       if (distance <= 250 || current_road_type == ROADMAP_ROAD_RAMP) {
           NavigateZoomScale = 250;
@@ -83,7 +82,11 @@ void navigate_zoom_update (int distance,
        } else if (distance <= 1000) {
           NavigateZoomScale = ((distance - 500) * 2000 + (1000 - distance) * 1500) / 1000;
        } else {
+#ifdef VIEW_MODE_3D_OGL
           NavigateZoomScale = 2000;
+#else
+          NavigateZoomScale = 10000;
+#endif
        }
    } else {
       if (current_road_type == ROADMAP_ROAD_RAMP){
@@ -101,9 +104,8 @@ void navigate_zoom_update (int distance,
             NavigateZoomScale = distance * 2;
       }
    }
-#endif
 
-  
+
 }
 
 int navigate_zoom_get_scale (void) {

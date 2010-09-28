@@ -40,7 +40,7 @@
 #include "websvc_trans/mkgmtime.h"
 #include "roadmap_sunrise.h"
 #include "websvc_trans/mkgmtime.h"
-#if 0 // should be defined in <math.h>
+#if defined  (_WIN32) || defined (__SYMBIAN32__) // should be defined in <math.h>
 #define M_PI 3.1417
 #endif
 

@@ -140,7 +140,9 @@ void roadmap_view_refresh (void) {
 		RoadMapViewWayPoint.latitude = (RoadMapViewWayPoint.latitude + pos->latitude) / 2;
       //roadmap_screen_move_center (100);
       roadmap_screen_move_center (0);
-		roadmap_screen_update_center_animated(&RoadMapViewWayPoint, 600, 0);
+#ifdef OPENGL
+	  roadmap_screen_update_center_animated(&RoadMapViewWayPoint, 600, 0);
+#endif
       return;
    }
    if (RoadMapViewState == VIEW_STATE_SHOW_ALT_ROUTE) {
@@ -155,7 +157,9 @@ void roadmap_view_refresh (void) {
        //roadmap_screen_move_center (roadmap_canvas_height()/3);
        //roadmap_screen_move_center (50);
       roadmap_screen_move_center (20);
+#ifdef OPENGL
        roadmap_screen_update_center_animated(&RoadMapViewWayPoint, 600, 0);
+#endif
        return;
    }
 

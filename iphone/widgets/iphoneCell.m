@@ -31,6 +31,7 @@
 @implementation iphoneCell
 @synthesize rightLabel;
 @synthesize leftLabel;
+@synthesize enableCell;
 
 
 - (id)initWithStyle:(UITableViewCellStyle)style reuseIdentifier:(NSString *)reuseIdentifier
@@ -101,6 +102,12 @@
       }
    }
     
+}
+
+- (void) setEnableCell:(BOOL) set {
+	[self.textLabel setEnabled:set];
+	[self.leftLabel setEnabled:set];
+   [self.rightLabel setEnabled:set];
 }
 
 - (void)dealloc

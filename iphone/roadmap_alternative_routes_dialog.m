@@ -26,7 +26,7 @@
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
 #include "roadmap_lang.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_start.h"
 #include "roadmap_trip.h"
 #include "roadmap_device_events.h"
@@ -362,14 +362,13 @@ int roadmap_alternative_route_select (int index) {
    CGRect rect;
    
    if (showListButton == NULL) {
-      image = roadmap_iphoneimage_load("route_list_e");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "route_list_e");
       if (image) {
          rect.origin = CGPointMake (0,0);
          rect.size = image.size;
          showListButton = [[UIButton alloc] initWithFrame:rect];
          [showListButton setImage:image forState: UIControlStateNormal];
          [showListButton addTarget:self action:@selector(onShowList) forControlEvents:UIControlEventTouchUpInside];
-         [image release];
       }
    }
    /*
@@ -385,14 +384,13 @@ int roadmap_alternative_route_select (int index) {
    CGRect rect;
    
    if (showAllButton == NULL) {
-      image = roadmap_iphoneimage_load("route_map_e");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "route_map_e");
       if (image) {
          rect.origin = CGPointMake (0,0);
          rect.size = image.size;
          showAllButton = [[UIButton alloc] initWithFrame:rect];
          [showAllButton setImage:image forState: UIControlStateNormal];
          [showAllButton addTarget:self action:@selector(onShowAll) forControlEvents:UIControlEventTouchUpInside];
-         [image release];
       }
    }
       //showAllButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("All")]
@@ -440,10 +438,9 @@ int roadmap_alternative_route_select (int index) {
    
    //icon
    sprintf (icon, "%d_route", index + 1);
-   image = roadmap_iphoneimage_load(icon);
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       rect = imageView.bounds;
       rect.origin = gPosIcon;
       imageView.frame = rect;

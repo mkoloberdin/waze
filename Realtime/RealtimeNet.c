@@ -27,6 +27,7 @@
 #include "RealtimeOffline.h"
 #include "Realtime.h"
 #include "RealtimeSystemMessage.h"
+#include "RealtimeExternalPoiNotifier.h"
 
 #include "../roadmap_gps.h"
 #include "../roadmap_navigate.h"
@@ -121,6 +122,10 @@ static wst_parser general_parser[] =
    { "UpdateConfig",          on_update_config},
    { "UserGroups",            UserGroups},
    { "OpenMoodSelection",     OpenMoodSelection},
+   { "AddExternalPoiType",    AddExternalPoiType},
+   { "AddExternalPoi",        AddExternalPoi},
+   { "RmExternalPoi",         RmExternalPoi},
+   { "SetExternalPoiDrawOrder",SetExternalPoiDrawOrder},
 };
 
 extern const char* RT_GetWebServiceAddress();
@@ -405,6 +410,10 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
 
    if( szUserNickname && (*szUserNickname))
       PackNetworkString( szUserNickname,  pCI->UserNk, RT_USERNK_MAXSIZE);
+#ifdef IPHONE
+   else if (!Realtime_is_random_user())
+      PackNetworkString( szUserName,  pCI->UserNk, RT_USERNK_MAXSIZE);
+#endif //IPHONE
    else
       pCI->UserNk[0] = '\0';
 
@@ -918,6 +927,48 @@ BOOL RTNet_NodePath( LPRTConnectionInfo   pCI,
    return bRes;
 }
 
+BOOL  RTNet_ExternalPoiDisplayed(     LPRTConnectionInfo   pCI,
+                           CB_OnWSTCompleted pfnOnCompleted,
+                           char*                packet_only)
+{
+   int i;
+   ebuffer Packet ;
+   BOOL     bRes;
+   int iPoiCount = RealtimeExternalPoiNotifier_DisplayedList_Count();
+   char*    PoisBuffer = NULL;
+
+   ebuffer_init(&Packet);
+   if (iPoiCount == 0)
+      return FALSE;
+
+   PoisBuffer = ebuffer_alloc( &Packet, RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE__dynamic(iPoiCount));
+   memset( PoisBuffer, 0, sizeof(PoisBuffer));
+   sprintf(PoisBuffer,"NotifyExternalPoiDisplayed,%d", iPoiCount);
+
+   for (i = 0; i < iPoiCount; i++){
+       char temp[20];
+       int iID = RealtimeExternalPoi_DisplayedList_get_ID(i);
+       sprintf( temp, ",%d", iID);
+       strcat( PoisBuffer, temp);
+   }
+
+   if( packet_only)
+   {
+      sprintf( packet_only, "%s\n", PoisBuffer);
+      bRes = TRUE;
+   }
+   else
+      bRes = wst_start_session_trans(
+                              general_parser,
+                              sizeof(general_parser)/sizeof(wst_parser),
+                              pfnOnCompleted,
+                              pCI,
+                              PoisBuffer);     //   Custom data
+   RealtimeExternalPoiNotifier_DisplayedList_clear();
+   ebuffer_free( &Packet);
+   return bRes;
+}
+
 BOOL RTNet_ReportAlert( LPRTConnectionInfo   pCI,
                         int                  iType,
                         const char*          szDescription,
@@ -1107,8 +1158,8 @@ BOOL RTNet_ReportAlertAtPosition( LPRTConnectionInfo   pCI,
                         BOOL						bForwardToTwitter,
                         BOOL                 bForwardToFacebook,
                         const RoadMapGpsPosition   *MyLocation,
-                        int 				from_node,
-                        int 				to_node,
+                        int 				      from_node,
+                        int 				      to_node,
                         const char*          szGroup,
                         CB_OnWSTCompleted pfnOnCompleted)
 {
@@ -1566,9 +1617,11 @@ BOOL RTNet_CollectCustomBonus(LPRTConnectionInfo   pCI,
                         BOOL                 bForwardToFacebook,
                         CB_OnWSTCompleted    pfnOnCompleted){
 
+    BOOL success;
     char AtStr[MESSAGE_MAX_SIZE__At];
-    SendMessage_At( AtStr, FALSE);
-
+    success = SendMessage_At( AtStr, FALSE);
+    if (!success)
+       AtStr[0] = '\0';
     return wst_start_session_trans(
                              general_parser,
                              sizeof(general_parser)/sizeof(wst_parser),
@@ -1597,12 +1650,14 @@ BOOL RTNet_ReportAbuse (LPRTConnectionInfo   pCI,
 }
 
 BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
-                                  int                 iSHowFacebookName,
-                                  int                 iSHowFacebookPicture,
-                                  CB_OnWSTCompleted   pfnOnCompleted){
-   const char *show_name, *show_picture;
-   
-   switch (iSHowFacebookName) {
+                                 int                  iShowFacebookName,
+                                 int                  iShowFacebookPicture,
+                                 int                  iShowFacebookProfile,
+                                 int                  iShowTwitterProfile,
+                                 CB_OnWSTCompleted    pfnOnCompleted){
+   const char *show_name, *show_picture, *show_facebook_profile, *show_twitter_profile;
+
+   switch (iShowFacebookName) {
       case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED:
          show_name = "false";
          break;
@@ -1613,10 +1668,11 @@ BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
          show_name = "friends";
          break;
       default:
+         show_name = "";
          break;
    }
-   
-   switch (iSHowFacebookPicture) {
+
+   switch (iShowFacebookPicture) {
       case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED:
          show_picture = "false";
          break;
@@ -1627,17 +1683,99 @@ BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
          show_picture = "friends";
          break;
       default:
+         show_name = "";
          break;
    }
-   
+
+   switch (iShowFacebookProfile) {
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED:
+         show_facebook_profile = "false";
+         break;
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED:
+         show_facebook_profile = "true";
+         break;
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS:
+         show_facebook_profile = "friends";
+         break;
+      default:
+         show_facebook_profile = "";
+         break;
+   }
+
+   switch (iShowTwitterProfile) {
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED:
+         show_twitter_profile = "false";
+         break;
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED:
+         show_twitter_profile = "true";
+         break;
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS:
+         show_twitter_profile = "friends";
+         break;
+      default:
+         show_twitter_profile = "";
+         break;
+   }
+
    return wst_start_session_trans(
+                                  general_parser,
+                                  sizeof(general_parser)/sizeof(wst_parser),
+                                  pfnOnCompleted,
+                                  pCI,
+                                  RTNET_FORMAT_NETPACKET_4FacebookPermissions,// Custom data for the HTTP request
+                                  show_name,
+                                  show_picture,
+                                  show_facebook_profile,
+                                  show_twitter_profile);
+
+}
+
+
+BOOL  RTNet_ExternalPoiNotifyOnPopUp (LPRTConnectionInfo   pCI,
+                                  int                 iID,
+                                  CB_OnWSTCompleted   pfnOnCompleted){
+
+    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
                            pfnOnCompleted,
                            pCI,
-                           RTNET_FORMAT_NETPACKET_2FacebookPermissions,// Custom data for the HTTP request
-                           show_name,
-                           show_picture);
+                           "NotifyExternalPoiViewed,%d",  // Custom data for the HTTP request
+                           iID);
+}
+
+BOOL  RTNet_ExternalPoiNotifyOnNavigate (LPRTConnectionInfo   pCI,
+                                  int                 iID,
+                                  CB_OnWSTCompleted   pfnOnCompleted){
+     return wst_start_session_trans(
+                            general_parser,
+                            sizeof(general_parser)/sizeof(wst_parser),
+                            pfnOnCompleted,
+                            pCI,
+                            "NotifyExternalPoiNavigation,%d",  // Custom data for the HTTP request
+                            iID);
+
+}
+
+BOOL  RTNet_NotifySplashUpdateTime (LPRTConnectionInfo   pCI,
+                                  const char *                 update_time,
+                                  CB_OnWSTCompleted   pfnOnCompleted){
+   char        PackedString[50];
+   if( update_time && (*update_time))
+   {
+      if(PackNetworkString( update_time, PackedString, sizeof(PackedString)))
+         return wst_start_session_trans(
+                            general_parser,
+                            sizeof(general_parser)/sizeof(wst_parser),
+                            pfnOnCompleted,
+                            pCI,
+                            "NotifySplashUpdateTime,%s",  // Custom data for the HTTP request
+                            PackedString);
+      else
+         return FALSE;
+   }
+   else
+      return FALSE;
 
 }
 
@@ -2091,57 +2229,32 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    if (!szToState)
       szToState = "";
 
-	if (bReRoute)
-	{
-	   iPacketSize = 8 + // ReRoute,
-	   				  11 + // route_id,
-	   				  11 + // alt_id,
-	   				  (12 + 12 + 11 + 11 + 11 + 1 + 2) + // from
-	   				  2 + 2 + // with geometries, with instructions
-	   				  strlen (szPackedFrStreet) + 1 +
-                    11 + nOptions * (11 + 2) + // options
-                    2 + strlen(szToStreetNumber) + 1 + strlen(szToCity) + 1 + strlen(szToState) + 1 + 11 + 2
-                                       // iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel
-                    ;
+   iPacketSize = 15 + // RoutingRequest,
+   				  11 + // route_id,
+   				  11 + // type,
+   				  11 + // trip_id,
+   				  11 + // max_routes,
+   				  11 + // max segments,
+   				  11 + // max points,
+   				  2 * (12 + 12 + 11 + 11 + 11 + 1 + 2) + // from / to
+   				  strlen (szPackedFrStreet) + 1 +
+   				  strlen (szPackedToStreet) + 1 +
+   				  2 + 2 + // with geometries, with instructions
+   				  11 + nOptions * (11 + 2) + // options
+                 2 + strlen(szToStreetNumber) + 1 + strlen(szToCity) + 1 + strlen(szToState) + 1 + 11 + 2 + 2
+                                    // iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel, bReroute
+   				  ;
 
-	  	szPacket = malloc (iPacketSize);
+  	szPacket = malloc (iPacketSize);
 
-	   snprintf (szPacket, iPacketSize,
-	   			 "Reroute,%d,%d,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
-	   			 iRoute, iAltId,
-	   			 posFrom.longitude, posFrom.latitude, iFrSegmentId, iFrNodeId[0], iFrNodeId[1],
-	   			 szPackedFrStreet, bFrAllowBidi ? "T" : "F",
-	   			 nOptions*2);
-	}
-	else
-	{
-	   iPacketSize = 15 + // RoutingRequest,
-	   				  11 + // route_id,
-	   				  11 + // type,
-	   				  11 + // trip_id,
-	   				  11 + // max_routes,
-	   				  11 + // max segments,
-	   				  11 + // max points,
-	   				  2 * (12 + 12 + 11 + 11 + 11 + 1 + 2) + // from / to
-	   				  strlen (szPackedFrStreet) + 1 +
-	   				  strlen (szPackedToStreet) + 1 +
-	   				  2 + 2 + // with geometries, with instructions
-	   				  11 + nOptions * (11 + 2) + // options
-                    2 + strlen(szToStreetNumber) + 1 + strlen(szToCity) + 1 + strlen(szToState) + 1 + 11 + 2
-                                       // iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel
-	   				  ;
-
-	  	szPacket = malloc (iPacketSize);
-
-	   snprintf (szPacket, iPacketSize,
-	   			 "RoutingRequest,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
-	   			 iRoute, iType, iTripId, nMaxRoutes, nMaxSegments, nMaxPoints,
-	   			 posFrom.longitude, posFrom.latitude, iFrSegmentId, iFrNodeId[0], iFrNodeId[1],
-	   			 szPackedFrStreet, bFrAllowBidi ? "T" : "F",
-	   			 posTo.longitude, posTo.latitude, iToSegmentId, iToNodeId[0], iToNodeId[1],
-	   			 szPackedToStreet, bToAllowBidi ? "T" : "F",
-	   			 nOptions*2);
-	}
+   snprintf (szPacket, iPacketSize,
+   			 "RoutingRequest,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
+   			 iRoute, iType, iTripId, nMaxRoutes, nMaxSegments, nMaxPoints,
+   			 posFrom.longitude, posFrom.latitude, iFrSegmentId, iFrNodeId[0], iFrNodeId[1],
+   			 szPackedFrStreet, bFrAllowBidi ? "T" : "F",
+   			 posTo.longitude, posTo.latitude, iToSegmentId, iToNodeId[0], iToNodeId[1],
+   			 szPackedToStreet, bToAllowBidi ? "T" : "F",
+   			 nOptions*2);
 
    for (iOption = 0; iOption < nOptions; iOption++)
    {
@@ -2154,8 +2267,9 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    current_time = localtime(&now);
    lTimeOfDay = current_time->tm_hour *60*60 + current_time->tm_min *60 + current_time->tm_sec;
    len = strlen (szPacket);
-   snprintf (szPacket + len, iPacketSize - len, ",%d,%s,%s,%s,%ld,%d",
-             iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel);
+   snprintf (szPacket + len, iPacketSize - len, ",%d,%s,%s,%s,%ld,%d,%s",
+             iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel,
+             bReRoute ? "T" : "F");
    roadmap_log (ROADMAP_ERROR, szPacket);
 
    rc = wst_start_session_trans(

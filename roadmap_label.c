@@ -1063,6 +1063,7 @@ void roadmap_label_activate (void) {
 
    RoadMapLabelMinFeatSizeSq = roadmap_config_get_integer (&RoadMapConfigMinFeatureSize);
    RoadMapLabelMinFeatSizeSq *= RoadMapLabelMinFeatSizeSq;
+
 }
 
 int roadmap_label_initialize (void) {

@@ -25,7 +25,21 @@
 #define __PRIVACY_SETTINGS__H
 
 
-void privacy_settings_show(void);
+@interface PrivacyDialog : UITableViewController <UITextFieldDelegate> {
+	NSMutableArray				*dataArray;
+   NSMutableArray				*headersArray;
+   NSMutableArray				*footersArray;
+   BOOL                    isPrivacyModified;
+}
+
+@property (nonatomic, retain) NSMutableArray	*dataArray;
+@property (nonatomic, retain) NSMutableArray	*headersArray;
+@property (nonatomic, retain) NSMutableArray	*footersArray;
+
+
+- (void) show;
+
+@end
 
 
 #endif // __PRIVACY_SETTINGS__H

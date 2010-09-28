@@ -26,6 +26,7 @@
 #include "RealtimeBonus.h"
 #include "RealtimeTrafficInfo.h"
 #include "RealtimeOffline.h"
+#include "RealtimeExternalPoi.h"
 #include "../editor/editor_points.h"
 #include "../editor/editor_cleanup.h"
 #include "../roadmap_geo_location_info.h"
@@ -1656,10 +1657,10 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
    //   When the alert was reported (x seconds ago)
     pNext = ReadIntFromString(
              pNext,            //   [in]      Source string
-             ",\r\n",              //   [in,opt]   Value termination
+             ",",              //   [in,opt]   Value termination
              NULL,             //   [in,opt]   Allowed padding
              &alert.iReportedElapsedTime,  //   [out]      Put it here
-             TRIM_ALL_CHARS);               //   [in]      Remove additional termination CHARS
+             1);               //   [in]      Remove additional termination CHARS
 
 
     if( !pNext)
@@ -1667,6 +1668,30 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to  read ReportedElapsedTime id=%d", alert.iID);
        (*rc) = err_parser_unexpected_data;
        return NULL;
+    }
+
+    // Is this an archive alert
+    
+    iBufferSize = sizeof(tempBuff);
+    tempBuff[0] = 0;
+    pNext       = ExtractNetworkString(
+                    pNext,             // [in]     Source string
+                    tempBuff,//   [out]   Output buffer
+                    &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                    ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                    TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read bArchive flag id=%d", alert.iID);
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    if (tempBuff[0] == 'T') {
+       alert.bArchive = TRUE;
+    } else {
+       alert.bArchive = FALSE;
     }
 
    //   Add the Alert
@@ -3517,6 +3542,451 @@ const char *OpenMessageTicker (/* IN  */   const char*       pNext,
     }
     RealtimeBonus_OpenMessageTicker(iPoints, text, title, icon);
 
+    return pNext;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char *AddExternalPoiType (/* IN  */   const char*       pNext,
+               /* IN  */   void*             pContext,
+               /* OUT */   BOOL*             more_data_needed,
+               /* OUT */   roadmap_result*   rc)
+{
+   RTExternalPoiType externalPoiType;
+   int iBufferSize;
+
+   RealtimeExternalPoi_ExternalPoiType_Init(&externalPoiType);
+
+   //   Read Alert ID:
+    pNext = ReadIntFromString(
+                   pNext,         //   [in]      Source string
+                   ",",           //   [in,opt]   Value termination
+                   NULL,          //   [in,opt]   Allowed padding
+                   &externalPoiType.iID,    //   [out]      Put it here
+                   1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read  ID");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    //   Service ID
+    pNext = ReadIntFromString(
+                     pNext,         //   [in]      Source string
+                     ",",           //   [in,opt]   Value termination
+                     NULL,          //   [in,opt]   Allowed padding
+                     &externalPoiType.iExternalPoiServiceID,    //   [out]      Put it here
+                     1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read  Service ID");
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+    }
+
+    //    Providor ID
+    pNext = ReadIntFromString(
+                     pNext,         //   [in]      Source string
+                     ",",           //   [in,opt]   Value termination
+                     NULL,          //   [in,opt]   Allowed padding
+                     &externalPoiType.iExternalPoiProviderID,    //   [out]      Put it here
+                     1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read  Providor ID");
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+    }
+
+    //   Read small icon:
+    iBufferSize = sizeof(externalPoiType.cSmallIcon);
+    pNext       = ExtractNetworkString(
+                pNext,               // [in]     Source string
+                &externalPoiType.cSmallIcon[0],         // [out,opt]Output buffer
+                &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                ",",                 // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+
+    if( !pNext || !(*pNext))
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read small icon.");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    //   Read big icon:
+    iBufferSize = sizeof(externalPoiType.cBigIcon);
+    pNext       = ExtractNetworkString(
+                pNext,               // [in]     Source string
+                &externalPoiType.cBigIcon[0],         // [out,opt]Output buffer
+                &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                ",",                 // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+
+    if( !pNext || !(*pNext))
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read big icon.");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    //   Read cOnClickUrl :
+    iBufferSize = sizeof(externalPoiType.cOnClickUrl);
+    pNext       = ExtractNetworkString(
+                pNext,               // [in]     Source string
+                &externalPoiType.cOnClickUrl[0],         // [out,opt]Output buffer
+                &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                ",",                 // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+
+    if( !pNext || !(*pNext))
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read OnClickUrl.");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    // Size
+     pNext = ReadIntFromString(
+                      pNext,         //   [in]      Source string
+                      ",",           //   [in,opt]   Value termination
+                      NULL,          //   [in,opt]   Allowed padding
+                      &externalPoiType.iSize,    //   [out]      Put it here
+                      1);  //   [in]      Remove additional termination CHARS
+
+     if( !pNext || !(*pNext))
+     {
+          roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read  Size");
+          (*rc) = err_parser_unexpected_data;
+          return NULL;
+     }
+
+     // Small icon zoom
+     pNext = ReadIntFromString(
+                       pNext,         //   [in]      Source string
+                       ",",           //   [in,opt]   Value termination
+                       NULL,          //   [in,opt]   Allowed padding
+                       &externalPoiType.iMaxDisplayZoomSmallIcon,    //   [out]      Put it here
+                       1);  //   [in]      Remove additional termination CHARS
+
+     if( !pNext || !(*pNext))
+     {
+           roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read Max Display Zoom small Icon");
+           (*rc) = err_parser_unexpected_data;
+           return NULL;
+     }
+
+     //Max Display Zoom - Big Icon
+     pNext = ReadIntFromString(
+                       pNext,         //   [in]      Source string
+                       ",",           //   [in,opt]   Value termination
+                       NULL,          //   [in,opt]   Allowed padding
+                       &externalPoiType.iMaxDisplayZoomBigIcon,    //   [out]      Put it here
+                       1);  //   [in]      Remove additional termination CHARS
+
+     if( !pNext || !(*pNext))
+     {
+           roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read Max Display Zoom big Icon");
+           (*rc) = err_parser_unexpected_data;
+           return NULL;
+     }
+
+
+     //  Promotion Type
+     pNext = ReadIntFromString(
+                        pNext,         //   [in]      Source string
+                        ",\r\n",           //   [in,opt]   Value termination
+                        NULL,          //   [in,opt]   Allowed padding
+                        &externalPoiType.iPromotionType,    //   [out]      Put it here
+                        TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+     if(!pNext)
+     {
+            roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read  Promotion Type");
+            (*rc) = err_parser_unexpected_data;
+            return NULL;
+     }
+
+     externalPoiType.iIsNavigable = TRUE;//TEMP_AVI add to protocol
+     RealtimeExternalPoi_ExternalPoiType_Add(&externalPoiType);
+     return pNext;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char *AddExternalPoi (/* IN  */   const char*       pNext,
+               /* IN  */   void*             pContext,
+               /* OUT */   BOOL*             more_data_needed,
+               /* OUT */   roadmap_result*   rc)
+{
+
+   int iBufferSize;
+   RTExternalPoi externalPoi;
+   RealtimeExternalPoi_ExternalPoi_Init(&externalPoi);
+
+   //   ID
+   pNext = ReadIntFromString(
+               pNext,            //   [in]      Source string
+               ",",              //   [in,opt]   Value termination
+               NULL,             //   [in,opt]   Allowed padding
+               &externalPoi.iID,   //   [out]      Put it here
+               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //   Server ID
+   pNext = ReadIntFromString(
+               pNext,            //   [in]      Source string
+               ",",              //   [in,opt]   Value termination
+               NULL,             //   [in,opt]   Allowed padding
+               &externalPoi.iServerID,   //   [out]      Put it here
+               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Server ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //   Type
+   pNext = ReadIntFromString(
+                    pNext,         //   [in]      Source string
+                    ",",           //   [in,opt]   Value termination
+                    NULL,          //   [in,opt]   Allowed padding
+                    &externalPoi.iTypeID,    //   [out]      Put it here
+                    1);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read  Type");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+   //    Service ID
+   pNext = ReadIntFromString(
+                    pNext,         //   [in]      Source string
+                    ",",           //   [in,opt]   Value termination
+                    NULL,          //   [in,opt]   Allowed padding
+                    &externalPoi.iServiceID,    //   [out]      Put it here
+                    1);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read  Service ID");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+   //    Provider ID
+   pNext = ReadIntFromString(
+                    pNext,         //   [in]      Source string
+                    ",",           //   [in,opt]   Value termination
+                    NULL,          //   [in,opt]   Allowed padding
+                    &externalPoi.iProviderID,    //   [out]      Put it here
+                    1);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read  Provider ID");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+   //   Longitude
+   pNext = ReadIntFromString(
+               pNext,            //   [in]      Source string
+               ",",              //   [in,opt]   Value termination
+               NULL,             //   [in,opt]   Allowed padding
+               &externalPoi.iLongitude,   //   [out]      Put it here
+               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read longitude");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //   Latitude
+   pNext = ReadIntFromString(
+               pNext,            //   [in]      Source string
+               ",",              //   [in,opt]   Value termination
+               NULL,             //   [in,opt]   Allowed padding
+               &externalPoi.iLatitude,    //   [out]      Put it here
+               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || !(*pNext))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read altitude");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //   Creation Time
+   pNext = ReadIntFromString(
+                pNext,            //   [in]      Source string
+                ",",              //   [in,opt]   Value termination
+                NULL,             //   [in,opt]   Allowed padding
+                &externalPoi.iCreationTime,    //   [out]      Put it here
+                TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Creation Time");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+    //   Update time
+    pNext = ReadIntFromString(
+                 pNext,            //   [in]      Source string
+                 ",",              //   [in,opt]   Value termination
+                 NULL,             //   [in,opt]   Allowed padding
+                 &externalPoi.iUpdateTime,    //   [out]      Put it here
+                 TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Update time");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    //   Promotion Type
+    pNext = ReadIntFromString(
+                  pNext,            //   [in]      Source string
+                  ",",              //   [in,opt]   Value termination
+                  NULL,             //   [in,opt]   Allowed padding
+                  &externalPoi.iPromotionType,    //   [out]      Put it here
+                  TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Promotion Type");
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+    }
+
+    //   is Promotioned
+    pNext = ReadIntFromString(
+                   pNext,            //   [in]      Source string
+                   ",",              //   [in,opt]   Value termination
+                   NULL,             //   [in,opt]   Allowed padding
+                   &externalPoi.iIsPromotioned,    //   [out]      Put it here
+                   TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || !(*pNext))
+    {
+          roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read isPromotioned");
+          (*rc) = err_parser_unexpected_data;
+          return NULL;
+    }
+
+    iBufferSize = sizeof(externalPoi.cResourceUrlParams);
+     pNext       = ExtractNetworkString(
+                 pNext,               // [in]     Source string
+                 &externalPoi.cResourceUrlParams[0],         // [out,opt]Output buffer
+                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                 ",\r\n",                 // [in]     Array of chars to terminate the copy operation
+                 TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+
+     if( !pNext)
+     {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read ResourceUrlParams.");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+     }
+
+    RealtimeExternalPoi_ExternalPoi_Add(&externalPoi);
+   return pNext;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char *RmExternalPoi (/* IN  */   const char*       pNext,
+               /* IN  */   void*             pContext,
+               /* OUT */   BOOL*             more_data_needed,
+               /* OUT */   roadmap_result*   rc)
+{
+   int iID;
+
+   pNext = ReadIntFromString(
+         pNext, //   [in]      Source string
+         ",\r\n", //   [in,opt]   Value termination
+         NULL, //   [in,opt]   Allowed padding
+         &iID, //   [out]      Put it here
+         TRIM_ALL_CHARS); //   [in]      Remove additional termination CHARS
+
+   if( !pNext )
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::RmExternalPoi() - Failed to read  ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   RealtimeExternalPoi_ExternalPoi_Remove(iID);
+   return pNext;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char *SetExternalPoiDrawOrder (/* IN  */   const char*       pNext,
+               /* IN  */   void*             pContext,
+               /* OUT */   BOOL*             more_data_needed,
+               /* OUT */   roadmap_result*   rc)
+{
+
+   int entitiesNum;
+   int i;
+   int last;
+   int entityId;
+
+    pNext = ReadIntFromString(
+          pNext, //   [in]      Source string
+          ",\r\n", //   [in,opt]   Value termination
+          NULL, //   [in,opt]   Allowed padding
+          &entitiesNum, //   [out]      Put it here
+          1); //   [in]      Remove additional termination CHARS
+
+    if( !pNext)
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::SetExternalPoiDrawOrder() - Failed to read entities number ");
+       (*rc) = err_parser_unexpected_data;
+    }
+
+
+    RealtimeExternalPoi_DisplayList_clear();
+
+    last = 0;
+    for (i = 0; i < entitiesNum; i++) {
+       if (i == entitiesNum - 1) {
+          last = 1;
+       }
+
+       pNext = ReadIntFromString(
+             pNext, //   [in]      Source string
+             (last ? ",\r\n" : ","), // [in]     Array of chars to terminate the copy operation
+             NULL, //   [in,opt]   Allowed padding
+             &entityId, //   [out]      Put it here
+             1); //   [in]      Remove additional termination CHARS
+
+       if( !pNext || (!last && !(*pNext)))
+       {
+          roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::SetExternalPoiDrawOrder() - Failed to read entity order field %i ", i);
+          (*rc) = err_parser_unexpected_data;
+          return NULL;
+       }
+       RealtimeExternalPoi_DisplayList_add_ID(entityId);
+    }
+
+    RealtimeExternalPoi_DisplayList();
     return pNext;
 }
 

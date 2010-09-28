@@ -317,7 +317,7 @@ static void play_next_file (void) {
 }
 
 void sound_complete (AVAudioPlayer *player){
-
+   player.delegate = NULL;
    [player release];
    
    play_next_file();

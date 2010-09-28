@@ -44,6 +44,7 @@
 	[[self contentView] addSubview:switchView];
 	
 	[self setSelectionStyle:UITableViewCellSelectionStyleNone];
+   [self setBackgroundColor:[UIColor whiteColor]];
 	
 	return self;
 }

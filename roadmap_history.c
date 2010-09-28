@@ -360,7 +360,7 @@ static void roadmap_history_add_entry (char category, const char *data) {
 	   roadmap_history_add_entry (category, data+1);
 	}
 
-	void roadmap_history_update(void *cursor, int category, char *argv[]){
+	void roadmap_history_update(void *cursor, char category, char *argv[]){
 	   char data[1024];
 	   int i;
 	   unsigned length;

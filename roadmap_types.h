@@ -65,18 +65,22 @@ typedef struct {
 } RoadMapArea;
 
 /***** Screen types and categories definition *****/
-#define RM_SCREEN_TYPE_CATEGORY_SD 	0x0000FFFF		/* Standard definition */
-#define RM_SCREEN_TYPE_CATEGORY_HD 	0x0001FFFF		/* High definition	   */
+#define RM_SCREEN_TYPE_CATEGORY_SD 	0x00010000		/* Standard definition */
+#define RM_SCREEN_TYPE_CATEGORY_HD 	0x00020000		/* High definition	   */
+#define RM_SCREEN_TYPE_CATEGORY_LD  0x00040000     /* High definition      */
 
-#define RM_SCREEN_TYPE_SD_GENERIC 		0x00000000
-#define RM_SCREEN_TYPE_QVGA			 	0x00000001
-#define RM_SCREEN_TYPE_HVGA			 	0x00000002
-#define RM_SCREEN_TYPE_VGA			 	0x00000003
 
-#define RM_SCREEN_TYPE_HD_GENERIC		0x00010000
-#define RM_SCREEN_TYPE_WVGA640		 	0x00010001
-#define RM_SCREEN_TYPE_WVGA800		 	0x00010002
-#define RM_SCREEN_TYPE_WVGA854		 	0x00010003
+#define RM_SCREEN_TYPE_SD_GENERIC 		0x00010001
+#define RM_SCREEN_TYPE_HVGA			 	0x00010002
+#define RM_SCREEN_TYPE_VGA			    	0x00010003
+
+#define RM_SCREEN_TYPE_HD_GENERIC		0x00020001
+#define RM_SCREEN_TYPE_WVGA640		 	0x00020002
+#define RM_SCREEN_TYPE_WVGA800		 	0x00020003
+#define RM_SCREEN_TYPE_WVGA854		 	0x00020004
+
+#define RM_SCREEN_TYPE_LD_GENERIC      0x00040001
+#define RM_SCREEN_TYPE_QVGA            0x00040002
 /**************************************************/
 
 typedef void (*RoadMapShapeItr) (int shape, RoadMapPosition *position);

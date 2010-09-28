@@ -43,13 +43,10 @@
 #include "roadmap_layer.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_social_image.h"
+#include "roadmap_editbox.h"
 #include "roadmap_groups.h"
 #include "roadmap_res.h"
 #include "roadmap_res_download.h"
-
-#ifdef IPHONE
-#include "iphone/roadmap_editbox.h"
-#endif //IPHONE
 
 #include "roadmap_analytics.h"
 
@@ -543,11 +540,15 @@ static void disclaimer_cb( int exit_code ){
 }
 
 static int ping (LPRTUserLocation user){
-
-   if (Realtime_is_random_user()){
-      roadmap_messagebox_timeout("Error","You need to be a registered user in order to send Pings. Register in 'Settings > Profile'", 8);
+   
+   if (Realtime_RandomUserMsg()) {
       return 0;
    }
+   
+   if (Realtime_AnonymousMsg()) {
+      return 0;
+   }
+
 
    if (!DisclaimerShown()){
       g_user = user;
@@ -556,7 +557,7 @@ static int ping (LPRTUserLocation user){
       return 0;
    }
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN) || defined(IPHONE_NATIVE))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE_NATIVE) || defined(ANDROID))
     ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
             user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
@@ -625,11 +626,12 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 #ifndef TOUCH_SCREEN
    g_user = NULL;
 #endif
-   if (width > roadmap_canvas_height())
+   
 #ifdef IPHONE
-      width = 320;
+   width = 320 * roadmap_screen_get_screen_scale() / 100;
 #else
-   width = roadmap_canvas_height();
+   if (width > roadmap_canvas_height())
+      width = roadmap_canvas_height();
 #endif // IPHONE
 
    user = RTUsers_UserByGUIID(this, id);

@@ -57,7 +57,7 @@
 #include "navigate/navigate_main.h"
 
 #include "iphone/roadmap_list_menu.h"
-#include "iphone/roadmap_editbox.h"
+#include "roadmap_editbox.h"
 
 #define MAX_CONTEXT_ENTRIES 10
 
@@ -315,8 +315,7 @@ static void add_to_favorites(int exit_code, void *data){
 
 	if( dec_yes != exit_code)
       return;
-
-	#if defined(__SYMBIAN32__) || defined(IPHONE)
+	#if defined(__SYMBIAN32__) || defined(IPHONE) || defined(ANDROID)
     	ShowEditbox(roadmap_lang_get("Name"), "",
             keyboard_callback, (void *)data, EEditBoxStandard );
 	#else

@@ -655,7 +655,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
    }
 
 	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL,
-                             on_option_selected, NULL, NULL, NULL, 60, FALSE, NULL);
+                             on_option_selected, NULL, NULL, NULL, 60, 0, NULL);
 
 
 

@@ -28,5 +28,6 @@ void roadmap_recommend(void);
 void roadmap_recommend_appstore(void);
 void roadmap_recommend_chomp(void);
 void roadmap_recommend_email(void);
+void roadmap_recommend_rate_us(RoadMapCallback on_close);
 
 #endif // __ROADMAP_RECOMMEND__H

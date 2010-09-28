@@ -97,7 +97,7 @@ int roadmap_main_should_mute ();
 int roadmap_main_will_suspend ();
 const char* roadmap_main_get_proxy (const char* url);
 #include <sys/socket.h>
-int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInput callback);
+int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInput callback) ;
 
 int roadmap_main_get_platform ();
 int roadmap_main_get_os_ver ();
@@ -115,11 +115,14 @@ void roadmap_main_set_backlight(int isAlwaysOn);
 void roadmap_main_refresh_backlight (void);
 void roadmap_main_play_movie (const char* url);
 
+typedef void *RoadMapNativeImage;
+RoadMapNativeImage roadmap_main_load_image (const char *path, const char* file_name);
+void roadmap_main_free_image (RoadMapNativeImage image);
+
 #define ROADMAP_MAIN_PLATFORM_NA       0
 #define ROADMAP_MAIN_PLATFORM_IPOD     1
 #define ROADMAP_MAIN_PLATFORM_IPHONE   2
-#define ROADMAP_MAIN_PLATFORM_IPHONE3G 3
-#define ROADMAP_MAIN_PLATFORM_IPAD     4
+#define ROADMAP_MAIN_PLATFORM_IPAD     3
 
 #define ROADMAP_MAIN_OS_NA             0
 #define ROADMAP_MAIN_OS_30             1

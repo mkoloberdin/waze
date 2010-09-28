@@ -48,4 +48,9 @@ void RealtimePrivacyInit(void);
 void RealtimePrivacySettings(void);
 int  RealtimePrivacyState(void);
 int RealtimePrivacySettingsWidgetCallBack(SsdWidget widget, const char *new_value);
+
+#ifdef IPHONE_NATIVE
+void privacy_settings_show(void);
+#endif //IPHONE_NATIVE
+
 #endif /*REALTIMEPRIVACY_H_*/

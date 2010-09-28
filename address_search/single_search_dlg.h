@@ -20,8 +20,8 @@
 #ifndef SINGLE_SEARCH_DLG_H_
 #define SINGLE_SEARCH_DLG_H_
 
-void single_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
-                              void*                context);
+#include "../ssd/ssd_dialog.h"
+void single_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed, void*                context);
 
 BOOL single_search_auto_search( const char* address);
 #endif /* SINGLE_SEARCH_DLG_H_ */

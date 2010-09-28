@@ -129,9 +129,8 @@ void roadmap_message_ticker_display(void) {
 static void roadmap_message_ticker_refresh(const char *title, const char* text, const char* icon) {
    UIImage *image;
    
-   image = roadmap_iphoneimage_load(icon);
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
 	gIconImg.image = image;
-   [image release];
    
    gTitleLbl.text = [NSString stringWithUTF8String:roadmap_lang_get(title)];
    gContentLbl.text = [NSString stringWithUTF8String:roadmap_lang_get(text)];
@@ -151,12 +150,11 @@ void roadmap_message_ticker_initialize(void){
 	
 	//Opened ticker view
 	//Set background
-	image = roadmap_iphoneimage_load("TickerBackground");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "TickerBackground");
 	if (image) { 
 		rect.size.height = [image size].height;
 		imageView = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:image.size.width/2
 																				   topCapHeight:image.size.height]];
-		[image release];
 		gTickerView = [[RoadMapMessageTickerView alloc] initWithFrame:rect];
       [gTickerView setAutoresizesSubviews: YES];
       [gTickerView setAutoresizingMask: UIViewAutoresizingFlexibleWidth];
@@ -176,13 +174,12 @@ void roadmap_message_ticker_initialize(void){
 	}
    
    //X icon
-   image = roadmap_iphoneimage_load("x_close");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "x_close");
 	if (image) { 
 		rect.size = image.size;
       rect.origin = CGPointMake(gTickerView.bounds.size.width - 5 - image.size.width,
                                 gTickerView.bounds.size.height - 5 - image.size.height);
 		gXIcon = [[UIImageView alloc] initWithImage:image];
-		[image release];
       [gXIcon setFrame:rect];
 		[gTickerView addSubview:gXIcon];
 		[gXIcon release];

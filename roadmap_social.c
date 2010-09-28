@@ -49,6 +49,7 @@
 #include "roadmap_browser.h"
 
 static const char *yesno[2];
+static const char *privacy_values[3] = {"0", "1", "2"};
 
 static SsdWidget CheckboxDestinationTwitter[ROADMAP_SOCIAL_DESTINATION_MODES_COUNT];
 static SsdWidget CheckboxDestinationFacebook[ROADMAP_SOCIAL_DESTINATION_MODES_COUNT];
@@ -99,6 +100,11 @@ RoadMapConfigDescriptor TWITTER_CFG_PRM_SEND_SIGNUP_Var = ROADMAP_CONFIG_ITEM(
       TWITTER_CONFIG_TAB,
       SOCIAL_CFG_PRM_SEND_SIGNUP_Name);
 
+//   Twitter profile permissions
+RoadMapConfigDescriptor TWITTER_CFG_PRM_SHOW_PROFILE_Var = ROADMAP_CONFIG_ITEM(
+      TWITTER_CONFIG_TAB,
+      SOCIAL_CFG_PRM_SHOW_PROFILE_Name);
+
 //    Logged in status
 RoadMapConfigDescriptor TWITTER_CFG_PRM_LOGGED_IN_Var = ROADMAP_CONFIG_ITEM(
       TWITTER_CONFIG_TAB,
@@ -123,15 +129,20 @@ RoadMapConfigDescriptor FACEBOOK_CFG_PRM_SHOW_MUNCHING_Var = ROADMAP_CONFIG_ITEM
       FACEBOOK_CONFIG_TAB,
       SOCIAL_CFG_PRM_SHOW_MUNCHING_Name);
 
-//   Enable / Disable Facebook name
+//   Facebook name permissions
 RoadMapConfigDescriptor FACEBOOK_CFG_PRM_SHOW_NAME_Var = ROADMAP_CONFIG_ITEM(
       FACEBOOK_CONFIG_TAB,
       SOCIAL_CFG_PRM_SHOW_NAME_Name);
 
-//   Enable / Disable Facebook picture
+//   Facebook picture permissions
 RoadMapConfigDescriptor FACEBOOK_CFG_PRM_SHOW_PICTURE_Var = ROADMAP_CONFIG_ITEM(
       FACEBOOK_CONFIG_TAB,
       SOCIAL_CFG_PRM_SHOW_PICTURE_Name);
+
+//   Facebook profile permissions
+RoadMapConfigDescriptor FACEBOOK_CFG_PRM_SHOW_PROFILE_Var = ROADMAP_CONFIG_ITEM(
+      FACEBOOK_CONFIG_TAB,
+      SOCIAL_CFG_PRM_SHOW_PROFILE_Name);
 
 //    Logged in status - Facebook
 RoadMapConfigDescriptor FACEBOOK_CFG_PRM_LOGGED_IN_Var = ROADMAP_CONFIG_ITEM(
@@ -193,6 +204,12 @@ BOOL roadmap_social_initialize(void) {
    roadmap_config_declare_enumeration(SOCIAL_CONFIG_PREF_TYPE,
             &TWITTER_CFG_PRM_SHOW_MUNCHING_Var, NULL,
             SOCIAL_CFG_PRM_SHOW_MUNCHING_No, SOCIAL_CFG_PRM_SHOW_MUNCHING_Yes, NULL);
+   
+   // Show user profile - Twitter
+   roadmap_config_declare_enumeration(SOCIAL_CONFIG_TYPE,
+            &TWITTER_CFG_PRM_SHOW_PROFILE_Var, NULL,
+            SOCIAL_CFG_PRM_SHOW_PROFILE_Disabled, SOCIAL_CFG_PRM_SHOW_PROFILE_Friends, SOCIAL_CFG_PRM_SHOW_PROFILE_Enabled, NULL);
+   
 
    // Sign up - Twitter
    roadmap_config_declare_enumeration(SOCIAL_CONFIG_TYPE,
@@ -213,6 +230,11 @@ BOOL roadmap_social_initialize(void) {
    roadmap_config_declare_enumeration(SOCIAL_CONFIG_TYPE,
             &FACEBOOK_CFG_PRM_SHOW_PICTURE_Var, NULL,
             SOCIAL_CFG_PRM_SHOW_PICTURE_Disabled, SOCIAL_CFG_PRM_SHOW_PICTURE_Friends, SOCIAL_CFG_PRM_SHOW_PICTURE_Enabled, NULL);
+   
+   // Show user profile - Facebook
+   roadmap_config_declare_enumeration(SOCIAL_CONFIG_TYPE,
+            &FACEBOOK_CFG_PRM_SHOW_PROFILE_Var, NULL,
+            SOCIAL_CFG_PRM_SHOW_PROFILE_Disabled, SOCIAL_CFG_PRM_SHOW_PROFILE_Friends, SOCIAL_CFG_PRM_SHOW_PROFILE_Enabled, NULL);
 
    // Road reports - Facebook
    roadmap_config_declare_enumeration(SOCIAL_CONFIG_TYPE,
@@ -332,7 +354,7 @@ void roadmap_facebook_check_login(void) {
 /////////////////////////////////////////////////////////////////////////////////////
 static void after_facebook_connect (void) {
    roadmap_facebook_check_login();
-   roadmap_facebook_send_permissions();
+   roadmap_social_send_permissions();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
@@ -659,7 +681,7 @@ static void roadmap_social_set_show_name(RoadMapConfigDescriptor *config, int mo
                             SOCIAL_CFG_PRM_SHOW_NAME_Disabled);
          break;
    }
-   
+
    roadmap_config_save(FALSE);
 }
 
@@ -702,13 +724,67 @@ static void roadmap_social_set_show_picture(RoadMapConfigDescriptor *config, int
                             SOCIAL_CFG_PRM_SHOW_PICTURE_Disabled);
          break;
    }
-   
+
    roadmap_config_save(FALSE);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 void roadmap_facebook_set_show_picture(int mode) {
    roadmap_social_set_show_picture(&FACEBOOK_CFG_PRM_SHOW_PICTURE_Var, mode);
+   OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+static int roadmap_social_get_show_profile(RoadMapConfigDescriptor *config) {
+   if (0 == strcmp(roadmap_config_get(config),
+                   SOCIAL_CFG_PRM_SHOW_PROFILE_Enabled))
+      return ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED;
+   else if (0 == strcmp(roadmap_config_get(config),
+                        SOCIAL_CFG_PRM_SHOW_PROFILE_Friends))
+      return ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS;
+   else
+      return ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+int roadmap_facebook_get_show_profile(void) {
+   return roadmap_social_get_show_profile(&FACEBOOK_CFG_PRM_SHOW_PROFILE_Var);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+int roadmap_twitter_get_show_profile(void) {
+   return roadmap_social_get_show_profile(&TWITTER_CFG_PRM_SHOW_PROFILE_Var);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+static void roadmap_social_set_show_profile(RoadMapConfigDescriptor *config, int mode) {
+   switch (mode) {
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_ENABLED:
+         roadmap_config_set(config,
+                            SOCIAL_CFG_PRM_SHOW_PROFILE_Enabled);
+         break;
+      case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_FRIENDS:
+         roadmap_config_set(config,
+                            SOCIAL_CFG_PRM_SHOW_PROFILE_Friends);
+         break;
+      default:
+         roadmap_config_set(config,
+                            SOCIAL_CFG_PRM_SHOW_PROFILE_Disabled);
+         break;
+   }
+   
+   roadmap_config_save(FALSE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_facebook_set_show_profile(int mode) {
+   roadmap_social_set_show_profile(&FACEBOOK_CFG_PRM_SHOW_PROFILE_Var, mode);
+   OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
+}
+
+/////////////////////////////////////////////////////////////////////////////////////
+void roadmap_twitter_set_show_profile(int mode) {
+   roadmap_social_set_show_profile(&TWITTER_CFG_PRM_SHOW_PROFILE_Var, mode);
    OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
 }
 
@@ -733,9 +809,19 @@ static void twitter_network_error(void){
    roadmap_twitter_setting_dialog();
 }
 
-void roadmap_facebook_send_permissions (void) {
-   Realtime_FacebookPermissions(roadmap_facebook_get_show_name(),
-                                roadmap_facebook_get_show_picture());
+void roadmap_social_send_permissions (void) {
+   if (Realtime_IsAnonymous() ||
+       Realtime_is_random_user()) {
+      Realtime_FacebookPermissions(ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED,
+                                   ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED,
+                                   ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED,
+                                   ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED);
+   } else {
+      Realtime_FacebookPermissions(roadmap_facebook_get_show_name(),
+                                   roadmap_facebook_get_show_picture(),
+                                   roadmap_facebook_get_show_profile(),
+                                   roadmap_twitter_get_show_profile());
+   }
 }
 /////////////////////////////////////////////////////////////////////////////////////
 static int on_ok(void *context) {
@@ -749,9 +835,9 @@ static int on_ok(void *context) {
    const char *user_name;
    const char *password;
    int dlg_type = (int)context;
-   BOOL show_name = FALSE;
-   BOOL show_pic = FALSE;
-
+   int show_name;
+   int show_pic;
+   const char* val;
 
    if (dlg_type == DLG_TYPE_TWITTER) {
       user_name = ssd_dialog_get_value("TwitterUserName");
@@ -761,13 +847,11 @@ static int on_ok(void *context) {
    } else {
       logged_in = roadmap_facebook_logged_in();
 
-      if (!strcasecmp((const char*) ssd_dialog_get_data("FacebookShowName"),
-            yesno[0]))
-         show_name = TRUE;
+      val = (const char*) ssd_dialog_get_data("FacebookShowName");
+      show_name = atoi(val);
 
-      if (!strcasecmp((const char*) ssd_dialog_get_data("FacebookShowPic"),
-           yesno[0]))
-        show_pic = TRUE;
+      val = (const char*) ssd_dialog_get_data("FacebookShowPic");
+      show_pic = atoi(val);
    }
 
    if (!strcasecmp((const char*) ssd_dialog_get_data("TwitterSendTwitts"),
@@ -831,7 +915,7 @@ static int on_ok(void *context) {
       if (show_pic != roadmap_facebook_get_show_picture())
          roadmap_facebook_set_show_picture (show_pic);
 
-      roadmap_facebook_send_permissions();
+      roadmap_social_send_permissions();
 
       if (send_reports)
          roadmap_facebook_enable_sending();
@@ -1002,6 +1086,14 @@ static void create_dialog(int dlg_type) {
             roadmap_lang_get("Password")));
       ssd_widget_add(box, group);
    } else {
+
+      static const char *privacy_labels[3];
+
+
+      privacy_labels[0] = strdup(roadmap_lang_get("Don't show"));
+      privacy_labels[1] = strdup(roadmap_lang_get("To friends only"));
+      privacy_labels[2] = strdup(roadmap_lang_get("To everyone"));
+
       ssd_widget_add (group, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
       //Use FB name
       group = ssd_container_new("Show_name group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
@@ -1016,9 +1108,12 @@ static void create_dialog(int dlg_type) {
                   | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
       ssd_widget_add(group, group2);
 
-      ssd_widget_add(group, ssd_checkbox_new("FacebookShowName", TRUE,
-            SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
-            CHECKBOX_STYLE_ON_OFF));
+      ssd_widget_add (group,
+            ssd_choice_new ("FacebookShowName", roadmap_lang_get ("Show my Facebook name (on app & web)"), 3,
+                            (const char **)privacy_labels,
+                            (const void **)privacy_values,
+                            SSD_ALIGN_RIGHT, NULL));
+
       ssd_widget_add(box, group);
 
       ssd_widget_add (group, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
@@ -1036,9 +1131,12 @@ static void create_dialog(int dlg_type) {
                | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
       ssd_widget_add(group, group2);
 
-      ssd_widget_add(group, ssd_checkbox_new("FacebookShowPic", TRUE,
-            SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
-            CHECKBOX_STYLE_ON_OFF));
+      ssd_widget_add (group,
+            ssd_choice_new ("FacebookShowPic", roadmap_lang_get ("Show my Facebook pic (on app & web)"), 3,
+                            (const char **)privacy_labels,
+                            (const void **)privacy_values,
+                            SSD_ALIGN_RIGHT, NULL));
+
       ssd_widget_add(box, group);
    }
 
@@ -1305,6 +1403,8 @@ void roadmap_facebook_refresh_connection (void) {
 /////////////////////////////////////////////////////////////////////////////////////
 void roadmap_facebook_setting_dialog(void) {
    const char *pVal;
+   int show_pic;
+   int show_name;
 
    if (!ssd_dialog_activate(FACEBOOK_DIALOG_NAME, (void *)DLG_TYPE_FACEBOOK)) {
       create_dialog(DLG_TYPE_FACEBOOK);
@@ -1313,17 +1413,14 @@ void roadmap_facebook_setting_dialog(void) {
 
    roadmap_facebook_refresh_connection();
 
-   if (roadmap_facebook_is_show_name_enabled())
-      pVal = yesno[0];
-   else
-      pVal = yesno[1];
-   ssd_dialog_set_data("FacebookShowName", (void *) pVal);
 
-   if (roadmap_facebook_is_show_picture_enabled())
-      pVal = yesno[0];
-   else
-      pVal = yesno[1];
-   ssd_dialog_set_data("FacebookShowPic", (void *) pVal);
+   show_pic = roadmap_facebook_get_show_picture();
+
+   show_name = roadmap_facebook_get_show_name();
+
+   ssd_dialog_set_data("FacebookShowName", (void *) privacy_values[show_name]);
+
+   ssd_dialog_set_data("FacebookShowPic", (void *) privacy_values[show_pic]);
 
    if (roadmap_facebook_is_sending_enabled())
       pVal = yesno[0];

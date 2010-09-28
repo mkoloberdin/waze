@@ -46,7 +46,7 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static const char *popup_labels[3];
-static const char *popup_values[2];
+static const char *popup_values[3];
 static const char *wazer_labels[3];
 static const char *wazer_values[3];
 

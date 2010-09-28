@@ -40,10 +40,7 @@
 #include "generic_search.h"
 #include "../Realtime/Realtime.h"
 #include "../ssd/ssd_keyboard_dialog.h"
-
-#ifdef IPHONE
 #include "roadmap_editbox.h"
-#endif //IPHONE
 
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
@@ -283,7 +280,7 @@ BOOL on_favorites_name( int         exit_code,
 void generic_search_add_to_favorites()
 {
 
-#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE) || defined(ANDROID) )
    ShowEditbox(roadmap_lang_get("Name"), "",
             on_favorites_name, NULL, EEditBoxStandard | EEditBoxAlphaNumeric );
 #else

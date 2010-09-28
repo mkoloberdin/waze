@@ -32,7 +32,7 @@
 #include "roadmap_car.h"
 #include "roadmap_path.h"
 
-#include "roadmap_iphonelogin.h"
+#include "roadmap_login_dlg.h"
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
 #include "widgets/iphoneCell.h"
@@ -44,7 +44,7 @@
 #include "roadmap_start.h"
 #include "roadmap_foursquare.h"
 #include "roadmap_messagebox.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_list_menu.h"
 #include "ssd_progress_msg_dialog.h"
 #include "roadmap_device_events.h"
@@ -218,24 +218,22 @@ void roadmap_foursquare_login_dialog(void) {
    
    
    // frame image
-   image = roadmap_iphoneimage_load("comments_alert");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		imageView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
       imageView.tag = VIEW_TAG_BG_FRAME;
 		[containerView addSubview:imageView];
-		[imageView release];
+      [imageView release];
 	}
    
    // icon
-   image = roadmap_iphoneimage_load("foursquare_logo");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "foursquare_logo");
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       imageView.tag = VIEW_TAG_ICON;
       [containerView addSubview:imageView];
-		[imageView release];
+      [imageView release];
    }
    
    // message
@@ -340,9 +338,7 @@ void roadmap_foursquare_login_dialog(void) {
    iphoneTableFooter *footer = NULL;
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
    tableView.rowHeight = 54;
    
    if (headersArray) {
@@ -383,7 +379,6 @@ void roadmap_foursquare_login_dialog(void) {
 	iphoneCellEdit *editCell = NULL;
    iphoneCellSwitch *swCell = NULL;
    iphoneCell *cell = NULL;
-   UIImage *image = NULL;
    char footer_txt[512];
 	
    //group #1
@@ -397,11 +392,7 @@ void roadmap_foursquare_login_dialog(void) {
    //title
 	cell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"cell_icon"] autorelease];
    cell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get("Account details")];
-   image = roadmap_iphoneimage_load("foursquare_logo");
-   if (image) {
-      cell.imageView.image = image;
-      [image release];
-   }
+   cell.imageView.image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "foursquare_logo");
    [groupArray addObject:cell];
    
    //status

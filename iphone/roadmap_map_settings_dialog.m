@@ -30,7 +30,7 @@
 #include "widgets/iphoneCellSwitch.h"
 #include "widgets/iphoneTableHeader.h"
 #include "roadmap_checklist.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_skin.h"
 #include "Realtime.h"
 #include "RealtimeAlerts.h"
@@ -85,6 +85,7 @@ static const char * title = "Map";
 
 static char *AlertString[MAX_ALERTS];
 static int  alertsUserCanToggle[MAX_ALERTS];
+static int  countAlertsUserCanToggle;
 
 //Map settings events
 static const char* ANALYTICS_EVENT_MAPSETTINGS_NAME       = "MAP_SETTINGS";
@@ -126,10 +127,9 @@ static void show_map_scheme_dialog () {
       dict = [NSMutableDictionary dictionaryWithCapacity:1];
       text = [NSString stringWithUTF8String:roadmap_lang_get(scheme_labels[i])];
       [dict setValue:text forKey:@"text"];
-      image = roadmap_iphoneimage_load(scheme_icons[i]);
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, scheme_icons[i]);
       if (image) {
          [dict setValue:image forKey:@"image"];
-         [image release];
       }
       if (i == roadmap_skin_get_scheme()) {
          [dict setObject:accessoryType forKey:@"accessory"];
@@ -195,9 +195,7 @@ void roadmap_map_settings_dialog_show(void){
    
 	UITableView *tableView = [self tableView];
 	
-	[tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+	roadmap_main_set_table_color(tableView);
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -222,7 +220,6 @@ void roadmap_map_settings_dialog_show(void){
    iphoneCell *callbackCell = NULL;
 	iphoneCellSwitch *swCell = NULL;
    iphoneTableHeader *header = NULL;
-   int count;
    int i;
 	
 	
@@ -330,9 +327,9 @@ void roadmap_map_settings_dialog_show(void){
 	[groupArray addObject:swCell];
    
    //Show alerts
-   count = roadmap_map_settings_allowed_alerts(alertsUserCanToggle);
+   countAlertsUserCanToggle = roadmap_map_settings_allowed_alerts(alertsUserCanToggle);
    roadmap_map_settings_alert_string(AlertString);
-   for (i = 0; i < count; i++){
+   for (i = 0; i < countAlertsUserCanToggle; i++){
       if (!roadmap_config_match(&RoadMapConfigEnableToggleConstruction, "yes"))
          if ( alertsUserCanToggle[i] == RT_ALERT_TYPE_CONSTRUCTION ) // don't show construction
             continue;
@@ -378,16 +375,14 @@ void roadmap_map_settings_dialog_show(void){
 	char newDescriptorData[100];
 	char num[5];
 	BOOL firstReport = TRUE;
-	int count;
 	int i;
    iphoneCellSwitch *cellSwitch;
    
    UITableView *tableView = [self tableView];
    
-	count = sizeof(alertsUserCanToggle)/sizeof(int);
 	strcpy(newDescriptorData,"");
    
-	for (i = 0; i < count; i++){
+	for (i = 0; i < countAlertsUserCanToggle; i++){
 		
 		if (!roadmap_config_match(&RoadMapConfigEnableToggleConstruction, "yes"))
          if ( alertsUserCanToggle[i] == RT_ALERT_TYPE_CONSTRUCTION ) // don't show construction
@@ -407,6 +402,7 @@ void roadmap_map_settings_dialog_show(void){
 		}	 
 	}
 	roadmap_config_set(&RoadMapConfigReportDontShow,newDescriptorData);
+   RTAlerts_RefreshOnMap();
 }
 
 - (void)dealloc

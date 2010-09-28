@@ -304,6 +304,7 @@ static void on_recieved_completed (void) {
       roadmap_lang_set_lang_file_update_time("eng","");
       roadmap_prompts_set_update_time ("");
       roadmap_splash_set_update_time ("");
+      roadmap_splash_reset_check_time();
       roadmap_config_save(FALSE);
 #if (defined (IPHONE) || defined (ANDROID))
       roadmap_tile_remove_all(roadmap_locator_active());

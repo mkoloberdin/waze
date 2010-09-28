@@ -30,31 +30,31 @@
 #ifndef INCLUDE__ROADMAP_CANVAS_OGL__H
 #define INCLUDE__ROADMAP_CANVAS_OGL__H
 
+#include "roadmap.h"
 #include "roadmap_canvas.h"
 #include "roadmap_canvas3d.h" // roadmap_canvas3_ogl_prepare()
+
+#ifdef GTK2_OGL
+#include <GL/gl.h>
+#endif// GTK2_OGL
+
 
 #ifdef IPHONE
 #include <OpenGLES/ES1/gl.h>
 #include <OpenGLES/ES1/glext.h>
+#include "roadmap_wchar.h"
+#include "roadmap_libpng.h"
 #endif //IPHONE
 
 #ifdef ANDROID
-#include "roadmap_androidogl.h"
-#include "roadmap_androidmain.h"
+#include "android/roadmap_androidogl.h"
 #endif
 
-#ifdef __SYMBIAN32__
+#if defined(__SYMBIAN32__) || defined (_WIN32)
 #include <GLES/gl.h> // OpenGL ES header file
 #include <GLES/egl.h>      // EGL header file
 #endif
 
-
-#ifndef __SYMBIAN32__
-#ifndef GTK2_OGL
-#include "roadmap_wchar.h"
-#include "roadmap_libpng.h"
-#endif
-#endif //__SYMBIAN32__
 
 extern RoadMapCanvasMouseHandler RoadMapCanvasMouseButtonPressed;
 extern RoadMapCanvasMouseHandler RoadMapCanvasMouseButtonReleased;
@@ -63,6 +63,10 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 
 int roadmap_canvas_ogl_to_wchar (const char *text, wchar_t *output, int size);
 void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, float thickness_factor );
+BOOL roadmap_canvas_is_ready( void );
+void roadmap_canvas_set_max_tex_units( int units_num );
+
+//#define OPENGL_DEBUG
 
 #ifdef OPENGL_DEBUG
 #define check_gl_error() { \

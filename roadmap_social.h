@@ -32,10 +32,10 @@
 #define  TWITTER_USER_NAME_MIN_SIZE     (2)
 #define  TWITTER_PASSWORD_MIN_SIZE     (2)
 */
-#define  SOCIAL_CONFIG_TYPE			    ("user")
-#define  SOCIAL_CONFIG_PREF_TYPE       ("preferences")
-#define  TWITTER_CONFIG_TAB                ("Twitter")
-#define  FACEBOOK_CONFIG_TAB               ("Facebook")
+#define  SOCIAL_CONFIG_TYPE               ("user")
+#define  SOCIAL_CONFIG_PREF_TYPE          ("preferences")
+#define  TWITTER_CONFIG_TAB               ("Twitter")
+#define  FACEBOOK_CONFIG_TAB              ("Facebook")
 
 //   Twitter User name
 #define  SOCIAL_CFG_PRM_NAME_Name          ("Name")
@@ -81,6 +81,12 @@
 #define  SOCIAL_CFG_PRM_SHOW_PICTURE_Enabled    ("Enabled")
 #define  SOCIAL_CFG_PRM_SHOW_PICTURE_Friends    ("Friends")
 #define  SOCIAL_CFG_PRM_SHOW_PICTURE_Disabled   ("Disabled")
+
+//  Show user picture Enable / Disable:
+#define  SOCIAL_CFG_PRM_SHOW_PROFILE_Name       ("Show Profile")
+#define  SOCIAL_CFG_PRM_SHOW_PROFILE_Enabled    ("Enabled")
+#define  SOCIAL_CFG_PRM_SHOW_PROFILE_Friends    ("Friends")
+#define  SOCIAL_CFG_PRM_SHOW_PROFILE_Disabled   ("Disabled")
 
 // Logged in status
 #define  SOCIAL_CFG_PRM_LOGGED_IN_Name          ("Logged In")
@@ -144,6 +150,8 @@ void roadmap_twitter_disable_munching();
 BOOL roadmap_twitter_is_show_munching(void);
 BOOL roadmap_twitter_is_signup_enabled(void);
 void roadmap_twitter_set_signup(BOOL enabled);
+int roadmap_twitter_get_show_profile(void);
+void roadmap_twitter_set_show_profile(int mode);
 BOOL roadmap_facebook_is_munching_enabled(void);
 void roadmap_facebook_enable_munching();
 void roadmap_facebook_disable_munching();
@@ -151,6 +159,8 @@ int roadmap_facebook_get_show_name(void);
 void roadmap_facebook_set_show_name(int mode);
 int roadmap_facebook_get_show_picture(void);
 void roadmap_facebook_set_show_picture(int mode);
+int roadmap_facebook_get_show_profile(void);
+void roadmap_facebook_set_show_profile(int mode);
 
 void roadmap_twitter_login_failed(int status);
 void roadmap_twitter_set_logged_in (BOOL is_logged_in);
@@ -161,7 +171,7 @@ void roadmap_facebook_connect(BOOL preload);
 void roadmap_facebook_disconnect(void);
 void roadmap_facebook_refresh_connection (void);
 void roadmap_facebook_invite(void);
-void roadmap_facebook_send_permissions (void);
+void roadmap_social_send_permissions (void);
 
 
 #endif /* INCLUDE__ROADMAP_SOCIAL__H */

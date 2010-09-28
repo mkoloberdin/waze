@@ -400,8 +400,9 @@ static void delayed_short_click (void) {
    }
    
    delayed_widget->in_focus = FALSE;
+
    if (delayed_widget->parent->parent->flags & SSD_DIALOG_FLOAT)
-      ssd_dialog_hide_current(dec_close);
+      ssd_dialog_hide(delayed_widget->parent->parent->name, dec_close);
 
 #ifdef TOUCH_SCREEN
    if (delayed_widget)
@@ -655,6 +656,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
                ssd_widget_set_pointer_force_click(w);
                text = ssd_text_new("cancel", roadmap_lang_get("Cancel"), 18, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
                ssd_text_set_color(text, "#ffffff");
+			   ssd_widget_set_pointer_force_click(w);
                ssd_widget_add(w, text);
                ssd_widget_add (container, w);
             }

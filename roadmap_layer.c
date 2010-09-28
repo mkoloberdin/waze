@@ -123,7 +123,7 @@ static void roadmap_layer_reload_internal (void) {
         const char *class_name;
         const char *color[ROADMAP_LAYER_PENS];
         const char *label_color;
-
+		int bg_color;
         int  thickness;
         int  other_pens_length = strlen(name) + 64;
         char *other_pens = malloc(other_pens_length);
@@ -166,8 +166,8 @@ static void roadmap_layer_reload_internal (void) {
 
         if ( roadmap_screen_is_hd_screen() )
         {
-         category->thickness = (int)(category->thickness * 1.5);
-         thickness = (int)(thickness * 1.5);
+         category->thickness = (int)(category->thickness * roadmap_screen_get_screen_scale() /100);
+         thickness = (int)(thickness * roadmap_screen_get_screen_scale() /100);
         }
 
         if (!initialized) {
@@ -227,7 +227,7 @@ static void roadmap_layer_reload_internal (void) {
 #ifndef ANDROID
            if ( roadmap_screen_is_hd_screen() )
            {
-            category->delta_thickness[j] = (int)(category->delta_thickness[j] * 1.5);
+            category->delta_thickness[j] = (int)(category->delta_thickness[j] * roadmap_screen_get_screen_scale() /100);
            }
 #endif
 
@@ -290,9 +290,9 @@ static void roadmap_layer_reload_internal (void) {
            roadmap_canvas_set_foreground (global_label_color);
         }
 #ifdef OPENGL
-        int bg_color = (category->pen_count > 2 ? 1 : 0);
+        bg_color = (category->pen_count > 2 ? 1 : 0);
         if (color[bg_color] != NULL && *(color[bg_color]) > ' ') {
-           roadmap_canvas_set_background (global_label_bg_color);
+				roadmap_canvas_set_background (global_label_bg_color);
         }
 #endif //OPENGL
 
@@ -356,6 +356,7 @@ void roadmap_layer_adjust (void) {
    int i;
    int j;
    int k;
+   int future_thickness;
    int thickness;
    struct roadmap_canvas_category *category;
 
@@ -392,7 +393,7 @@ void roadmap_layer_adjust (void) {
                /* As a matter of taste, I do dislike roads with a filler
                 * of 1 pixel. Lets force at least a filler of 2.
                 */
-               int future_thickness = thickness;
+               future_thickness = thickness;
 
                for (j = 1; j < category->pen_count; ++j) {
 
@@ -432,8 +433,8 @@ void roadmap_layer_adjust (void) {
                   thickness += category->delta_thickness[j];
                   
 #ifdef VIEW_MODE_3D_OGL
-                  if (roadmap_screen_get_view_mode() == VIEW_MODE_3D &&
-                      !roadmap_screen_fast_refresh())
+                  if (roadmap_screen_get_view_mode() == VIEW_MODE_3D/* &&
+                      !roadmap_screen_fast_refresh()*/)
                      thickness += category->delta_thickness[j]*2; //increase the delta
 #endif
 

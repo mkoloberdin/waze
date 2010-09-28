@@ -35,7 +35,7 @@
 #include "ssd/ssd_confirm_dialog.h"
 
 #include "roadmap_iphonemain.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_iphonemessagebox.h"
 
@@ -359,17 +359,15 @@ static void confirm_removed (void) {
 {
    UIImage *image = NULL;
    UIButton *button = [UIButton buttonWithType: UIButtonTypeCustom];
-   image = roadmap_iphoneimage_load("button_up");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
    if (image) {
       [button setBackgroundImage:[image stretchableImageWithLeftCapWidth:10 topCapHeight:10]
                           forState:UIControlStateNormal];
-      [image release];
    }
-   image = roadmap_iphoneimage_load("button_down");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
    if (image) {
       [button setBackgroundImage:[image stretchableImageWithLeftCapWidth:10 topCapHeight:10]
                           forState:UIControlStateHighlighted];
-      [image release];
    }
 
    [button setTitleEdgeInsets:UIEdgeInsetsMake(5, 5, 5, 5)];
@@ -388,11 +386,11 @@ static void confirm_removed (void) {
                andNoText: (const char*) noText
 {
    UIImage *image;
-	CGRect rect;
-	
+   CGRect rect;
+   
    roadmap_main_get_bounds(&rect);
    [self setFrame:rect];
-	[self setBackgroundColor:[UIColor clearColor]];
+   [self setBackgroundColor:[UIColor clearColor]];
    [self setAutoresizesSubviews:YES];
    [self setAutoresizingMask:UIViewAutoresizingFlexibleHeight | UIViewAutoresizingFlexibleWidth];
    
@@ -400,19 +398,18 @@ static void confirm_removed (void) {
    messageView = [[UIView alloc] initWithFrame:CGRectZero];
    [self addSubview:messageView];
    [messageView release];
-	
-	//background image
-	image = roadmap_iphoneimage_load(MESSAGE_BOX_IMAGE);
-	if (image) {
+   
+   //background image
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, MESSAGE_BOX_IMAGE);
+   if (image) {
       minHeight = image.size.height;
       minWidth = image.size.width;
-		backgroundImage = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:30
+      backgroundImage = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:30
                                                                                       topCapHeight:40]];
-		[image release];
       [messageView addSubview:backgroundImage];
       [backgroundImage release];
-	}
-	
+   }
+   
    //title
    if ((title) && strlen(title) > 0) {
       titleLabel = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -427,18 +424,18 @@ static void confirm_removed (void) {
    } else {
       titleLabel = NULL;
    }
-	
-	//Content
-	contentLabel = [[UILabel alloc] initWithFrame:CGRectZero];
-	[contentLabel setText:[NSString stringWithUTF8String:roadmap_lang_get(content)]];
-	[contentLabel setBackgroundColor:[UIColor clearColor]];
+   
+   //Content
+   contentLabel = [[UILabel alloc] initWithFrame:CGRectZero];
+   [contentLabel setText:[NSString stringWithUTF8String:roadmap_lang_get(content)]];
+   [contentLabel setBackgroundColor:[UIColor clearColor]];
    [contentLabel setTextColor:[UIColor whiteColor]];
-	[contentLabel setNumberOfLines:0];
-	[contentLabel setTextAlignment:UITextAlignmentCenter];
-	[contentLabel setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin];
-	[messageView addSubview:contentLabel];
-	[contentLabel release];
-	
+   [contentLabel setNumberOfLines:0];
+   [contentLabel setTextAlignment:UITextAlignmentCenter];
+   [contentLabel setAutoresizingMask:UIViewAutoresizingFlexibleBottomMargin];
+   [messageView addSubview:contentLabel];
+   [contentLabel release];
+   
    if (!ConfirmCallback) {
       //OK button
       okButton = [self newButton];

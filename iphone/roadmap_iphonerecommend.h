@@ -32,8 +32,8 @@
 
 }
 
-
 @end
+
 
 #ifdef CHOMP
 @interface RoadMapChompDelegate : NSObject <ChompDialogDelegate> {
@@ -42,5 +42,15 @@
 
 @end
 #endif //CHOMP
+
+
+@interface RoadMapRateUsView : UIViewController <UIScrollViewDelegate>{
+   RoadMapCallback onCloseCallback;
+}
+
+- (void)show: (RoadMapCallback)onClose;
+
+@end
+
 
 #endif // __ROADMAP_IPHONERECOMMEND__H

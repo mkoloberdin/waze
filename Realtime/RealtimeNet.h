@@ -147,6 +147,10 @@ BOOL  RTNet_NodePath(     LPRTConnectionInfo   pCI,
                            CB_OnWSTCompleted pfnOnCompleted,
                            char*                packet_only);
 
+BOOL  RTNet_ExternalPoiDisplayed(     LPRTConnectionInfo   pCI,
+                           CB_OnWSTCompleted pfnOnCompleted,
+                           char*                packet_only);
+
 BOOL  RTNet_ReportAlert(   LPRTConnectionInfo   pCI,
                            int                  iType,
                            const char*          szDescription,
@@ -177,8 +181,8 @@ BOOL  RTNet_ReportAlertAtPosition(
                         BOOL								bForwardToTwitter,
                         BOOL                       bForwardToFacebook,
                         const RoadMapGpsPosition*  MyLocation,
-                        int 				from_node,
-                        int 				to_node,
+                        int 				            from_node,
+                        int 				            to_node,
                         const char*                szGroup,
                         CB_OnWSTCompleted       	pfnOnCompleted);
 
@@ -391,10 +395,24 @@ BOOL RTNet_KeepAlive( LPRTConnectionInfo   pCI,
 
 
 BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
-                                  int                 iSHowFacebookName,
-                                  int                 iSHowFacebookPicture,
+                                 int                  iShowFacebookName,
+                                 int                  iShowFacebookPicture,
+                                 int                  iShowFacebookProfile,
+                                 int                  iShowTwitterProfile,
+                                 CB_OnWSTCompleted    pfnOnCompleted);
+
+
+BOOL  RTNet_ExternalPoiNotifyOnPopUp (LPRTConnectionInfo   pCI,
+                                  int                 iID,
                                   CB_OnWSTCompleted   pfnOnCompleted);
 
+BOOL  RTNet_ExternalPoiNotifyOnNavigate (LPRTConnectionInfo   pCI,
+                                  int                 iID,
+                                  CB_OnWSTCompleted   pfnOnCompleted);
+
+BOOL  RTNet_NotifySplashUpdateTime (LPRTConnectionInfo pCI,
+                                  const char *         update_time,
+                                  CB_OnWSTCompleted    pfnOnCompleted);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 

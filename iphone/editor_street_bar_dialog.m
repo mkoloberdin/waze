@@ -29,7 +29,6 @@
 #include "roadmap_lang.h"
 #include "roadmap_canvas.h"
 #include "roadmap_iphonecanvas.h"
-#include "roadmap_iphoneimage.h"
 #include "editor/editor_main.h"
 #include "editor/editor_screen.h"
 #include "editor/db/editor_street.h"
@@ -551,17 +550,16 @@ BOOL editor_street_bar_active (void) {
    
    dirButton = (UIButton *)[self viewWithTag:ID_DIR_BTN];
    if (this_direction == ROUTE_DIRECTION_ANY) {
-      image = roadmap_iphoneimage_load("street_bar_two_ways");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_two_ways");
       dirButton.enabled = NO;
    } else {
-      image = roadmap_iphoneimage_load("street_bar_one_way");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_one_way");
       dirButton.enabled = YES;
    }
    saved_dir = this_direction;
    dir = saved_dir;
    [dirButton setBackgroundImage:image forState:UIControlStateNormal];
    [dirButton sizeToFit];
-   [image release];
    
    if (isTracking) {
       textField = (UITextField *)[self viewWithTag:ID_LEFT];
@@ -720,16 +718,15 @@ BOOL editor_street_bar_active (void) {
    
    if (dir == ROUTE_DIRECTION_ANY) {
       dir = saved_dir;
-      image = roadmap_iphoneimage_load("street_bar_one_way");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_one_way");
    } else {
       dir = ROUTE_DIRECTION_ANY;
-      image = roadmap_iphoneimage_load("street_bar_two_ways");
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_two_ways");
    }
    
    if (image) {
       button = (UIButton *)[self viewWithTag:ID_DIR_BTN];
       [button setBackgroundImage:image forState:UIControlStateNormal];
-      [image release];
    }
 }
 
@@ -751,7 +748,7 @@ BOOL editor_street_bar_active (void) {
    //Secondary view
    ////////////////
    //background
-   image = roadmap_iphoneimage_load("street_bar_secondary_bg");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_secondary_bg");
    if (!image)
       roadmap_log (ROADMAP_FATAL, "Could not load secondary bg: 'street_bar_secondary_bg'");
 
@@ -768,7 +765,6 @@ BOOL editor_street_bar_active (void) {
    rect.origin = CGPointMake(0, 0);
    imageView = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:1 
                                                                              topCapHeight:5]];
-   [image release];
    imageView.frame = rect;
    imageView.tag = ID_SEC_BG;
    [secView addSubview:imageView];
@@ -850,9 +846,8 @@ BOOL editor_street_bar_active (void) {
    [button setTitleShadowColor:[UIColor colorWithRed:1.0f green:1.0f blue:1.0f alpha:1.0f] forState:UIControlStateNormal];
    button.titleLabel.shadowOffset = CGSizeMake(0, 1.0);
    button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
-   image = roadmap_iphoneimage_load("street_bar_button");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_button");
    [button setBackgroundImage:image forState:UIControlStateNormal];
-   [image release];
    [button sizeToFit];
    buttonW = button.bounds.size.width;
    [button addTarget:self action:@selector(onClose) forControlEvents:UIControlEventTouchUpInside];
@@ -868,9 +863,8 @@ BOOL editor_street_bar_active (void) {
    [button setTitleShadowColor:[UIColor colorWithRed:1.0f green:1.0f blue:1.0f alpha:1.0f] forState:UIControlStateNormal];
    button.titleLabel.shadowOffset = CGSizeMake(0, 1.0);
    button.titleLabel.font = [UIFont boldSystemFontOfSize:14];
-   image = roadmap_iphoneimage_load("street_bar_button");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_button");
    [button setBackgroundImage:image forState:UIControlStateNormal];
-   [image release];
    [button sizeToFit];
    buttonW = button.bounds.size.width;
    [button addTarget:self action:@selector(onSave) forControlEvents:UIControlEventTouchUpInside];
@@ -883,9 +877,8 @@ BOOL editor_street_bar_active (void) {
    button.tag = ID_MORE_BTN;
    [button setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
    button.titleLabel.font = [UIFont systemFontOfSize:14];
-   image = roadmap_iphoneimage_load("street_bar_more");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_more");
    [button setImage:image forState:UIControlStateNormal];
-   [image release];
    [button addTarget:self action:@selector(onMore) forControlEvents:UIControlEventTouchUpInside];
    button.frame = CGRectMake(5, SECONDARY_H - ROW_H - 5, secView.frame.size.width - 20 - buttonW*2, ROW_H);
    button.titleEdgeInsets = UIEdgeInsetsMake(0, 20, 0, 0);
@@ -901,12 +894,11 @@ BOOL editor_street_bar_active (void) {
    //Main view
    ////////////////
    //background
-   image = roadmap_iphoneimage_load("street_bar_bg");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_bg");
    if (image) {
       rect = CGRectMake(0, 0, /*roadmap_canvas_width()*/320, image.size.height);
       imageView = [[UIImageView alloc] initWithImage:[image stretchableImageWithLeftCapWidth:image.size.width - 1
                                                                                 topCapHeight:0]];
-      [image release];
       imageView.frame = rect;
       imageView.tag = ID_MAIN_BG;
       [self addSubview:imageView];
@@ -918,9 +910,8 @@ BOOL editor_street_bar_active (void) {
    //X (cancel) button
    button = [UIButton buttonWithType:UIButtonTypeCustom];
    button.tag = ID_X_BTN;
-   image = roadmap_iphoneimage_load("street_bar_x_tab");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_x_tab");
    [button setBackgroundImage:image forState:UIControlStateNormal];
-   [image release];
    [button sizeToFit];
    [button addTarget:self action:@selector(onClose) forControlEvents:UIControlEventTouchUpInside];
    button.frame = CGRectMake(2, totalSize.height - 3,
@@ -942,10 +933,9 @@ BOOL editor_street_bar_active (void) {
    textField.tag = ID_LEFT;
    textField.adjustsFontSizeToFitWidth = YES;
    textField.minimumFontSize = 10;
-   image = roadmap_iphoneimage_load("street_bar_house");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_house");
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       textField.rightView = imageView;
       [imageView release];
    }
@@ -965,10 +955,9 @@ BOOL editor_street_bar_active (void) {
    textField.tag = ID_RIGHT;
    textField.adjustsFontSizeToFitWidth = YES;
    textField.minimumFontSize = 10;
-   image = roadmap_iphoneimage_load("street_bar_house");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_house");
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       textField.leftView = imageView;
       [imageView release];
    }
@@ -976,12 +965,11 @@ BOOL editor_street_bar_active (void) {
    [textField release];
    
    //left arrow
-   image = roadmap_iphoneimage_load("street_bar_left");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_left");
    if (image) {
       arrowW = image.size.width;
       streetBoxW -= arrowW;
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       rect = CGRectMake(HOUSE_BOX_W + 2*5, 5 + (ROW_H - image.size.height)/2, image.size.width, image.size.height);
       imageView.frame = rect;
       imageView.tag = ID_LEFT_ARROW;
@@ -990,12 +978,11 @@ BOOL editor_street_bar_active (void) {
    }
    
    //right arrow
-   image = roadmap_iphoneimage_load("street_bar_right");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "street_bar_right");
    if (image) {
       arrowW = image.size.width;
       streetBoxW -= arrowW;
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       rect = CGRectMake(HOUSE_BOX_W + 4*5 + arrowW + streetBoxW, 5 + (ROW_H - image.size.height)/2, image.size.width, image.size.height);
       imageView.frame = rect;
       imageView.tag = ID_RIGHT_ARROW;

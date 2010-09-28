@@ -88,9 +88,7 @@ void ShowEditbox(const char* aTitleUtf8,
 {
 	UITableView *tableView = [self tableView];
 	[tableView setRowHeight:120.0f];
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
@@ -140,6 +138,7 @@ void ShowEditbox(const char* aTitleUtf8,
    
    gCell = [[EditBoxCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"simpleCell"];
 	[gCell setText: gTextView];
+   [gCell setBackgroundColor:[UIColor whiteColor]];
 	
 	gContext = context;
 	gCallback = callback;

@@ -208,8 +208,8 @@ void roadmap_canvas_get_cording_pt (RoadMapGuiPoint points[MAX_CORDING_POINTS])
 	for (i = 0; i < MAX_CORDING_POINTS; ++i) {
 		if ([CordingPoints count] > i) {
 			touch = [CordingPoints objectAtIndex:i];
-			points[i].x = [touch locationInView:RoadMapDrawingArea].x;
-			points[i].y = [touch locationInView:RoadMapDrawingArea].y;
+			points[i].x = (int)([touch locationInView:RoadMapDrawingArea].x * roadmap_screen_get_screen_scale() / 100);
+			points[i].y = (int)([touch locationInView:RoadMapDrawingArea].y * roadmap_screen_get_screen_scale() / 100);
 		} else {
 			points[i].x = -1;
 			points[i].y = -1;
@@ -276,7 +276,7 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    
    roadmap_canvas_refresh();
    
-   roadmap_canvas_ogl_configure (0.0, 1.2, 2.0);
+   roadmap_canvas_ogl_configure (0.0, 1.2 * roadmap_screen_get_screen_scale()/100, 2.0);
    
    (*RoadMapCanvasConfigure) ();
    
@@ -426,6 +426,10 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    RoadMapEAGLLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
                                    [NSNumber numberWithBool:TRUE], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
    
+   if (roadmap_screen_get_screen_scale() == 200) {
+      RoadMapEAGLLayer.contentsScale = 2.0;
+   }
+   
    [self setContext];
 	//roadmap_canvas3_ogl_prepare();
 
@@ -457,31 +461,16 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
        (roadmap_canvas_height() == self.bounds.size.height &&
         roadmap_canvas_width() == self.bounds.size.width))
       return;
-   
-   //roadmap_log(ROADMAP_WARNING, "Changing layout from: (%d, %d) to: (%f, %f)", 
-   //            roadmap_canvas_width(), roadmap_canvas_height(), self.bounds.size.width, self.bounds.size.height);
-   
+
    if (![EAGLContext setCurrentContext:RoadMapGc])
       roadmap_log(ROADMAP_FATAL, "Error setting EAGLContext");
    
    if ((CAEAGLLayer*)self.layer != RoadMapEAGLLayer)
       roadmap_log(ROADMAP_FATAL, "Different layer !!!");
-   
-   //needsResize = TRUE;
-   //return;
-   
-	//[self destroyFramebuffer];
-	//[self setContext];
+
    [self resize];
    
    roadmap_canvas3_ogl_prepare();
-   //needsResize = TRUE;
-
-   
-   //[self setupView];
-   //skipDraw = TRUE;
-   //(*RoadMapCanvasConfigure) ();
-   //roadmap_device_event_notification( device_event_window_orientation_changed);
 }
 
 - (void)setupView {
@@ -513,6 +502,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
 
    glEnableClientState(GL_VERTEX_ARRAY);
+   
+   glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
    //glEnableClientState(GL_TEXTURE_COORD_ARRAY);
    
    /*
@@ -525,27 +516,17 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
    */
-   roadmap_canvas_ogl_configure(0.0, 1.2, 2.0);
+   roadmap_canvas_ogl_configure(0.0, 1.2 * roadmap_screen_get_screen_scale()/100, 2.0);
 }
 
 
 - (void)drawView {
-   //roadmap_log(ROADMAP_WARNING, "\n\finishing drawing stuff\n\n");
-   /*
-   if (skipDraw) {
-      skipDraw = FALSE;
-      return;
-   }
-    */
+
    [EAGLContext setCurrentContext:RoadMapGc];
-   
-   //glDisableClientState(GL_VERTEX_ARRAY);
-   //glDisableClientState(GL_TEXTURE_COORD_ARRAY);
-   
+
    glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
    
-   [RoadMapGc presentRenderbuffer:GL_RENDERBUFFER_OES];
-   //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);   
+   [RoadMapGc presentRenderbuffer:GL_RENDERBUFFER_OES];  
 }
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -571,8 +552,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 	
 	touch = [CordingPoints objectAtIndex:0];
 	p = [touch locationInView:self];
-	point.x = (int)p.x;
-	point.y = (int)p.y;
+	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
+	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
 	(*RoadMapCanvasMouseButtonPressed) (&point);
 	
 }
@@ -585,8 +566,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 	
 	touch = [touches anyObject];
 	p = [touch locationInView:self];
-	point.x = (int)p.x;
-	point.y = (int)p.y;
+	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
+	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
 	
 	[CordingPoints removeObjectsInArray:[touches allObjects]];
 	/*
@@ -618,8 +599,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    
 	touch = [CordingPoints objectAtIndex:0];
 	p = [touch locationInView:self];
-	point.x = (int)p.x;
-	point.y = (int)p.y;
+	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
+	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
 	
 	(*RoadMapCanvasMouseMoved) (&point);
 }

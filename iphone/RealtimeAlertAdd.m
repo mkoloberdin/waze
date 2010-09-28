@@ -42,7 +42,7 @@
 #include "roadmap_config.h"
 #include "roadmap_time.h"
 #include "roadmap_groups.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_iphonecanvas.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_device_events.h"
@@ -133,9 +133,9 @@ static void show_groups() {
       [dict setValue:text forKey:@"text"];
       icon = roadmap_groups_get_active_group_icon();
       if (icon && icon[0] != 0)
-         image = roadmap_iphoneimage_load(icon);
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
       else
-         image = roadmap_iphoneimage_load("groups_default_icons");
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "groups_default_icons");
       
       [dict setValue:image forKey:@"image"];
       
@@ -155,9 +155,9 @@ static void show_groups() {
       [dict setValue:text forKey:@"text"];
       icon = roadmap_groups_get_following_group_icon(i);
       if (icon && icon[0] != 0)
-         image = roadmap_iphoneimage_load(icon);
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
       else
-         image = roadmap_iphoneimage_load("groups_default_icons");
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "groups_default_icons");
       
       [dict setValue:image forKey:@"image"];
       
@@ -322,6 +322,14 @@ void add_real_time_chit_chat()
 	if (!add_alert_request_valid()) {
 		return;
 	}
+   
+   if (Realtime_RandomUserMsg()) {
+      return;
+   }
+   
+   if (Realtime_AnonymousMsg()) {
+      return;
+   }
 	
 	alertView = [[AlertAddView alloc] init];
 	[alertView showWithType:RT_ALERT_TYPE_CHIT_CHAT];
@@ -388,16 +396,15 @@ void add_real_time_chit_chat()
 	
 	if (alertDirection == MY_DIRECTION) {
 		[newButtonDirection setTitle:[NSString stringWithUTF8String:roadmap_lang_get ("My direction")] forState:UIControlStateNormal];
-		image = roadmap_iphoneimage_load("mydirection");
+		image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "mydirection");
 	} else {
 		[newButtonDirection setTitle:[NSString stringWithUTF8String:roadmap_lang_get ("Opposite direction")] forState:UIControlStateNormal];
-		image = roadmap_iphoneimage_load("oppositedirection");
+		image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "oppositedirection");
 	}
 	
 	if (image) {
 		[newButtonDirection setImage:image forState:UIControlStateNormal];
 		[newButtonDirection setImageEdgeInsets:UIEdgeInsetsMake(5, 0, 5, 10)];
-		[image release];
 	}
 	
 	
@@ -447,10 +454,9 @@ void add_real_time_chit_chat()
 	roadmap_file_remove(path, file_name);
 	
 	//Clear the old image
-	UIImage *image = roadmap_iphoneimage_load("add_image_box");
+	UIImage *image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "add_image_box");
 	if (image) {
 		[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
 	}
 	[imageButton setTitle:@"Add image" forState:UIControlStateNormal];
    if (!roadmap_horizontal_screen_orientation())
@@ -692,29 +698,25 @@ void add_real_time_chit_chat()
 	NSString *text;
 	iphoneLabel *label;
 	CGRect rect;
-	char description[300];
 	char report_icon[100];
 	char minimized_icon[100];
-	char sLocationStr[200];
 	
 	//background frame
-	image = roadmap_iphoneimage_load("report_frame");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "report_frame");
 	if (image) {
 		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:60];
 		bgFrame = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
 		[scrollView addSubview:bgFrame];
 		[bgFrame release];
 	}
 	
 	//frame arrow (button)
-	image = roadmap_iphoneimage_load("report_frame_arrow");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "report_frame_arrow");
 	if (image) {
 		bgFrameButton = [UIButton buttonWithType:UIButtonTypeCustom];
 		[bgFrameButton setBackgroundImage:image forState:UIControlStateNormal];
 		rect = CGRectZero;
 		rect.size = image.size;
-		[image release];
 		[bgFrameButton setFrame:rect];
 		[bgFrameButton addTarget:self action:@selector(onHide) forControlEvents:UIControlEventTouchUpInside];
 		[scrollView addSubview:bgFrameButton];
@@ -758,9 +760,7 @@ void add_real_time_chit_chat()
 	}
 		
 	//icon
-	if (iconImage)
-		[iconImage release];
-	iconImage = roadmap_iphoneimage_load(report_icon);
+	iconImage = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, report_icon);
 	if (iconImage) {
 		imageView = [[UIImageView alloc] initWithImage:iconImage];
 		rect = gRectIcon;
@@ -775,7 +775,7 @@ void add_real_time_chit_chat()
 	//minimized icon
 	if (minimizedImage)
 		[minimizedImage release];
-	minimizedImage = roadmap_iphoneimage_load(minimized_icon);
+	minimizedImage = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, minimized_icon);
 	
 	//comment editbox
 	commentEditbox = [[UITextField alloc] initWithFrame:gRectEditbox];
@@ -820,10 +820,9 @@ void add_real_time_chit_chat()
 	//image button
 	imageButton = [UIButton buttonWithType:UIButtonTypeCustom];
 	
-	image = roadmap_iphoneimage_load("add_image_box");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "add_image_box");
 	if (image) {
 		[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
 	}
 	[imageButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Add image")] forState:UIControlStateNormal];
 	[imageButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
@@ -836,15 +835,13 @@ void add_real_time_chit_chat()
    //cancel button
 	cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
 	[cancelButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Cancel")] forState:UIControlStateNormal];
-	image = roadmap_iphoneimage_load("button_up");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
 	if (image) {
 		[cancelButton setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
 	}
-	image = roadmap_iphoneimage_load("button_down");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
 	if (image) {
 		[cancelButton setBackgroundImage:image forState:UIControlStateHighlighted];
-		[image release];
 	}
 	[cancelButton setFrame:gRectCancel];
 	[cancelButton addTarget:self action:@selector(onCancel) forControlEvents:UIControlEventTouchUpInside];
@@ -853,15 +850,13 @@ void add_real_time_chit_chat()
 	//hide button
 	hideButton = [UIButton buttonWithType:UIButtonTypeCustom];
 	[hideButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Hide")] forState:UIControlStateNormal];
-	image = roadmap_iphoneimage_load("button_up");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
 	if (image) {
 		[hideButton setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
 	}
-	image = roadmap_iphoneimage_load("button_down");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
 	if (image) {
 		[hideButton setBackgroundImage:image forState:UIControlStateHighlighted];
-		[image release];
 	}
 	[hideButton setFrame:gRectHide];
 	[hideButton addTarget:self action:@selector(onHide) forControlEvents:UIControlEventTouchUpInside];
@@ -953,14 +948,13 @@ void add_real_time_chit_chat()
          [groupButton setTitle:[NSString stringWithUTF8String:group_name]
                       forState:UIControlStateNormal];
          
-         image = roadmap_iphoneimage_load(roadmap_groups_get_selected_group_icon());
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, roadmap_groups_get_selected_group_icon());
          if (!image) {
-            image = roadmap_iphoneimage_load("groups_default_icons");
+            image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "groups_default_icons");
          }
          if (image) {
             [groupButton setImage:image forState:UIControlStateNormal];
             [groupButton setImageEdgeInsets:UIEdgeInsetsMake(3, 0, 2, 10)];
-            [image release];
          }
       } else {
          [groupButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("No group")]
@@ -1024,11 +1018,6 @@ void add_real_time_chit_chat()
    
    if (isHidden)
       [collapsedView removeFromSuperview];
-	
-   [iconImage release];
-	
-	if (minimizedImage)
-		[minimizedImage release];
 	
    if (isRestoreFocuse)
       roadmap_trip_restore_focus();

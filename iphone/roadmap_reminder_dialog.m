@@ -26,7 +26,7 @@
 #include "roadmap_main.h"
 #include "roadmap_iphonemain.h"
 #include "roadmap_lang.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_lang.h"
 #include "roadmap_device_events.h"
 #include "roadmap_keyboard.h"
@@ -396,21 +396,19 @@ void reminder_add_dlg (PluginStreetProperties *properties, RoadMapPosition *posi
    
    
    // frame image
-   image = roadmap_iphoneimage_load("comments_alert");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
 	if (image) {
 		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
 		imageView = [[UIImageView alloc] initWithImage:strechedImage];
-		[image release];
       imageView.tag = VIEW_TAG_BG_FRAME;
 		[containerView addSubview:imageView];
 		[imageView release];
 	}
    
    // icon
-   image = roadmap_iphoneimage_load("reminder");
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "reminder");
    if (image) {
       imageView = [[UIImageView alloc] initWithImage:image];
-      [image release];
       imageView.tag = VIEW_TAG_ICON;
       [containerView addSubview:imageView];
 		[imageView release];

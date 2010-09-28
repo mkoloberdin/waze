@@ -411,7 +411,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    RTAlertCommentsEntry *CommentEntry;
 
    dialog = ssd_dialog_new ("alert_comments",
-                             roadmap_lang_get("Real Time Alerts Comments"),
+                             roadmap_lang_get("Comments"),
                              NULL,
                              SSD_CONTAINER_TITLE);
 #ifndef TOUCH_SCREEN

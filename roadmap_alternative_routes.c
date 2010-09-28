@@ -1402,7 +1402,7 @@ void roadmap_alternative_routes_suggest_route_dialog () {
    ssd_widget_add (inner_con, text);
    ssd_widget_add (inner_con, space (3));
 
-   ssd_widget_add(inner_con, navigate_res_ETA_widget(pAltRoute->iTripDistance, pAltRoute->iTripLenght, "", FALSE, on_alt_routes_btn_cb));
+   ssd_widget_add(inner_con, navigate_res_ETA_widget(pAltRoute->iTripDistance, pAltRoute->iTripLenght, "", FALSE, TRUE, on_alt_routes_btn_cb));
    navigate_res_hide_ETA_widget(inner_con);
 
    // Progress image

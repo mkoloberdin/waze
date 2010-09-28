@@ -35,6 +35,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 #include <netinet/in.h>
 #include <netdb.h>
 
@@ -71,6 +72,8 @@
 #include "roadmap_math.h"
 #include "Realtime.h"
 #include "../navigate/navigate_main.h"
+#include "roadmap_browser.h"
+#include "roadmap_iphonebrowser.h"
 
 #ifdef FLURRY
 #import "FlurryAPI.h"
@@ -79,7 +82,7 @@ extern const char *FLURRY_API_KEY;
 
 #import <CFNetwork/CFProxySupport.h>
 #import <MediaPlayer/MediaPlayer.h>
-
+#import <SystemConfiguration/SystemConfiguration.h>
 
 
 
@@ -150,6 +153,8 @@ static int iPhoneIconsInitialized = 0;
 #define BOTTOM_BAR_HEIGHT     49.0f //40.0f
 #define BOTTOM_BAR_HEIGHT_LS  41.0f //32.0f
 #define BACKGROUND_TIMEOUT       (10*60*1000)
+
+static void on_device_event(device_event event, void* context);
 
 
 static void roadmap_main_screen_refresh (int refresh) {
@@ -537,6 +542,31 @@ static void internal_set_output (CFSocketRef s, RoadMapIO *io, RoadMapInput call
    }
 }
 
+void reachabilityCallBack	(SCNetworkReachabilityRef	target,
+                            SCNetworkReachabilityFlags	flags,
+                            void				*info
+                            ){
+   
+   if (flags & kSCNetworkReachabilityFlagsReachable) {
+      roadmap_log(ROADMAP_WARNING, "Network reachability changed: connected");
+      //roadmap_device_event_notification(device_event_network_connected);
+   } else {
+      roadmap_log(ROADMAP_WARNING, "Network reachability changed: NOT connected");
+      //roadmap_device_event_notification(device_event_network_disconnected);
+   }
+}
+
+void start_monitor_network(void)
+{
+   struct sockaddr_in zeroAddr;
+	bzero(&zeroAddr, sizeof(zeroAddr));
+	zeroAddr.sin_len = sizeof(zeroAddr);
+	zeroAddr.sin_family = AF_INET;
+   SCNetworkReachabilityRef reachability = SCNetworkReachabilityCreateWithAddress(NULL, (struct sockaddr *) &zeroAddr);
+   SCNetworkReachabilitySetCallback(reachability, reachabilityCallBack, NULL);
+   SCNetworkReachabilityScheduleWithRunLoop(reachability, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+}
+
 void dummy_url_request (void) {
    //dummy http request to init connection (workaround)
    NSURLRequest *request;
@@ -544,8 +574,8 @@ void dummy_url_request (void) {
    
    // create the request
    request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.waze.com/"]
-                                             cachePolicy:NSURLRequestUseProtocolCachePolicy
-                                         timeoutInterval:60.0];
+                                             cachePolicy:NSURLRequestReloadIgnoringCacheData
+                                         timeoutInterval:5.0];
    // create the connection with the request
    // and start loading the data   
    connection = [[NSURLConnection alloc] initWithRequest:request delegate:TheApp];
@@ -641,6 +671,20 @@ void roadmap_main_flush (void) {
                               beforeDate:next];
 }
 
+/*************************************************************************************************
+ * void roadmap_main_browser_launcher( RMBrowserContext* context )
+ * Shows the iPhone browser view
+ *
+ */
+static void roadmap_main_browser_launcher( const RMBrowserContext* context )
+{
+//   CGRect rect = CGRectMake(context->right_margin, context->top_margin, context->width, context->height);
+   CGRect rect = CGRectMake(context->rect.minx, context->rect.miny,
+                            context->rect.maxx - context->rect.minx +1, context->rect.maxy - context->rect.miny +1);
+   roadmap_browser_iphone_show (rect, context->url, context->flags,
+                                context->attrs.title_attrs.title, context->attrs.on_close_cb);
+}
+
 
 int roadmap_main_flush_synchronous (int deadline) {
    NSLog (@"roadmap_main_flush_synchronous\n");
@@ -677,7 +721,12 @@ void roadmap_main_exit (void) {
 static void roadmap_start_event (int event) {
    switch (event) {
    case ROADMAP_START_INIT:
-      editor_main_check_map (); //TODO: enable this
+//#ifdef FREEMAP_IL
+         editor_main_check_map ();
+//#endif
+         roadmap_device_events_register( on_device_event, NULL);
+         roadmap_browser_register_launcher( roadmap_main_browser_launcher );
+         roadmap_browser_register_close( roadmap_browser_iphone_close );
       break;
    }
 }
@@ -734,6 +783,31 @@ void roadmap_main_play_movie (const char* url) {
 
 UIColor *roadmap_main_table_color (void) {
    return [UIColor colorWithRed:.44 green:.75 blue:.92 alpha:1.0];
+}
+
+void roadmap_main_set_table_color(UITableView *tableView) {
+   [tableView setBackgroundColor:roadmap_main_table_color()];
+   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)]) {
+      UIView *dummyView = [[UIView alloc] initWithFrame:CGRectZero];
+      [dummyView setBackgroundColor:roadmap_main_table_color()];
+      [(id)(tableView) setBackgroundView:dummyView];
+      [dummyView release];
+   }
+}
+
+RoadMapNativeImage roadmap_main_load_image (const char *path, const char* file_name) {
+   UIImage *img;
+	NSString *fileName;
+   
+   fileName = [NSString stringWithFormat:@"%s/%s", path, file_name];
+   img = [[UIImage alloc] initWithContentsOfFile: fileName];
+   
+   return (RoadMapNativeImage)img;
+}
+
+void roadmap_main_free_image (RoadMapNativeImage image) {
+   if (image)
+      [(UIImage *)image release];
 }
 
 void GetProxy (const char* url) {
@@ -798,6 +872,10 @@ void GetProxy (const char* url) {
          CFScriptStr = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(CFScriptData),
                                              CFDataGetLength(CFScriptData), kCFStringEncodingUTF8, true);
          
+         if (CFScriptStr == NULL) {
+            break;
+         }
+         
          CFRelease (Proxies);
          Proxies = CFNetworkCopyProxiesForAutoConfigurationScript (CFScriptStr, CFurl, &errCodeScript);
          
@@ -858,9 +936,13 @@ void roadmap_main_dismiss_modal () {
    roadmap_main_set_backlight(gsBacklightOn); //restore backlight state when back from modal view
 }
 
-void roadmap_main_push_view (UIViewController *viewController) {
-	[TheApp pushView: viewController];
+void roadmap_main_push_view_custom (UIViewController *viewController, BOOL animated) {
+	[TheApp pushView: viewController animated:animated];
 	[viewController release];
+}
+
+void roadmap_main_push_view (UIViewController *viewController) {
+	roadmap_main_push_view_custom(viewController, TRUE);
 }
 
 void roadmap_main_pop_view (int animated) {
@@ -1210,12 +1292,12 @@ int main (int argc, char **argv) {
    showing_modal = FALSE;
 }
 
-- (void) pushView: (UIViewController *) viewController
+- (void) pushView: (UIViewController *) viewController animated:(BOOL) animated
 {
 	if ([[RoadMapMainNavCont viewControllers] count] == 1) {
       roadmap_canvas_cancel_touches();
 	}
-	[RoadMapMainNavCont pushViewController: viewController animated: YES];
+	[RoadMapMainNavCont pushViewController: viewController animated: animated];
 }
 
 - (void) popView: (BOOL) animated
@@ -1663,46 +1745,15 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 {
    NSTimer *swapSplashTimer;
    
-   //set model
    NSString *model = [[UIDevice currentDevice] model];
-   if ([model compare:@"iPod touch"] == 0) {
-      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPOD;
-   } else if ([model compare:@"iPad"] == 0 ||
-              [model compare:@"iPad Simulator"] == 0) {
-      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPAD;
-   } else {
-      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPHONE;
-   }
-   
-   if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)])
-      IsBackgroundSupported = [[UIDevice currentDevice] isMultitaskingSupported];
-   
-   //set os version
    NSString *sysVersion = [[UIDevice currentDevice] systemVersion];
-   if ([sysVersion compare:@"3.0"] == 0 ||
-       [sysVersion compare:@"3.0.1"] == 0) {
-      RoadMapMainOsVersion = ROADMAP_MAIN_OS_30;
-   } else if ([sysVersion UTF8String][0] != '4'){
-      RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
-   } else {
-      RoadMapMainOsVersion = ROADMAP_MAIN_OS_4;
-   }
-
-   
    NSString *deviceId = [[UIDevice currentDevice] uniqueIdentifier];
    NSString *time = [[NSDate date] description];
    NSString *logStr = [NSString stringWithFormat:@"<<< [%@] Device: %@, OS ver: %@, waze ver: %s, %@ >>>", time, model, sysVersion, roadmap_start_version(), deviceId];
    roadmap_log (ROADMAP_WARNING, "\n%s\n", [logStr UTF8String]);
    
-	//set statusbar style
-	//[self setStatusBarStyle:UIStatusBarStyleBlackOpaque];
-	
-	
-   
-   
+   start_monitor_network();
    dummy_url_request();
-   
-   
 	
    int i;
    for (i = 0; i < ROADMAP_MAX_IO; ++i) {
@@ -1715,8 +1766,6 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    roadmap_start_subscribe (roadmap_start_event);
    
    roadmap_start (sArgc, sArgv);
-   
-   roadmap_device_events_register( on_device_event, NULL);
    
    roadmap_skin_register (roadmap_main_adjust_skin);
    
@@ -1750,6 +1799,34 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
       if (launchURL)
          if (!roadmap_urlscheme_handle (launchURL))
             return NO;
+   }
+   
+   
+   //set model
+   NSString *model = [[UIDevice currentDevice] model];
+   if ([model compare:@"iPod touch"] == 0) {
+      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPOD;
+   } else if ([model compare:@"iPad"] == 0 ||
+              [model compare:@"iPad Simulator"] == 0) {
+      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPAD;
+   } else {
+      RoadMapMainPlatform = ROADMAP_MAIN_PLATFORM_IPHONE;
+   }
+   
+   if ([[UIDevice currentDevice] respondsToSelector:@selector(isMultitaskingSupported)])
+      IsBackgroundSupported = [[UIDevice currentDevice] isMultitaskingSupported];
+   
+   //set os version
+   NSString *sysVersion = [[UIDevice currentDevice] systemVersion];
+   if ([sysVersion compare:@"3.0"] == 0 ||
+       [sysVersion compare:@"3.0.1"] == 0) {
+      RoadMapMainOsVersion = ROADMAP_MAIN_OS_30;
+   } else if ([sysVersion UTF8String][0] != '4'){
+      RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
+   } else {
+      RoadMapMainOsVersion = ROADMAP_MAIN_OS_4;
+      //TODO: enable this for Retina
+      //roadmap_screen_set_screen_scale((int)([[UIScreen mainScreen] scale] * 100));
    }
    
    

@@ -156,7 +156,7 @@ void draw_title_bar(RoadMapGuiRect *rect){
 
    point.x = rect->minx;
    point.y = rect->miny;
-#if defined( ANDROID ) && defined( OPENGL )
+#if defined( OPENGL )
    draw_title_bar_image( header_image, rect, &point );
 #else
    if ((cached_header_image == NULL) || (cached_width != roadmap_canvas_width())){
@@ -715,7 +715,7 @@ static void add_title (SsdWidget w, int flags) {
    if (!( ((flags & SSD_DIALOG_FLOAT)&& !(flags & SSD_DIALOG_TRANSPARENT)) || (flags & SSD_DIALOG_NO_BACK))){
       SsdWidget btn = NULL;
 #ifndef ANDROID
-      btn = ssd_button_new ("back", "", back_buttons, 2,
+      btn = ssd_button_new (SSD_DIALOG_BUTTON_BACK_NAME, "", back_buttons, 2,
                         SSD_ALIGN_VCENTER, button_callback );
 #endif
 

@@ -152,6 +152,7 @@ static void update_list(SsdWidget list_cont){
                       FALSE);
 
     ssd_dialog_invalidate_tab_order();
+    ssd_dialog_resort_tab_order();
     roadmap_screen_refresh();
 }
 
@@ -209,7 +210,7 @@ static void on_address_resolved( void*                context,
    {
       if( is_network_error( rc))
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
-                              roadmap_lang_get( "Search requires internet connection.\r\nPlease make sure you are connected."), on_search_error_message );
+                              roadmap_lang_get( "Search requires internet connection.\nPlease make sure you are connected."), on_search_error_message );
 
 
 
@@ -261,7 +262,7 @@ static void on_address_resolved( void*                context,
       roadmap_native_keyboard_hide();
    }
 
-   if (count_adr > 3){
+   if ((count_adr > 3) && (count_ls > 0)){
       static char label[50];
       if (ssd_widget_rtl(NULL))
          snprintf(label, sizeof(label), "%s %d...", roadmap_lang_get("more"), count_adr - 3);
@@ -354,7 +355,13 @@ static void on_search(void)
       return;
    }
 
-
+#ifdef __SYMBIAN32__
+   if ( !strcmp( "##@opera", ssd_text_get_text( edit ) ) )
+   {
+      roadmap_browser_set_show_external(NULL);
+      return;
+   }
+#endif
     if ( !strcmp( "##@heb", ssd_text_get_text( edit ) ) )
    {
       roadmap_lang_set_system_lang("heb");
@@ -634,17 +641,39 @@ static SsdWidget get_result_container()
 static void on_auto_search_completed( int exit_code, void* context)
 { ssd_dialog_hide_all( dec_close);}
 
+void single_search_dlg_show_auto( PFN_ON_DIALOG_CLOSED cbOnClosed,
+                              void*                context)
+{
+   generic_search_dlg_show( single_search,
+                            SSD_DIALOG_NAME,
+                            SSD_DIALOG_TITLE,
+                            on_options,
+                            on_back,
+                            get_result_container(),
+                            cbOnClosed,
+                            on_search,
+                            single_search_dlg_show,
+                            context,
+                            TRUE);
+
+}
+
 BOOL single_search_auto_search( const char* address)
 {
    SsdWidget edit    = NULL;
 
+   generic_search_dlg_update_text( address, single_search );
 
-   single_search_dlg_show( on_auto_search_completed, (void*)address);
+   single_search_dlg_show_auto( on_auto_search_completed, (void*)address);
 
    edit  = generic_search_dlg_get_search_edit_box(single_search);
 
    ssd_text_set_text( edit, address);
+
+// AGA Don't start, just show to user. Perhaps some editing is necessary
+#ifndef ANDROID
    on_search();
+#endif
 
    return TRUE;
 }
@@ -661,7 +690,8 @@ void single_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                             cbOnClosed,
                             on_search,
                             single_search_dlg_show,
-                            context);
+                            context,
+                            FALSE);
 
 }
 

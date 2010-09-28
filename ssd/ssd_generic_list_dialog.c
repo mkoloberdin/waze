@@ -91,7 +91,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    SsdWidget list;
    int flags = 0;
 
-#if defined (OPENGL) || defined (WM6)
+#if defined (OPENGL)
 
    /*
     * Borders are fast in OPENGL
@@ -149,6 +149,15 @@ void ssd_generic_icon_list_dialog_show(
    static SsdListContext list_context;
 
    SsdWidget list;
+   int list_flags = 0;
+
+#if defined (OPENGL)
+
+   /*
+    * Borders are fast in OPENGL
+    */
+   list_flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
+#endif // OPENGL
 
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
@@ -203,3 +212,4 @@ void ssd_generic_list_dialog_hide (void)
 
 void ssd_generic_list_dialog_hide_all (void)
 { ssd_dialog_hide_all (dec_close);}
+

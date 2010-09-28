@@ -189,6 +189,7 @@ typedef struct
     int  iGroupRelevance;
     int  iReportedElapsedTime;
     int  iDisplayTimeStamp;
+    BOOL bArchive; 
 } RTAlert;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -207,6 +208,7 @@ typedef struct
     RTAlert *alert[RT_MAXIMUM_ALERT_COUNT];
     int iCount;
     int iGroupCount;
+    int iArchiveCount;
 } RTAlerts;
 
 void RTAlerts_Alert_Init(RTAlert *alert);
@@ -215,6 +217,7 @@ void RTAlerts_Init(void);
 void RTAlerts_Term(void);
 BOOL RTAlerts_Add(RTAlert *alert);
 BOOL RTAlerts_Remove(int iID);
+void RTAlerts_RefreshOnMap(void);
 int RTAlerts_Count(void);
 int RTAlerts_GroupCount(void);
 const char * RTAlerts_Count_Str(void);

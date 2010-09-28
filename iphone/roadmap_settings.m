@@ -39,7 +39,7 @@
 #include "roadmap_start.h"
 #include "roadmap_screen.h"
 #include "roadmap_skin.h"
-#include "roadmap_iphoneimage.h"
+#include "roadmap_res.h"
 #include "roadmap_iphonesettings.h"
 #include "roadmap_bar.h"
 #include "roadmap_mood.h"
@@ -144,9 +144,7 @@ void roadmap_settings(void) {
    
 	UITableView *tableView = [self tableView];
 	
-   [tableView setBackgroundColor:roadmap_main_table_color()];
-   if ([UITableView instancesRespondToSelector:@selector(setBackgroundView:)])
-      [(id)(self.tableView) setBackgroundView:nil];
+   roadmap_main_set_table_color(tableView);
    tableView.rowHeight = 50;
    
    if (headersArray) {
@@ -179,67 +177,67 @@ void roadmap_settings(void) {
 
 - (void) populateSettingsData
 {
-	NSMutableArray *groupArray = NULL;
-	iphoneCell *actionCell = NULL;
-	NSArray *segmentsArray = NULL;
-	iphoneCellSwitch *swCell = NULL;
-	iphoneCellSelect *selCell = NULL;
-	UIImage *img = NULL;
+   NSMutableArray *groupArray = NULL;
+   iphoneCell *actionCell = NULL;
+   NSArray *segmentsArray = NULL;
+   iphoneCellSwitch *swCell = NULL;
+   iphoneCellSelect *selCell = NULL;
+   UIImage *img = NULL;
    iphoneTableHeader *header = NULL;
-	char *icon_name;
-	const RoadMapAction *this_action;
-	
-	
-	//first group
-	groupArray = [NSMutableArray arrayWithCapacity:1];
+   char *icon_name;
+   const RoadMapAction *this_action;
+   
+   
+   //first group
+   groupArray = [NSMutableArray arrayWithCapacity:1];
    
    header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
    [header setText:"Quick actions"];
    [headersArray addObject:header];
    [header release];
-	
-	//Mute
-	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_MUTE];
-	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Navigation guidance")]];
-	[swCell setDelegate:self];
-	[swCell setState:roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")];
-	[groupArray addObject:swCell];
-	
-	//View 2D/3D
-	selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
-	[selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Display")]];
-	segmentsArray = [NSArray arrayWithObjects:@"2D", @"3D", NULL];
-	[selCell setItems:segmentsArray];
-	if (roadmap_screen_get_view_mode())
-		[selCell setSelectedSegment:1];
-	else
-		[selCell setSelectedSegment:0];
-	[selCell setTag:ID_DISPLAY];
-	[selCell setDelegate:self];
-	[groupArray addObject:selCell];
-	
-	
-	//Light day/night
-	selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
-	[selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Light")]];
-	segmentsArray = [NSArray arrayWithObjects:[NSString stringWithUTF8String:roadmap_lang_get("Day")],
-                                             [NSString stringWithUTF8String:roadmap_lang_get("Night")],
-                                             NULL];
-	[selCell setItems:segmentsArray];
-	if (roadmap_skin_state())
-		[selCell setSelectedSegment:1];
-	else
-		[selCell setSelectedSegment:0];
-	[selCell setTag:ID_LIGHT];
-	[selCell setDelegate:self];
-	[groupArray addObject:selCell];
+   
+   //Mute
+   swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
+   [swCell setTag:ID_MUTE];
+   [swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Navigation guidance")]];
+   [swCell setDelegate:self];
+   [swCell setState:roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")];
+   [groupArray addObject:swCell];
+   
+   //View 2D/3D
+   selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
+   [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Display")]];
+   segmentsArray = [NSArray arrayWithObjects:@"2D", @"3D", NULL];
+   [selCell setItems:segmentsArray];
+   if (roadmap_screen_get_view_mode())
+      [selCell setSelectedSegment:1];
+   else
+      [selCell setSelectedSegment:0];
+   [selCell setTag:ID_DISPLAY];
+   [selCell setDelegate:self];
+   [groupArray addObject:selCell];
+   
+   
+   //Light day/night
+   selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
+   [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Light")]];
+   segmentsArray = [NSArray arrayWithObjects:[NSString stringWithUTF8String:roadmap_lang_get("Day")],
+                    [NSString stringWithUTF8String:roadmap_lang_get("Night")],
+                    NULL];
+   [selCell setItems:segmentsArray];
+   if (roadmap_skin_state())
+      [selCell setSelectedSegment:1];
+   else
+      [selCell setSelectedSegment:0];
+   [selCell setTag:ID_LIGHT];
+   [selCell setDelegate:self];
+   [groupArray addObject:selCell];
    
    [dataArray addObject:groupArray];
-	
-	
-	//second group
-	groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   
+   //second group
+   groupArray = [NSMutableArray arrayWithCapacity:1];
    
    header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
    [header setText:""];
@@ -247,89 +245,84 @@ void roadmap_settings(void) {
    [header release];
    
    //Media Player
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "media_player";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "media_player";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_MEDIA_PLAYER];
-	id_actions[ID_MEDIA_PLAYER] = "media_player";
-	this_action =  roadmap_start_find_action (id_actions[ID_MEDIA_PLAYER]);
+   }
+   
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_MEDIA_PLAYER];
+   id_actions[ID_MEDIA_PLAYER] = "media_player";
+   this_action =  roadmap_start_find_action (id_actions[ID_MEDIA_PLAYER]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
-
-	[dataArray addObject:groupArray];
-	
-	
-	//third group
-	groupArray = [NSMutableArray arrayWithCapacity:1];
+   [groupArray addObject:actionCell];
+   
+   [dataArray addObject:groupArray];
+   
+   
+   //third group
+   groupArray = [NSMutableArray arrayWithCapacity:1];
    
    header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
    [header setText:"Settings"];
    [headersArray addObject:header];
    [header release];
-      
-	//General settings
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "general_settings";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   
+   //General settings
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "general_settings";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_GENERAL];
-	id_actions[ID_GENERAL] = "general_settings";
-	this_action =  roadmap_start_find_action (id_actions[ID_GENERAL]);
+   }
+   
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_GENERAL];
+   id_actions[ID_GENERAL] = "general_settings";
+   this_action =  roadmap_start_find_action (id_actions[ID_GENERAL]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
-	
-	//Login Details
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "login_details";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   [groupArray addObject:actionCell];
+   
+   //Login Details
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "login_details";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_LOGIN];
-	id_actions[ID_LOGIN] = "login_details";
-	this_action =  roadmap_start_find_action (id_actions[ID_LOGIN]);
+   }
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_LOGIN];
+   id_actions[ID_LOGIN] = "login_details";
+   this_action =  roadmap_start_find_action (id_actions[ID_LOGIN]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
+   [groupArray addObject:actionCell];
    
    //Map
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "map_settings";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "map_settings";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_MAP];
-	id_actions[ID_MAP] = "map_settings";
-	this_action =  roadmap_start_find_action (id_actions[ID_MAP]);
+   }
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_MAP];
+   id_actions[ID_MAP] = "map_settings";
+   this_action =  roadmap_start_find_action (id_actions[ID_MAP]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
+   [groupArray addObject:actionCell];
    
    //Download
    actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
    icon_name = "download_settings";
-   img = roadmap_iphoneimage_load(icon_name);
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
    if (img) {
       actionCell.imageView.image = img;
-      [img release];
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
    [actionCell setTag:ID_DOWNLOAD];
@@ -338,90 +331,85 @@ void roadmap_settings(void) {
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
    [groupArray addObject:actionCell];
-	
-	//Traffic
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "traffic";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
-      actionCell.imageView.image = img;
-		[img release];
-	}
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_TRAFFIC];
-	id_actions[ID_TRAFFIC] = "traffic";
-	this_action =  roadmap_start_find_action (id_actions[ID_TRAFFIC]);
-   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
-                                (this_action->label_long)];
-	[groupArray addObject:actionCell];
-	
-	//Privacy
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "privacy_settings";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
-      actionCell.imageView.image = img;
-		[img release];
-	}
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_PRIVACY];
-	id_actions[ID_PRIVACY] = "privacy_settings";
-	this_action =  roadmap_start_find_action (id_actions[ID_PRIVACY]);
-   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
-                                (this_action->label_long)];
-	[groupArray addObject:actionCell];
    
+   //Traffic
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "traffic";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
+      actionCell.imageView.image = img;
+   }
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_TRAFFIC];
+   id_actions[ID_TRAFFIC] = "traffic";
+   this_action =  roadmap_start_find_action (id_actions[ID_TRAFFIC]);
+   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                (this_action->label_long)];
+   [groupArray addObject:actionCell];
+   /*
+   //Privacy
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "privacy_settings";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
+      actionCell.imageView.image = img;
+   }
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_PRIVACY];
+   id_actions[ID_PRIVACY] = "privacy_settings";
+   this_action =  roadmap_start_find_action (id_actions[ID_PRIVACY]);
+   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                (this_action->label_long)];
+   [groupArray addObject:actionCell];
+   */
    
    //Groups settings
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "group_settings";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "group_settings";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_GROUPS];
-	id_actions[ID_GROUPS] = "group_settings";
-	this_action =  roadmap_start_find_action (id_actions[ID_GROUPS]);
+   }
+   
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_GROUPS];
+   id_actions[ID_GROUPS] = "group_settings";
+   this_action =  roadmap_start_find_action (id_actions[ID_GROUPS]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
+   [groupArray addObject:actionCell];
    
    //Spread the word
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "recommend";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "recommend";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
       actionCell.imageView.image = img;
-		[img release];
-	}
-	[actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_RECOMMEND];
-	id_actions[ID_RECOMMEND] = "recommend";
-	this_action =  roadmap_start_find_action (id_actions[ID_RECOMMEND]);
-   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
-                                (this_action->label_long)];
-	[groupArray addObject:actionCell];
-
-	//Help / support
-	actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-	icon_name = "help_menu";
-	img = roadmap_iphoneimage_load(icon_name);
-	if (img) {
-      actionCell.imageView.image = img;
-		[img release];
-	}
+   }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-	[actionCell setTag:ID_HELP_MENU];
-	id_actions[ID_HELP_MENU] = "help_menu";
-	this_action =  roadmap_start_find_action (id_actions[ID_HELP_MENU]);
+   [actionCell setTag:ID_RECOMMEND];
+   id_actions[ID_RECOMMEND] = "recommend";
+   this_action =  roadmap_start_find_action (id_actions[ID_RECOMMEND]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
                                 (this_action->label_long)];
-	[groupArray addObject:actionCell];
-	
-	[dataArray addObject:groupArray];
+   [groupArray addObject:actionCell];
+   
+   //Help / support
+   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   icon_name = "help_menu";
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+   if (img) {
+      actionCell.imageView.image = img;
+   }
+   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [actionCell setTag:ID_HELP_MENU];
+   id_actions[ID_HELP_MENU] = "help_menu";
+   this_action =  roadmap_start_find_action (id_actions[ID_HELP_MENU]);
+   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                (this_action->label_long)];
+   [groupArray addObject:actionCell];
+   
+   [dataArray addObject:groupArray];
 }
 
 - (void) show

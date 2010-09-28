@@ -19,7 +19,7 @@ INSTALL_DATA = install -m644
 # --- Tool specific options ------------------------------------------------
 ifeq ($(DESKTOP),ANDROID)
 include android/Makefile.in.android
-LIB_INCLUDES = -Izlib -Ifreetype/include -Iandroid
+LIB_INCLUDES = -Izlib -Ifreetype/include -Iandroid -Ifreetype/include/freetype
 #ZLIB = zlib/libz.a
 endif
 
@@ -81,7 +81,7 @@ endif
 
 ifeq ($(RENDERING),OPENGL)
    OPENGL_DIR=ogl
-   MODECFLAGS+= -DOPENGL
+   MODECFLAGS+= -DOPENGL  -DVIEW_MODE_3D_OGL  
    ifeq ($(DESKTOP),GTK2)
       LIB_INCLUDES+= -I$(PROJ_NAME)/src/ogl/glu -I$(PROJ_NAME)/src/ogl/glu/include -I/usr/include/freetype2
    # GTK2 with OPENGL
@@ -161,9 +161,11 @@ LDFLAGS=$(MODELDFLAGS)
 
 RDMLIBS=libroadmap.a unix/libosroadmap.a libroadmap.a
 
-#ifeq ($(RENDERING),OPENGL)
-#  RDMLIBS += libglu.a  
-#endif
+ifeq ($(RENDERING),OPENGL)
+ifneq ($(DESKTOP),GTK2)	# GTK libs include the glu  
+  RDMLIBS += libglu.a
+endif    
+endif
 
 
 
@@ -288,6 +290,7 @@ RMGUISRCS=roadmap_sprite.c \
 	  roadmap_splash.c \
 	  roadmap_speedometer.c \
 	  roadmap_social_image.c \
+	  roadmap_browser.c \
 	  roadmap_groups.c \
 	  roadmap_groups_settings.c
 	  
@@ -300,7 +303,7 @@ endif
 
 #OPENGL DEPENDENT SOURCES
 ifeq ($(RENDERING),OPENGL)
-  RMGUISRCS += roadmap_border_ogl.c
+  RMGUISRCS += roadmap_border_ogl.c animation/roadmap_animation.c
 else  
   RMGUISRCS += roadmap_border.c
 endif
@@ -309,7 +312,8 @@ ifeq ($(RENDERING),OPENGL)
       LIBS += -lfribidi
       CFLAGS += -DUSE_FRIBIDI -I/usr/include/fribidi
    endif
-   RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c $(OPENGL_DIR)/roadmap_canvas_atlas.c $(OPENGL_DIR)/roadmap_canvas3d.c
+   RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c 
+   RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas_atlas.c $(OPENGL_DIR)/roadmap_canvas3d.c $(OPENGL_DIR)/roadmap_glmatrix.c  
 endif
 
 
@@ -384,8 +388,10 @@ RTSRCS=Realtime/Realtime.c \
        Realtime/RealtimeOffline.c \
        Realtime/RealtimeBonus.c \
        Realtime/RealtimeAltRoutes.c \
+       Realtime/RealtimeExternalPoi.c \
+       Realtime/RealtimeExternalPoiDlg.c \
+       Realtime/RealtimeExternalPoiNotifier.c \
        
-
 
 
 RTOBJS=$(RTSRCS:.c=.o)
@@ -464,7 +470,9 @@ clean: cleanone
 	find Realtime -name \*.o -exec rm {} \;
 	find websvc_trans -name \*.o -exec rm {} \;
 	find address_search -name \*.o -exec rm {} \;
-
+	find ogl -name \*.o -exec rm {} \;
+	find animation -name \*.o -exec rm {} \;
+	
 cleanone:
 	rm -f *.o *.a *.da		
 	# Clean up CVS backup files as well.
@@ -490,7 +498,7 @@ cleanall:
 	find editor -name \*.o -exec rm {} \;	
 	if [ "$(RENDERING)"=="OPENGL" ] ; then \
 		find ogl -name \*.o -exec rm {} \; ; \
-#		rm ogl/glu/libglu.a; \
+		rm ogl/glu/libglu.a; \
 	fi
 
 rebuild: cleanall everything
@@ -515,5 +523,5 @@ libssd_widgets.a: $(SSD_WIDGETS_OBJS)
 zlib/libz.a: 
 	$(MAKE) -C zlib
 	
-#libglu.a:
-#	$(MAKE) -C ogl/glu
+libglu.a:
+	$(MAKE) -C ogl/glu

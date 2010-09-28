@@ -62,6 +62,6 @@ void roadmap_history_save  (void);
 
 void roadmap_history_delete_entry  (void* cursor);
 
-void roadmap_history_update(void *cursor, int category,  char *argv[]);
+void roadmap_history_update(void *cursor, char category,  char *argv[]);
 
 #endif // INCLUDE__ROADMAP_HISTORY__H

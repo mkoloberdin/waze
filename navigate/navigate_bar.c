@@ -816,32 +816,30 @@ void navigate_bar_set_mode (int mode) {
 }
 
 void navigate_bar_draw (void){
-
+   RoadMapGuiPoint AddressBottomRightPoint;
    RoadMapGuiPoint BarLocation;
    int arrow_offset = 0;
-   
+
    if (NavigateBarInitialized != 1) return;
-   
+
    if ( roadmap_screen_get_background_run() )
    {
       roadmap_log( ROADMAP_INFO, "Calling draw functions in background is not permitted!");
       return;
    }
-   
-   
+
+
    BarLocation.y = roadmap_canvas_height() - get_AddressBarHeight() - roadmap_bar_bottom_height();
    BarLocation.x = 0;
 #ifndef OPENGL
    roadmap_canvas_draw_image ( NavigateBarStretchedAddressImage, &BarLocation, 0,  IMAGE_NORMAL );
 #else
-   RoadMapGuiPoint AddressBottomRightPoint;
-   
    AddressBottomRightPoint.x = roadmap_canvas_width();
    AddressBottomRightPoint.y = BarLocation.y + get_AddressBarHeight();
    roadmap_canvas_draw_image_scaled( NavigateBarAddressImage, &BarLocation, &AddressBottomRightPoint, 0, IMAGE_NORMAL );
 #endif
-   
-   
+
+
    // Direction Box
    if (NavigateBarNextInstr == LAST_DIRECTION){
       BarLocation.y = NavigateBarLocation.y  + NAV_BAR_PIXELS( 2 );
@@ -853,24 +851,24 @@ void navigate_bar_draw (void){
       BarLocation.x = 0;
       roadmap_canvas_draw_image ( NavigateBarDirectionTallImage, &BarLocation, 0,  IMAGE_NORMAL );
    }
-   
+
    //ETA box
    if (show_ETA_box()){
       BarLocation.y =  roadmap_canvas_height() - get_AddressBarHeight() - roadmap_bar_bottom_height() - get_EtaBoxHeight() + NAV_BAR_PIXELS( 2 );
       BarLocation.x = roadmap_canvas_width()-get_EtaBoxWidth();
       roadmap_canvas_draw_image ( NavigateBarEtaImage, &BarLocation, 0,  IMAGE_NORMAL );
    }
-   
+
 #ifdef TOUCH_SCREEN
    // Arrow
    arrow_offset = roadmap_canvas_width()/20 + roadmap_canvas_image_width(NavigateBarArrow)/2;
-   
-   BarLocation.y = roadmap_canvas_height() - roadmap_bar_bottom_height() - 
+
+   BarLocation.y = roadmap_canvas_height() - roadmap_bar_bottom_height() -
                      (get_AddressBarHeight() -2 + roadmap_canvas_image_height(NavigateBarArrow))/2;
    BarLocation.x = roadmap_canvas_width() - arrow_offset;
    roadmap_canvas_draw_image ( NavigateBarArrow, &BarLocation, 0,  IMAGE_NORMAL );
 #endif
-   
+
    if (show_ETA_box())
       gOffset =  get_AddressBarHeight()+get_EtaBoxHeight() -2;
    else
@@ -922,7 +920,7 @@ static void navigate_bar_draw_time_to_destination () {
    if (ssd_widget_rtl(NULL)){
      if (text_width == -1){
         roadmap_canvas_get_text_extents
-              (text3, font_size-10, &text_width, &text_ascent, &text_descent, NULL); 
+              (text3, font_size-10, &text_width, &text_ascent, &text_descent, NULL);
         text_width += 3;
       }
      position.x += text_width+7;
@@ -1045,7 +1043,7 @@ static void navigate_bar_draw_distance_to_destination () {
 
   	}
   	else{
-      position = NavigatePanel->distance_to_destination_pos;      
+      position = NavigatePanel->distance_to_destination_pos;
       roadmap_canvas_draw_string_size(&position, ROADMAP_CANVAS_BOTTOMLEFT, font_size, text);
 
       pch = strtok (NULL," ");

@@ -221,6 +221,9 @@ static RoadMapConfigDescriptor RoadMapConfigFirstTimeUse =
 static RoadMapConfigDescriptor RoadMapConfigClosedProperly =
                         ROADMAP_CONFIG_ITEM("General", "Closed properly");
 
+RoadMapConfigDescriptor RoadMapConfigRateUsShown =
+                        ROADMAP_CONFIG_ITEM("General", "Rate us shown");
+
 extern RoadMapConfigDescriptor RoadMapConfigGeneralLogLevel;
 
 static RoadMapMenu LongClickMenu;
@@ -260,7 +263,6 @@ void start_map_options_side_menu(void);
 void start_alerts_menu(void);
 void start_map_updates_menu(void);
 void display_shortcuts(void);
-static void start_more_menu (void);
 static int bottom_bar_status(void);
 static RoadMapAction *roadmap_start_find_action_un_const (const char *name);
 void mark_location(void);
@@ -354,15 +356,14 @@ static void about_exit_dialog(char *exit_msg){
 
 	   /* Spacer */
 	   ssd_widget_add (dialog,
-		  ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW|SSD_START_NEW_ROW));
-      
-      button = ssd_button_label ("exit", roadmap_lang_get ("Turn off"),
+ 	   ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW|SSD_START_NEW_ROW));
+           button = ssd_button_label ("exit", roadmap_lang_get ("Turn off"),
                                  SSD_ALIGN_CENTER|SSD_WS_DEFWIDGET|
                                  SSD_WS_TABSTOP,
                                  about_callbak);
       ssd_widget_add(button, ssd_bitmap_new("turn_off", "turn_off", 0));
       ssd_widget_add(dialog, button);
-      
+
       ssd_widget_add (dialog,
                       ssd_button_label ("cancel", roadmap_lang_get ("Cancel"),
                                         SSD_ALIGN_CENTER|SSD_WS_DEFWIDGET|
@@ -380,10 +381,16 @@ static void roadmap_start_about_exit (void) {
 #endif //IPHONE_NATIVE
 
    char exit_msg[500];
+#ifdef IPHONE
 
    sprintf (exit_msg, "%s\n%s",
             roadmap_lang_get("Are you sure you want to turn off waze?"),
             roadmap_lang_get("FYI waze automatically shuts down when not used in background"));
+#else
+   sprintf (exit_msg, "%s",
+            roadmap_lang_get("Are you sure you want to turn off waze?"));
+#endif
+
    about_exit_dialog(exit_msg);
 }
 
@@ -461,7 +468,7 @@ static void save_destination_to_history(){
    if (number <= 0)
       return;
    roadmap_plugin_get_street_properties (&neighbours[0].line, &properties, 0);
-   roadmap_history_declare ('A', ahi__count);
+   roadmap_history_declare( ADDRESS_HISTORY_CATEGORY, ahi__count);
    argv[0] = strdup(properties.address);
    argv[1] = strdup(properties.street);
    argv[2] = strdup(properties.city);
@@ -763,7 +770,7 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
 
    {"about", "About", NULL, NULL,
       "Show information about Waze", roadmap_help_about},
-   
+
    {"about_exit", "About", NULL, NULL,
       "Show Waze version and exit", roadmap_start_about_exit},
 
@@ -967,9 +974,12 @@ RoadMapAction RoadMapStartActions[MAX_ACTIONS + 1] = {
 
    {"scoreboard", "Scoreboard", NULL,  NULL,
       "Scoreboard", roadmap_scoreboard},
-#ifdef IPHONE
+
+#if defined (IPHONE) || defined (_WIN32) || defined(ANDROID)
    {"search_ab", "Contacts", "Contacts", NULL,
          "Contacts", roamdmap_search_address_book},
+#endif
+#ifdef IPHONE
    {"scoreboard_menu", "Scoreboard menu", NULL,  NULL,
          "Scoreboard menu", roadmap_scoreboard},
    {"recommend", "Spread the word", NULL,  NULL,
@@ -2115,7 +2125,7 @@ static int bottom_bar_status(void){
 
 
 
-static void start_more_menu (void) {
+void start_more_menu (void) {
 
 	if (ssd_dialog_is_currently_active()) {
 		if (!strcmp(ssd_dialog_currently_active_name(),"More" )){
@@ -2715,12 +2725,30 @@ static void roadmap_confirmed_send_log_callback(int exit_code, void *context){
 }
 
 void roadmap_start_login_cb (void){
-   if (RoadMapStartAfterCrash)
+   if (RoadMapStartAfterCrash) {
       ssd_confirm_dialog_custom_timeout("", "We seem to have encountered a bug. Help us improve by sending us an error report.",
                               FALSE, roadmap_confirmed_send_log_callback, NULL,
                               roadmap_lang_get("Send"), roadmap_lang_get("Cancel"),5);
-   else
-      roadmap_start_upload ();
+   } else {
+#ifdef IPHONE_NATIVE
+      if (!roadmap_config_match(&RoadMapConfigRateUsShown, "yes") &&
+          time (NULL) - roadmap_start_get_first_time_use() > 7*24*60*60) {
+         
+         if (roadmap_config_match(&RoadMapConfigRateUsShown, "skipped_once")) {
+            roadmap_recommend_rate_us(roadmap_start_upload);
+            roadmap_config_set(&RoadMapConfigRateUsShown, "yes");
+         } else {
+            roadmap_config_set(&RoadMapConfigRateUsShown, "skipped_once");
+            roadmap_start_upload();
+         }
+         roadmap_config_save(FALSE);
+      } else {
+         roadmap_start_upload();
+      }
+#else
+      roadmap_start_upload();
+#endif //IPHONE_NATIVE
+   }
 }
 
 static int roadmap_start_closed_properly () {
@@ -2729,7 +2757,7 @@ static int roadmap_start_closed_properly () {
 
 static void roadmap_start_set_closed_properly (const char* val) {
    roadmap_config_set (&RoadMapConfigClosedProperly, val);
-   roadmap_config_save (1);
+   roadmap_config_save (0);
 }
 
 extern int do_alloc_trace;
@@ -2777,7 +2805,7 @@ void roadmap_start (int argc, char **argv) {
       ("session", &RoadMapConfigClosedProperly, NULL, "yes", "no", NULL);
 
    roadmap_config_declare_enumeration
-      ("session", &RoadMapConfigClosedProperly, NULL, "yes", "no", NULL);
+      ("user", &RoadMapConfigRateUsShown, NULL, "no", "yes", "skipped_once", NULL);
 
    roadmap_option (argc, argv, roadmap_start_usage);
    roadmap_spawn_initialize (argv != NULL ? argv[0] : NULL);
@@ -2837,6 +2865,7 @@ void roadmap_start (int argc, char **argv) {
                        NULL,
                        0,
                        NULL);
+
 
    roadmap_path_set("maps", roadmap_config_get(&RoadMapConfigMapPath));
 
@@ -3242,7 +3271,6 @@ void roadmap_confirmed_exit(){
 static BOOL on_key_pressed( const char* utf8char, uint32_t flags)
 {
    BOOL  key_handled = TRUE;
-   RoadMapGuiPoint position;
 
    if( ssd_dialog_is_currently_active())
       return FALSE;
@@ -3307,7 +3335,9 @@ static BOOL on_key_pressed( const char* utf8char, uint32_t flags)
                }else{
 #ifndef TOUCH_SCREEN
                	  if(roadmap_screen_is_xicon_open()){
-	               	  position.x = roadmap_canvas_width()/2;
+					  RoadMapGuiPoint position;
+
+					  position.x = roadmap_canvas_width()/2;
 	               	  position.y = roadmap_canvas_height()/2;
 	               	  roadmap_pointer_force_click(KEY_BOARD_PRESS,&position);
                	  }

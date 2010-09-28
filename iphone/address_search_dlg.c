@@ -235,7 +235,7 @@ static void on_address_resolved( void*                context,
    icons[i] = "submit_logs";
 
 	roadmap_list_menu_generic(roadmap_lang_get(ASD_DIALOG_TITLE), size+1, results, (void *)indexes,
-							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 60, TRUE, NULL);
+							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
 }
 
 
@@ -573,7 +573,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
    }
 
 	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected,
-                             NULL, NULL, NULL, 60, FALSE, NULL);
+                             NULL, NULL, NULL, 60, 0, NULL);
 
 
 
