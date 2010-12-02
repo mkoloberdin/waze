@@ -43,5 +43,7 @@ void ssd_bitmap_image_update( SsdWidget widget, RoadMapImage image );
 void ssd_bitmap_splash(const char *bitmap, int seconds);
 const char *ssd_bitmap_get_name(SsdWidget widget);
 int ssd_bitmap_height(SsdWidget widget);
+void ssd_bitmap_add_overlay(SsdWidget widget, const char *bitmap);
+void ssd_bitmap_remove_overlays(SsdWidget widget);
 #endif // __SSD_WIDGET_BITMAP_H__
 

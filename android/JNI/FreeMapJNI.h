@@ -104,7 +104,7 @@ typedef enum
 typedef enum
 {
 	_andr_ime_action_none 			= 0x00000001,
-	_andr_ime_action_go 			= 0x00000002,
+	_andr_ime_action_go 			   = 0x00000002,
 	_andr_ime_action_search			= 0x00000003,
 	_andr_ime_action_send			= 0x00000004,
 	_andr_ime_action_next			= 0x00000005,
@@ -162,7 +162,7 @@ void FreeMapNativeManager_SetIsMenuEnabled( int aEnabled );
 void FreeMapNativeManager_Flush();
 
 void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const char* aIcon,
-		int aIsNative, int aPortraitOrder, int aLandscapeOrder );
+		int aIsNative, int aPortraitOrder, int aLandscapeOrder, int aItemType );
 
 void FreeMapNativeCanvas_RequestRender();
 
@@ -172,7 +172,17 @@ int FreeMapNativeManager_IsActive();
 
 void FreeMapNativeManager_HideWebView( void );
 
-void FreeMapNativeManager_ShowWebView( int aHeight, int aTopMargin, const char* aUrl );
+void FreeMapNativeManager_ShowWebView( const char* aUrl, int aMinX, int aMinY, int aMaxX, int aMaxY, int aFlags );
+
+void FreeMapNativeManager_ShowEditBox( int aAction, int aStayOnAction, const char* aText, void* aContext, int aTopMargin, int aFlags );
+
+void FreeMapNativeManager_HideEditBox( void );
+
+void FreeMapNativeManager_LoadUrl( const char* aUrl );
+
+void FreeMapNativeManager_ShowContacts( void );
+
+void WazeMsgBox_Show( const char* aTitle, const char* aMessage, const char* aLabelOk, const char* aLabelCancel, void* aCbContext );
 
 void CloseJNIObjects();
 

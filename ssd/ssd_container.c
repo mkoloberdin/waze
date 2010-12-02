@@ -100,6 +100,7 @@ static RoadMapImage create_title_bar_image (RoadMapImage header_image, RoadMapGu
  * AGA
  */
 #include <time.h>
+#ifdef OPENGL
 static void draw_title_bar_image ( RoadMapImage header_image, RoadMapGuiRect *rect, const RoadMapGuiPoint* pos )
 {
 
@@ -132,7 +133,7 @@ static void draw_title_bar_image ( RoadMapImage header_image, RoadMapGuiRect *re
     }
 #endif
 }
-
+#endif //OPENGL
 
 static void release( SsdWidget widget )
 {
@@ -156,7 +157,7 @@ void draw_title_bar(RoadMapGuiRect *rect){
 
    point.x = rect->minx;
    point.y = rect->miny;
-#if defined( ANDROID ) && defined( OPENGL )
+#if defined( OPENGL )
    draw_title_bar_image( header_image, rect, &point );
 #else
    if ((cached_header_image == NULL) || (cached_width != roadmap_canvas_width())){
@@ -170,40 +171,32 @@ void draw_title_bar(RoadMapGuiRect *rect){
 }
 
 static void draw_bg(RoadMapGuiRect *rect){
-	RoadMapImage bg_image = NULL;
-	RoadMapImage bg_image_night = NULL;
-	RoadMapGuiPoint point;
-	int   width;
-	int   num_images;
-	int   i;
-	RoadMapImage image;
+   static RoadMapPen day_pen = NULL;
+   static RoadMapPen night_pen = NULL;
 
-		if (!bg_image)
-			bg_image = 	roadmap_res_get(
-                                    RES_BITMAP,
-                                    RES_SKIN,
-                                    "container_bg");
-		image = bg_image;
-      if (!bg_image_night)
-         bg_image_night =  roadmap_res_get(
-                                    RES_BITMAP,
-                                    RES_SKIN,
-                                    "container_bg_night");
-      if (roadmap_skin_state())
-         image = bg_image_night;
-      else
-         image = bg_image;
+   if (roadmap_skin_state()){
+      if (night_pen == NULL){
+         roadmap_canvas_create_pen("container_bg_pen_night");
+         roadmap_canvas_set_foreground ("#74859b");
+         roadmap_canvas_set_thickness (1);
+      }
+      else{
+         roadmap_canvas_select_pen(night_pen);
+      }
+   }
+   else{
+      if (day_pen == NULL){
+         roadmap_canvas_create_pen("container_bg_pen_day");
+         roadmap_canvas_set_foreground ("#46cbff");
+         roadmap_canvas_set_thickness (1);
+      }
+      else{
+         roadmap_canvas_select_pen(day_pen);
+      }
+   }
 
-		if (image){
-	    	width = roadmap_canvas_image_width(image);
-			num_images = rect->maxx / width + 1;
-			point.y = rect->miny;
+	roadmap_canvas_erase_area(rect);
 
-			for (i=0;i<num_images;i++){
-				point.x = i*width;
-				roadmap_canvas_draw_image (image, &point, 0, IMAGE_NORMAL);
-			}
-		}
 }
 
 static void draw_title (SsdWidget widget, RoadMapGuiRect *rect, int flags){
@@ -301,11 +294,76 @@ static void draw_text_box(SsdWidget widget, RoadMapGuiRect *rect){
 
 }
 
+static void draw_search_box(SsdWidget widget, RoadMapGuiRect *rect){
+
+   int i;
+   int num_images;
+
+   /*
+    * AGA TODO:: Check if theses images should be cached for the memory optimizations
+    *
+    */
+   static RoadMapImage   left;
+   static RoadMapImage   middle;
+   static RoadMapImage   right;
+   RoadMapImage   image_left;
+   RoadMapImage   image_middle;
+   RoadMapImage   image_right;
+   RoadMapGuiPoint point;
+   int   width_left, width_right, width_middle;
+
+   if (!left)
+         left =   roadmap_res_get( RES_BITMAP,
+                                    RES_SKIN|RES_NOCACHE,
+                                    "SearchBox_left");
+
+   if (!right)
+         right =  roadmap_res_get(
+                                    RES_BITMAP,
+                                    RES_SKIN|RES_NOCACHE,
+                                    "SearchBox_right");
+
+   if (!middle)
+         middle =    roadmap_res_get(
+                                    RES_BITMAP,
+                                    RES_SKIN|RES_NOCACHE,
+                                    "SearchBox_middle");
+
+
+   image_left = left;
+   image_right = right;
+   image_middle = middle;
+
+   width_left = roadmap_canvas_image_width(image_left);
+   width_right = roadmap_canvas_image_width(image_right);
+   width_middle = roadmap_canvas_image_width(image_middle);
+
+   point.x = rect->minx;
+   point.y = rect->miny;
+   roadmap_canvas_draw_image (image_left, &point, 0, IMAGE_NORMAL);
+
+   num_images = (rect->maxx - rect->minx - width_right - width_left)/width_middle;
+   for (i = 0; i < num_images; i++){
+      point.x = +rect-> minx + width_right + i * width_middle;
+      point.y = rect->miny;
+      roadmap_canvas_draw_image (image_middle, &point, 0, IMAGE_NORMAL);
+   }
+
+   point.x = rect->maxx - width_right;
+   point.y = rect->miny;
+   roadmap_canvas_draw_image (image_right, &point, 0, IMAGE_NORMAL);
+
+}
 static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
 
 
    RoadMapGuiPoint points[5];
    int count = 5;
+#ifdef OPENGL
+   RoadMapGuiPoint position;
+   RoadMapGuiPoint sign_bottom, sign_top;
+   static RoadMapImage focus_image;
+#endif
    const char* background = widget->bg_color;
 
 
@@ -333,14 +391,32 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
   	  	 }
   	  	 else{
   	  	    if (!(widget->flags & SSD_DIALOG_TRANSPARENT)){
+
          	roadmap_canvas_select_pen (bg);
          	roadmap_canvas_set_foreground (background);
 
-            if (widget->flags & SSD_CONTAINER_TXT_BOX){
+            if ((widget->flags & SSD_CONTAINER_TXT_BOX) || (widget->flags & SSD_CONTAINER_SEARCH_BOX)){
       			rect->minx += 10;
       			rect->maxx -= 10;
             }
-         	roadmap_canvas_erase_area (rect);
+            else
+               roadmap_canvas_erase_area (rect);
+#ifdef OPENGL
+            if (widget->in_focus && widget->focus_highlight ){
+               if (!focus_image)
+                  focus_image = roadmap_res_get( RES_BITMAP, RES_SKIN, "focus" );
+
+               if (focus_image){
+                  sign_top.x = rect->minx;
+                  sign_top.y = rect->miny;
+                  position.x = roadmap_canvas_image_width(focus_image)/2;
+                  position.y = roadmap_canvas_image_height(focus_image) / 2;
+                  sign_bottom.x = rect->maxx;
+                  sign_bottom.y = rect->maxy;
+               }
+               roadmap_canvas_draw_image_stretch( focus_image, &sign_top, &sign_bottom, &position, 0, IMAGE_NORMAL );
+            }
+#endif
   	  	    }
   	  	 }
       }
@@ -490,13 +566,27 @@ static void draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
       		}
    			draw_text_box(widget, rect);
       	}
-      	rect->minx += 10;
+      	rect->minx += 20;
       	rect->miny += 10;
-      	rect->maxx -= 10;
+      	rect->maxx -= 20;
       	rect->maxy -= 10;
 
    }
 
+   if (widget->flags & SSD_CONTAINER_SEARCH_BOX){
+         if (!(flags & SSD_GET_SIZE)){
+            if (background){
+               rect->minx -= 10;
+               rect->maxx += 10;
+            }
+            draw_search_box(widget, rect);
+         }
+         rect->minx += 20;
+         rect->miny += 10;
+         rect->maxx -= 20;
+         rect->maxy -= 10;
+
+   }
    if (widget->flags & SSD_CONTAINER_TITLE){
    		ssd_widget_set_left_softkey_text(widget, widget->left_softkey);
    		ssd_widget_set_right_softkey_text(widget, widget->right_softkey);
@@ -528,7 +618,7 @@ static int short_click (SsdWidget widget, const RoadMapGuiPoint *point) {
 	widget->force_click = FALSE;
 
    if (widget->callback) {
-#ifndef IPHONE
+#ifdef PLAY_CLICK
       RoadMapSoundList list = roadmap_sound_list_create (0);
       if (roadmap_sound_list_add (list, "click") != -1) {
          roadmap_sound_play_list (list);
@@ -591,7 +681,7 @@ static void add_title (SsdWidget w, int flags) {
    int height = 24;
       if ( roadmap_screen_is_hd_screen() )
       {
-         height = 36;
+         height = height*1.8;
       }
       title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, height,
                               SSD_END_ROW);
@@ -623,7 +713,7 @@ static void add_title (SsdWidget w, int flags) {
    if (!( ((flags & SSD_DIALOG_FLOAT)&& !(flags & SSD_DIALOG_TRANSPARENT)) || (flags & SSD_DIALOG_NO_BACK))){
       SsdWidget btn = NULL;
 #ifndef ANDROID
-      btn = ssd_button_new ("back", "", back_buttons, 2,
+      btn = ssd_button_new (SSD_DIALOG_BUTTON_BACK_NAME, "", back_buttons, 2,
                         SSD_ALIGN_VCENTER, button_callback );
 #endif
 

@@ -1,0 +1,335 @@
+# Microsoft eMbedded Visual Tools Project File - Name="agg" - Package Owner=<4>
+# Microsoft eMbedded Visual Tools Generated Build File, Format Version 6.02
+# ** DO NOT EDIT **
+
+# TARGTYPE "Win32 (WCE ARMV4) Static Library" 0xa304
+
+CFG=agg - Win32 (WCE ARMV4) Debug
+!MESSAGE This is not a valid makefile. To build this project using NMAKE,
+!MESSAGE use the Export Makefile command and run
+!MESSAGE 
+!MESSAGE NMAKE /f "agg.vcn".
+!MESSAGE 
+!MESSAGE You can specify a configuration when running NMAKE
+!MESSAGE by defining the macro CFG on the command line. For example:
+!MESSAGE 
+!MESSAGE NMAKE /f "agg.vcn" CFG="agg - Win32 (WCE ARMV4) Debug"
+!MESSAGE 
+!MESSAGE Possible choices for configuration are:
+!MESSAGE 
+!MESSAGE "agg - Win32 (WCE ARMV4) Release" (based on "Win32 (WCE ARMV4) Static Library")
+!MESSAGE "agg - Win32 (WCE ARMV4) Debug" (based on "Win32 (WCE ARMV4) Static Library")
+!MESSAGE "agg - Win32 (WCE ARMV4) Profiler" (based on "Win32 (WCE ARMV4) Static Library")
+!MESSAGE 
+
+# Begin Project
+# PROP AllowPerConfigDependencies 0
+# PROP Scc_ProjName ""
+# PROP Scc_LocalPath ""
+# PROP ATL_Project 2
+CPP=clarm.exe
+
+!IF  "$(CFG)" == "agg - Win32 (WCE ARMV4) Release"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "ARMV4Rel"
+# PROP BASE Intermediate_Dir "ARMV4Rel"
+# PROP BASE CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP BASE Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "ARMV4Rel"
+# PROP Intermediate_Dir "ARMV4Rel"
+# PROP CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "NDEBUG" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /YX /O2 /M$(CECrtMT) /c
+# ADD CPP /nologo /W3 /Zd /I "../../../agg/include" /I "../../../freetype/include" /I "../../../libfribidi" /D "NDEBUG" /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /D "USE_FRIBIDI" /YX /O2 /M$(CECrtMT) /c
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+
+!ELSEIF  "$(CFG)" == "agg - Win32 (WCE ARMV4) Debug"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 1
+# PROP BASE Output_Dir "ARMV4Dbg"
+# PROP BASE Intermediate_Dir "ARMV4Dbg"
+# PROP BASE CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP BASE Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 1
+# PROP Output_Dir "ARMV4Dbg"
+# PROP Intermediate_Dir "ARMV4Dbg"
+# PROP CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /Zi /Od /D "DEBUG" /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /YX /M$(CECrtMTDebug) /c
+# ADD CPP /nologo /W3 /Zi /Od /I "../../../agg/include" /I "../../../freetype/include" /I "../../../libfribidi" /D "DEBUG" /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /D "USE_FRIBIDI" /YX /M$(CECrtMTDebug) /c
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+
+!ELSEIF  "$(CFG)" == "agg - Win32 (WCE ARMV4) Profiler"
+
+# PROP BASE Use_MFC 0
+# PROP BASE Use_Debug_Libraries 0
+# PROP BASE Output_Dir "ARMV4Profiler"
+# PROP BASE Intermediate_Dir "ARMV4Profiler"
+# PROP BASE CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP BASE Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP BASE Target_Dir ""
+# PROP Use_MFC 0
+# PROP Use_Debug_Libraries 0
+# PROP Output_Dir "ARMV4Profiler"
+# PROP Intermediate_Dir "ARMV4Profiler"
+# PROP CPU_ID "{ECBEA43D-CD7B-4852-AD55-D4227B5D624B}"
+# PROP Platform_ID "{8A9A2F80-6887-11D3-842E-005004848CBA}"
+# PROP Target_Dir ""
+# ADD BASE CPP /nologo /W3 /D "NDEBUG" /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /D "USE_FRIBIDI" /YX /O2 /M$(CECrtMT) /c
+# ADD CPP /nologo /W3 /Zi /I "../../../agg/include" /I "../../../freetype/include" /I "../../../libfribidi" /D "NDEBUG" /D _WIN32_WCE=$(CEVersion) /D "$(CePlatform)" /D "ARM" /D "_ARM_" /D "ARMV4" /D UNDER_CE=$(CEVersion) /D "UNICODE" /D "_UNICODE" /D "_LIB" /D "USE_FRIBIDI" /YX /O2 /M$(CECrtMT) /fastcap /c
+LIB32=link.exe -lib
+# ADD BASE LIB32 /nologo
+# ADD LIB32 /nologo
+BSC32=bscmake.exe
+# ADD BASE BSC32 /nologo
+# ADD BSC32 /nologo
+
+!ENDIF 
+
+# Begin Target
+
+# Name "agg - Win32 (WCE ARMV4) Release"
+# Name "agg - Win32 (WCE ARMV4) Debug"
+# Name "agg - Win32 (WCE ARMV4) Profiler"
+# Begin Group "Source Files"
+
+# PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_bezier_arc.cpp
+DEP_CPP_AGG_B=\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_bezier_arc.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_conv_transform.h"\
+	"..\..\..\agg\include\agg_trans_affine.h"\
+	
+NODEP_CPP_AGG_B=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_curves.cpp
+DEP_CPP_AGG_C=\
+	"..\..\..\agg\include\agg_array.h"\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_curves.h"\
+	"..\..\..\agg\include\agg_math.h"\
+	
+NODEP_CPP_AGG_C=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\font_freetype\agg_font_freetype.cpp
+DEP_CPP_AGG_F=\
+	"..\..\..\agg\font_freetype\agg_font_freetype.h"\
+	"..\..\..\agg\include\agg_array.h"\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_bitset_iterator.h"\
+	"..\..\..\agg\include\agg_clip_liang_barsky.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_conv_curve.h"\
+	"..\..\..\agg\include\agg_curves.h"\
+	"..\..\..\agg\include\agg_font_cache_manager.h"\
+	"..\..\..\agg\include\agg_gamma_functions.h"\
+	"..\..\..\agg\include\agg_math.h"\
+	"..\..\..\agg\include\agg_path_storage_integer.h"\
+	"..\..\..\agg\include\agg_rasterizer_cells_aa.h"\
+	"..\..\..\agg\include\agg_rasterizer_scanline_aa.h"\
+	"..\..\..\agg\include\agg_rasterizer_sl_clip.h"\
+	"..\..\..\agg\include\agg_renderer_base.h"\
+	"..\..\..\agg\include\agg_renderer_scanline.h"\
+	"..\..\..\agg\include\agg_rendering_buffer.h"\
+	"..\..\..\agg\include\agg_scanline_bin.h"\
+	"..\..\..\agg\include\agg_scanline_storage_aa.h"\
+	"..\..\..\agg\include\agg_scanline_storage_bin.h"\
+	"..\..\..\agg\include\agg_scanline_u.h"\
+	"..\..\..\agg\include\agg_trans_affine.h"\
+	"..\..\..\freetype\include\freetype\config\ftheader.h"\
+	"..\..\..\freetype\include\ft2build.h"\
+	
+NODEP_CPP_AGG_F=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_line_aa_basics.cpp
+DEP_CPP_AGG_L=\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_line_aa_basics.h"\
+	
+NODEP_CPP_AGG_L=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_line_profile_aa.cpp
+DEP_CPP_AGG_LI=\
+	"..\..\..\agg\include\agg_array.h"\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_clip_liang_barsky.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_dda_line.h"\
+	"..\..\..\agg\include\agg_ellipse_bresenham.h"\
+	"..\..\..\agg\include\agg_gamma_functions.h"\
+	"..\..\..\agg\include\agg_line_aa_basics.h"\
+	"..\..\..\agg\include\agg_math.h"\
+	"..\..\..\agg\include\agg_renderer_base.h"\
+	"..\..\..\agg\include\agg_renderer_outline_aa.h"\
+	"..\..\..\agg\include\agg_rendering_buffer.h"\
+	
+NODEP_CPP_AGG_LI=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_sqrt_tables.cpp
+DEP_CPP_AGG_S=\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	
+NODEP_CPP_AGG_S=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\agg_trans_affine.cpp
+DEP_CPP_AGG_T=\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_trans_affine.h"\
+	
+NODEP_CPP_AGG_T=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\src\platform\win32\agg_win32_bmp.cpp
+DEP_CPP_AGG_W=\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\platform\win32\agg_win32_bmp.h"\
+	
+NODEP_CPP_AGG_W=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\..\agg\roadmap_canvas.cpp
+DEP_CPP_ROADM=\
+	"..\..\..\agg\font_freetype\agg_font_freetype.h"\
+	"..\..\..\agg\include\agg_array.h"\
+	"..\..\..\agg\include\agg_basics.h"\
+	"..\..\..\agg\include\agg_bezier_arc.h"\
+	"..\..\..\agg\include\agg_clip_liang_barsky.h"\
+	"..\..\..\agg\include\agg_color_rgba.h"\
+	"..\..\..\agg\include\agg_config.h"\
+	"..\..\..\agg\include\agg_conv_adaptor_vcgen.h"\
+	"..\..\..\agg\include\agg_conv_contour.h"\
+	"..\..\..\agg\include\agg_conv_curve.h"\
+	"..\..\..\agg\include\agg_conv_stroke.h"\
+	"..\..\..\agg\include\agg_conv_transform.h"\
+	"..\..\..\agg\include\agg_curves.h"\
+	"..\..\..\agg\include\agg_dda_line.h"\
+	"..\..\..\agg\include\agg_ellipse.h"\
+	"..\..\..\agg\include\agg_ellipse_bresenham.h"\
+	"..\..\..\agg\include\agg_font_cache_manager.h"\
+	"..\..\..\agg\include\agg_gamma_functions.h"\
+	"..\..\..\agg\include\agg_line_aa_basics.h"\
+	"..\..\..\agg\include\agg_math.h"\
+	"..\..\..\agg\include\agg_math_stroke.h"\
+	"..\..\..\agg\include\agg_path_storage.h"\
+	"..\..\..\agg\include\agg_path_storage_integer.h"\
+	"..\..\..\agg\include\agg_pixfmt_rgb_packed.h"\
+	"..\..\..\agg\include\agg_pixfmt_rgba.h"\
+	"..\..\..\agg\include\agg_rasterizer_cells_aa.h"\
+	"..\..\..\agg\include\agg_rasterizer_outline.h"\
+	"..\..\..\agg\include\agg_rasterizer_outline_aa.h"\
+	"..\..\..\agg\include\agg_rasterizer_scanline_aa.h"\
+	"..\..\..\agg\include\agg_rasterizer_sl_clip.h"\
+	"..\..\..\agg\include\agg_renderer_base.h"\
+	"..\..\..\agg\include\agg_renderer_outline_aa.h"\
+	"..\..\..\agg\include\agg_renderer_primitives.h"\
+	"..\..\..\agg\include\agg_renderer_scanline.h"\
+	"..\..\..\agg\include\agg_rendering_buffer.h"\
+	"..\..\..\agg\include\agg_scanline_bin.h"\
+	"..\..\..\agg\include\agg_scanline_p.h"\
+	"..\..\..\agg\include\agg_scanline_storage_aa.h"\
+	"..\..\..\agg\include\agg_scanline_storage_bin.h"\
+	"..\..\..\agg\include\agg_scanline_u.h"\
+	"..\..\..\agg\include\agg_trans_affine.h"\
+	"..\..\..\agg\include\agg_vcgen_contour.h"\
+	"..\..\..\agg\include\agg_vcgen_stroke.h"\
+	"..\..\..\agg\include\agg_vertex_sequence.h"\
+	"..\..\..\freetype\include\freetype\config\ftheader.h"\
+	"..\..\..\freetype\include\ft2build.h"\
+	"..\..\..\libfribidi\fribidi.h"\
+	"..\..\..\libfribidi\fribidi_char_sets.h"\
+	"..\..\..\libfribidi\fribidi_char_sets.i"\
+	"..\..\..\libfribidi\fribidi_char_sets_cap_rtl.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_cp1255.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_cp1256.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_isiri_3342.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_iso8859_6.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_iso8859_8.h"\
+	"..\..\..\libfribidi\fribidi_char_sets_utf8.h"\
+	"..\..\..\libfribidi\fribidi_config.h"\
+	"..\..\..\libfribidi\fribidi_types.h"\
+	"..\..\..\libfribidi\fribidi_types.i"\
+	"..\..\..\libfribidi\fribidi_unicode.h"\
+	"..\..\..\roadmap.h"\
+	"..\..\..\roadmap_canvas.h"\
+	"..\..\..\roadmap_canvas_agg.h"\
+	"..\..\..\roadmap_config.h"\
+	"..\..\..\roadmap_gui.h"\
+	"..\..\..\roadmap_math.h"\
+	"..\..\..\roadmap_messagebox.h"\
+	"..\..\..\roadmap_path.h"\
+	"..\..\..\roadmap_screen.h"\
+	"..\..\..\roadmap_types.h"\
+	"..\..\roadmap_win32.h"\
+	"C:\Program Files\Windows CE Tools\Common\Platman\sdk\wce500\include\cecap.h"\
+	
+NODEP_CPP_ROADM=\
+	"..\..\..\agg\include\agg_allocator.h"\
+	
+# ADD CPP /D RGB565=1
+# End Source File
+# End Group
+# Begin Group "Header Files"
+
+# PROP Default_Filter "h;hpp;hxx;hm;inl"
+# End Group
+# End Target
+# End Project

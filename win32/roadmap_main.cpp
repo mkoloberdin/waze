@@ -26,12 +26,18 @@
  */
 
 #include <windows.h>
+#include <initguid.h>   // Needed for COM
 #include <commctrl.h>
 #include "resource.h"
 #include <winsock.h>
 #include <time.h>
 #include <comutil.h>
-
+#ifndef EMBEDDED_CE
+#include <piedocvw.h>
+#include <htmlctrl.h>
+#include <pimstore.h>
+#include <phone.h>
+#endif
 #ifdef UNDER_CE
 #include <aygshell.h>
 #include <notify.h>
@@ -50,6 +56,7 @@
 #endif
 
 extern "C" {
+
 #include "../roadmap.h"
 #include "../roadmap_path.h"
 #include "../roadmap_start.h"
@@ -68,6 +75,7 @@ extern "C" {
 #include "../roadmap_gps.h"
 #include "../roadmap_keyboard.h"
 #include "../roadmap_device_events.h"
+#include "../roadmap_browser.h"
 #include "wince_input_mon.h"
 #include "win32_serial.h"
 #include "roadmap_wincecanvas.h"
@@ -76,15 +84,27 @@ extern "C" {
 #include "../Realtime/RealtimeAlerts.h"
 #include "../roadmap_utf8.h"
 #include "../roadmap_camera.h"
+#include "../ssd/ssd_widget.h"
 #include "../ssd/ssd_dialog.h"
 #include "../ssd/ssd_confirm_dialog.h"
 #include "../roadmap_urlscheme.h"
+#include "../address_search/single_search_dlg.h"
+#include "roadmap_search_ab.h"
 #ifdef SSD
 #include "roadmap_pointer.h"
 #include "roadmap_screen.h"
 #endif
 }
 
+extern "C" void roadmap_canvas_init_egl (HWND hWnd);
+extern "C" void setMTEvent(BOOL isMT);
+extern "C" void setMtPoints(POINT Points[2]);
+
+#ifdef OPENGL
+extern "C" HWND roadmap_canvas_new (HWND hWnd);
+#else
+extern HWND roadmap_canvas_new (HWND hWnd);
+#endif
 #ifdef _WIN32
    #ifdef   TOUCH_SCREEN
       #pragma message("    Target device type:    TOUCH-SCREEN")
@@ -92,6 +112,10 @@ extern "C" {
       #pragma message("    Target device type:    MENU ONLY (NO TOUCH-SCREEN)")
    #endif   // TOUCH_SCREEN
 #endif   // _WIN32
+
+#ifdef OPENGL
+	#pragma message("    Using OPENGL!")
+#endif
 
 ///[BOOKMARK]:[NOTE]:[PAZ] - Ability to force the usage of the phone keyboard (0..9,'*','#')
 ///#define  FORCE_PHONE_KEYBOARD_USAGE
@@ -132,6 +156,167 @@ extern "C" {
    #define  ROADMAP_FULL_KEYBOARD            (KBDI_KEYBOARD_PRESENT|KBDI_KEYBOARD_ENABLED|KBDI_KEYBOARD_ENTER_ESC|KBDI_KEYBOARD_ALPHA_NUM)
 #endif   // UNDER_CE
 
+int HTC_MT_BEGIN;
+int HTC_MT_END;
+int HTC_MT_MOVE;
+
+
+static POINT ParamToPoint(WPARAM wParam)
+{
+	POINT pt = {LOWORD(wParam),HIWORD(wParam)};
+	return pt;
+}
+// Uses simple Pythag to calculate the distance
+static int Distance(POINT pt,POINT pt2)
+{
+	return (sqrt(pow((pt.x-pt2.x),2)+pow((pt.y-pt2.y),2)));
+}
+// For comparing distances, makes no sense to squareroot, just
+// compare the squares :)
+static int Distance2(POINT pt,POINT pt2)
+{
+	return (pow(pt.x-pt2.x,2)+pow(pt.y-pt2.y,2));
+}
+
+static int Distance3(POINT pt,POINT pt2){
+   if ( abs( pt.y - pt2.y ) <= 50 )
+	   return 1;
+   else
+	   return 0;
+}
+
+static bool check_if_registry_exist(LPCTSTR pszKey){
+
+  DWORD  dwError=0;
+  HKEY   hKey=NULL;
+  if(dwError=RegOpenKeyEx(HKEY_LOCAL_MACHINE,pszKey,
+                          0,KEY_READ,&hKey)){
+	RegCloseKey(hKey);
+    /* it is really strange that this key does not exist, but could happen in theory */
+    if(dwError==ERROR_FILE_NOT_FOUND)return false;
+	else return true;
+
+  }
+  return true;
+}
+
+static void add_mt_suppor_to_regsitry(){
+  DWORD  dwError=0;
+  DWORD  err = 0;
+  HKEY   hKey=NULL;
+  err = RegCreateKeyEx(HKEY_LOCAL_MACHINE, L"Software\\HTC\\TouchGL\\Pinch\\WhiteList\\Waze",
+		0, NULL, REG_OPTION_NON_VOLATILE, 0, NULL, &hKey, &dwError);
+  if (err == 0){
+	RegSetValueEx(hKey, L"ClassName", 0, REG_SZ, (unsigned char*)L"RoadMapClass", 26);
+	RegCloseKey(hKey);
+  }
+}
+
+static void roadmap_main_register_for_mt_events()
+{
+	if (!check_if_registry_exist(TEXT("Software\\HTC\\TouchGL\\Pinch\\WhiteList"))){
+		HTC_MT_BEGIN = 0;
+		HTC_MT_END = 0;
+		HTC_MT_MOVE = 0;
+	}
+
+	if (!check_if_registry_exist(TEXT("Software\\HTC\\TouchGL\\Pinch\\WhiteList\\Waze")))
+		add_mt_suppor_to_regsitry();
+
+	HTC_MT_BEGIN = RegisterWindowMessage(TEXT("HTC_Zoom_Begin"));
+	HTC_MT_END = RegisterWindowMessage(TEXT("HTC_Zoom_End"));
+	HTC_MT_MOVE = RegisterWindowMessage(TEXT("HTC_Zooming"));
+}
+
+#ifdef OPENGL
+static int roadmap_main_handle_mt_events(HWND hWnd, UINT msg, WPARAM wParam,LPARAM lParam)
+{
+	int State = 0;
+	static bool bMouseDown = false;
+	static POINT pt[2];
+	// Previous mouse points
+	static POINT ptOld[2];
+	static POINT ptStart[2];
+
+	if (!HTC_MT_BEGIN || !HTC_MT_END || !HTC_MT_MOVE)
+		return false;
+
+	// If it's the beginning of MultiTouch
+	if(msg == HTC_MT_BEGIN)
+	{
+		setMTEvent(true);
+		// Store the points
+		pt[0] = ptOld[0] = ptStart[0] = ParamToPoint(wParam);
+		pt[1] = ptOld[1] = ptStart[1] = ParamToPoint(lParam);
+		setMtPoints(&pt[0]);
+		//roadmap_log (ROADMAP_WARNING, "MT Begin (x=%d, y=%d) (x=%d, y=%d)", pt[0].x, pt[0].y, pt[1].x, pt[1].y);
+		roadmap_canvas_button_pressed(&pt[0]);
+		// So we know that it's started
+		bMouseDown = true;
+		State = 0;
+	}
+	else if(msg == HTC_MT_END)
+	{
+		// Possibly do some handling here later...
+		bMouseDown = false;
+		setMTEvent(false);
+		roadmap_canvas_button_released(&pt[0]);
+		//roadmap_log (ROADMAP_WARNING, "MT END (x=%d, y=%d)", pt[0].x, pt[0].y);
+		State = 0;
+	}
+	else if(msg == HTC_MT_MOVE)
+	{
+
+		// If we've not handled a start event, we need to
+		setMTEvent(true);
+		// If PT is closer to old point than new point, just set the two new points.
+		if(Distance2(ParamToPoint(wParam),pt[0])<Distance2(ParamToPoint(lParam),pt[0]))
+		{
+			ptOld[0] = pt[0];
+			ptOld[1] = pt[1];
+			if(Distance3(ParamToPoint(wParam),pt[0])){
+				pt[0] = ParamToPoint(wParam);
+				pt[1] = ParamToPoint(lParam);
+				setMtPoints(&pt[0]);
+				roadmap_canvas_mouse_moved(&pt[0]);
+	    		//roadmap_log (ROADMAP_WARNING, "MT MOVE2 (x=%d, y=%d) (x=%d, y=%d) bMouseDown=%d", pt[0].x, pt[0].y, pt[1].x, pt[1].y,bMouseDown);
+			}
+			else{
+				pt[0] = ptOld[0];
+				pt[1] = ptOld[1];
+				setMtPoints(&pt[0]);
+				roadmap_canvas_mouse_moved(&pt[0]);
+	    		//roadmap_log (ROADMAP_WARNING, "MT MOVE22 (x=%d, y=%d) (x=%d, y=%d), bMouseDown=%d", pt[0].x, pt[0].y, pt[1].x, pt[1].y,bMouseDown);
+			}
+		}
+		// If PT is closer to other point, they have swapped, so swap the values
+		else
+		{
+			ptOld[0] = pt[0];
+			ptOld[1] = pt[1];
+			if(Distance3(ParamToPoint(lParam),pt[0])){
+				pt[0] = ParamToPoint(lParam);
+				pt[1] = ParamToPoint(wParam);
+				setMtPoints(&pt[0]);
+				roadmap_canvas_mouse_moved(&pt[0]);
+	    		//roadmap_log (ROADMAP_WARNING, "MT MOVE3 (x=%d, y=%d) (x=%d, y=%d), bMouseDown=%d", pt[0].x, pt[0].y, pt[1].x, pt[1].y,bMouseDown);
+			}
+			else{
+				pt[0] = ptOld[0];
+				pt[1] = ptOld[1];
+				setMtPoints(&pt[0]);
+				roadmap_canvas_mouse_moved(&pt[0]);
+	    		//roadmap_log (ROADMAP_WARNING, "MT MOVE32 (x=%d, y=%d) (x=%d, y=%d), bMouseDown=%d", pt[0].x, pt[0].y, pt[1].x, pt[1].y,bMouseDown);
+			}
+
+		}
+		State = 1;
+	}
+
+	// If we're not handling this, the WndProc should
+	return State;
+}
+#endif
 
 #ifdef   TESTING_BUILD
    #pragma message("    WARNING: TEST-BUILD")
@@ -159,7 +344,7 @@ static   RoadMapCallback menu_callbacks[MAX_MENU_ITEMS] = {0};
 static   RoadMapCallback tool_callbacks[MAX_TOOL_ITEMS] = {0};
 
 // timer stuff
-#define ROADMAP_MAX_TIMER 20
+#define ROADMAP_MAX_TIMER 30
 struct roadmap_main_timer {
    unsigned int id;
    RoadMapCallback callback;
@@ -168,7 +353,7 @@ struct roadmap_main_timer {
 static struct roadmap_main_timer RoadMapMainPeriodicTimer[ROADMAP_MAX_TIMER];
 
 // IO stuff
-#define ROADMAP_MAX_IO 16
+#define ROADMAP_MAX_IO 32
 static roadmap_main_io *RoadMapMainIo[ROADMAP_MAX_IO] = {0};
 
 static   HANDLE      VirtualSerialHandle      = 0;
@@ -185,6 +370,11 @@ static   HMENU      g_hWndDialogMenuBar      = NULL;
 #endif   //   UNDER_CE
 static CConnectionThreadMgr   g_ConnectionThreadMgr;
 
+#ifndef EMBEDDED_CE
+HWND m_hwndHTML;
+
+static IPOutlookApp2    *g_pPoom   = NULL;
+#endif // EMBEDDED_CE
 // Global Variables used by other C modules:
 extern "C"
 {
@@ -237,12 +427,13 @@ static void first_time_wizard (void);
 
 static HANDLE g_hMutexAppRunning = NULL;
 
+
 static int VK_FUNC_MOTOROLA = 17;
 static int VK_FUNC_SAMSUNG = 144;
 static BOOL FUNC_PRESSED = 0;
 static const int HASH_KEY = 120;
 static const int STAR_KEY = 119;
-static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour on moto q.	
+static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour on moto q.
 	switch(key){
 		case ('1') :
 			return 'e';
@@ -265,9 +456,124 @@ static WORD reMapNumbers(WORD key){ // patch to fix strange keyboard behaviour o
 
 		default:
 			return key;
-	}	
+	}
 }
 
+#ifndef EMBEDDED_CE
+static HRESULT address_book_init()
+{
+	HRESULT hr = S_OK;
+
+	// Init COM
+	hr = CoInitializeEx(NULL, 0);
+	if(FAILED(hr))
+		return E_FAIL;
+
+	// Create the POOM COM object.
+	hr = CoCreateInstance(CLSID_Application, NULL, CLSCTX_INPROC_SERVER,
+			IID_IPOutlookApp2, (LPVOID *) &g_pPoom);
+	if(FAILED(hr))
+		return E_FAIL;
+
+	if (g_pPoom == NULL)
+		return E_FAIL;
+
+	// Logon to POOM.
+	hr = g_pPoom->Logon(NULL);
+		return hr;
+}
+
+
+static HRESULT address_book_term()
+{
+    HRESULT hr = S_OK;
+
+    if (g_pPoom == NULL)
+		return E_FAIL;
+
+    // Logoff from POOM.
+    hr = g_pPoom->Logoff();
+
+    CoUninitialize();
+
+	return S_OK;
+}
+
+
+BOOL CreateHTMLControlWindow(HWND hParentWnd, const RMBrowserContext* context)
+{
+   int additional_flags = 0;
+   int width, height;
+	if( !InitHTMLControl(g_hInst))
+	{
+		//InitHTMLControl failed.
+		//MessageBox(hParentWnd, _T("Can't InitHTMLControl."), _T("Warning"), MB_OK);
+		return FALSE;
+	}
+
+	if (context->flags && BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL)
+	   additional_flags = HS_NOSCROLL;
+
+
+	width = context->rect.maxx - context->rect.minx + 1;
+	height = context->rect.maxy - context->rect.miny + 1;
+	// Create the control.
+	m_hwndHTML = CreateWindow( WC_HTML, NULL, WS_CHILD |  WS_VISIBLE | additional_flags |  WS_CLIPSIBLINGS /*| WS_BORDER*/| HS_CONTEXTMENU | HS_NOSELECTION | HS_CLEARTYPE | HS_INTEGRALPAGING,
+	      context->rect.minx, context->rect.miny, width , height, hParentWnd, NULL, g_hInst, NULL);
+
+	if (m_hwndHTML == NULL)
+	{
+		// CreateWindow failed.
+		//MessageBox(hParentWnd, _T("Can't create window WC_HTML."), _T("Warning"), MB_OK);
+		return FALSE;
+	}
+
+
+
+	OLECHAR *sOleText=new OLECHAR[strlen(context->url)+1];
+	mbstowcs(sOleText,context->url,strlen(context->url)+1); // +1 means: don't forget the terminating null character
+	SendMessage(m_hwndHTML, DTM_NAVIGATE, 0, (LPARAM)sOleText);
+
+	IWebBrowser2 *pWebBrowser2= NULL;
+	DWebBrowserEvents2 * pDWebBrowserEvents=NULL;
+	SendMessage(m_hwndHTML, DTM_BROWSERDISPATCH, 0, (LPARAM) &pDWebBrowserEvents);
+	if( pDWebBrowserEvents == NULL){
+		//MessageBox(NULL, _T("pDWebBrowserEvents==NULL"), _T("CreateHTMLControlWindow"), MB_OK);
+		return FALSE;
+	}
+
+	pDWebBrowserEvents->QueryInterface(IID_IWebBrowser2, (void**)&pWebBrowser2);
+	if( pWebBrowser2 == NULL ){
+		//MessageBox(NULL, _T("pWebBrowser2==NULL"), _T("CreateHTMLControlWindow"), MB_OK);
+		return FALSE;
+	}
+
+	return TRUE;
+}
+/*************************************************************************************************
+ * void roadmap_browser_launcher( RMBrowserContext* context )
+ * Shows the Win browser view
+ *
+ */
+static void roadmap_browser_launcher( const RMBrowserContext* context )
+{
+
+	CreateHTMLControlWindow(RoadMapMainWindow, context);
+
+}
+
+/*************************************************************************************************
+ * void roadmap_browser_close( void )
+ * Closes the Win browser
+ *
+ */
+static void roadmap_browser_close( void )
+{
+	ShowWindow(m_hwndHTML, SW_HIDE);
+	roadmap_main_set_cursor(ROADMAP_CURSOR_NORMAL);
+}
+
+#endif //EMBEDDED_CE
 static BOOL AppInstanceExists()
 {
    BOOL bAppRunning = FALSE;
@@ -297,6 +603,10 @@ static void roadmap_start_event (int event) {
 #ifdef FREEMAP_IL
       editor_main_check_map ();
 #endif
+#ifndef EMBEDDED_CE
+      roadmap_browser_register_launcher( roadmap_browser_launcher );
+      roadmap_browser_register_close( roadmap_browser_close );
+#endif //EMBEDDED_CE
       break;
    }
 }
@@ -549,7 +859,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 {
    MSG      msg;
    LPTSTR   cmd_line = L"";
-#ifdef UNDER_CE
+#if defined (UNDER_CE) && !defined(EMBEDDED_CE)
 #ifndef  FORCE_PHONE_KEYBOARD_USAGE
    DWORD dwKeyboardStatus  = ::GetKeyboardStatus();
    DWORD dwKyeboardCaps    = (dwKeyboardStatus&ROADMAP_FULL_KEYBOARD);
@@ -561,7 +871,7 @@ int WINAPI WinMain(HINSTANCE hInstance,
 
    cmd_line = lpCmdLine;
 #endif
-
+USING_PHONE_KEYPAD = FALSE;
 #ifdef WIN32_PROFILE
    //SuspendCAPAll();
 #endif
@@ -579,7 +889,9 @@ int WINAPI WinMain(HINSTANCE hInstance,
       setup_virtual_serial ();
    }
    __except (handleException(GetExceptionInformation())) {}
-
+#ifdef OPENGL
+   roadmap_main_register_for_mt_events();
+#endif
    ShowWindow( RoadMapMainWindow, nCmdShow);
    UpdateWindow( RoadMapMainWindow);
 
@@ -699,21 +1011,21 @@ void OnSettingsChanged_EnableAutoSync(void)
 }
 #endif   // UNDER_CE
 
-static int urldecode(char *src, char *last, char *dest){ 
-  int code; 
-  for (; src != last; src++, dest++){ 
-    if (*src == '+') *dest = ' '; 
-    else if(*src == '%') { 
-      if(sscanf(src+1, "%2x", &code) != 1) code = '?'; 
-      *dest = code; 
-      src +=2; 
-    } 
-    else *dest = *src; 
-  } 
-  *dest   = '\n'; 
-  *++dest = '\0'; 
-  return 0; 
-} 
+static int urldecode(char *src, char *last, char *dest){
+  int code;
+  for (; src != last; src++, dest++){
+    if (*src == '+') *dest = ' ';
+    else if(*src == '%') {
+      if(sscanf(src+1, "%2x", &code) != 1) code = '?';
+      *dest = code;
+      src +=2;
+    }
+    else *dest = *src;
+  }
+  *dest   = '\n';
+  *++dest = '\0';
+  return 0;
+}
 
 extern "C" void ssd_dialog_wait ();
 BOOL InitInstance(HINSTANCE hInstance, LPTSTR lpCmdLine)
@@ -752,7 +1064,7 @@ BOOL InitInstance(HINSTANCE hInstance, LPTSTR lpCmdLine)
 
    if (!MyRegisterClass(hInstance, g_szWindowClass))
       return FALSE;
-   
+
    if(WSAStartup(MAKEWORD(1,1), &wsaData) != 0)
       roadmap_log (ROADMAP_FATAL, "Can't initialize network");
 
@@ -800,6 +1112,7 @@ extern "C" void roadmap_start_quick_menu (void);
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+   NMHDR * pnmh;
    int wmId, wmEvent;
    PAINTSTRUCT ps;
    HDC hdc;
@@ -807,10 +1120,32 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #ifdef UNDER_CE
    static SHACTIVATEINFO s_sai;
 #endif
-
    __try {
+#ifdef OPENGL
+   if(roadmap_main_handle_mt_events(hWnd,message,wParam,lParam))
+   {
+		return 0;
+   }
+#endif
    switch (message)
    {
+#ifndef EMBEDDED_CE
+	case WM_NOTIFY:
+		pnmh = (NMHDR *)lParam;
+		switch (pnmh->code){
+			case NM_BEFORENAVIGATE:
+				roadmap_main_set_cursor(ROADMAP_CURSOR_WAIT);
+				break;
+
+			case NM_DOCUMENTCOMPLETE:
+				roadmap_main_set_cursor(ROADMAP_CURSOR_NORMAL);
+				roadmap_screen_refresh();
+				break;
+		}
+	    return DefWindowProc(hWnd, message, wParam, lParam);
+
+		break;
+#endif //EMBEDDED_CE
    case WM_COMMAND:
       wmId    = LOWORD(wParam);
       wmEvent = HIWORD(wParam);
@@ -870,7 +1205,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
    case WM_PAINT:
       hdc = BeginPaint(hWnd, &ps);
-      roadmap_canvas_refresh();
+	  SetBkMode( (HDC)wParam, TRANSPARENT );
+      roadmap_screen_refresh();
       EndPaint(hWnd, &ps);
       break;
 
@@ -881,7 +1217,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 #endif   // UNDER_CE
 
    case WM_SIZE:
-      roadmap_canvas_new(RoadMapMainWindow, NULL);
+      roadmap_canvas_new(RoadMapMainWindow);
       ssd_dialog_resort_tab_order ();
       break;
 
@@ -951,7 +1287,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       BOOL  bALT_IsDown    = (lParam & 0x20000000)? TRUE: FALSE;
       BOOL  bAlreadyPressed= (lParam & 0x40000000)? TRUE: FALSE;
       BOOL  bNowReleased   = (lParam & 0x80000000)? TRUE: FALSE;
-	  
+
 	  if ( (wParam==VK_FUNC_MOTOROLA)||(wParam==VK_FUNC_SAMSUNG)){
 		 FUNC_PRESSED = FALSE;
 	  }
@@ -968,7 +1304,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
       BOOL  bALT_IsDown    = (lParam & 0x20000000)? TRUE: FALSE;
       BOOL  bAlreadyPressed= (lParam & 0x40000000)? TRUE: FALSE;
       BOOL  bNowReleased   = (lParam & 0x80000000)? TRUE: FALSE;
-#ifndef TOUCH_SCREEN  
+#ifndef TOUCH_SCREEN
 	  if (!FUNC_PRESSED) // fix problem where key codes aren't received correctly
 		  Key = reMapNumbers(Key);
 #endif
@@ -1171,7 +1507,7 @@ void roadmap_main_new (const char *title, int width, int height)
 
       if (width == -1) width = CW_USEDEFAULT;
       if (height == -1) height = CW_USEDEFAULT;
-	  
+
       RoadMapMainWindow = CreateWindow(g_szWindowClass, szTitle, style,
          CW_USEDEFAULT, CW_USEDEFAULT, width, height, NULL,
          NULL, g_hInst, NULL);
@@ -1183,9 +1519,15 @@ void roadmap_main_new (const char *title, int width, int height)
       roadmap_log (ROADMAP_FATAL, "Can't create main window");
       return;
    }
-
+#ifdef OPENGL
+   roadmap_canvas_init_egl(RoadMapMainWindow);
+#endif
 #ifdef FREEMAP_IL
+
    editor_main_set (1);
+#ifndef EMBEDDED_CE
+   address_book_init();
+#endif
 #endif
 }
 
@@ -1372,9 +1714,156 @@ void roadmap_main_new (const char *title, int width, int height)
       }
 
       roadmap_start_exit ();
+
+#ifdef EMBEDDED_CE
+	  exit( 0 );
+#else
+      address_book_term();
+	  // Causes exceptions in CE PDA
       SendMessage(RoadMapMainWindow, WM_CLOSE, 0, 0);
+#endif
    }
 
+#ifndef EMBEDDED_CE
+ char *SelectContact(IItem **ppItem)
+   {
+    HRESULT         hr = S_OK;
+    CHOOSECONTACT   cc = {0};
+	CEPROPID  c_propidAllEmai[] = {PIMPR_HOME_ADDRESS};
+
+    if (NULL == ppItem)
+		return NULL;
+
+    // Setup the CHOOSECONTACT structure.
+    cc.cbSize       = sizeof (cc);
+    cc.dwFlags      = CCF_RETURNCONTACTNAME | CCF_DEFAULT | CCF_CHOOSECONTACTONLY;
+    cc.hwndOwner    = NULL;
+	cc.cRequiredProperties = 0;
+	cc.rgpropidRequiredProperties = c_propidAllEmai;
+
+    // Display the Contact Chooser control and prompt the user to choose a contact.
+    hr = ChooseContact(&cc);
+	if(FAILED(hr))
+		return NULL;
+
+    // Get the IItem from the OID for the selected contact
+    hr = g_pPoom->GetItemFromOidEx(cc.oidContactID, 0, ppItem);
+    if (NULL == *ppItem)
+		return NULL;
+
+	if (cc.bstrContactName == NULL)
+		return "";
+
+	return ConvertToMultiByte(cc.bstrContactName, CP_UTF8);
+   }
+
+ char * parse_address(IItem *pItem, int ID){
+		char *street = NULL;
+		char *city = NULL;
+		char *state = NULL;
+		char *address;
+	    HRESULT     hr      = S_OK;
+ 		CEPROPVAL *buf            = NULL;
+		ULONG cbBuffer            = 0;
+		HANDLE hHeap              = GetProcessHeap();
+		CEPROPID rgPropId[1];
+		int street_flag, city_flag, state_flag;
+
+		switch (ID){
+			case 0:
+				street_flag = PIMPR_HOME_ADDRESS_STREET;
+				city_flag = PIMPR_HOME_ADDRESS_CITY;
+				state_flag = PIMPR_HOME_ADDRESS_STATE;
+				break;
+			case 1:
+				street_flag = PIMPR_BUSINESS_ADDRESS_STREET;
+				city_flag = PIMPR_BUSINESS_ADDRESS_CITY;
+				state_flag = PIMPR_BUSINESS_ADDRESS_STATE;
+				break;
+			case 2:
+				street_flag = PIMPR_OTHER_ADDRESS_STREET;
+				city_flag = PIMPR_OTHER_ADDRESS_CITY;
+				state_flag = PIMPR_OTHER_ADDRESS_STATE;
+				break;
+		}
+		rgPropId[0]               =street_flag;
+		cbBuffer                  = 0;
+		hr                        = pItem->GetProps(rgPropId,CEDB_ALLOWREALLOC,1,&buf,&cbBuffer,hHeap);
+		CEPROPVAL * ppropval      = buf;
+		if(ppropval[0].wFlags!=CEDB_PROPNOTFOUND)
+		{
+			street = ConvertToMultiByte(buf->val.lpwstr, CP_UTF8);
+		}
+		else{
+			street = "";
+		}
+
+		rgPropId[0]               =city_flag;
+		cbBuffer                  = 0;
+		hr                        = pItem->GetProps(rgPropId,CEDB_ALLOWREALLOC,1,&buf,&cbBuffer,hHeap);
+		ppropval				  = buf;
+		if(ppropval[0].wFlags!=CEDB_PROPNOTFOUND)
+		{
+			city = ConvertToMultiByte(buf->val.lpwstr, CP_UTF8);
+		}
+		else{
+			city = "";
+		}
+
+		rgPropId[0]               =state_flag;
+		cbBuffer                  = 0;
+		hr                        = pItem->GetProps(rgPropId,CEDB_ALLOWREALLOC,1,&buf,&cbBuffer,hHeap);
+		ppropval				  = buf;
+		if(ppropval[0].wFlags!=CEDB_PROPNOTFOUND)
+		{
+			state = ConvertToMultiByte(buf->val.lpwstr, CP_UTF8);
+		}
+		else{
+			state = "";
+		}
+
+		if (!*street && !*city && !*state)
+			return NULL;
+		address = (char *)malloc(strlen(street)+strlen(city)+5);
+		if (*street && *city && *state)
+			sprintf(address, "%s, %s, %s", street, city, state);
+		else if (*street && *city)
+			sprintf(address, "%s, %s", street, city);
+		else if (*city && *state)
+			sprintf(address, "%s, %s", city, state);
+
+		return address;
+}
+
+
+ void roadmap_main_search_contacts(void){
+	    HRESULT     hr      = S_OK;
+		char *name;
+	    IItem       *pItem  = NULL;
+
+
+		if (g_pPoom == NULL)
+			return;
+
+		name = SelectContact(&pItem);
+		if (!name){
+			roadmap_messagebox ("Oops", "Failed to read address book");
+		}
+		char *home = parse_address(pItem, 0);
+		char *work = parse_address(pItem, 1);
+		char *other = parse_address(pItem, 2);
+
+		if (!home && !work && !other)
+		{
+			      roadmap_messagebox (name, "This contact has no address information ");
+				  return;
+		}
+
+		roadmap_screen_refresh();
+		address_book_result_dlg(name, home, work, other);
+
+   }
+#endif //EMBEDDED_CE
    void roadmap_main_set_cursor (int cursor)
    {
      switch (cursor) {
@@ -1553,7 +2042,7 @@ BOOL OnKeyDown( WORD key)
 		else
 			return OnChar('z');
    }
-   
+
 
 
    if( VK_None == vk)
@@ -1608,8 +2097,9 @@ BOOL OnChar( WORD key)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_main_show (void)
 {
+
    if (RoadMapMainWindow != NULL) {
-      roadmap_canvas_new(RoadMapMainWindow, NULL);
+      roadmap_canvas_new(RoadMapMainWindow);
    }
 }
 
@@ -1689,7 +2179,7 @@ void roadmap_main_maximize()
 BOOL roadmap_camera_take_picture(CameraImageFile*  image_file,
                                  CameraImageBuf*   image_thumbnail)
 {
-#ifdef UNDER_CE
+#ifndef EMBEDDED_CE
    SHCAMERACAPTURE   CCI;
    _bstr_t           w_output_dir( image_file->folder);
    _bstr_t           w_output_file(image_file->file);
@@ -1766,7 +2256,7 @@ BOOL roadmap_camera_take_picture(CameraImageFile*  image_file,
 
 int roadmap_device_get_battery_level()
 {
-#ifdef UNDER_CE
+#if defined (UNDER_CE) && !defined (EMBEDDED_CE)
    SYSTEM_POWER_STATUS_EX  SPS;
    const BOOL              realtime = FALSE;
 
@@ -1793,7 +2283,7 @@ void roadmap_main_add_canvas (void)
    roadmap_main_toggle_full_screen ();
 #endif
 
-   roadmap_canvas_new(RoadMapMainWindow, NULL);
+   roadmap_canvas_new(RoadMapMainWindow);
 }
 
 extern "C"

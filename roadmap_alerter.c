@@ -400,7 +400,10 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
    get_street_from_line(line->square,line->line_id, &street_name);
    strncpy_safe (current_street_name, street_name, sizeof (current_street_name));
    // go over priorities one by one from highest to lowest.
-   for (j=0; ((j< num_priorities)&&(!found_alert)); j++){
+   for (j=0; (j< num_priorities); j++){
+
+      if ( found_alert )   // Removed from the "for" condition due to some problem in android gcc AGA
+         break;
 
 		// loop all the providers for an alert
 		for (i = 0 ; ((i < RoadMapAlertProviders.count)&&(!found_alert)); i++){
@@ -413,7 +416,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 		    * If not enough distance has been passed from last check, provider can order to ignore
 		    * if alert is active, always perform check, so distance will be updated
 		    */
-	  	   if(!alert_active){
+	  	   if(!alert_should_be_visible){
 		       if(!(* (RoadMapAlertProviders.provider[i]->distance_check))(gps_pos))
 		          continue;
 		   }
@@ -634,15 +637,15 @@ void show_alert_dialog(){
 
    is_cancelable = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->is_cancelable)) (alertId);
 #ifdef TOUCH_SCREEN
+   ssd_widget_add (dialog,
+         ssd_button_label ("Hide", roadmap_lang_get ("Hide"),
+            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
+
    if (is_cancelable){
       ssd_widget_add (dialog,
             ssd_button_label ("Irrelevant", roadmap_lang_get ("Not there"),
                SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
    }
-
-   ssd_widget_add (dialog,
-         ssd_button_label ("Hide", roadmap_lang_get ("Hide"),
-            SSD_WS_TABSTOP|SSD_ALIGN_CENTER, alert_dialog_buttons_callback));
 
 #else
    if (is_cancelable)

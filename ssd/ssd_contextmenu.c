@@ -816,6 +816,8 @@ static void alloc_rows( SsdWidget            menu_cnt,
             sep = ssd_separator_new("sep", SSD_ALIGN_BOTTOM);
             if (!ssd_widget_rtl(NULL))
                ssd_widget_set_offset(sep, -10, 0);
+            else
+               ssd_widget_set_offset(sep, -8, 0);
             ssd_widget_add(row, sep);
          }
 #else
@@ -825,7 +827,7 @@ static void alloc_rows( SsdWidget            menu_cnt,
             ssd_widget_set_offset(sep, 0, 3);
             ssd_widget_add(row, sep);
          }
-         
+
          if( item->icon)
          {
             SsdWidget     button;
@@ -845,7 +847,7 @@ static void alloc_rows( SsdWidget            menu_cnt,
             ssd_widget_add(image_container,button);
             ssd_widget_add(row,image_container);
         }
-         
+
 
          label= ssd_text_new( "label",
                               "",
@@ -984,7 +986,7 @@ static void initialize_rows(  SsdWidget            menu_cnt,
          {
             if ( roadmap_screen_is_hd_screen() )
             {
-               ssd_widget_set_size  ( item->row, text_width+40, 60);
+               ssd_widget_set_size  ( item->row, text_width+60, 70);
             }
             else
             {
@@ -1030,7 +1032,7 @@ static void initialize_rows(  SsdWidget            menu_cnt,
       if ( roadmap_screen_is_hd_screen() )
       {
          container_width   = 320;
-         container_height  = (used_rows_count) * 62;
+         container_height  = (used_rows_count) * 72;
       }
       else
       {
@@ -1257,8 +1259,11 @@ void ssd_context_menu_show(int                  x,
    {
       int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL|SSD_PERSISTENT;
 
-      if( !(SSD_CONTEXTMENU_SIMPLE_LIST & flags))
-         popup_flg |= (SSD_ROUNDED_CORNERS|style|SSD_POINTER_MENU);
+      if( !(SSD_CONTEXTMENU_SIMPLE_LIST & flags)){
+         popup_flg |= (SSD_ROUNDED_CORNERS|style);
+         if (!is_screen_wide())
+            popup_flg |= SSD_POINTER_MENU;
+      }
 
       s_dialog = ssd_dialog_new( s_dialog_name,
                                  NULL,
@@ -1278,7 +1283,6 @@ void ssd_context_menu_show(int                  x,
 
    ssd_widget_set_right_softkey_callback( s_dialog, on_softkey_right);
    ssd_widget_set_left_softkey_callback ( s_dialog, on_softkey_left);
-
    set_menu_offsets( x, y, flags, TRUE /* Input is valid! */);
 
    ssd_dialog_activate( s_dialog_name, NULL);

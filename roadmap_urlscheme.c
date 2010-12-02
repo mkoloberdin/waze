@@ -27,7 +27,7 @@
 #include "roadmap_screen.h"
 #include "roadmap_math.h"
 #include "roadmap_layer.h"
-#include "address_search/address_search_dlg.h"
+#include "address_search/single_search_dlg.h"
 #include "Realtime/Realtime.h"
 #include "roadmap_urlscheme.h"
 #ifdef IPHONE
@@ -166,7 +166,7 @@ static void execute_query (void) {
    
    if (gs_Query.search_token[0]!=0) {
       roadmap_log(ROADMAP_DEBUG, "Executing query: %s", gs_Query.search_token);
-      address_search_auto_search (gs_Query.search_token);
+      single_search_auto_search(gs_Query.search_token);
    }
 }
 

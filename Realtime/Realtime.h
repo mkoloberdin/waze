@@ -47,14 +47,15 @@ void  Realtime_AbortTransaction( RoadMapCallback pfnOnTransAborted);
 void  Realtime_NotifyOnIdle    ( RoadMapCallback pfnOnTransIdle);
 //   Register for notification. Callback must call next in chain (in return value).
 RoadMapCallback  Realtime_NotifyOnLogin   ( RoadMapCallback pfnOnLogin);
+RoadMapCallback  Realtime_NotifyOnLoginChanged( RoadMapCallback pfnOnLoginChanged);
 
 BOOL  Realtime_ServiceIsActive();
 BOOL  Realtime_IsInTransaction();
 
 BOOL  Realtime_IsEnabled();
-
+BOOL  Realtime_SendCurrenScreenEdges();
 BOOL  Realtime_SendCurrentViewDimentions();
-BOOL Realtime_VerifyLoginDetails( PFN_LOGINTESTRES pfn );
+BOOL  Realtime_VerifyLoginDetails( PFN_LOGINTESTRES pfn );
 
 BOOL  Realtime_ReportOnNavigation( const RoadMapPosition* cordinates, address_info_ptr ai);
 BOOL  Realtime_RequestRoute(int						iRoute,
@@ -91,17 +92,21 @@ BOOL  Realtime_CollectBonus(int                 iId,
                             BOOL                bForwardToTwitter,
                             BOOL                bForwardToFacebook);
 
+BOOL Realtime_CollectCustomBonus(int                  iId,
+                           BOOL                 bForwardToTwitter,
+                           BOOL                 bForwardToFacebook);
+
 BOOL Realtime_ReportAbuse (int                  iAlertID,
                            int                  iCommentID);
 
-BOOL  Realtime_Report_Alert(int iAlertType, const char * szDescription, int iDirection, const char* szImageId, BOOL bForwardToTwitter, BOOL bForwardToFacebook );
-BOOL  Realtime_Alert_ReportAtLocation(int iAlertType, const char * szDescription, int iDirection, RoadMapGpsPosition   MyLocation);
+BOOL  Realtime_Report_Alert(int iAlertType, const char * szDescription, int iDirection, const char* szImageId, BOOL bForwardToTwitter, BOOL bForwardToFacebook, const char *szGroup );
+BOOL  Realtime_Alert_ReportAtLocation(int iAlertType, const char * szDescription, int iDirection, RoadMapGpsPosition   MyLocation, const char *szGroup);
 BOOL  Realtime_Remove_Alert(int iAlertId);
 BOOL  Realtime_Post_Alert_Comment(int iAlertId, const char * szCommentText, BOOL bForwardToTwitter, BOOL bForwardToFacebook);
 BOOL  Realtime_StartSendingTrafficInfo(void);
 BOOL  Realtime_SendTrafficInfo(int mode);
 BOOL  Realtime_SendSMS(const char * szPhoneNumber);
-BOOL  Realtime_TwitterConnect(const char * userName, const char *passWord);
+BOOL  Realtime_TwitterConnect(const char * userName, const char *passWord, BOOL bForwardToTwitter);
 BOOL  Realtime_FoursquareConnect(const char * userName, const char *passWord, BOOL bTweetLogin);
 BOOL  Realtime_FoursquareSearch(RoadMapPosition* coordinates);
 BOOL  Realtime_FoursquareCheckin(const char* vid, BOOL bTweetBadge);
@@ -109,10 +114,11 @@ BOOL Realtime_Scoreboard_getPoints(const char *period, const char *geography, in
 BOOL  Realtime_Editor_ExportMarkers(PFN_LOGINTESTRES editor_cb);
 BOOL  Realtime_Editor_ExportSegments(PFN_LOGINTESTRES editor_cb);
 
-BOOL Realtime_TripServer_CreatePOI  (const char* name, RoadMapPosition* coordinates, BOOL overide);
+BOOL Realtime_TripServer_CreatePOI  (const char* name, RoadMapPosition* coordinates, BOOL overide, int id);
 BOOL Realtime_TripServer_DeletePOI(const char * name);
 BOOL Realtime_TripServer_FindTrip (RoadMapPosition*     coordinates);
-
+BOOL Realtime_TripServer_GetPOIs  (void);
+BOOL Realtime_TripServer_GetNumPOIs  (void);
 BOOL Realtime_ReportMapProblem(const char*  szType, const char* szDescription, const RoadMapGpsPosition *MyLocation);
 BOOL Realtime_TrafficAlertFeedback(int iTrafficInfoId, int iValidity);
 BOOL Realtime_CreateAccount(const char* userName, const char* passWord,const char* email,BOOL send_updates);
@@ -143,7 +149,7 @@ const char* Realtime_GetNickName();
 
 int RealTime_GetMyTotalPoints();
 int RealTime_GetMyRanking();
-
+BOOL Realtime_IsNewbie();
 void RealTime_SetMapDisplayed(BOOL should_send);
 
 BOOL Realtime_GetGeoConfig(const RoadMapPosition *pGPSPosition, const char *name, wst_handle websvc);
@@ -155,6 +161,20 @@ void Realtime_Set_AllowPing (BOOL AllowPing);
 int Realtime_GetServerId(void);
 void RT_SetWebServiceAddress(const char* address);
 void Realtime_CheckDumpOfflineAfterCrash(void);
+void Realtime_SetBackground(BOOL isInBackground);
+void Realtime_SetIsNewbie(BOOL isNewbie);
+void Realtime_SetIsNewbieConfig(BOOL isNewbie);
+BOOL  Realtime_FacebookPermissions ( int iShowFacebookName, int iShowFacebookPicture, int iShowFacebookProfile, int iShowTwitterProfile);
+BOOL Realtime_IsAnonymous (void);
+BOOL Realtime_AnonymousMsg (void);
+BOOL Realtime_RandomUserMsg (void);
+
+BOOL  Realtime_ExternalPoiNotifyOnPopUp ( int iID);
+BOOL  Realtime_ExternalPoiNotifyOnNavigate ( int iID);
+BOOL Realtime_NotifySplashUpdateTime (const char *update_time);
+
+BOOL SendMessage_At( char* packet_only, BOOL refreshUsers);
+BOOL SendMessage_ExternalPoiDisplayed (char* packet_only);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

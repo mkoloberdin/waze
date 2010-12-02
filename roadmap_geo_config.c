@@ -36,6 +36,8 @@
 #include "roadmap_trip.h"
 #include "roadmap_prompts.h"
 #include "roadmap_splash.h"
+#include "roadmap_tile_storage.h"
+#include "roadmap_locator.h"
 #include "Realtime/Realtime.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 #include "ssd/ssd_dialog.h"
@@ -170,7 +172,7 @@ static void parse_string ( char* str ) {
 //
 ///////////////////////////////////////////////////////////////////
 void GeoConfigTimer (void) {
-   roadmap_log (ROADMAP_ERROR,"GeoServerConfig Timeout!! received %d out of %", GeoConfigContext.num_received+1, GeoConfigContext.num_results );
+   roadmap_log (ROADMAP_ERROR,"GeoServerConfig Timeout!! received %d out of %d", GeoConfigContext.num_received+1, GeoConfigContext.num_results );
    ssd_progress_msg_dialog_hide();
    roadmap_messagebox ("Oops",
             "Cannot configure service. Please try again later");
@@ -233,6 +235,13 @@ static void on_user_lang_downloaded(void){
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
+static void restart_msg_cb (int exit_code) {
+   roadmap_main_exit();
+}
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
 static void on_recieved_completed (void) {
    char updateText[] = "We've made a few infrastructural changes that require re-start. Please exit and re-start waze.";
    const char *user_lang = roadmap_lang_get_user_lang();
@@ -261,15 +270,21 @@ static void on_recieved_completed (void) {
 
    roadmap_log (ROADMAP_DEBUG,"GeoServerConfig Completed setting all parameters!!" );
 
-   if (user_lang[0] == 0){
+   if ((user_lang[0] == 0) && (newServerId != 2)){
       roadmap_lang_download_conf_file(on_lang_conf_downloaded);
       return;
    }
-   else if ((oldServerId==-1)){
+
+   if ((user_lang[0] == 0) && (newServerId == 2)){
+      roadmap_lang_set_system_lang(GeoConfigContext.lang);
+   }
+
+   if ((oldServerId==-1)){
       ssd_progress_msg_dialog_show("Downloading language");
       roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), on_user_lang_downloaded);
       return;
    }
+
 
    roadmap_lang_download_lang_file(GeoConfigContext.lang, NULL);
 
@@ -289,8 +304,12 @@ static void on_recieved_completed (void) {
       roadmap_lang_set_lang_file_update_time("eng","");
       roadmap_prompts_set_update_time ("");
       roadmap_splash_set_update_time ("");
+      roadmap_splash_reset_check_time();
       roadmap_config_save(FALSE);
-      roadmap_messagebox(roadmap_lang_get("Please restart Waze"), roadmap_lang_get(updateText));
+#if (defined (IPHONE) || defined (ANDROID))
+      roadmap_tile_remove_all(roadmap_locator_active());
+#endif
+      roadmap_messagebox_cb(roadmap_lang_get("Please restart Waze"), roadmap_lang_get(updateText), restart_msg_cb);
    }
 }
 
@@ -969,7 +988,7 @@ void roadmap_geo_config (RoadMapCallback callback) {
 //
 ///////////////////////////////////////////////////////////////////
 static void completed(void){
-   roadmap_messagebox("Info", "Please restart waze");
+   //roadmap_messagebox("Info", "Please restart waze");
 
 }
 

@@ -88,11 +88,11 @@ BOOL CPlayer::OpenFile(LPCTSTR pszFile)
 	// Ogg Vorbis
 	if (OvOpenFile(pszFile))
 		return TRUE;
-
+#ifndef EMBEDDED_CE
 	// Wave
 	if (WavOpenFile(pszFile))
 		return TRUE;
-
+#endif
 	return FALSE;
 }
 
@@ -117,7 +117,9 @@ void CPlayer::Close()
 	PlugInClose();
 	MpgClose();
 	OvClose();
+#ifndef EMBEDDED_CE
 	WavClose();
+#endif
 	NetClose();
 
 	memset(&m_Info, 0, sizeof(m_Info));
@@ -234,9 +236,10 @@ BOOL CPlayer::Seek(long lTime)
 		fRet = MpgSeekFile(lTime);
 	else if (m_fOpen == OPEN_OV_FILE)
 		fRet = OvSeekFile(lTime);
+#ifndef EMBEDDED_CE
 	else if (m_fOpen == OPEN_WAV_FILE)
 		fRet = WavSeekFile(lTime);
-
+#endif
 	m_fFileBegin = m_nSeek == 0;
 	if (fRet) {
 		m_nWritten = 0;
@@ -485,8 +488,10 @@ BOOL CPlayer::PreparePlayback()
 
 	int nBitsPerSample;
 	switch (m_fOpen) {
+#ifndef EMBEDDED_CE
 	case OPEN_WAV_FILE:
 		nBitsPerSample = m_pwfxDst->wBitsPerSample; break;
+#endif
 	case OPEN_PLUGIN:
 		nBitsPerSample = m_nPlugInBps; break;
 	default:
@@ -566,8 +571,10 @@ BOOL CPlayer::UnpreparePlayback(BOOL fEos, BOOL fError)
 		MpgStop(); break;
 	case OPEN_OV_FILE:
 		OvStop(); break;
+#ifndef EMBEDDED_CE
 	case OPEN_WAV_FILE:
 		WavStop(); break;
+#endif
 	case OPEN_URL:
 		NetStop(); break;
 	}
@@ -581,8 +588,10 @@ void CPlayer::OutputBuffer(WAVEHDR* pHdr, DWORD cbRecorded)
 {
 	int nBitsPerSample;
 	switch (m_fOpen) {
+#ifndef EMBEDDED_CE
 	case OPEN_WAV_FILE:
 		nBitsPerSample = m_pwfxDst->wBitsPerSample; break;
+#endif
 	case OPEN_PLUGIN:
 		nBitsPerSample = m_nPlugInBps; break;
 	default:
@@ -740,8 +749,10 @@ retry:
 		nRet = MpgPlayerThread(); break;
 	case OPEN_OV_FILE:
 		nRet = OvPlayerThread(); break;
+#ifndef EMBEDDED_CE
 	case OPEN_WAV_FILE:
 		nRet = WavPlayerThread(); break;
+#endif
 	}
 
 	switch (nRet) {

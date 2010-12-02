@@ -91,6 +91,17 @@ public:
   void SetReadyToSendData(bool aIsReady);
   
 protected:
+  typedef enum {
+    EConnStatusNotStarted      = -1,
+	EConnStatusConnectCallback = 3,
+    EConnStatusConnected       = 4,
+    EConnStatusDataReceived    = 5,
+    EConnStatusTransactionDone = 6,
+    EConnStatusClosed = -2,
+    EConnStatusError  = -100
+  } EConnStatus;
+
+  
   CRoadMapNativeHTTP(const char *http_type, const char *apHostname, int aPort, int flags, time_t tUpdate);
   static CRoadMapNativeHTTP* CRoadMapNativeHTTP::NewLC(const char *http_type, const char *apHostname, int aPort, int flags, time_t tUpdate, RoadMapNetConnectCallback apCallback, void* apContext);
   void ConstructL(RoadMapNetConnectCallback apCallback, void* apContext);
@@ -104,7 +115,13 @@ protected:
   void ProcessReceivedHttpHeader( RHTTPTransaction aTransaction );
   void ProcessReceivedHttpBodyChunk( RHTTPTransaction aTransaction );
   void SelfSignalDataEvent();
-
+  void SelfSignal( EConnStatus aConnStatus, TInt aRequestStatus );
+  
+  void SelfSignal( EConnStatus aConnStatus ) 
+	  { SelfSignal( aConnStatus, KErrNone ); }
+  void SelfSignal( TInt aRequestStatus ) 
+	  { SelfSignal( m_eConnStatus, aRequestStatus ); }
+  
   TInt ReadHttpHeader( void* buf, TInt maxSize );
   TInt ReadHttpBodyChunk( void* buf, TInt maxSize );
   void IssueCallback();
@@ -118,14 +135,8 @@ protected:
   void SetModifiedSinceL();
   virtual void OpenSession();
   
-  enum EConnStatus{
-    EConnStatusNotStarted      = -1,
-    EConnStatusConnected       = 4,
-    EConnStatusDataReceived    = 5,
-    EConnStatusTransactionDone = 6,
-    EConnStatusClosed = -2,
-    EConnStatusError  = -100
-  }m_eConnStatus;
+  
+  EConnStatus m_eConnStatus;
   
   // Symbian HTTP
   RHTTPSession m_Session;

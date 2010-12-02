@@ -95,6 +95,6 @@ ssd_cm_item_ptr roadmap_start_get_menu_item( const char*          menu_name,
 
 void roadmap_start_app_run_fg( void );
 void roadmap_start_app_run_bg( void );
-
+void start_more_menu (void);
 #endif /* INCLUDE__ROADMAP_START__H */
 

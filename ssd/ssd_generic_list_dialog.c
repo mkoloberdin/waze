@@ -91,7 +91,8 @@ void ssd_generic_list_dialog_show(const char*            title,
    SsdWidget list;
    int flags = 0;
 
-#ifdef OPENGL
+#if defined (OPENGL)
+
    /*
     * Borders are fast in OPENGL
     */
@@ -202,3 +203,4 @@ void ssd_generic_list_dialog_hide (void)
 
 void ssd_generic_list_dialog_hide_all (void)
 { ssd_dialog_hide_all (dec_close);}
+

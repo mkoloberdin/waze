@@ -41,4 +41,6 @@ void ssd_entry_set_kb_params( SsdWidget wisget, const char* kb_title,
 
 void ssd_entry_set_kb_title( SsdWidget widget, const char* kb_title );
 
+void ssd_entry_set_editbox_title( SsdWidget widget, const char* editbox_title );
+
 #endif // __SSD_WIDGET_ENTRY_H_

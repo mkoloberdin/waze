@@ -168,7 +168,7 @@ void roadmap_canvas_refresh (void) {
 }
 
 
-HWND roadmap_canvas_new (HWND hWnd, HWND tool_bar) {
+HWND roadmap_canvas_new (HWND hWnd) {
    HDC hdc;
    static BITMAPINFO* bmp_info = (BITMAPINFO*) malloc(sizeof(BITMAPINFO) +
                                        (sizeof(RGBQUAD)*3));
@@ -187,13 +187,6 @@ HWND roadmap_canvas_new (HWND hWnd, HWND tool_bar) {
 
    RoadMapDrawingArea = hWnd;
    GetClientRect(hWnd, &ClientRect);
-   if (tool_bar != NULL) {
-      RECT tb_rect;
-      GetClientRect(tool_bar, &tb_rect);
-	  if (tb_rect.bottom < (ClientRect.bottom-2)) {
-		ClientRect.top += tb_rect.bottom + 2;
-	  }
-   }
 
 
    RoadMapDrawingBuffer = CreateCompatibleDC(hdc);

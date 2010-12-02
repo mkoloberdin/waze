@@ -31,7 +31,7 @@
 typedef void(*GenericSearchOnReopen)(PFN_ON_DIALOG_CLOSED cbOnClosed, void* context);
 
 void        generic_search_dlg_show( search_types   type,
-                                     const char *dlg_name, 
+                                     const char *dlg_name,
                                      const char *dlg_title,
                                      SsdSoftKeyCallback left_sk_callback,
                                      SsdSoftKeyCallback right_sk_callback,
@@ -39,11 +39,13 @@ void        generic_search_dlg_show( search_types   type,
                                      PFN_ON_DIALOG_CLOSED cbOnClosed,
                                      RoadMapCallback on_search,
                                      GenericSearchOnReopen on_reopen,
-                                     void*           context);
+                                     void*           context,
+                                     BOOL            is_auto);
 
 void        generic_search_dlg_switch_gui(void);
 SsdWidget   generic_search_dlg_get_search_edit_box(search_types type);
 SsdWidget   generic_search_dlg_get_search_dlg(search_types type);
 BOOL        generic_search_dlg_is_1st(search_types type);
 void        generic_search_dlg_reopen_native_keyboard(void);
+void        generic_search_dlg_update_text( const char* text, search_types type );
 #endif /* GENERIC_SEARCH_DLG_H_ */

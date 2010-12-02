@@ -208,7 +208,7 @@ int editor_street_get_closest (const RoadMapPosition *position,
 
 	lines_count = editor_line_get_count ();
 
-   if (! (-1 << min_category)) {
+   if (! (-1 < min_category)) {
       return count;
    }
 

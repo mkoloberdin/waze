@@ -95,7 +95,7 @@ final public class WazeScreenManager
      */
     public void onSurfaceCreated()
     {
-    	BackgroundRequest();
+    	ForegroundRequest();
     }	
     /*************************************************************************************************
      * Application is shutting down 
@@ -135,7 +135,7 @@ final public class WazeScreenManager
 				}
 	    	};
 			mNativeManager.PostRunnable( request );
-		}		    
+		}    	
     }
     
     /*************************************************************************************************
@@ -210,7 +210,7 @@ final public class WazeScreenManager
 		
     	if ( mNativeManager.IsNativeThread() )
     	{
-    		ResizeRequestHandler();
+    		ResizeRequestHandler( false );
     	}
     	else
     	{
@@ -219,10 +219,34 @@ final public class WazeScreenManager
 	    	 */
 	    	Runnable request = new Runnable() {			
 				public void run() {
-					ResizeRequestHandler();				
+					ResizeRequestHandler( true );				
 				}
 			};
 			mNativeManager.PostRunnable( request );
+			/*
+	    	 * Wait for the resize request to complete
+	    	 */
+	    	synchronized( this )
+	    	{
+		        try 
+		        {
+		        	long wait_start_time = SystemClock.currentThreadTimeMillis();
+		        	while( mState != SCREENMGR_STATE_FOREGROUND )
+		        	{	        		
+		        		wait( SCREENMGR_WAIT_TIMEOUT );
+		        	}
+		        	if ( SystemClock.currentThreadTimeMillis() - wait_start_time >= SCREENMGR_WAIT_TIMEOUT )
+		        	{
+		        		WazeLog.w( "Too long time waiting in ResizeRequest" );
+		        	}
+		        }
+		        catch( Exception ex )
+		        {
+		        	Log.e( "WAZE", "Error while waiting for the resize request to complete" );
+		        	WazeLog.e( "Error while waiting for the resize request to complete", ex );
+		        }
+	    	}
+			
     	}
 		    	
     }    
@@ -254,7 +278,7 @@ final public class WazeScreenManager
 	        try 
 	        {
 	        	long wait_start_time = SystemClock.currentThreadTimeMillis();
-	        	FreeMapAppView appView = FreeMapAppService.getAppView();
+	        	WazeMainView appView = FreeMapAppService.getMainView();
 	        	while( !appView.IsReady() )
 	        	{
 //	        		Log.w( "WAZE", "ForegroundRequestHandler: Waiting for the surface to be ready" );
@@ -276,7 +300,7 @@ final public class WazeScreenManager
 		// Get it back
 		mNativeManager.BackgroundRun( false );
 
-		mState = SCREENMGR_STATE_FOREGROUND;
+		mState = SCREENMGR_STATE_FOREGROUND;    	
     	// AGA NOTE:: Should be reduced when stable		
     	WazeLog.w( "ForegroundRequestHandler completed" );
     }
@@ -321,7 +345,7 @@ final public class WazeScreenManager
      * 1. Recreates the EGL surface
      * 2. Informs the native layer on canvas change
      */
-    private void ResizeRequestHandler()
+    private void ResizeRequestHandler( boolean aIsNotify )
     {
 //    	Log.w( "WAZE", "ResizeRequestHandler" );
     	// AGA NOTE:: Should be reduced when stable    	
@@ -341,6 +365,17 @@ final public class WazeScreenManager
 		canvas.CanvasOrientationUpdate();
 		
 		mState = SCREENMGR_STATE_FOREGROUND;
+		if ( aIsNotify )
+    	{
+	    	/*
+	    	 * Notify the UI thread of request handling completion
+	    	 */
+	    	synchronized( this )
+	    	{
+	    		// Log.w( "WAZE", "Notifying resize request completion" );
+	    		this.notify();
+	    	}
+    	}
     	// AGA NOTE:: Should be reduced when stable		
 		WazeLog.w( "WAZE ResizeRequestHandler completed" );
     }

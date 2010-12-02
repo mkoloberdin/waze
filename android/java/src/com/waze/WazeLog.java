@@ -161,7 +161,7 @@ public class WazeLog
              {
                  // Start the process
                  mLogcatProc = Runtime.getRuntime().exec( new String[]
-                         {"logcat", "-v" ,"time", "*:W" } );
+                         {"logcat", "-v" ,"time", "*:I" } );
                  
                  // Start the reader and writer
                  reader = new BufferedReader(new InputStreamReader( mLogcatProc.getInputStream()) );
@@ -269,7 +269,7 @@ public class WazeLog
      static private final int FATAL_LVL = 5;   
       
      static public boolean mLogAndroidEnabled = false;
-     static public boolean mLogFileEnabled = true;
+     static public boolean mLogFileEnabled = false;
      
      static private final String LOG_PREFIX = "Java Layer: ";
 }

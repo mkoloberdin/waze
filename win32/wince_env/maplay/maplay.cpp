@@ -86,10 +86,10 @@ BOOL WINAPI MAP_IsValidStream(HANDLE hLib, LPCTSTR pszFile)
 
 	if (pPlayer->OvIsValidFile(pszFile))
 		return TRUE;
-
+#ifndef EMBEDDED_CE
 	if (pPlayer->WavIsValidFile(pszFile))
 		return TRUE;
-
+#endif
 	if (pPlayer->PlugInIsValidFile(pszFile))
 		return TRUE;
 

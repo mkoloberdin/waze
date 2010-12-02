@@ -98,6 +98,7 @@ RoadMapPen roadmap_canvas_select_pen (RoadMapPen pen);
  * althrough the thickness may be changed when the zoom level changes.
  */
 void roadmap_canvas_set_foreground (const char *color);
+void roadmap_canvas_set_background (const char *color);
 void roadmap_canvas_set_thickness  (int thickness);
 int  roadmap_canvas_get_thickness  (RoadMapPen pen);
 void roadmap_canvas_set_opacity (int opacity);
@@ -237,11 +238,13 @@ void roadmap_canvas_image_invalidate( RoadMapImage image );
 void roadmap_canvas_unmanaged_list_add( RoadMapImage image );
 void roadmap_canvas_shutdown();
 
-#ifdef IPHONE
+#if defined(IPHONE) || defined(ANDROID)
 void roadmap_canvas_get_cording_pt (RoadMapGuiPoint points[MAX_CORDING_POINTS]);
 int roadmap_canvas_is_cording();
+#if defined(IPHONE)
 void roadmap_canvas_cancel_touches();
 void roadmap_canvas_should_accept_layout (int bAcceptLayout);
+#endif
 #endif
 
 #endif // INCLUDE__ROADMAP_CANVAS__H

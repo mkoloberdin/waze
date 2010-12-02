@@ -44,10 +44,18 @@ enum { MATH_DIST_ACTUAL = 0,
 
 #define ROADMAP_VISIBILITY_DISTANCE 80
 
+#define ROADMAP_VISIBILITY_GAP 5
+
+enum projection_modes {
+   PROJECTION_MODE_NONE,
+   PROJECTION_MODE_3D_NON_OGL,
+   PROJECTION_MODE_3D
+};
+
 struct RoadMapUnits_t;
 
 struct RoadMapContext_t {
-   
+
    int zoom;
 
    /* The current position shown on the map: */
@@ -69,6 +77,14 @@ struct RoadMapContext_t {
    RoadMapArea focus;
    RoadMapArea upright_screen;
    RoadMapArea current_screen;
+#if defined(OPENGL) && defined(VIEW_MODE_3D_OGL)
+	RoadMapPosition perspective_edges[4];
+	int d03[2];
+	int d21[2];
+	int d10[2];
+	int d32[2];
+#endif// OPENGL
+
 
 
    /* Map orientation (0: north, 90: east): */
@@ -81,6 +97,7 @@ struct RoadMapContext_t {
    struct RoadMapUnits_t *units;
 
    int _3D_horizon;
+   enum projection_modes _is3D_projection;
 
 };
 
@@ -93,8 +110,59 @@ typedef void (*RoadMapUnitChangeCallback) (void);
 #define INLINE_DEC
 #endif
 
+INLINE_DEC int roadmap_math_point_is_visible (const RoadMapPosition *point) {
+   RoadMapPosition *persp_edges;
+   if ((point->longitude > RoadMapContext.focus.east + ROADMAP_VISIBILITY_DISTANCE) ||
+       (point->longitude < RoadMapContext.focus.west - ROADMAP_VISIBILITY_DISTANCE) ||
+       (point->latitude  > RoadMapContext.focus.north + ROADMAP_VISIBILITY_DISTANCE) ||
+       (point->latitude  < RoadMapContext.focus.south - ROADMAP_VISIBILITY_DISTANCE)) {
+      return 0;
+   }
+#if defined(OPENGL) && defined(VIEW_MODE_3D_OGL)
+   persp_edges= RoadMapContext.perspective_edges;
+   if (RoadMapContext.d03[0]!= 0) {
+		int y= persp_edges[0].latitude+
+			((point->longitude- persp_edges[0].longitude)*RoadMapContext.d03[1]/RoadMapContext.d03[0]);
+		if (((RoadMapContext.d03[0]> 0) && (y > point->latitude+ ROADMAP_VISIBILITY_GAP))
+			|| ((RoadMapContext.d03[0]< 0) && (y < point->latitude- ROADMAP_VISIBILITY_GAP)))
+			return 0;
+	}
+	if (RoadMapContext.d21[0]!= 0) {
+		int y= persp_edges[2].latitude+
+			((point->longitude- persp_edges[2].longitude)*RoadMapContext.d21[1]/RoadMapContext.d21[0]);
+		if (((RoadMapContext.d21[0]> 0) && (y > point->latitude+ ROADMAP_VISIBILITY_GAP))
+			|| ((RoadMapContext.d21[0]< 0) && (y < point->latitude- ROADMAP_VISIBILITY_GAP)))
+			return 0;
+	}
+	if (RoadMapContext.d10[1]!= 0) {
+		int x= persp_edges[1].longitude+
+			((point->latitude- persp_edges[1].latitude)*RoadMapContext.d10[0]/RoadMapContext.d10[1]);
+		if (((RoadMapContext.d10[1]< 0) && (x > point->longitude+ ROADMAP_VISIBILITY_GAP))
+			|| ((RoadMapContext.d10[1]> 0) && (x < point->longitude- ROADMAP_VISIBILITY_GAP)))
+			return 0;
+	}
+	if (RoadMapContext.d32[1]!= 0) {
+		int x= persp_edges[3].longitude+
+			((point->latitude- persp_edges[3].latitude)*RoadMapContext.d32[0]/RoadMapContext.d32[1]);
+		if (((RoadMapContext.d32[1]< 0) && (x > point->longitude+ ROADMAP_VISIBILITY_GAP))
+			|| ((RoadMapContext.d32[1]> 0) && (x < point->longitude- ROADMAP_VISIBILITY_GAP)))
+			return 0;
+	}
+#endif// VIEW_MODE_3D_OGL
+	return 1;
+}
+
 INLINE_DEC int roadmap_math_line_is_visible (const RoadMapPosition *point1,
-                                  const RoadMapPosition *point2) {
+                                             const RoadMapPosition *point2) {
+
+   if (RoadMapContext._is3D_projection== PROJECTION_MODE_3D) {
+      if (roadmap_math_point_is_visible(point1) ||
+          roadmap_math_point_is_visible(point2))
+         return 1;
+      else {
+         return 0;
+      }
+   }
 
    if ((point1->longitude > RoadMapContext.focus.east + ROADMAP_VISIBILITY_DISTANCE) &&
        (point2->longitude > RoadMapContext.focus.east + ROADMAP_VISIBILITY_DISTANCE)) {
@@ -120,19 +188,6 @@ INLINE_DEC int roadmap_math_line_is_visible (const RoadMapPosition *point1,
 }
 
 
-INLINE_DEC int roadmap_math_point_is_visible (const RoadMapPosition *point) {
-
-   if ((point->longitude > RoadMapContext.focus.east + ROADMAP_VISIBILITY_DISTANCE) ||
-       (point->longitude < RoadMapContext.focus.west - ROADMAP_VISIBILITY_DISTANCE) ||
-       (point->latitude  > RoadMapContext.focus.north + ROADMAP_VISIBILITY_DISTANCE) ||
-       (point->latitude  < RoadMapContext.focus.south - ROADMAP_VISIBILITY_DISTANCE)) {
-      return 0;
-   }
-
-   return 1;
-}
-
-
 INLINE_DEC void roadmap_math_coordinate (const RoadMapPosition *position,
                                             RoadMapGuiPoint *point) {
 
@@ -151,7 +206,7 @@ INLINE_DEC int roadmap_math_area_zoom (int area) {
    int i;
    int zoom = RoadMapContext.zoom;
 
-   if (RoadMapContext._3D_horizon == 0) {
+   if (RoadMapContext._is3D_projection != PROJECTION_MODE_NONE) {
       return zoom;
    }
 
@@ -209,12 +264,14 @@ int  roadmap_math_zoom_set     (int zoom);
 void roadmap_math_adjust_zoom	 (int square);
 int  roadmap_math_set_scale    (int scale, int use_map_units);
 int  roadmap_math_get_scale    (int use_map_units);
+int  roadmap_math_valid_scale  (int scale, int use_map_units);
 
 void roadmap_math_set_center      (RoadMapPosition *position);
 void roadmap_math_set_size        (int width, int height);
+void roadmap_math_normalize_orientation (int *direction);
 int  roadmap_math_set_orientation (int direction);
 int  roadmap_math_get_orientation (void);
-void roadmap_math_set_horizon     (int horizon);
+void roadmap_math_set_horizon     (int horizon,int is_projection);
 
 void roadmap_math_set_focus     (const RoadMapArea *focus);
 void roadmap_math_release_focus (void);
@@ -246,6 +303,7 @@ void roadmap_math_to_position (const RoadMapGuiPoint *point,
 void roadmap_math_project     (RoadMapGuiPoint *point);
 void roadmap_math_unproject   (RoadMapGuiPoint *point);
 
+void roadmap_math_rotate_project_coordinate (RoadMapGuiPoint *point);
 void roadmap_math_rotate_coordinates (int count, RoadMapGuiPoint *points);
 void roadmap_math_counter_rotate_coordinate (RoadMapGuiPoint *point);
 
@@ -300,6 +358,7 @@ int roadmap_math_screen_intersect (RoadMapGuiPoint *f1, RoadMapGuiPoint *t1,
 			   RoadMapGuiPoint *isect);
 
 void roadmap_math_screen_edges (RoadMapArea *area);
+void roadmap_math_displayed_screen_edges (RoadMapArea *area);
 
 int  roadmap_math_street_address (const char *image, int length);
 

@@ -144,7 +144,7 @@ static int roadmap_spawn_child (const char *name,
 	memset(&pi, 0, sizeof(pi));
 	memset(&si, 0, sizeof(si));
 
-	if (*name != '\\') {
+	if (0) {
 		snprintf(full_name, MAX_PATH, "%s\\%s", RoadMapSpawnPath, name);
 		full_path_unicode = ConvertToWideChar(full_name, CP_UTF8);
 	} else {
@@ -164,7 +164,7 @@ static int roadmap_spawn_child (const char *name,
 			free(full_path_unicode);
 			free(command_line_unicode);
 			roadmap_log (ROADMAP_ERROR, "CreateProcess(\"%s\") failed",
-							full_name);
+							name);
 			return -1;
 	}
 
@@ -281,4 +281,4 @@ int roadmap_spawn_read_pipe (RoadMapPipe pipe, void *data, int size)
 }
 
 
-void roadmap_spawn_close_pipe (RoadMapPipe pipe) {} 
+void roadmap_spawn_close_pipe (RoadMapPipe pipe) {}

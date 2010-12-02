@@ -81,7 +81,7 @@
 #define SSD_DIALOG_NO_SCROLL      0x100000
 #define SSD_DIALOG_NO_BACK        0x200000
 #define SSD_DIALOG_ADDITION_BELOW 0x400000
-
+#define SSD_DIALOG_MODAL          0x800000
 
 /* Container flags */
 #define SSD_CONTAINER_BORDER 	    0x1000
@@ -89,6 +89,7 @@
 #define SSD_ROUNDED_CORNERS	    0x4000
 #define SSD_NO_BG_IMAGE 		    0x8000
 #define SSD_CONTAINER_TXT_BOX     0x20000000
+#define SSD_CONTAINER_SEARCH_BOX  0x80000000
 
 /* Text flags */
 #define SSD_TEXT_LABEL        0x1000 /* Adds a ':' sign */
@@ -298,5 +299,6 @@ void ssd_widget_set_click_offsets_ext( SsdWidget widget, int left, int top, int 
 BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point, BOOL use_offsets );
 void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight );
 void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent );
-SsdWidget ssd_widget_set_recalculate( BOOL value );
+void ssd_widget_set_recalculate( BOOL value );
+int ssd_widget_get_flags ( SsdWidget w );
 #endif // __SSD_WIDGET_H_

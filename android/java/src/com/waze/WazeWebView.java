@@ -34,13 +34,13 @@ package com.waze;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
-import android.os.Handler;
 import android.util.AttributeSet;
+import android.view.KeyEvent;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
-public class WazeWebView extends WebView
+public final class WazeWebView extends WebView
 {
     
     /*************************************************************************************************
@@ -49,66 +49,99 @@ public class WazeWebView extends WebView
     public WazeWebView( Context aContext, AttributeSet aAttrSet )
     {
         super( aContext, aAttrSet );
+        Init( aContext, null, 0 );
     }
     public WazeWebView( Context aContext )
     {
-        super( aContext );
-        Init( aContext );        
+	   super( aContext.getApplicationContext() );
+	   Init( aContext, null, 0 );
+    }
+    public WazeWebView( Context aContext, int aFlags )
+    {
+        super( aContext.getApplicationContext() );
+        Init( aContext, null, aFlags );                
     }
 
+    public boolean dispatchKeyEventPreIme ( KeyEvent aEvent )
+    {
+    	// Temporary solution
+    	// TODO:: Replace by interface callback for baack key
+    	if ( aEvent.getKeyCode() == KeyEvent.KEYCODE_BACK )
+    	{
+    		 if ( mBackCallback.onBackEvent( aEvent ) )
+    			 return true;
+    	}
+    	return super.dispatchKeyEventPreIme( aEvent );
+    }
+    
+    public void setBackCallback( WazeWebViewBackCallback aCallback )
+    {
+    	mBackCallback = aCallback;
+    }
+    
+    public void setFlags( int aFlags )
+    {
+    	mFlags = aFlags;
+    }
     /*************************************************************************************************
      *================================= Private interface section =================================
      * 
      */
 
-    private void Init( Context aContext )
+    private void Init( Context aContext, WazeWebViewBackCallback aBackCallback, int aFlags )
     {
         mContext = aContext; 
+        mFlags = aFlags;
         
         WebSettings webSettings = getSettings();
         webSettings.setSavePassword(false);
         webSettings.setSaveFormData(false);
         webSettings.setJavaScriptEnabled(true);
         webSettings.setSupportZoom(false);
-        setWebViewClient( new WazeWebViewClient() );
-        addJavascriptInterface( new WazeJavaScriptInterface(), "demo" );
+        webSettings.setSaveFormData(true);    
+        if ( ( mFlags & BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL ) >  0 )
+        {
+        	setHorizontalScrollBarEnabled( false );
+        	setVerticalScrollBarEnabled( false );
+        	setScrollContainer( false );
+        }
+        if ( ( mFlags & BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT ) > 0 )
+        {
+        	setBackgroundColor( 0 );
+        }
+        
+        setBackCallback( aBackCallback );
+        setClickable( true );
+        setFocusableInTouchMode( true );
+        setWebViewClient( new WazeWebViewClient() );        
+    }
+
+    public static interface WazeWebViewBackCallback
+    {
+    	public boolean onBackEvent( KeyEvent aEvent );
     }
     
-    final class WazeJavaScriptInterface {
-
-    	WazeJavaScriptInterface() {
-        }
-
-        /**
-         * This is not called on the UI thread. Post a runnable to invoke
-         * loadUrl on the UI thread.
-         */
-        public void clickOnAndroid() {
-            mHandler.post(new Runnable() {
-                public void run() {
-                    loadUrl("javascript:wave()"); 
-                }
-            });
-        }
-    }
-    
-    private class WazeWebViewClient extends WebViewClient {
+    private final class WazeWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
-            view.loadUrl(url);
+        	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+        	// First try to handle internally
+        	if ( !mgr.UrlHandler( url ) )
+        	{
+        		view.loadUrl(url);
+        	}
             return true;
         }
         @Override
         public void onPageStarted (WebView view, String url, Bitmap  favicon )
         {
-        	
-        	mProgressDlg = new ProgressDialog( mContext, android.R.style.Theme_Translucent_NoTitleBar );
-        	mProgressDlg.setProgressStyle( ProgressDialog.STYLE_SPINNER );
-        	mProgressDlg.setIndeterminate( true );
-        	mProgressDlg.setCancelable( true );
-        	mProgressDlg.setMessage( new String( "Loading...") ); 
-        	mProgressDlg.show();
+        	if ( mProgressDlg == null || !mProgressDlg.isShowing() )
+        	{
+        		InitProgressDlg();
+        		mProgressDlg.show();
+        	}
         	super.onPageStarted( view, url, favicon );
+        	
         }
         @Override
         public void onPageFinished ( WebView view, String url )
@@ -119,6 +152,17 @@ public class WazeWebView extends WebView
         		mProgressDlg.dismiss();
         		mProgressDlg = null;
         	}
+        	// Remove from memory. Leave on the disk
+        	clearCache( false );
+        }
+        
+        private void InitProgressDlg()
+        {
+        	mProgressDlg = new ProgressDialog( mContext, android.R.style.Theme_Translucent_NoTitleBar );
+        	mProgressDlg.setProgressStyle( ProgressDialog.STYLE_SPINNER );
+        	mProgressDlg.setIndeterminate( true );
+        	mProgressDlg.setCancelable( true );
+        	mProgressDlg.setMessage( new String( "Loading...") ); 
         }
     }
     
@@ -127,9 +171,17 @@ public class WazeWebView extends WebView
      * 
      */
     
-    private ProgressDialog mProgressDlg = null;
+    private WazeWebViewBackCallback mBackCallback = null;
     
-    private Handler mHandler = new Handler();
-
+    private ProgressDialog mProgressDlg = null;
+    private int mFlags;
     private Context mContext = null;
+//    private Handler mHandler = new Handler();
+
+	/*************************************************************************************************
+     *================================= Constants section =================================
+     */
+    private static final int BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT = 0x00000020;
+    private static final int BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL = 0x00000040; 
+
 }

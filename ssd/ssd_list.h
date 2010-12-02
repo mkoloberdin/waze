@@ -59,7 +59,6 @@ BOOL        ssd_list_set_focus       ( SsdWidget list, BOOL first_item /* or las
 
 void        ssd_list_resize(SsdWidget list, int min_height);
 
-void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels,
-                        const void **values, SsdWidget *icons, const int *flags, SsdListCallback callback, SsdListDeleteCallback del_callback, BOOL add_next_button);
+void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels, SsdWidget *labels_w, const void **values, SsdWidget *icons, const int *flags, SsdListCallback callback, SsdListDeleteCallback del_callback, BOOL add_next_button);
 SsdWidget ssd_list_get_row(SsdWidget list, int index);
 #endif // __SSD_ICON_WIDGET_LIST_H_

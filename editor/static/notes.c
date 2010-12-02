@@ -176,7 +176,7 @@ static void notes_add_dialog (const RoadMapGpsPosition *pos) {
    roadmap_trip_set_point ("New note", &position);
    roadmap_math_coordinate (&position, &point);
    point.y -= roadmap_canvas_height () / 2 - 15;
-   roadmap_math_rotate_coordinates (1, &point);
+   roadmap_math_rotate_project_coordinate (&point);
    roadmap_math_to_position (&point, &position, 1);
    roadmap_trip_set_point ("Selection", &position);
    roadmap_trip_set_focus ("Selection");

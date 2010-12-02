@@ -27,7 +27,7 @@
 #define NAVIGATE_RES_DLG_H_
 
 #include "ssd/ssd_widget.h"
-SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance, SsdCallback callback);
+SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance, BOOL showAltBtn, SsdCallback callback);
 void navigate_res_update_ETA_widget(SsdWidget container, int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance);
 void navigate_res_hide_ETA_widget(SsdWidget container);
 void navigate_res_show_ETA_widget(SsdWidget container);

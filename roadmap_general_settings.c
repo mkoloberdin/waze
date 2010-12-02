@@ -72,7 +72,10 @@ static RoadMapConfigDescriptor RoadMapConfigShowTicker =
 RoadMapConfigDescriptor RoadMapConfigUseNativeKeyboard =
                         ROADMAP_CONFIG_ITEM("Keyboard", "Use native");
 
-RoadMapConfigDescriptor RoadMapConfigClockFormat =
+static RoadMapConfigDescriptor RoadMapConfigEventsRadius =
+                        ROADMAP_CONFIG_ITEM("Events", "Radius");
+
+static RoadMapConfigDescriptor RoadMapConfigClockFormat =
 						ROADMAP_CONFIG_ITEM("Clock","Format");
 
 extern RoadMapConfigDescriptor NavigateConfigAutoZoom;
@@ -87,12 +90,19 @@ static void lang_changed_delayed_message(void){
    roadmap_main_remove_periodic(lang_changed_delayed_message);
    roadmap_messagebox_timeout("","Language changed, Please restart waze",5);
 }
+
+static void update_events_radius(){
+   const char * data = (const char *)ssd_dialog_get_data("event_radius");
+   if (!(roadmap_config_match(&RoadMapConfigEventsRadius, data))){ // descriptor changed
+       roadmap_config_set (&RoadMapConfigEventsRadius,data);
+       OnSettingsChanged_VisabilityGroup(); // notify server of visibilaty settings change
+   }
+}
 static int on_ok( SsdWidget this, const char *new_value) {
 
    const char *current_lang = roadmap_lang_get_system_lang();
    const char *new_lang = ssd_dialog_get_data("lang");
    const char *prompts = ssd_dialog_get_data("Prompts");
-
 
    if (prompts)
       roadmap_prompts_set_name(prompts);
@@ -147,6 +157,7 @@ static int on_ok( SsdWidget this, const char *new_value) {
          roadmap_alternative_routes_set_suggest_routes(FALSE);
    }
 
+   update_events_radius();
 
    roadmap_config_save(TRUE);
    DialogShowsShown = 0;
@@ -298,8 +309,11 @@ SsdWidget create_quick_setting_menu(){
 		  ssd_widget_add (quick_container, box);
    	  }
    	  //View 2D/3D
-   	  if ( !roadmap_screen_is_hd_screen() )
-   	  {
+
+#ifndef OPENGL
+        if ( !roadmap_screen_is_hd_screen() )
+        {
+#endif
            box = ssd_container_new ("View group", NULL, SSD_MAX_SIZE, height,
                                SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
            ssd_widget_set_color (box, NULL, NULL);
@@ -308,7 +322,7 @@ SsdWidget create_quick_setting_menu(){
                         roadmap_lang_get ("Display"),
                        -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
 
-           if (roadmap_screen_get_view_mdode() == VIEW_MODE_2D)
+           if (roadmap_screen_get_view_mode() == VIEW_MODE_2D)
               checked = TRUE;
            else
               checked = FALSE;
@@ -318,7 +332,9 @@ SsdWidget create_quick_setting_menu(){
            ssd_widget_add(box, space(1));
            ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
            ssd_widget_add (quick_container, box);
-   	  }
+#ifndef OPENGL
+        }
+#endif
 
    	  //Light day/night
    	  box = ssd_container_new ("Light group", NULL, SSD_MAX_SIZE, height,
@@ -345,6 +361,10 @@ void roadmap_general_settings_show(void) {
 
    static int initialized = 0;
    int height = 45;
+   int i;
+   char temp[6][100];
+   static const char *distance_labels[6];
+   static const char *distance_values[6];
 
    const char *pVal;
 #ifdef TOUCH_SCREEN
@@ -361,21 +381,6 @@ void roadmap_general_settings_show(void) {
    if (!initialized) {
       initialized = 1;
 
-      roadmap_config_declare
-         ("user", &RoadMapConfigConnectionAuto, "yes", NULL);
-      roadmap_config_declare
-         ("user", &RoadMapConfigBackLight, "yes", NULL);
-      roadmap_config_declare
-         ("user", &RoadMapConfigVolControl, SND_DEFAULT_VOLUME_LVL, NULL);
-	  roadmap_config_declare_enumeration
-      	("preferences", &RoadMapConfigGeneralUnit, NULL, "metric", "imperial", NULL);
-
-      roadmap_config_declare_enumeration
-      	("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
-
-
-      roadmap_config_declare_enumeration
-      	("user", &RoadMapConfigClockFormat, NULL, CLOCK_SETTINGS_12_HOUR, CLOCK_SETTINGS_24_HOUR, NULL);
       // Define the labels and values
 	 yesno_label[0] = roadmap_lang_get ("Yes");
 	 yesno_label[1] = roadmap_lang_get ("No");
@@ -392,6 +397,7 @@ void roadmap_general_settings_show(void) {
       const void ** lang_values = roadmap_lang_get_available_langs_values();
       const char ** lang_labels = roadmap_lang_get_available_langs_labels();
       int lang_count = roadmap_lang_get_available_langs_count();
+
 
       const void ** prompts_values = roadmap_prompts_get_values();
       const char ** prompts_labels = roadmap_prompts_get_labels();
@@ -608,7 +614,7 @@ void roadmap_general_settings_show(void) {
 
 
    // Native keyboard - for android only at this time
-#if (defined(_WIN32) || defined(ANDROID))
+#if defined(_WIN32)
    box = ssd_container_new ( "Native keyboard container", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    ssd_widget_set_color (box, "#000000", "#ffffff");
@@ -654,6 +660,66 @@ void roadmap_general_settings_show(void) {
 
       ssd_widget_add(container,box);
    }
+   ssd_widget_add(dialog, container);
+
+   //Events Radius
+   container = ssd_container_new ("Events Conatiner Group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+
+   box = ssd_container_new ("lang group", NULL, SSD_MAX_SIZE, height,
+                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+   ssd_widget_set_color (box, NULL, NULL);
+
+   box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/2, height,
+                               SSD_ALIGN_VCENTER);
+   ssd_widget_set_color (box2, NULL, NULL);
+
+   ssd_widget_add (box2,
+                   ssd_text_new ("events_radius_label",
+                   roadmap_lang_get ("Events Radius"),
+                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   ssd_widget_add(box, box2);
+
+   snprintf(temp[0], 100, "5 ");
+   snprintf(temp[1], 100, "25 ");
+   snprintf(temp[2], 100, "50 ");
+   snprintf(temp[3], 100, "100 ");
+   snprintf(temp[4], 100, "200 ");
+
+   if (roadmap_math_is_metric()){
+      int i;
+      distance_values[0] = "5";
+      distance_values[1] = "25";
+      distance_values[2] = "50";
+      distance_values[3] = "100";
+      distance_values[4] = "200";
+      distance_values[5] = "-1";
+      for (i=0; i<5; i++){
+         strcat(temp[i], roadmap_lang_get("Km"));
+         distance_labels[i] = strdup(temp[i]);
+      }
+   }
+   else{
+      int i;
+      distance_values[0] = "8";
+      distance_values[1] = "40";
+      distance_values[2] = "80";
+      distance_values[3] = "160";
+      distance_values[4] = "320";
+      distance_values[5] = "-1";
+      for (i=0; i<5; i++){
+         strcat(temp[i], roadmap_lang_get("miles"));
+         distance_labels[i] = strdup(temp[i]);
+      }
+   }
+   distance_labels[5] = roadmap_lang_get("All");
+
+   ssd_widget_add (box,
+                  ssd_choice_new ("event_radius", roadmap_lang_get ("Events Radius"),6,
+                                 (const char **)distance_labels,
+                                 (const void **)distance_values,
+                                 SSD_ALIGN_RIGHT, NULL));
+   ssd_widget_add(container, box);
    ssd_widget_add(dialog, container);
 
 #ifndef TOUCH_SCREEN
@@ -717,6 +783,12 @@ void roadmap_general_settings_show(void) {
 
    }
 
+   for (i = 0; i < 6; i++){
+      if (!strcmp(distance_values[i], roadmap_config_get( &RoadMapConfigEventsRadius )))
+         break;
+   }
+   ssd_dialog_set_data("event_radius", distance_values[i] );
+
    DialogShowsShown = 1;
    ssd_dialog_draw ();
 }
@@ -724,3 +796,29 @@ void roadmap_general_settings_show(void) {
 BOOL roadmap_general_settings_is_24_hour_clock(){
 	return roadmap_config_match(&RoadMapConfigClockFormat, CLOCK_SETTINGS_24_HOUR);
 }
+
+int roadmap_general_settings_events_radius(void){
+   return roadmap_config_get_integer(&RoadMapConfigEventsRadius);
+}
+
+void roadmap_general_settings_init(void){
+   roadmap_config_declare
+      ("user", &RoadMapConfigConnectionAuto, "yes", NULL);
+   roadmap_config_declare
+      ("user", &RoadMapConfigBackLight, "yes", NULL);
+   roadmap_config_declare
+      ("user", &RoadMapConfigVolControl, SND_DEFAULT_VOLUME_LVL, NULL);
+  roadmap_config_declare_enumeration
+      ("preferences", &RoadMapConfigGeneralUnit, NULL, "metric", "imperial", NULL);
+
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
+
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigEventsRadius, NULL, "-1", "5", "25", "50", "100", "200", NULL);
+
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigClockFormat, NULL, CLOCK_SETTINGS_12_HOUR, CLOCK_SETTINGS_24_HOUR, NULL);
+
+}
+

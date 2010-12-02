@@ -29,12 +29,15 @@
 #include <coeview.h>
 #include <brctlinterface.h>
 #include <aknwaitdialog.h> 
-
+extern "C" {
+#include "roadmap_browser.h"
+}
 const TUid KWazeBrowserViewId = { 2 };
 
 // FORWARD DECLARATIONS
 class CWazeBrowserSpecialLoadObserver;
 class CWazeBrowserLoadEventObserver;
+class CWazeBrowserLinkResolver;
 // CLASS DECLARATION
 class CWazeBrowserView : public CCoeControl, public MCoeView
 {
@@ -76,7 +79,8 @@ public: // New methods
 public:  // Functions from base classes
 
    void SetUrl( const TDes16& aUrl );
-
+   
+   void SetFlags(TInt aFlags );
    /**
     * From HandleKeyEvent
     * Handles key event propogated from the view server
@@ -123,9 +127,11 @@ private: // Constructors
    virtual void ViewDeactivated();
 
    CBrCtlInterface *iBrCtlInterface;
-   const TDes16 	*iUrl;
+   TBuf<WEB_VIEW_URL_MAXSIZE+1>  iUrl;
    CWazeBrowserLoadEventObserver *iBrLoadEventObserver;
    CWazeBrowserSpecialLoadObserver *iBrSpecialLoadObserver;
+   CWazeBrowserLinkResolver *iBrLinkResolver;
+   TInt iFlags;
 };
 
 // CLASS DECLARATION
@@ -154,12 +160,42 @@ private:
 class CWazeBrowserLoadEventObserver : public MBrCtlLoadEventObserver
 {
 public:
-   CWazeBrowserLoadEventObserver();
+   CWazeBrowserLoadEventObserver( CBrCtlInterface* aBrCtlInterface );
    void HandleBrowserLoadEventL( TBrCtlDefs::TBrCtlLoadEvent aLoadEvent, TUint aSize, TUint16 aTransactionId );
    virtual ~CWazeBrowserLoadEventObserver();
 private:
+   void CreateWaitDialog();
+private:
    CAknWaitDialog  *iWaitDialog;
-   const CWazeBrowserView *iBrView;
+   CBrCtlInterface* iBrCtlInterface;
+   
+};
+
+// CLASS DECLARATION
+/*
+ * Event observer for links 
+ */
+class CWazeBrowserLinkResolver : public MBrCtlLinkResolver
+{
+public:
+        /**                                                                                                                                                         
+        * Two-phased constructor.                                                                                                                                   
+        */                                                                                                                                                          
+       static CWazeBrowserLinkResolver* NewL();
+
+	TBool ResolveEmbeddedLinkL( const TDesC& aEmbeddedUrl, const TDesC& aCurrentUrl,
+	                                         TBrCtlLoadContentType aLoadContentType, MBrCtlLinkContent& aEmbeddedLinkContent );
+	TBool ResolveLinkL  ( const TDesC& aUrl, const TDesC &aCurrentUrl, MBrCtlLinkContent &aBrCtlLinkContent ); 
+
+	void CancelAll();
+	
+	virtual ~CWazeBrowserLinkResolver();
+private:
+        
+        void ConstructL();
+        
+        CWazeBrowserLinkResolver();
+
 };
 
 #endif // __WAZE_BROWSER_VIEW_H__

@@ -166,5 +166,6 @@ void CloseJNIObjects()
 	FreeMapNativeSoundManager_DisposeRefs();
 	FreeMapNativeTimerManager_DisposeRefs();
 	WazeMenuManager_DisposeRefs();
+	WazeMsgBox_DisposeRefs();
 }
 

@@ -44,6 +44,7 @@
 #include "roadmap_softkeys.h"
 #include "roadmap_skin.h"
 #include "roadmap_mood.h"
+#include "roadmap_groups.h"
 
 #include "Realtime/RealtimeAlerts.h"
 
@@ -98,8 +99,19 @@ typedef struct {
 
 } BarText;
 
+typedef struct {
+
+    const char *name;
+
+    RoadMapBarTextFn bar_text_fn;
+
+} BarDynamicImages;
+
 #define ROADMAP_TEXT(p,w,t) \
     {p, NULL, w, t}
+
+#define ROADMAP_DYNAMIC_IMAGE(p,t) \
+    {p, t}
 
 BarText RoadMapTexts[] = {
 
@@ -111,7 +123,14 @@ BarText RoadMapTexts[] = {
     ROADMAP_TEXT("time_to_dest", "#ffffff",get_time_to_destination),
     ROADMAP_TEXT("dist_to_dest", "#ffffff",get_dist_to_destination),
     ROADMAP_TEXT("current_num_comments", "#ffffff",get_current_num_comments),
+    ROADMAP_TEXT("group_num_alerts", "#ffffff",RTAlerts_GroupCount_Str),
     ROADMAP_TEXT(NULL, NULL, NULL)
+};
+
+BarDynamicImages RoadMapDynamicImages[] = {
+
+    ROADMAP_DYNAMIC_IMAGE("group_wazer", roadmap_groups_get_active_group_wazer_icon),
+    ROADMAP_DYNAMIC_IMAGE(NULL,  NULL)
 };
 
 typedef struct {
@@ -135,6 +154,7 @@ typedef struct {
    int			   condition_value[MAX_CONDITIONS];
    int 			   num_conditions;
    int 			   image_state;
+   BarDynamicImages *bar_image_fn;
 } BarObject;
 
 typedef struct {
@@ -166,6 +186,17 @@ static BarText * roadmap_bar_text_find(const char *name){
 
 }
 
+static BarDynamicImages * roadmap_bar_dynamic_image_find(const char *name){
+   BarDynamicImages *d_image;
+
+     for (d_image = RoadMapDynamicImages; d_image->name != NULL; ++d_image) {
+         if (strcmp (d_image->name, name) == 0) {
+             return d_image;
+         }
+     }
+     roadmap_log (ROADMAP_ERROR, "unknown bar dynamic image '%s'", name);
+     return NULL;
+}
 static void roadmap_bar_pos (BarObject *object,
                              RoadMapGuiPoint *pos) {
 
@@ -372,6 +403,25 @@ static void roadmap_bar_decode_text
 
 }
 
+static void roadmap_bar_decode_dynamic_image
+                        (BarObject *object,
+                         int argc, const char **argv, int *argl) {
+
+   char arg[255];
+
+   argc -= 1;
+   if (argc != 1) {
+      roadmap_log (ROADMAP_ERROR, "roadmap bar:'%s' illegal dynamic image indicator.",
+                  object->name);
+      return;
+   }
+
+   roadmap_bar_decode_arg (arg, sizeof(arg), argv[1], argl[1]);
+
+   object->bar_image_fn = roadmap_bar_dynamic_image_find (arg);
+
+}
+
 static void roadmap_bar_decode_fixed_text
                         (BarObject *object,
                          int argc, const char **argv, int *argl) {
@@ -573,6 +623,10 @@ static void roadmap_bar_load (const char *data, int size, BarObjectTable_s *BarO
       	roadmap_bar_decode_text (object, argc, argv, argl);
       	break;
 
+      case 'G':
+         roadmap_bar_decode_dynamic_image(object, argc, argv, argl);
+         break;
+
       case 'F':
       	roadmap_bar_decode_integer (&object->font_size, argc, argv,
                                              argl);
@@ -645,9 +699,7 @@ const char *get_dist_to_destination(void){
 
 static void drawBarBGImage( const char* res, const RoadMapGuiPoint* pos ) {
 
-   RoadMapImage image;
    int width = roadmap_canvas_width ();
-   int height = roadmap_canvas_height();
    int num_images;
    int image_width, image_height;
    int i;
@@ -753,6 +805,17 @@ void draw_objects(BarObjectTable_s *table){
 				image = roadmap_bar_load_image( table->object[i]->name, table->object[i]->images[0] );
 	   			roadmap_canvas_draw_image ( image , &ObjectLocation, 0,IMAGE_NORMAL);
 			}
+		}
+
+		if (table->object[i]->bar_image_fn){
+		   const char *image_name = NULL;
+		   image_name = table->object[i]->bar_image_fn->bar_text_fn();
+		   if (image_name && *image_name){
+		      image = roadmap_res_get (RES_BITMAP, RES_SKIN, image_name );
+		      if (image){
+		         roadmap_canvas_draw_image ( image , &ObjectLocation, 0,IMAGE_NORMAL);
+		      }
+		   }
 		}
 
     	if (table->object[i]->bar_text){
@@ -999,11 +1062,13 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 
 	   if ( SelectedBarObject->action )
 	   {
+#ifdef PLAY_CLICK
 	      static RoadMapSoundList list;
-
+#endif
 	      SelectedBarObject->image_state = IMAGE_STATE_SELECTED;
 	      roadmap_screen_redraw();
 
+#ifdef PLAY_CLICK
 	      if (!list) {
 	         list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 	         roadmap_sound_list_add (list, "click");
@@ -1011,6 +1076,7 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 	      }
 
 	      roadmap_sound_play_list (list);
+#endif
 
 	      roadmap_screen_redraw();
 
@@ -1172,7 +1238,7 @@ void roadmap_bar_initialize(void){
    TopBarSelectedBg = ( RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, TOP_BAR_SELECTED_BG_IMAGE );
 #endif
 
-#if ! (defined(ANDROID_OGL))   // Draw directly for ANDROID OPENGL		AGA
+#if ! (defined(OPENGL))   // Draw directly
    TopBarFullBg = createBGImage( topBarBgImg );
 
    BottomBarFullBg = createBGImage( bottomBarBgImg );
@@ -1317,7 +1383,12 @@ int roadmap_bar_top_bar_exit_state ( void )
 
 static RoadMapImage roadmap_bar_load_image( const char* obj_name, const char* img_name )
 {
-	RoadMapImage image = roadmap_res_get (RES_BITMAP, RES_SKIN, img_name );
+	RoadMapImage image;
+
+	if (img_name == NULL)
+	   return NULL;
+
+	image = roadmap_res_get (RES_BITMAP, RES_SKIN, img_name );
 
     if (image == NULL) {
           roadmap_log (ROADMAP_ERROR, "roadmap bar:'%s' can't load image:%s.",

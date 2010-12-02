@@ -34,10 +34,17 @@
 #include "roadmap_config.h"
 #include "roadmap_internet.h"
 #include "ssd/ssd_contextmenu.h"
+#include "ssd/ssd_container.h"
+#include "ssd/ssd_bitmap.h"
+#include "ssd/ssd_text.h"
+#include "ssd/ssd_button.h"
+#include "roadmap_lang.h"
 #include "roadmap_factory.h"
 #include "roadmap_path.h"
 #include "roadmap_file.h"
 #include "roadmap_spawn.h"
+#include "roadmap_screen.h"
+#include "roadmap_start.h"
 
 #include "roadmap_help.h"
 
@@ -243,7 +250,7 @@ void roadmap_help_menu(void){
       if (!strcmp(roadmap_config_get(&RoadMapConfigHelpShowWhatToExpect), "yes")) {
          help_menu[count++] = "what_to_expect";
       }
-      help_menu[count++] = "geoinfo";
+      //help_menu[count++] = "geoinfo";
    }
    
    help_menu[count++] = "submit_logs";
@@ -280,7 +287,6 @@ static const char *nutshell_images[] = {
    "nutshell_06",
    "nutshell_07",
    "nutshell_08",
-   "nutshell_09",
    NULL
 };
 
@@ -296,6 +302,7 @@ static const char *nutshell_int_images[] = {
    "nutshell_int_08",
    "nutshell_int_09",
    "nutshell_int_10",
+   "nutshell_int_11",
    NULL
 };
 
@@ -313,6 +320,68 @@ void roadmap_help_nutshell () {
    
 }
 #endif //IPHONE
+
+static int about_callbak (SsdWidget widget, const char *new_value) {
+   ssd_dialog_hide ("about", dec_ok);
+   
+   return 0;
+}
+
+static void about_dialog(char *about){
+   
+   SsdWidget dialog;
+   SsdWidget text;
+   SsdWidget bitmap;
+   
+   if ( !ssd_dialog_exists( "about" ) )
+   {
+	   dialog = ssd_dialog_new ( "about", "", NULL,
+                               SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
+                               SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+      
+	   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
+	   ssd_widget_add (dialog,
+                      ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
+      
+	   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
+	   ssd_widget_add (dialog,bitmap);
+      
+	   ssd_widget_add (dialog,
+                      ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
+      
+	   text =  ssd_text_new ("text", about, 13, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
+	   ssd_text_set_color(text,"#ffffff");
+	   ssd_widget_add (dialog,text);
+      
+	   /* Spacer */
+	   ssd_widget_add (dialog,
+                      ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW));
+      
+      ssd_widget_add (dialog,
+                      ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
+                                        SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
+                                        SSD_WS_TABSTOP,
+                                        about_callbak));
+      
+   }
+   
+   ssd_dialog_activate("about", NULL);
+   roadmap_screen_redraw();
+}
+
+void roadmap_help_about (void) {
+#ifdef IPHONE_NATIVE
+	roadmap_main_show_root(0);
+#endif //IPHONE_NATIVE   
+   char about[500];
+   
+   sprintf (about, "Release %s\n%s\n%s\n%s",
+            roadmap_start_version(),
+            "(c)waze inc.",
+            roadmap_lang_get("www.waze.com"),
+            roadmap_lang_get("Licensed under the terms of the\nGPL v2"));
+   about_dialog(about);
+}
 
 void roadmap_open_help(void){
 #if defined (_WIN32) || defined (__SYMBIAN32__)

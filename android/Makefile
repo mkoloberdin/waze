@@ -86,13 +86,16 @@ RMLIBSRCS=roadmap_main.c \
           roadmap_fileselection.c \
           roadmap_wchar.c \
           roadmap_androidgps.c \
+          roadmap_androidbrowser.c \
           roadmap_sound.c \
           roadmap_spawn.c \
           roadmap_device.c \
           roadmap_camera.c \
           roadmap_thread.c \
+          roadmap_editbox.c \
           roadmap_native_keyboard.c \
           roadmap_androidmenu.c \
+          roadmap_androidmsgbox.c \
           JNI/FreeMapNativeTimerTask_JNI.c \
           JNI/FreeMapNativeTimerManager_JNI.c \
           JNI/FreeMapNativeManager_JNI.c \
@@ -101,11 +104,13 @@ RMLIBSRCS=roadmap_main.c \
           JNI/FreeMapNativeSoundManager_JNI.c \
           JNI/WazeLog_JNI.c \
           JNI/WazeMenuManager_JNI.c \
+          JNI/WazeMsgBox_JNI.c \
           JNI/FreeMapJNI.c	                             
 
 
 ifeq ($(RENDERING),OPENGL)
-RMLIBSRCS+= roadmap_canvas_ogl.c $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c
+RMLIBSRCS+= roadmap_canvas_ogl.c 
+#RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c $(OPENGL_DIR)/roadmap_canvas_atlas.c
 else
 RMLIBSRCS+= roadmap_canvas_agg.c 
 endif
@@ -152,6 +157,7 @@ clean: cleanone
 cleanone:
 	rm -f *.o *.a *.da $(RUNTIME)
 	rm -f libandroidroadmap.so.nosymbols
+	rm -f JNI/*.o
 
 install: all
 	mkdir -p $(DESTDIR)$(bindir)

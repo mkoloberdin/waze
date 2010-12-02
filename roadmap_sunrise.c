@@ -40,7 +40,9 @@
 #include "websvc_trans/mkgmtime.h"
 #include "roadmap_sunrise.h"
 #include "websvc_trans/mkgmtime.h"
+#if defined  (_WIN32) || defined (__SYMBIAN32__) // should be defined in <math.h>
 #define M_PI 3.1417
+#endif
 
 #define SIN(x)  (sin((M_PI/180)*x))
 #define COS(x)  (cos((M_PI/180)*x))
@@ -141,6 +143,8 @@ time_t roadmap_sunriseset( const RoadMapGpsPosition *position, const struct tm* 
 	//  passed in gmt_now.
 
 	// Local copy of the current UTC time..
+   BOOL add_one_day = FALSE;
+   time_t now;
 	struct tm tm_now = *gmt_now;
 
 	// Get rise-set time (UTC).
@@ -159,13 +163,21 @@ time_t roadmap_sunriseset( const RoadMapGpsPosition *position, const struct tm* 
 
 	// Calculate time of the next event:
 	if( hour < tm_now.tm_hour || (hour == tm_now.tm_hour && min < tm_now.tm_min) ) {
-		tm_now.tm_mday++;
+	   add_one_day = TRUE;
 	}
 
 	tm_now.tm_hour = hour;
 	tm_now.tm_min  = min;
 	tm_now.tm_sec  = 0;
-	return mkgmtime( &tm_now );
+
+	now = mkgmtime( &tm_now );
+	if (now == -1)
+	   return -1;
+
+	if (add_one_day)
+	   now += 24 * 3600;
+
+	return now;
 }
 
 

@@ -55,6 +55,7 @@ typedef enum MoodType
    Mood_Busy_Female,
    Mood_In_a_Hurry,
    Mood_In_a_Hurry_Female,
+   Mood_Baby,
    Mood__count,
    Mood__invalid
 
@@ -90,12 +91,13 @@ typedef enum MoodType
 #define  MOOD_Name_Bronze            ("wazer_bronze")
 #define  MOOD_Name_Silver            ("wazer_silver")
 #define  MOOD_Name_Gold              ("wazer_gold")
+#define  MOOD_Name_Baby              ("wazer_baby")
 #define  MOOD_Name_Busy              ("busy")
 #define  MOOD_Name_In_A_Hurry        ("in_a_hurry")
 #define  MOOD_Name_Busy_Female       ("busy-female")
 #define  MOOD_Name_In_A_Hurry_Female ("in_a_hurry-female")
 
-
+void roadmap_mood_init(void);
 void roadmap_mood (void);
 void roadmap_mood_dialog (RoadMapCallback callback);
 const char *roadmap_mood_get();

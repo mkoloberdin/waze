@@ -6,7 +6,7 @@
  * 
  * LICENSE:
  *
- *   Copyright 201     @author Alex Agranovich (AGA),	Waze Mobile Ltd
+ *   Copyright 2010     @author Alex Agranovich (AGA),	Waze Mobile Ltd
  *   
  *
  *   This file is part of RoadMap.
@@ -31,8 +31,10 @@
  */
 package com.waze;
 
-import java.io.File;
+import com.waze.WazeWebView.WazeWebViewBackCallback;
+
 import android.content.Context;
+import android.view.KeyEvent;
 import android.view.View;
 import android.widget.RelativeLayout;
 
@@ -53,7 +55,7 @@ public final class WazeLayoutManager
 		return mMainLayout;
 	}
 	
-	public FreeMapAppView getAppView()
+	public WazeMainView getAppView()
 	{
 		return mAppView;
 	}
@@ -63,24 +65,138 @@ public final class WazeLayoutManager
 		return mWebView;
 	}
 
-	public void ShowWebView( int aHeight, int aTopMargin, String aUrl )
+	public WazeEditBox getEditBox()
 	{
-		final int FILL_PARENT = RelativeLayout.LayoutParams.FILL_PARENT;
-		RelativeLayout.LayoutParams webParams = new RelativeLayout.LayoutParams( FILL_PARENT, aHeight );
-		webParams.topMargin = aTopMargin;
-		mWebView.setLayoutParams( webParams );
+		return mEditBox;
+	}
+
+	public WazeWebView CreateWebView( int aFlags )
+	{
+		mWebView = new WazeWebView( mContext, aFlags );
+		final WazeWebViewBackCallback backCallback = new WazeWebViewBackCallback() {
+			public boolean onBackEvent( KeyEvent aEvent )
+			{
+				return mAppView.onKeyDown( KeyEvent.KEYCODE_BACK, aEvent );
+			}
+		};
+		mWebView.setBackCallback( backCallback );
+		return mWebView;
+	}
+	
+	public void ShowWebView( String aUrl, WazeRect aRect, int aFlags )
+	{		
+		if ( mWebView == null )
+		{
+			CreateWebView( aFlags );
+		}
+		
+		mWebView.clearView();
+		
+		// Webview back callback
+		int width = aRect.maxx - aRect.minx + 1;
+		int height = aRect.maxy - aRect.miny + 1;
+		RelativeLayout.LayoutParams webParams = new RelativeLayout.LayoutParams( width, height );
+		webParams.leftMargin = aRect.minx;
+		webParams.topMargin = aRect.miny;
+		
+		mMainLayout.addView( mWebView, webParams );
+//		mWebView.setLayoutParams( webParams );		
+		
 		mWebView.setVisibility( View.VISIBLE );
+		mMainLayout.bringChildToFront( mWebView );
 		mMainLayout.requestLayout();
+		
 		mWebView.loadUrl( aUrl );
+		mWebView.requestFocus();	
 	}
 	
 
 	public void HideWebView()
 	{
-		mWebView.setVisibility( View.GONE );
-		mMainLayout.requestLayout();
+		if ( mWebView != null )
+		{
+			mWebView.setVisibility( View.GONE );
+			mMainLayout.removeView( mWebView );
+	 	
+	// TODO:: Add backward compatibility wrapper		
+	//		mWebView.freeMemory();
+	
+	// TODO :: Check this		
+	//		try
+	//		{
+	//			Class.forName("android.webkit.WebView").getMethod("onPause", (Class[]) null).invoke( mWebView, (Object[]) null );
+	//		}
+	//		catch( Exception ex )
+	//		{
+	//			Log.w( "WAZE", "Problems in pausing webview" );
+	//		}
+			
+			mWebView.destroy();
+			mWebView = null;		
+	
+			mMainLayout.requestLayout();
+	
+			System.gc();
+		}
 	}
 	
+	public WazeEditBox CreateEditBox()
+	{
+		mEditBox = new WazeEditBox( mContext );
+		return mEditBox;
+	}
+
+	public void ShowEditBox( int aTopMargin )
+	{		
+		final float scale = mContext.getResources().getDisplayMetrics().density;
+		
+		if ( mEditBox == null )
+			CreateEditBox();
+
+		RelativeLayout.LayoutParams textParams = new RelativeLayout.LayoutParams( FILL_PARENT, WRAP_CONTENT );
+		textParams.leftMargin = (int) ( WAZE_LAYOUT_EDIT_SIDE_MARGIN * scale );
+		textParams.rightMargin = textParams.leftMargin;
+		textParams.topMargin = aTopMargin;
+
+		mMainLayout.addView( mEditBox, textParams );		
+
+		mEditBox.setVisibility( View.VISIBLE );
+		mMainLayout.bringChildToFront( mEditBox );
+		mMainLayout.requestLayout();
+		
+		mEditBox.requestFocus();
+		mEditBox.ShowSoftInput();
+	}
+	
+	public void HideEditBox()
+	{
+		if ( mEditBox != null )
+		{
+			mEditBox.HideSoftInput();
+			mMainLayout.removeView( mEditBox );			
+			mMainLayout.requestLayout();			
+			mEditBox = null;
+		}
+	}
+
+	
+	/*************************************************************************************************
+	 * This class implements the rectangle coordinates bundle
+	 * 
+	 * @author Alex Agranovich
+	 */
+	public static class WazeRect
+	{
+		WazeRect( int aMinX, int aMinY, int aMaxX, int aMaxY )
+		{
+			minx = aMinX; maxx = aMaxX;
+			miny = aMinY; maxy = aMaxY;
+		}
+		public int minx;
+		public int miny;
+		public int maxx;
+		public int maxy;
+	}
 	
 	/*************************************************************************************************
      *================================= Private interface section =================================
@@ -88,27 +204,17 @@ public final class WazeLayoutManager
      */
 	private void Init()
 	{	
-		final int FILL_PARENT = RelativeLayout.LayoutParams.FILL_PARENT;
-		final int WRAP_CONTENT = RelativeLayout.LayoutParams.WRAP_CONTENT;
-		
+		// --------- Main layout object ----------- 
 		mMainLayout = new RelativeLayout( mContext );
 		
 		// --------- Create the application views -----------
-		mAppView = new FreeMapAppView( mContext );
-		mWebView = new WazeWebView( mContext );
+		mAppView = new WazeMainView( mContext );		
 		
-		// --------- Add the application view to the main layout -----------
-		
+		// --------- Add the application view to the main layout -----------		
 		RelativeLayout.LayoutParams params = new RelativeLayout.LayoutParams( FILL_PARENT, FILL_PARENT );
-		mMainLayout.addView( mAppView, WAZE_LAYOUT_INDEX_MAIN, params );
+		mMainLayout.addView( mAppView, params );
 		mMainLayout.bringChildToFront( mAppView );
-		
-		// --------- Add the web view to the main layout -----------
-		RelativeLayout.LayoutParams webParams = new RelativeLayout.LayoutParams( FILL_PARENT, WRAP_CONTENT );
-		mMainLayout.addView( mWebView, WAZE_LAYOUT_INDEX_WEB, webParams );
-		mWebView.setVisibility( View.GONE );
-		
-				
+
 	}
 	
 	
@@ -126,12 +232,18 @@ public final class WazeLayoutManager
      * 
      */
 	RelativeLayout mMainLayout = null;
-	FreeMapAppView mAppView = null;			// Main Application view
+	WazeMainView mAppView = null;			// Main Application view
 	WazeWebView	   mWebView = null;
-    Context 	   mContext;
+	WazeEditBox    mEditBox = null;
+    Context 	   mContext = null;
     
-    public static final int WAZE_LAYOUT_INDEX_MAIN = 0;
-    public static final int WAZE_LAYOUT_INDEX_EDIT = 2;
-    public static final int WAZE_LAYOUT_INDEX_WEB = 1;
-
+    
+	/*************************************************************************************************
+     *================================= Constants section =================================
+     */
+    public static final float WAZE_LAYOUT_EDIT_HEIGHT = 50; // Apporx 0.3 inch relative to the base 160dpi
+    public static final float WAZE_LAYOUT_EDIT_SIDE_MARGIN = 2; // Apporx 1/80 inch relative to the base 160dpi
+    
+    private final int FILL_PARENT = RelativeLayout.LayoutParams.FILL_PARENT;
+	private final int WRAP_CONTENT = RelativeLayout.LayoutParams.WRAP_CONTENT;
 }

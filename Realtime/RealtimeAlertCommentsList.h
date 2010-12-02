@@ -34,12 +34,12 @@ typedef enum real_time_comments_list_context_menu_items
    rtcl_cm_add_comments,
    rtcl_cm_exit,
    rtcl_cm_report_abuse,
-   
+   rtcl_cm_cancel,
    rtcl_cm__count,
    rtcl_cm__invalid
 
 }  real_time_comments_list_context_menu_items;
 
-int RealtimeAlertCommentsList (int alertId); 
+int RealtimeAlertCommentsList (int alertId);
 
 #endif //__REALTIME_ALERT_COMMENT_LIST_H__

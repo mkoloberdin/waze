@@ -4,7 +4,7 @@
 #include "player.h"
 
 #define WAV_FILE_BUFF_LEN	4096
-
+#ifndef EMBEDDED_CE
 BOOL CPlayer::WavOpenFile(LPCTSTR pszFile)
 {
 	if (!m_Reader.Open(pszFile))
@@ -411,3 +411,4 @@ int CPlayer::WavRender(LPBYTE pbInBuf, DWORD cbInBuf, LPDWORD pcbProceed)
 	*pcbProceed = 0;
 	return 0;
 }
+#endif

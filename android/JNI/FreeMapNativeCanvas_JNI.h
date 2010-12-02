@@ -11,6 +11,8 @@ extern "C" {
 #define com_waze_FreeMapNativeCanvas_WAZE_OGL_SWAP_BUFFERS_DELAY 10LL
 #undef com_waze_FreeMapNativeCanvas_WAZE_OGL_RENDER_WAIT_TIMEOUT
 #define com_waze_FreeMapNativeCanvas_WAZE_OGL_RENDER_WAIT_TIMEOUT 100LL
+#undef com_waze_FreeMapNativeCanvas_WAZE_CORDING_MAX_POINTS
+#define com_waze_FreeMapNativeCanvas_WAZE_CORDING_MAX_POINTS 8L
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    InitCanvasNTV
@@ -61,14 +63,6 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasContextNTV
 
 /*
  * Class:     com_waze_FreeMapNativeCanvas
- * Method:    CanvasRenderNTV
- * Signature: ()V
- */
-JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
-  (JNIEnv *, jobject);
-
-/*
- * Class:     com_waze_FreeMapNativeCanvas
  * Method:    KeyDownHandlerNTV
  * Signature: (IZ[B)V
  */
@@ -78,27 +72,38 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_KeyDownHandlerNTV
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    MousePressedNTV
- * Signature: (II)V
+ * Signature: ([I)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MousePressedNTV
-  (JNIEnv *, jobject, jint, jint);
+  (JNIEnv *, jobject, jintArray);
 
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    MouseReleasedNTV
- * Signature: (II)V
+ * Signature: ([I)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseReleasedNTV
-  (JNIEnv *, jobject, jint, jint);
+  (JNIEnv *, jobject, jintArray);
 
 /*
  * Class:     com_waze_FreeMapNativeCanvas
  * Method:    MouseMovedNTV
- * Signature: (II)V
+ * Signature: ([I)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseMovedNTV
-  (JNIEnv *, jobject, jint, jint);
+  (JNIEnv *, jobject, jintArray);
 
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_waze_FreeMapNativeCanvas_CompatabilityWrapper */
+
+#ifndef _Included_com_waze_FreeMapNativeCanvas_CompatabilityWrapper
+#define _Included_com_waze_FreeMapNativeCanvas_CompatabilityWrapper
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifdef __cplusplus
 }
 #endif

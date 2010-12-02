@@ -27,9 +27,9 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Init: memset + basic settings
-void RTConnectionInfo_Init(LPRTConnectionInfo   this, 
-                           PFN_ONUSER           pfnOnAddUser, 
-                           PFN_ONUSER           pfnOnMoveUser, 
+void RTConnectionInfo_Init(LPRTConnectionInfo   this,
+                           PFN_ONUSER           pfnOnAddUser,
+                           PFN_ONUSER           pfnOnMoveUser,
                            PFN_ONUSER           pfnOnRemoveUser)
 {
    memset( this, 0, sizeof(RTConnectionInfo));
@@ -63,7 +63,8 @@ void RTConnectionInfo_ResetLogin( LPRTConnectionInfo this)
 /* 7*/memset( &(this->LastMapPosSent), 0, sizeof(RoadMapArea));
 /* 8*/RTUsers_Reset( &(this->Users));
 /* 9*/RTTrafficInfo_Reset();
- 
+
+
       RTConnectionInfo_ResetTransaction( this);
 }
 
@@ -77,7 +78,7 @@ void RTConnectionInfo_ResetTransaction( LPRTConnectionInfo this)
 // Reset between packet parsings:
 
 void RTConnectionInfo_ResetParser( LPRTConnectionInfo this)
-{ 
+{
 /*10*/this->bStatusVerified = FALSE;
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////

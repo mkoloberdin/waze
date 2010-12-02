@@ -49,15 +49,15 @@ static jintArray gBufObj = 0;
 #define JNI_CALL_FreeMapNativeCanvas_RequestRender 			"RequestRender"
 #define JNI_CALL_FreeMapNativeCanvas_RequestRender_Sig 		"(Z)V"
 
-#define JNI_CALL_FreeMapNativeManager_IsActive 			"IsActive"
+#define JNI_CALL_FreeMapNativeManager_IsActive 			      "IsActive"
 #define JNI_CALL_FreeMapNativeManager_IsActive_Sig 			"()I"
 
 
 
 extern void roadmap_canvas_init( int aWidth, int aHeight, int aPixelFormat );
-extern void roadmap_canvas_mouse_pressed( int aX, int aY );
-extern void roadmap_canvas_mouse_released( int aX, int aY );
-extern void roadmap_canvas_mouse_moved( int aX, int aY );
+extern void roadmap_canvas_mouse_pressed( int aXY[], int aCount );
+extern void roadmap_canvas_mouse_released( int aXY[], int aCount );
+extern void roadmap_canvas_mouse_moved( int aXY[], int aCount );
 extern void roadmap_canvas_new();
 extern int roadmap_main_time_interval( int aCallIndex, int aPrintFlag );
 extern void roadmap_canvas_prepare();
@@ -120,23 +120,6 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CreateCanvasNTV
 }
 
 #ifdef OPENGL
-
-/*************************************************************************************************
- * Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
- * Actual rendering of the scene
- *
- */
-JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasRenderNTV
-( JNIEnv* aJNIEnv, jobject aJObj )
-{
-	static int first_time = 1;
-	if ( 1 || first_time )
-	{
-		roadmap_canvas_prepare();
-		first_time = 0;
-	}
-//	roadmap_screen_repaint_now_cb();
-}
 
 /*************************************************************************************************
  * FreeMapNativeCanvas_RequestRender()
@@ -241,15 +224,34 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_KeyDownHandlerNTV
 }
 
 /*************************************************************************************************
+ *
+ * Auxiliary
+ *
+ */
+static inline int get_coord_data( JNIEnv *aJNIEnv, jintArray aXY, int aDstXY[] )
+{
+   int count = (*aJNIEnv)->GetArrayLength( aJNIEnv, aXY );
+   if ( count > 2*MAX_CORDING_POINTS )
+      count = 2*MAX_CORDING_POINTS;
+
+   (*aJNIEnv)->GetIntArrayRegion( aJNIEnv, aXY, 0, count, aDstXY );
+
+   return count;
+}
+/*************************************************************************************************
  * Java_com_waze_FreeMapNativeCanvas_MousePressedNTV
  * JNI wrapper for the Java_com_waze_FreeMapNativeCanvas_MousePressedNTV (will be called from the Java layer)
  *
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MousePressedNTV
-( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
+( JNIEnv *aJNIEnv, jobject aJObj, jintArray aXY )
 {
-    JNI_LOG( ROADMAP_DEBUG, "Mouse pressed event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_mouse_pressed( aX, aY );
+   int XY[2*MAX_CORDING_POINTS];
+
+   int count = get_coord_data( aJNIEnv, aXY, XY )/2;
+
+   JNI_LOG( ROADMAP_DEBUG, "Mouse pressed event (X, Y, Index) = ( %d, %d, %d )", XY[0], XY[1], count );
+	roadmap_canvas_mouse_pressed( XY, count );
 }
 
 /*************************************************************************************************
@@ -258,10 +260,15 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MousePressedNTV
  *
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseReleasedNTV
-( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
+( JNIEnv *aJNIEnv, jobject aJObj, jintArray aXY )
 {
-    JNI_LOG( ROADMAP_DEBUG, "Mouse released event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_mouse_released( aX, aY );
+   int XY[2*MAX_CORDING_POINTS];
+
+   int count = get_coord_data( aJNIEnv, aXY, XY )/2;
+
+
+   JNI_LOG( ROADMAP_DEBUG, "Mouse released event (X, Y, Index) = ( %d, %d, %d )", XY[0], XY[1], count );
+	roadmap_canvas_mouse_released( XY, count );
 }
 
 /*************************************************************************************************
@@ -270,10 +277,14 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseReleasedNTV
  *
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_MouseMovedNTV
-( JNIEnv *aJNIEnv, jobject aJObj, jint aX, jint aY )
+( JNIEnv *aJNIEnv, jobject aJObj, jintArray aXY )
 {
-    JNI_LOG( ROADMAP_DEBUG, "Mouse moved event (X, Y) = ( %d, %d )", aX, aY );
-	roadmap_canvas_mouse_moved( aX, aY );
+   int XY[2*MAX_CORDING_POINTS];
+
+   int count = get_coord_data( aJNIEnv, aXY, XY )/2;
+
+   JNI_LOG( ROADMAP_DEBUG, "Mouse moved event (X, Y, Index) = ( %d, %d, %d )", XY[0], XY[1], count );
+	roadmap_canvas_mouse_moved( XY, count );
 }
 
 /*************************************************************************************************

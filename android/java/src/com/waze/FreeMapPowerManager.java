@@ -35,6 +35,7 @@ package com.waze;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.os.BatteryManager;
 
 public class FreeMapPowerManager extends BroadcastReceiver
 {
@@ -54,15 +55,20 @@ public class FreeMapPowerManager extends BroadcastReceiver
         String action = intent.getAction();
         if (Intent.ACTION_BATTERY_CHANGED.equals(action))
         {
-
+        	final int sdkBuildVersion = Integer.parseInt( android.os.Build.VERSION.SDK );
             int level = intent.getIntExtra("level", 0);
             int scale = intent.getIntExtra("scale", 100);
+        	
             // Set the level
             synchronized (mCurrentLevel)
             {
                 mCurrentLevel = (level * 100) / scale;
             }
-
+            
+            if ( sdkBuildVersion >= android.os.Build.VERSION_CODES.ECLAIR )
+        	{
+            	CompatabilityWrapper.TemperatureTest( intent );
+        	}
         }
     }
 
@@ -83,7 +89,27 @@ public class FreeMapPowerManager extends BroadcastReceiver
     /*************************************************************************************************
      *================================= Private interface section =================================
      */
-
+    /*************************************************************************************************
+     * CompatabilityWrapper the compatability wrapper class used to overcome dalvik delayed  
+     * class loading. Supposed to be loaded only for android 2.0+.  
+     */
+    private static final class CompatabilityWrapper
+    {
+    	public static void TemperatureTest( Intent aIntent )
+    	{
+    		final int health = aIntent.getIntExtra( BatteryManager.EXTRA_HEALTH, 100);
+            final int temperature = aIntent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 100);
+            Runnable logTask = new Runnable() {
+				
+				public void run() {
+					WazeLog.w( "WAZE BATTERY PROFILER. Temperature: " + temperature/10 + ". Helth: " + health );
+				}
+			};
+			
+			FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+            mgr.PostRunnable( logTask );
+    	}
+    }
     /*************************************************************************************************
      *================================= Data members section
      * =================================

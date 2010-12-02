@@ -88,7 +88,7 @@ class CFreeMapAppUi : public CAknAppUi, public MRemConCoreApiTargetObserver
 		/**
 		 * Switches the active view to the browser view
 		 */
-		void ShowBrowserView( const TRect& aRect, const TDes16& aUrl );
+		void ShowBrowserView( const TRect& aRect, const TDes16& aUrl, TInt aFlags );
 		/**
 		 * Switches the active view to the camera view
 		 */

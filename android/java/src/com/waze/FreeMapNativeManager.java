@@ -36,9 +36,14 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.Timer;
 import java.util.TimerTask;
-
+import com.waze.WazeEditBox.WazeEditBoxCallback;
+import com.waze.WazeLayoutManager.WazeRect;
+import com.waze.WazeLayoutManager;
 import android.content.Context;
-import android.graphics.Canvas;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.location.LocationManager;
 import android.media.AudioManager;
 import android.os.Debug;
@@ -51,7 +56,6 @@ import android.provider.Settings.SettingNotFoundException;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
-import android.view.View;
 
 public final class FreeMapNativeManager
 {
@@ -71,6 +75,7 @@ public final class FreeMapNativeManager
         UI_EVENT_STARTUP_NOSDCARD, // Starting up with no sdcard
         UI_EVENT_STARTUP_GPUERROR, // Error access GPU
         UI_EVENT_LOW_MEMORY, // Low memory warning
+        UI_EVENT_SCREENSHOT, // Screen shot manager request
         UI_EVENT_NATIVE,
         UI_PRIORITY_EVENT_NATIVE; 
 
@@ -92,8 +97,7 @@ public final class FreeMapNativeManager
      * Entire application entry point.
      * 
      */
-    static public FreeMapNativeManager Start( FreeMapAppActivity aAppActivity,
-            FreeMapAppView aAppView )
+    static public FreeMapNativeManager Start()
     {
         if (mNativeManager != null)
             return mNativeManager;
@@ -104,13 +108,13 @@ public final class FreeMapNativeManager
         mNativeThread = mNativeManager.new NativeThread("Native Thread");
         mNativeThread.start();
 
-        while (!mNativeManager.mAppLooperReady);
-
-        mNativeManager.mAppActivity = aAppActivity;
-        mNativeManager.mAppView = aAppView;
+        while (!mNativeManager.mAppLooperReady);            
         
         mNativeManager.PostUIMessage(FreeMapUIEvent.UI_EVENT_START);
 
+        if ( TEMPERATURE_PROFILER_ENABLED )
+        	mNativeManager.InitTemperatureProfiler();
+        
         return mNativeManager;
     }
 
@@ -125,12 +129,19 @@ public final class FreeMapNativeManager
     
     /*************************************************************************************************
      * Menu enabled indicator inspector
-     * 
      */
     public boolean IsMenuEnabled()
     {
         return mIsMenuEnabled;
     }
+    /*************************************************************************************************
+     * Application start flag inspector
+     */
+    public boolean IsAppStarted()
+    {
+        return mAppStarted;
+    }
+
     /*************************************************************************************************
      * Checks if the current thread is the native one ( the thread  
      * that Native Manager lives in its context )
@@ -164,15 +175,6 @@ public final class FreeMapNativeManager
     public boolean getInitializedStatus()
     {
         return mAppInitializedFlag;
-    }
-
-    /*************************************************************************************************
-     * Screen refresh flag accessor
-     * 
-     */
-    public boolean getScreenRefresh()
-    {
-        return mAppScreenRefreshFlag;
     }
 
     /*************************************************************************************************
@@ -212,6 +214,36 @@ public final class FreeMapNativeManager
     	int value = aValue ? 1 : 0;
     	SetBackgroundRunNTV( value );
     }
+    
+    /*************************************************************************************************
+     * UrlHandler
+     * Checks if waze should take an action on the passed url 
+     */
+    public boolean UrlHandler( String aUrl )
+    {    	
+    	final String url = aUrl;
+    	if ( url.startsWith( WAZE_URL_PATTERN ) )
+    	{
+    		if ( IsNativeThread() )
+    		{
+    			UrlHandlerNTV( url );
+    		}
+    		else
+    		{
+    			/*
+    	    	 * Post the request
+    	    	 */
+    	    	Runnable request = new Runnable() {			
+    				public void run() {
+    					UrlHandlerNTV( url );				
+    				}
+    			};
+    			PostRunnable( request );
+    		}
+    		return true;
+    	}
+    	return false;
+    }
 
     /*************************************************************************************************
      * PostRunnable
@@ -220,6 +252,14 @@ public final class FreeMapNativeManager
     public void PostRunnable( Runnable aMsg )
     {    	
     	mUIMsgDispatcher.post( aMsg );
+    }
+    /*************************************************************************************************
+     * PostRunnable
+     * Posts the runnable on the main dispatcher queue ( at the end ) with the delay
+     */
+    public void PostRunnable( Runnable aMsg, long aDelayMillis )
+    {    	
+    	mUIMsgDispatcher.postDelayed( aMsg, aDelayMillis );
     }
     /*************************************************************************************************
      * PostRunnableAtFront
@@ -236,7 +276,8 @@ public final class FreeMapNativeManager
      */
     public int getBatteryLevel()
     {
-        return mAppActivity.getBatteryLevel();
+    	final FreeMapPowerManager pwrMgr = FreeMapAppService.getPowerManager();
+        return pwrMgr.getCurrentLevel();
     }
     
     /*************************************************************************************************
@@ -255,19 +296,90 @@ public final class FreeMapNativeManager
      */
     public void ShowSoftKeyboard( int aAction, int aCloseOnAction )
     {
+    	final WazeMainView view = getMainView();
         Runnable showKeyboard = new Runnable()
         {
             public void run()
             {                
-                mAppView.ShowSoftInput();
+            	view.ShowSoftInput();
             }
         };
         // Set the action
-        mAppView.setImeAction( aAction );
+        view.setImeAction( aAction );
         // Set if close on action
-        mAppView.setImeCloseOnAction( aCloseOnAction == 1 );
+        view.setImeCloseOnAction( aCloseOnAction == 1 );
         // Run the keyboard
-        mAppView.post( showKeyboard );
+        view.post( showKeyboard );
+    }
+
+    /*************************************************************************************************
+     * Shows contacts book 
+     * @param void
+     * @param void
+     */
+    public void ShowContacts()
+    {
+    	FreeMapAppService.ShowContacts();
+    }
+
+    /*************************************************************************************************
+     * ShowEditBox - Show edit box with the soft input
+     * @param aAction - show EditorInfo for values
+     * @param aStayOnAction - if false the keyboard is closed when action is pressed
+     * @param aText - The initial text to be shown in the text box
+     * @param aCbContext - The context for the callback
+     * @param aTopMargin - Top margin from the top canvas coordinate for the edit box
+     */
+    public void ShowEditBox( final int aAction, final int aStayOnAction, final byte[] aText, final long aCbContext, final int aTopMargin, final int aFlags )
+    {
+    	final WazeLayoutManager layoutMgr = FreeMapAppService.getMainActivity().getLayoutMgr();
+    	// Prepare the parameters for the editbox
+    	final WazeEditBoxCallback editBoxCb = new WazeEditBoxCallback( aCbContext ) 
+        {			
+			@Override public void CallbackDone(int aResult, String aText, long aCbContext ) {
+					EditBoxCallbackNTV( aResult, aText, aCbContext );
+			}
+		};
+
+		// Should be set on the UI thread 
+		Runnable showEditBox = new Runnable()
+        {
+            public void run()
+            {
+        		WazeEditBox editBox = layoutMgr.CreateEditBox();
+        		
+        		// Set the action
+        		editBox.setEditBoxAction( aAction );
+                // Set if close on action
+        		editBox.setEditBoxStayOnAction( aStayOnAction == 1 );
+        		// Set the value
+        		editBox.setEditBoxValue( new String( aText ) );
+        		// Set the callback
+        		editBox.setEditBoxCallback( editBoxCb );
+        		// Set the flags
+        		editBox.setEditBoxFlags( aFlags );
+        		
+                layoutMgr.ShowEditBox( aTopMargin );
+            }
+        };
+        getAppActivity().runOnUiThread( showEditBox );
+    }
+    /*************************************************************************************************
+     * Hiding the edit box view
+     * @param none
+     */
+    public void HideEditBox()
+    {
+        // Show the edit box
+		final WazeLayoutManager layoutMgr = FreeMapAppService.getMainActivity().getLayoutMgr();
+        Runnable hideEditBox = new Runnable()
+        {
+            public void run()
+            {                
+                layoutMgr.HideEditBox();
+            }
+        };
+        getAppActivity().runOnUiThread( hideEditBox );
     }
     /*************************************************************************************************
      * Hiding the soft keyboard
@@ -279,43 +391,11 @@ public final class FreeMapNativeManager
         {
             public void run()
             {
-                mAppView.HideSoftInput();
+                getMainView().HideSoftInput();
             }
         };
-        mAppView.post( hideKeyboard );
+        getMainView().post( hideKeyboard );
     }
-    
-    /*************************************************************************************************
-     * Screen refresh flag modifier
-     * 
-     */
-    public void setScreenRefresh( boolean aVal )
-    {
-        synchronized (mAppScreenRefreshFlag)
-        {
-            mAppScreenRefreshFlag = aVal;
-            if (mAppScreenRefreshFlag)
-            {
-
-                // If canvas buffer was not ready
-                // post the view that it can be drawn now
-                if (!getCanvasBufReady())
-                {
-                    Runnable lWillDraw = new Runnable()
-                    {
-                        public void run()
-                        {
-                            mAppView.setWillNotDraw(false);
-                        }
-                    };
-                    // Post the view
-                    mAppView.post(lWillDraw);
-                }
-                // Invalidate the window
-                mAppView.postInvalidate();
-            }
-        }
-   }
 
     /*************************************************************************************************
      * Adds an element to the touch event queue
@@ -348,25 +428,6 @@ public final class FreeMapNativeManager
     public void Flush()
     {
         // TODO:: Check if its possible to force the message loop to be flushed
-    }
-
-    /*************************************************************************************************
-     * ForceNewCanvas() - Force the new canvas configuration
-     * 
-     */
-    public void ForceNewCanvas()
-    {
-        Runnable lNewCanvas = new Runnable()
-        {
-            public void run()
-            {
-                if ( mNativeCanvas != null && !getShutDownStatus() )
-                {
-                    mNativeCanvas.ForceNewCanvas();
-                }
-            }
-        };
-        mUIMsgDispatcher.postAtFrontOfQueue(lNewCanvas);
     }
 
     /*************************************************************************************************
@@ -408,55 +469,25 @@ public final class FreeMapNativeManager
     }
 
     /*************************************************************************************************
-     * getAppActivity() - Activity reference accessor
+     * getAppActivity() - Activity accessor (wrapper)
      * 
      */
     public FreeMapAppActivity getAppActivity()
     {
-        return mAppActivity;
+        return FreeMapAppService.getMainActivity();
     }
 
-    /*************************************************************************************************
-     * setAppActivity() - Activity reference modifier
-     * 
-     */
-    public void setAppActivity( FreeMapAppActivity aAppActivity )
-    {
-        mAppActivity = aAppActivity;
-    }
-    
-    /*************************************************************************************************
-     * setCanvas() - Canvas reference modifier
-     * 
-     */
-    public void setCanvas( Canvas aCanvas )
-    {
-        mNativeCanvas.setCanvas(aCanvas);
-    }
 
     /*************************************************************************************************
-     * getAppView() - View reference accessor
+     * getAppView() - Main view reference accessor (wrapper)
      * 
      */
-    public FreeMapAppView getAppView()
+    public WazeMainView getMainView()
     {
-        return mAppView;
+        return FreeMapAppService.getMainView();
     }
 
-    /*************************************************************************************************
-     * Wrapper for the canvas update
-     * 
-     */
-    public boolean UpdateCanvas( Canvas aCanvas )
-    {
-        if (mNativeCanvas != null)
-        {
-            return mNativeCanvas.UpdateCanvas(aCanvas);
-        }
-        return false;
-    }
-
-    /*************************************************************************************************
+     /*************************************************************************************************
      * Interface function for the async native messages to be posted to the
      * current thread. Adds the message to the mNativeMsgDispatcher queue
      * 
@@ -586,7 +617,6 @@ public final class FreeMapNativeManager
         }
 
     }
-
     /*************************************************************************************************
      * This class implements the UI message handler loop for the current thread
      * 
@@ -629,9 +659,21 @@ public final class FreeMapNativeManager
                 	}
                 	else                		
                 	{
-                		AppLayerShutDown();
+                		if ( IsAppStarted() )
+                		{
+                			ShutDown();
+                		}
+                		else
+                		{
+                			AppLayerShutDown();
+                		}
                 	}
 
+                    break;
+                }
+                case UI_EVENT_SCREENSHOT:
+                {
+                	( new WazeScreenShotManager() ).Capture( getMainView(), mNativeCanvas.getGL() );
                     break;
                 }
 
@@ -782,10 +824,35 @@ public final class FreeMapNativeManager
     }
 
     /*************************************************************************************************
-     * Application shutdown
+     * Application shutdown entry point
      * 
      */
     public void ShutDown()
+    {
+    	if ( IsNativeThread() )
+    	{
+    		ShutDownRun();
+    	}
+    	else
+    	{
+    		Runnable shutDown = new Runnable()
+    		{
+    			public void run()
+    			{
+    				ShutDownRun();
+    			}
+    		};
+    		this.PostRunnableAtFront( shutDown );
+    	}
+    	
+    }
+    
+    /*************************************************************************************************
+     * ShutDownRun() - Closes the application
+     *   @param void
+     *   @return void
+     */
+    private void ShutDownRun()
     {
         WazeLog.i( "Finalizing the application ..." );
         mAppShutDownFlag = true;
@@ -849,8 +916,7 @@ public final class FreeMapNativeManager
         int maxSysVol;
 
         // Volume level
-        AudioManager audioMngr = (AudioManager) mAppActivity
-                .getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
+        AudioManager audioMngr = (AudioManager) getAppActivity().getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
         maxSysVol = audioMngr.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
 
         // Linear transformation
@@ -864,8 +930,7 @@ public final class FreeMapNativeManager
     public void SetSysVolume( int aSysVol )
     {
         // Volume level
-        AudioManager audioMngr = (AudioManager) mAppActivity
-                .getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
+        AudioManager audioMngr = (AudioManager) getAppActivity().getSystemService( FreeMapAppActivity.AUDIO_SERVICE );
        
         audioMngr.setStreamVolume( AudioManager.STREAM_MUSIC, aSysVol, 0 );
     }
@@ -994,23 +1059,41 @@ public final class FreeMapNativeManager
      * Wrapper for the web view to be called from the native side.
      * Posts the call on the UI thread 
      */
-    public void ShowWebView( int aHeight, int aTopMargin, byte[] aUrl )
+    public void ShowWebView( final byte[] aUrl, final int aMinX, final int aMinY, final int aMaxX, final int aMaxY, final int aFlags )
     {
-    	final int height = aHeight;
-    	final int margin = aTopMargin;
-    	final String url = new String( aUrl );
-
-    	WazeLog.d( "URL to load: " + url );
-    	
+    	WazeLog.d( "URL to load: " + aUrl );
+    	final WazeRect rect = new WazeRect( aMinX, aMinY, aMaxX, aMaxY );    	
     	Runnable showWebView = new Runnable() {
 			public void run()
 			{
-				WazeLayoutManager mgr = mAppActivity.getLayoutMgr();
-				mgr.ShowWebView( height, margin, url );
+				WazeLayoutManager mgr = getAppActivity().getLayoutMgr();
+				mgr.ShowWebView( new String( aUrl ), rect, aFlags );
 			}
     	};
-    	mAppActivity.runOnUiThread( showWebView );
+    	getAppActivity().runOnUiThread( showWebView );
     }
+    
+    /*************************************************************************************************
+     * Wrapper for the web view to be called from the native side.
+     * Posts the call on the UI thread 
+     */
+    public void LoadUrl( byte[] aUrl )
+    {
+    	final String url = new String( aUrl );
+    	final FreeMapAppActivity activity = getAppActivity();
+    	WazeLog.d( "URL to load: " + url );
+    	
+    	Runnable loadUrl = new Runnable() {
+			public void run()
+			{
+				WazeLayoutManager mgr = activity.getLayoutMgr();
+				WazeWebView webView = mgr.getWebView();
+				webView.loadUrl( url );
+			}
+    	};
+    	activity.runOnUiThread( loadUrl );
+    }
+    
     
     /*************************************************************************************************
      * Wrapper for the web view close function to be called from the native side.
@@ -1018,14 +1101,15 @@ public final class FreeMapNativeManager
      */
     public void HideWebView()
     {
+    	final FreeMapAppActivity activity = getAppActivity();
     	Runnable hideWebView = new Runnable() {
 			public void run()
 			{
-				WazeLayoutManager mgr = mAppActivity.getLayoutMgr();
+				WazeLayoutManager mgr = activity.getLayoutMgr();
 				mgr.HideWebView();
 			}
     	};
-    	mAppActivity.runOnUiThread( hideWebView );
+    	activity.runOnUiThread( hideWebView );
     }
     
     /*************************************************************************************************
@@ -1059,8 +1143,7 @@ public final class FreeMapNativeManager
 //                Settings.System.SCREEN_OFF_TIMEOUT, mSysValScreenTimeout);
         // Volume level
     	  // Volume level
-        AudioManager audioMngr = (AudioManager) mAppActivity
-                .getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
+        AudioManager audioMngr = (AudioManager) getAppActivity().getSystemService( FreeMapAppActivity.AUDIO_SERVICE );
         mAppMediaVolume = audioMngr.getStreamVolume( AudioManager.STREAM_MUSIC );        
     }
 
@@ -1083,13 +1166,10 @@ public final class FreeMapNativeManager
         try
         {
             // Screen timeout
-            mSysValScreenTimeout = Settings.System.getInt(mAppActivity
-                    .getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
+            mSysValScreenTimeout = Settings.System.getInt( getAppActivity().getContentResolver(), Settings.System.SCREEN_OFF_TIMEOUT);
             // Volume level
-            AudioManager audioMngr = (AudioManager) mAppActivity
-                    .getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
-            mSysValVolume = audioMngr
-                    .getStreamVolume(AudioManager.STREAM_MUSIC);
+            AudioManager audioMngr = (AudioManager) getAppActivity().getSystemService(FreeMapAppActivity.AUDIO_SERVICE);
+            mSysValVolume = audioMngr.getStreamVolume(AudioManager.STREAM_MUSIC);
         }
         catch (SettingNotFoundException ex)
         {
@@ -1120,7 +1200,7 @@ public final class FreeMapNativeManager
         // Load the system settings
         SaveSystemSettings();
 
-        while ( !mAppView.IsReady() )
+        while ( !getMainView().IsReady() )
         {
         	android.os.SystemClock.sleep( 50 );
         }        
@@ -1144,10 +1224,11 @@ public final class FreeMapNativeManager
 
         // Loading the native library
         LoadNativeLib( FreeMapResources.mPkgDir + FreeMapResources.mLibFile);
-
+        
         int sdkBuildVersion = Integer.parseInt( android.os.Build.VERSION.SDK );
         // Initialize the library
-        InitNativeManagerNTV( FreeMapResources.mAppDir, sdkBuildVersion, android.os.Build.DEVICE );
+        InitNativeManagerNTV( FreeMapResources.mAppDir, sdkBuildVersion, android.os.Build.DEVICE, 
+        		android.os.Build.MODEL, android.os.Build.MANUFACTURER );
 
         
         // Set if the run is the upgrade run
@@ -1181,20 +1262,15 @@ public final class FreeMapNativeManager
 	        // Location management
 	        InitGPS();
 	
-	        // AGA DEBUG
-	        TimerTask task = new TimerTask() {
-			        @Override	
-			        public void run()
-			        {
-		                Log.w("WAZE PROFILE", "Global heap used: " + Debug.getGlobalAllocSize() +  
-		                		"Native heap. Used: " + Debug.getNativeHeapAllocatedSize() +
-	    		                ". Free: " + Debug.getNativeHeapFreeSize() +
-	    		                ". Total: " + Debug.getNativeHeapSize() );
-			        }         
-			    };
-	//		 mNativeManager.getTimer().scheduleAtFixedRate( task, 0, 500 );
-	
-			 
+	        // Profiler
+	        if ( MEMORY_PROFILER_ENABLED )
+	        	InitMemoryProfiler();
+	        if( CPU_PROFILER_ENABLED )
+	        	WazeCPUProfiler.Start();
+	        
+	        // Message box engine
+	        WazeMsgBox.Create();
+	        
 	        mAppInitializedFlag = true;
         }
     }
@@ -1213,7 +1289,8 @@ public final class FreeMapNativeManager
         {
         	// Application start
         	WazeLog.w( "Starting the application!!!" );
-        	AppStartNTV( FreeMapAppService.getUrl() );        	
+        	AppStartNTV( FreeMapAppService.getUrl() );
+        	mAppStarted = true;
 	        WarnGpsDisabled();
         } 
     }
@@ -1231,7 +1308,9 @@ public final class FreeMapNativeManager
         }
         catch (UnsatisfiedLinkError ule)
         {
-            WazeLog.e( "Error: Could not load library " + aTargetFile, ule );
+            Log.e( "WAZE", "Error: Could not load library " + aTargetFile + " - exiting! " + ule.getMessage() );
+            ule.printStackTrace();
+            AppLayerShutDown();
         }
     }
 
@@ -1241,8 +1320,7 @@ public final class FreeMapNativeManager
     private void InitGPS()
     {
         // Location manager
-        mLocationManager = (LocationManager) mAppActivity
-                .getSystemService(Context.LOCATION_SERVICE);
+        mLocationManager = (LocationManager) getAppActivity().getSystemService(Context.LOCATION_SERVICE);
 
         // Register the listener
         mLocationListner = new FreeMapNativeLocListener( mLocationManager );
@@ -1280,10 +1358,14 @@ public final class FreeMapNativeManager
         WazeScreenManager screenManager = FreeMapAppService.getScreenManager();
         screenManager.onShutDown();
         
+        // Unregistering the temperature profiler
+        if ( TEMPERATURE_PROFILER_ENABLED )
+        	CloseTemperatureProfiler();
         // Stopping the service
         FreeMapAppService.ShutDown();
         // Finish the activity
-         mAppActivity.finish();
+         getAppActivity().finish();
+         
         // Stop the loop
          Looper.myLooper().quit();
 
@@ -1293,18 +1375,99 @@ public final class FreeMapNativeManager
         // Finish the VM
         System.exit(0);
     }
+
+    /*************************************************************************************************
+     * InitMemoryProfiler()
+     *   @param void
+     *   @return void
+     */
+    private void InitMemoryProfiler()
+    {
+    	final Runnable memoryLog = new Runnable() {
+			
+			public void run() {
+            	final String memory_usage = new String( "WAZE MEMORY PROFILER. Global heap used [Kb]: " + Debug.getGlobalAllocSize()/1000 +  
+		        		" Native heap. Used [Kb]: " + Debug.getNativeHeapAllocatedSize()/1000 +
+		                ". Free [Kb]: " + Debug.getNativeHeapFreeSize()/1000 +
+		                ". Total [Kb]: " + Debug.getNativeHeapSize()/1000 +
+		                ". External [Kb]: " + Debug.getThreadExternalAllocSize()/1000 );
+
+				WazeLog.w( memory_usage );
+				
+			}
+		};
+    	TimerTask task = new TimerTask() {
+		    @Override	 
+		    public void run()
+		    {
+		    	FreeMapNativeManager.this.PostRunnable( memoryLog );            	            	
+		    }
+	    };
+	    mNativeManager.getTimer().scheduleAtFixedRate( task, 0, MEMORY_PROFILER_PERIOD );
+	}
+
+    /*************************************************************************************************
+     * InitTemperatureProfiler()
+     *   @param void
+     *   @return void
+     */
+    private void InitTemperatureProfiler()
+    {
+    	final SensorManager mgr = (SensorManager) getAppActivity().getSystemService( Context.SENSOR_SERVICE );
+    	final Sensor sensor = mgr.getDefaultSensor( Sensor.TYPE_TEMPERATURE );
+    	mLastTemperatureSampleTime = 0;
+    	if ( sensor != null )
+    	{
+    		mTemperatureEventListener = new SensorEventListener()
+			{
+	    		public final String mSensorName = sensor.getName();
+				public void onSensorChanged(SensorEvent arg0) {
+//					Log.w( "WAZE DEBUG", "WAZE TEMPERATURE PROFILER: " + arg0.values[0] + ". Sensor: " + mSensorName );
+					if ( !mAppInitializedFlag )
+						return;
+					
+					long curTime = android.os.SystemClock.elapsedRealtime();
+					if (  ( curTime - mLastTemperatureSampleTime ) > TEMPERATURE_PROFILER_PERIOD )
+					{
+							WazeLog.w( "WAZE TEMPERATURE PROFILER. Current temperature: " + arg0.values[0] + 
+														". Sensor: " + mSensorName );
+							mLastTemperatureSampleTime = curTime;
+					}					
+				}
+				
+				public void onAccuracyChanged(Sensor arg0, int arg1) {
+				}
+			};
+			
+	    	mgr.registerListener( mTemperatureEventListener, sensor, SensorManager.SENSOR_DELAY_NORMAL, mUIMsgDispatcher );    		
+    	}
+    }
+    /*************************************************************************************************
+     * CloseTemperatureProfiler()
+     *   @param void
+     *   @return void
+     */
+    private void CloseTemperatureProfiler()
+    {
+    	final SensorManager mgr = (SensorManager) getAppActivity().getSystemService( Context.SENSOR_SERVICE );
+    	mgr.unregisterListener( mTemperatureEventListener );
+    }
     
     /*************************************************************************************************
      *================================= Native methods section ================================= 
      * These methods are implemented in the
      * native side and should be called after!!! the shared library is loaded
      */
+    
+    private native boolean UrlHandlerNTV( String aUrl );	// Handles custom urls ( true - if handled )
+    
     private native void NativeMsgDispatcherNTV( int aMsgId );
 
-    private native void InitNativeManagerNTV( String aLibPath, int aBuildSdkVersion, String aDeviceName );
+    private native void InitNativeManagerNTV( String aLibPath, int aBuildSdkVersion, String aDeviceName,
+    		String aDeviceModel, String aDeviceManufacturer );
 
     private native void AppStartNTV( String aUrl ); // Starts the application
-
+    
     private native void AppShutDownNTV(); // Shutdowns the application
     
     private native void ShowGpsDisabledWarningNTV(); // Shows the user the warning in case of the disabled GPS
@@ -1315,14 +1478,13 @@ public final class FreeMapNativeManager
     
     private native void SetBackgroundRunNTV( int value );	// Sets true if the application is currently at the background
     
+    private native void EditBoxCallbackNTV( int res, String aText, long aCbContext );	// Returns text and action result
+    
     /*************************************************************************************************
-     *================================= Data members section
-     * =================================
+     *================================= Data members section =================================
      * 
      */
-	private FreeMapAppActivity mAppActivity; // Main application activity
-	private FreeMapAppView mAppView; // Main application view
-
+	
 	private FreeMapNativeCanvas mNativeCanvas; // Native canvas
 
 	private FreeMapBackLightManager mBackLightManager;
@@ -1336,7 +1498,6 @@ public final class FreeMapNativeManager
                                                     // private FreeMapNativeMsgDispatcher mNativeMsgDispatcher; // The native
                                                     // events handler
 	private WazeMenuManager mMenuManager;			// Menu manager
-	
 	
 	private FreeMapUIMsgDispatcher mUIMsgDispatcher; // The UI messages
 	                                                    // dispatcher
@@ -1357,14 +1518,16 @@ public final class FreeMapNativeManager
 
 	private boolean mAppShutDownFlag = false; // Shutdown process indicator
 	private boolean mAppInitializedFlag = false; // Initialization process
-	                                             // indicator
+	                                        
+	private boolean mAppStarted = false;// Indicator if the application is started
+	
     private boolean mAppLooperReady = false;
-    private Boolean mAppScreenRefreshFlag  = true;
-	private boolean mAppCanvasBufReady = true; // Indicates whether the canvas
+    private boolean mAppCanvasBufReady = true; // Indicates whether the canvas
 	                                            // buffer is ready
 
 	private boolean mIsMenuEnabled = false;		// Indicates whether the menu is enabled or not
 	
+	private static final String WAZE_URL_PATTERN = "waze://";
 	private static final int NATIVE_THREAD_PRIORITY = -18;
 	private static final long CAMERA_PREVIEW_TIMEOUT = 30000L; // Camera preview
                                                                 // timeout
@@ -1379,6 +1542,17 @@ public final class FreeMapNativeManager
     private int mAppMediaVolume = -1; // Application media volume level
     
 	private int mSysValScreenTimeout; // System value for the screen timeout
-	private int mSysValVolume; // System value for the media volume	
+	private int mSysValVolume; // System value for the media volume
 	
+	private SensorEventListener mTemperatureEventListener;
+	private long mLastTemperatureSampleTime;
+    /*************************************************************************************************
+     *================================= Constants section =================================
+     */
+	private final static boolean MEMORY_PROFILER_ENABLED = true;
+	private final static boolean CPU_PROFILER_ENABLED = true;
+	private final static boolean TEMPERATURE_PROFILER_ENABLED = true;
+	private final static long MEMORY_PROFILER_PERIOD = 120000L;		// In milliseconds	
+	private final static long TEMPERATURE_PROFILER_PERIOD = 120000L;		// In milliseconds
 }
+

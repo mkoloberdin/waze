@@ -409,9 +409,9 @@ static SsdWidget create_results_container()
 
    title = ssd_container_new(  "Title box",
                    NULL,
-                   SSD_MAX_SIZE,
+                   roadmap_canvas_width()-8,
                    SSD_MIN_SIZE,
-                   SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
+                   SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_ALIGN_CENTER);
 
    ssd_dialog_add_vspace( rcnt, 2, 0);
    bitmap_cnt = ssd_container_new( "Logo container", NULL, 80, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
@@ -458,7 +458,8 @@ void local_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                              cbOnClosed,
                              on_search,
                              local_search_dlg_show,
-                             context);
+                             context,
+                             FALSE);
 }
 
 /* Allows other windows to be closed */

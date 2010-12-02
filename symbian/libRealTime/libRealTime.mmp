@@ -7,8 +7,10 @@
 TARGET 			libRealTime.lib
 TARGETTYPE 		lib
 
+
 SOURCEPATH ..\..\Realtime
-SOURCE Realtime.c RealtimeNet.c RealtimeNetDefs.c RealtimeNetRec.c RealtimeUsers.c RealtimeAlerts.c RealtimeAlertsList.c RealtimeMath.c RealtimeAlertCommentsList.c RealtimeDefs.c RealtimeSystemMessage.c RealtimeTrafficInfo.c RealtimeTrafficInfoPlugin.c RealtimePrivacy.c RealtimeOffline.c RealtimeAltRoutes.c RealtimeBonus.c
+SOURCE RealtimeExternalPoiDlg.c
+SOURCE Realtime.c RealtimeNet.c RealtimeNetDefs.c RealtimeNetRec.c RealtimeUsers.c RealtimeAlerts.c RealtimeAlertsList.c RealtimeMath.c RealtimeAlertCommentsList.c RealtimeDefs.c RealtimeSystemMessage.c RealtimeTrafficInfo.c RealtimeTrafficInfoPlugin.c RealtimePrivacy.c RealtimeOffline.c RealtimeAltRoutes.c RealtimeBonus.c RealtimeExternalPoi.c RealtimeExternalPoiNotifier.c
 SOURCEPATH ..\..\websvc_trans
 SOURCE cyclic_buffer.c efficient_buffer.c socket_async_receive.c string_parser.c websvc_address.c websvc_trans.c websvc_trans_queue.c web_date_format.c mkgmtime.c
 

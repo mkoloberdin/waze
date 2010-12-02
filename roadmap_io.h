@@ -55,11 +55,23 @@ typedef struct {
    void *context;
 
    union {
-      RoadMapFile file;
-      RoadMapSocket socket;
-      RoadMapSerial serial;
-      RoadMapPipe   pipe;
+      RoadMapFile       file;
+      RoadMapSocket     socket;
+      RoadMapSerial     serial;
+      RoadMapPipe       pipe;
    } os;
+
+   struct {
+      int                        num_retries;
+      const char                 *protocol;
+      const char                 *name;
+      time_t                     update_time;
+      int                        default_port;
+      int                        flags;
+      RoadMapNetConnectCallback  callback;
+      void                       *context;
+   } retry_params;
+
 } RoadMapIO;
 
 

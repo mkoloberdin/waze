@@ -46,6 +46,8 @@ typedef enum real_time_list_context_menu_items
    rtl_cm_view_image,
    rtl_cm_report_abuse,
    rtl_cm_on_route,
+   rtl_cm_filter_group,
+   rtl_cm_show_group,
    rtl_cm_show_all,
    rtl_cm__count,
    rtl_cm__invalid
@@ -72,11 +74,11 @@ typedef enum tabs_real_time_list
 
 #ifndef IPHONE
 typedef struct AlertList_s{
-    char *labels[MAX_ALERTS_ENTRIES];
-    char *values[MAX_ALERTS_ENTRIES];
-    char *icons[MAX_ALERTS_ENTRIES];
-    SsdWidget icons_widget[MAX_ALERTS_ENTRIES];
-    SsdWidget labels_widget[MAX_ALERTS_ENTRIES];
+   char *labels[MAX_ALERTS_ENTRIES];
+   char *values[MAX_ALERTS_ENTRIES];
+   char *icons[MAX_ALERTS_ENTRIES];
+   SsdWidget icons_widget[MAX_ALERTS_ENTRIES];
+   SsdWidget labels_widget[MAX_ALERTS_ENTRIES];
 	int type[MAX_ALERTS_ENTRIES];
 	int iDistnace[MAX_ALERTS_ENTRIES];
 	int iCount;
@@ -85,6 +87,6 @@ typedef struct AlertList_s{
 
 
 void RealtimeAlertsList (void);
-
+void RealtimeAlertsListGroup(void);
 
 #endif //__REALTIME_ALERTS_LIST_H__

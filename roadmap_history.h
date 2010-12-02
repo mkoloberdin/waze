@@ -24,6 +24,25 @@
 #ifndef INCLUDE__ROADMAP_HISTORY__H
 #define INCLUDE__ROADMAP_HISTORY__H
 
+#define  ADDRESS_HISTORY_CATEGORY         ('A')
+#define  ADDRESS_FAVORITE_CATEGORY        ('F')
+
+typedef enum tag_address_history_item
+{
+   ahi_house_number,
+   ahi_street,
+   ahi_city,
+   ahi_state,
+   ahi_name,
+   ahi_latitude,
+   ahi_longtitude,
+   ahi_synced,
+
+   ahi__count,
+   ahi__invalid
+
+}  address_history_item;
+
 void roadmap_history_initialize (void);
 void roadmap_history_load (void);
 
@@ -37,10 +56,12 @@ void *roadmap_history_before (char category, void *cursor);
 void *roadmap_history_after  (char category, void *cursor);
 
 void roadmap_history_get (char category, void *cursor, char *argv[]);
- 
+
 void roadmap_history_purge (int count);
 void roadmap_history_save  (void);
 
 void roadmap_history_delete_entry  (void* cursor);
+
+void roadmap_history_update(void *cursor, char category,  char *argv[]);
 
 #endif // INCLUDE__ROADMAP_HISTORY__H

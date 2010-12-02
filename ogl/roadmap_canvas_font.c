@@ -33,9 +33,18 @@
 #include "roadmap_hash.h"
 #include "roadmap_screen.h"
 #include "ft2build.h"
+#if defined(OPENGL)
+#if defined(GTK2_OGL)
+#include <GL/gl.h>
+#include <freetype/freetype.h>
+#include <freetype/ftglyph.h>
+#include <freetype/ftstroke.h>
+#else
 #include "freetype.h"
 #include "ftglyph.h"
 #include "ftstroke.h"
+#endif// GTK2_OGL
+#endif// OPENGL
 
 #include "roadmap_canvas.h"
 #include "roadmap_canvas_ogl.h"
@@ -88,6 +97,7 @@ static RoadMapFontImage *roadmap_canvas_font_get_item (wchar_t ch, int size, int
    int i;
    char name[20];
 
+
    create_name (name, sizeof(name), ch, size, bold);
 
    hash = roadmap_hash_string (name);
@@ -111,7 +121,7 @@ static void init() {
    char *path;
 
 #ifdef IPHONE_NATIVE
-   path = roadmap_path_bundle();
+   path = (char *)roadmap_path_bundle();
 #else
    path = roadmap_path_user();
 #endif
@@ -151,11 +161,12 @@ static void set_size (int size, int bold) {
 
 
 void roadmap_canvas_font_metrics (int size, int *ascent, int *descent, int bold) {
+   FT_FaceRec *faceRec;
+   FT_Face used_face;
+
    if (!initialized) {
       init();
    }
-
-   FT_Face used_face;
 
 	if (bold){
 		used_face = (FT_Face)face;
@@ -163,26 +174,12 @@ void roadmap_canvas_font_metrics (int size, int *ascent, int *descent, int bold)
 		used_face = (FT_Face)face_nor;
 	}
 
-   FT_FaceRec *faceRec = (FT_FaceRec*)used_face;
+   faceRec = (FT_FaceRec*)used_face;
    *ascent = (int)(faceRec->ascender * size / faceRec->height);
    *descent = abs((int)(faceRec->descender * size / faceRec->height));
-   
-/*
- * AGA TODO :: Check this
- * AR: ascent / descent code fixed, and the below was not tested. Uncomment if required.
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   (*ascent) += 3;
-	   (*descent) += 4;
-   }
- */
 }
 
-
 RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
-   if (!initialized) {
-      init();
-   }
 
    FT_Face used_face;
    RoadMapFontImage *fontImage = NULL;
@@ -190,10 +187,20 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
    int width;
    int height;
    int i, j;
+   FT_BitmapGlyph bitmap_glyph;
    FT_Glyph glyph;
+   FT_Bitmap bitmap;
+   FT_Stroker stroker;
    int error;
+   int hash;
 
-	if (bold){
+   if (!initialized) {
+      init();
+   }
+   
+   size = ACTUAL_FONT_SIZE(size);
+
+   if (bold){
 		used_face = (FT_Face)face;
 	}else {
 		used_face = (FT_Face)face_nor;
@@ -221,14 +228,14 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
 		roadmap_log(ROADMAP_ERROR, "FT_Glyph_To_Bitmap() failed. Error: %d", error );
 
 
-	FT_BitmapGlyph bitmap_glyph = (FT_BitmapGlyph)glyph;
+	bitmap_glyph = (FT_BitmapGlyph)glyph;
 
 
    fontImage->left = bitmap_glyph->left;
    fontImage->top = bitmap_glyph->top;
    fontImage->advance_x = used_face->glyph->advance.x >> 6;
 
-	FT_Bitmap bitmap=bitmap_glyph->bitmap;
+	bitmap=bitmap_glyph->bitmap;
 
    width = bitmap.width;
    height = bitmap.rows;
@@ -252,7 +259,7 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
       image->frame_buf = 0;
       image->full_path = "";
       
-      if (!roadmap_canvas_atlas_insert (FONT_HINT, &image)) {
+      if (!roadmap_canvas_atlas_insert (FONT_HINT, &image, GL_LINEAR, GL_LINEAR)) {
          roadmap_log (ROADMAP_ERROR, "Could not cache font in texture atlas !");
          fontImage->image = NULL;
          free (image);
@@ -277,7 +284,6 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
 	if(FT_Get_Glyph( used_face->glyph, &glyph ))
 		roadmap_log(ROADMAP_ERROR, "FT_Get_Glyph() failed");
    
-   FT_Stroker stroker;
    FT_Stroker_New(library, &stroker);
    FT_Stroker_Set(stroker,
                   (int)(2 * 64),
@@ -318,7 +324,7 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
       image->frame_buf = 0;
       image->full_path = "";
       
-      if (!roadmap_canvas_atlas_insert (FONT_HINT, &image)) {
+      if (!roadmap_canvas_atlas_insert (FONT_HINT, &image, GL_LINEAR, GL_LINEAR)) {
          roadmap_log (ROADMAP_ERROR, "Could not cache font in texture atlas !");
          fontImage->outline_image = NULL;
          free (image);
@@ -342,7 +348,7 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
 
    create_name (fontImage->name, sizeof(fontImage->name) ,ch, size, bold);
 
-   int hash = roadmap_hash_string (fontImage->name);
+   hash = roadmap_hash_string (fontImage->name);
    roadmap_hash_add (RoadMapFontHash, hash, RoadMapFontCount);
    RoadMapFontItems[RoadMapFontCount] = fontImage;
 

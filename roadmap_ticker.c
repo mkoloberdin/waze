@@ -22,7 +22,7 @@
  *
  */
 
- #include <stdio.h>
+#include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -103,6 +103,7 @@ void roadmap_ticker_display() {
 	int point_start_x = 190;
 	int rank_start_x = 270;
    int new_pnts_start_x = 50;
+   RoadMapImage x_image = NULL;
 
    const char * point_text = NULL;
 
@@ -125,7 +126,7 @@ void roadmap_ticker_display() {
     }
 
 
-    if (gTickerHide && (!roadmap_message_format (text, sizeof(text), "%X"))){
+    if (gTickerHide ){
 		gTickerOn = FALSE;
 	 	return;
 	}
@@ -175,7 +176,7 @@ void roadmap_ticker_display() {
    text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2;
 	roadmap_canvas_draw_string_size (&text_position,
 	                                 allign |ROADMAP_CANVAS_TOP,
-	                                 14,roadmap_lang_get("Your Points (updated once a day)"));
+	                                 14,roadmap_lang_get("Your Points (updated daily)"));
 
    text_position.x = 4;
 	text_position.y = roadmap_bar_top_height() + roadmap_ticker_top_bar_offset() + 2 +TICKER_TOP_BAR_TEXT_OFFSET;
@@ -278,6 +279,16 @@ void roadmap_ticker_display() {
   	            ROADMAP_CANVAS_LEFT|ROADMAP_CANVAS_TOP,
                      14,text);
    }
+
+#ifdef TOUCH_SCREEN
+   x_image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "x_close");
+   if ( x_image ) {
+       position.x = roadmap_canvas_width() - roadmap_canvas_image_width(x_image) - 5;
+       position.y = roadmap_bar_top_height() + gMiddleImageSize.height -roadmap_canvas_image_height(x_image) -5;
+       roadmap_canvas_draw_image ( x_image, &position, 0, IMAGE_NORMAL);
+   }
+#endif
+
 }
 
 void roadmap_ticker_supress_hide(void){
@@ -295,17 +306,19 @@ static int roadmap_ticker_short_click(RoadMapGuiPoint *point) {
    if (!gTickerOn)
       return 0;
 
+#ifdef PLAY_CLICK
 	if (!list) {
 		list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 		roadmap_sound_list_add (list, "click");
 		roadmap_res_get (RES_SOUND, 0, "click");
 	}
-
+#endif
     if (gTickerOn)
       if ((point->y >= (OpenIconRct.miny)) &&
         (point->y <= (OpenIconRct.maxy))) {
-
+#ifdef PLAY_CLICK
 			roadmap_sound_play_list (list);
+#endif
 			roadmap_ticker_hide();
             return 1;
         }

@@ -50,7 +50,7 @@ static FILE *sgLogFile = NULL;
 #if defined(IPHONE) || defined(unix) && !defined(J2ME)
 #include <sys/timeb.h>
 #endif
-
+#undef FREEZE_ON_FATAL_ERROR
 #ifdef   FREEZE_ON_FATAL_ERROR
    #pragma message("    In case of fatal error process will freeze and wait for debugger")
 #endif   // FREEZE_ON_FATAL_ERROR
@@ -81,7 +81,8 @@ static struct roadmap_message_descriptor {
 static roadmap_log_msgbox_handler RoadmapLogMsgBox;
 
 void roadmap_log_register_msgbox (roadmap_log_msgbox_handler handler) {
-   RoadmapLogMsgBox = handler;
+   //RoadmapLogMsgBox = handler; AVI
+
 }
 
 

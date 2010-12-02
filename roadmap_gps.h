@@ -97,11 +97,11 @@ void roadmap_gps_register_monitor (roadmap_gps_monitor monitor);
 typedef void (*roadmap_fix_listener)
                   (int longitude,
                    int latitude);
-                   
+
 void roadmap_gps_register_fix_listener (roadmap_fix_listener listener);
 void roadmap_gps_unregister_fix_listener (roadmap_fix_listener listener);
 
-                   
+
 /* The link and periodic control functions are hooks designed to let the GPS
  * link to be managed from within an application's GUI main loop.
  *
@@ -158,6 +158,8 @@ void roadmap_gps_detect_receiver_callback(RoadMapCallback callback);
 int roadmap_gps_satelite_count(void);
 
 time_t roadmap_gps_get_received_time(void);
+void roadmap_gps_reset_show_coordinates(void);
+
 /* Generic protocols */
 #define ROADMAP_NO_VALID_DATA    -512000000
 

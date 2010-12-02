@@ -35,6 +35,8 @@
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 #include "../roadmap_trip.h"
+#include "../roadmap_navigate.h"
+#include "../roadmap_line_route.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct {
@@ -81,7 +83,7 @@ AltRouteTrip *RealtimeAltRoutes_Get_Record(int index) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-static BOOL RealtimeAltRoutes_Route_Exist(int iTripId) {
+BOOL RealtimeAltRoutes_Route_Exist(int iTripId) {
    int i;
    for (i = 0; i < altRoutesTrips.iCount; i++) {
       if (altRoutesTrips.altRoutTrip[i].iTripId == iTripId)
@@ -180,7 +182,7 @@ void RealtimeAltRoutes_OnRouteSegments (NavigateRouteRC rc, const NavigateRouteR
       roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments - Navigation cancelled");
       return;
    }
-   
+
    navigate_main_on_route (res->flags, res->total_length, res->total_time, segments->segments,
                              segments->num_segments, segments->num_instrumented,
                              res->geometry.points, res->geometry.num_points, res->description, FALSE);
@@ -202,6 +204,26 @@ void RealtimeAltRoutes_Route_CancelRequest(void){
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL RealtimeAltRoutes_GetOrigin(RoadMapGpsPosition *pos, PluginLine *line, int *fromPoint){
+   int direction;
+
+   if ((roadmap_navigate_get_current (pos, line, &direction) != -1) &&
+       (roadmap_plugin_get_id(line) == ROADMAP_PLUGIN_ID)){
+      int from;
+      int to;
+      roadmap_square_set_current (line->square);
+      roadmap_line_points (line->line_id, &from, &to);
+      if (direction == ROUTE_DIRECTION_WITH_LINE){
+         *fromPoint = to;
+      } else{
+         *fromPoint = from;
+      }
+      return TRUE;
+   }
+   return FALSE;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes){
 	static NavigateRouteCallbacks cb = {
 		NULL,
@@ -211,10 +233,29 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
       navigate_main_on_suggest_reroute,
       navigate_main_on_segment_ver_mismatch
 	};
+   RoadMapGpsPosition position;
+   PluginLine fromLine;
+   int fromPoint;
    cancelled = FALSE;
 
-   navigate_route_request (NULL,
-                           -1,
+   if (navigate_main_get_follow_gps()){
+      if (RealtimeAltRoutes_GetOrigin (&position, &fromLine, &fromPoint)){
+         from_pos = (RoadMapPosition*)&position;
+      }else{
+         fromLine.line_id = -1;
+         fromPoint = -1;
+         if (roadmap_gps_have_reception()){
+            from_pos = roadmap_trip_get_position ("GPS");
+         }
+      }
+   }else{
+      fromLine.line_id = -1;
+      fromPoint = -1;
+   }
+
+   navigate_main_prepare_for_request();
+   navigate_route_request (&fromLine,
+                           fromPoint,
                            NULL,
                            from_pos,
                            to_pos,
@@ -255,8 +296,22 @@ BOOL RealtimeAltRoutes_TripRoute_Request(int iTripId, const RoadMapPosition *fro
       navigate_main_on_segment_ver_mismatch
    };
 
-   navigate_route_request (NULL,
-                           -1,
+   RoadMapGpsPosition position;
+   PluginLine fromLine;
+   int fromPoint;
+
+   if (RealtimeAltRoutes_GetOrigin (&position, &fromLine, &fromPoint)){
+      from_pos = (RoadMapPosition*)&position;
+   }else{
+      fromLine.line_id = -1;
+      fromPoint = -1;
+      if (roadmap_gps_have_reception()){
+         from_pos = roadmap_trip_get_position ("GPS");
+      }
+   }
+   navigate_main_prepare_for_request();
+   navigate_route_request (&fromLine,
+                           fromPoint,
                            NULL,
                            from_pos,
                            to_pos,

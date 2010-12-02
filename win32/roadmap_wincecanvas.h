@@ -33,9 +33,9 @@
 /* This function is called by roadmap_window.c, a GUI toolkit
  * dependent module.
  */
-HWND roadmap_canvas_new (HWND main, HWND tool_bar);
 void roadmap_canvas_button_pressed(POINT *data);
 void roadmap_canvas_button_released(POINT *data);
+void roadmap_canvas_mt_released(POINT *data);
 void roadmap_canvas_mouse_moved(POINT *data);
 
 #endif // INCLUDE__ROADMAP_WINCE_CANVAS__H

@@ -1,4 +1,4 @@
-//Microsoft eMbedded Visual C++ generated resource script.
+// Microsoft Visual C++ generated resource script.
 //
 #include "resource.h"
 
@@ -8,22 +8,30 @@
 // Generated from the TEXTINCLUDE 2 resource.
 //
 #include "newres.h"
-#ifndef _WIN32_IE
-#define _WIN32_IE 0x0500
-#include <winresrc.h>
-#endif
-
-#ifndef I_IMAGENONE
-#define I_IMAGENONE (-1)
-#define TBSTATE_ENABLED  0
-#endif
-#ifndef TBSTYLE_DROPDOWN
-#define TBSTYLE_DROPDOWN 0
-#define TBSTYLE_AUTOSIZE 0
-#endif
 
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Neutral resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_NEU)
+#ifdef _WIN32
+LANGUAGE LANG_NEUTRAL, SUBLANG_NEUTRAL
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_ROADMAP             ICON                    "roadmap.ico"
+#endif    // Neutral resources
+/////////////////////////////////////////////////////////////////////////////
+
 
 /////////////////////////////////////////////////////////////////////////////
 // English (U.S.) resources
@@ -40,18 +48,18 @@ LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_US
 // TEXTINCLUDE
 //
 
-1 TEXTINCLUDE DISCARDABLE
+1 TEXTINCLUDE 
 BEGIN
     "resource.h\0"
 END
 
-2 TEXTINCLUDE DISCARDABLE
+2 TEXTINCLUDE 
 BEGIN
     "#include ""newres.h""\r\n"
     "\0"
 END
 
-3 TEXTINCLUDE DISCARDABLE
+3 TEXTINCLUDE 
 BEGIN
     "\r\n"
     "\0"
@@ -62,23 +70,22 @@ END
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Data
+// RCDATA
 //
 
-IDM_MENU SHMENUBAR MOVEABLE PURE
+IDM_MENU RCDATA 
 BEGIN
-    IDM_MENU, 1,
-    I_IMAGENONE, IDM_MAIN_COMMAND1, TBSTATE_ENABLED,
-    TBSTYLE_DROPDOWN | TBSTYLE_AUTOSIZE, IDS_HELP, 0, 0
+    0x0066, 0x0001, 0xfffe, 0x9c41, 0x0004, 0x0018, 0x0068, 0x0000, 0x0000
+
 END
 
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Menubar
+// Menu
 //
 
-IDM_MENU MENU DISCARDABLE
+IDM_MENU MENU 
 BEGIN
     POPUP "Tools"
     BEGIN
@@ -92,8 +99,8 @@ END
 // Dialog
 //
 
-IDD_GENERIC DIALOGEX 0, 0, 174, 187
-STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION
+IDD_GENERIC DIALOG  0, 0, 174, 187
+STYLE DS_SETFONT | DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION
 EXSTYLE 0x80000000L
 FONT 8, "System"
 BEGIN
@@ -105,7 +112,7 @@ END
 // Accelerator
 //
 
-IDC_TEST ACCELERATORS DISCARDABLE
+IDC_TEST ACCELERATORS 
 BEGIN
     "A",            IDM_HELP_ABOUT,         VIRTKEY, CONTROL, NOINVERT
     "Q",            IDOK,                   VIRTKEY, CONTROL, NOINVERT
@@ -118,7 +125,7 @@ END
 //
 
 #ifdef APSTUDIO_INVOKED
-GUIDELINES DESIGNINFO DISCARDABLE
+GUIDELINES DESIGNINFO 
 BEGIN
     IDD_GENERIC, DIALOG
     BEGIN
@@ -136,19 +143,19 @@ END
 // String Table
 //
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE 
 BEGIN
     IDS_APP_TITLE           "roadmap"
     IDS_HELLO               "Hello World!"
     IDC_TEST                "ROADMAP"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE 
 BEGIN
     IDS_HELP                "Tools"
 END
 
-STRINGTABLE DISCARDABLE
+STRINGTABLE 
 BEGIN
     IDS_COMMAND1            "Done "
 END
@@ -158,11 +165,11 @@ END
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Unknown language: 0xD, 0x1 resources
+// Hebrew resources
 
 #if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_HEB)
 #ifdef _WIN32
-LANGUAGE 0xD, 0x1
+LANGUAGE LANG_HEBREW, SUBLANG_DEFAULT
 #pragma code_page(1255)
 #endif //_WIN32
 
@@ -171,37 +178,36 @@ LANGUAGE 0xD, 0x1
 // Bitmap
 //
 
-IDB_RM_COUNTERCLOCKWISE BITMAP  DISCARDABLE     "icons/rm_counterclockwise.bmp"
-IDB_RM_DESTINATION      BITMAP  DISCARDABLE     "icons/rm_destination.bmp"
-IDB_RM_DOWN             BITMAP  DISCARDABLE     "icons/rm_down.bmp"
-IDB_RM_FULL             BITMAP  DISCARDABLE     "icons/rm_full.bmp"
-IDB_RM_GPS              BITMAP  DISCARDABLE     "icons/rm_gps.bmp"
-IDB_RM_HOLD             BITMAP  DISCARDABLE     "icons/rm_hold.bmp"
-IDB_RM_LEFT             BITMAP  DISCARDABLE     "icons/rm_left.bmp"
-IDB_RM_LOCATION         BITMAP  DISCARDABLE     "icons/rm_location.bmp"
-IDB_RM_QUIT             BITMAP  DISCARDABLE     "icons/rm_quit.bmp"
-IDB_RM_RECORD           BITMAP  DISCARDABLE     "icons/rm_record.bmp"
-IDB_RM_RIGHT            BITMAP  DISCARDABLE     "icons/rm_right.bmp"
-IDB_RM_STOP             BITMAP  DISCARDABLE     "icons/rm_stop.bmp"
-IDB_RM_UP               BITMAP  DISCARDABLE     "icons/rm_up.bmp"
-IDB_RM_ZOOM1            BITMAP  DISCARDABLE     "icons/rm_zoom1.bmp"
-IDB_RM_ZOOMIN           BITMAP  DISCARDABLE     "icons/rm_zoomin.bmp"
-IDB_RM_ZOOMOUT          BITMAP  DISCARDABLE     "icons/rm_zoomout.bmp"
-IDB_RM_CLOCKWISE        BITMAP  DISCARDABLE     "icons/rm_clockwise.bmp"
-
-#ifdef HI_RES_SCREEN
-HI_RES_AWARE CEUX {1} // To turn off the emulation layer
-#endif
+IDB_RM_COUNTERCLOCKWISE BITMAP                  "icons/rm_counterclockwise.bmp"
+IDB_RM_DESTINATION      BITMAP                  "icons/rm_destination.bmp"
+IDB_RM_DOWN             BITMAP                  "icons/rm_down.bmp"
+IDB_RM_FULL             BITMAP                  "icons/rm_full.bmp"
+IDB_RM_GPS              BITMAP                  "icons/rm_gps.bmp"
+IDB_RM_HOLD             BITMAP                  "icons/rm_hold.bmp"
+IDB_RM_LEFT             BITMAP                  "icons/rm_left.bmp"
+IDB_RM_LOCATION         BITMAP                  "icons/rm_location.bmp"
+IDB_RM_QUIT             BITMAP                  "icons/rm_quit.bmp"
+IDB_RM_RECORD           BITMAP                  "icons/rm_record.bmp"
+IDB_RM_RIGHT            BITMAP                  "icons/rm_right.bmp"
+IDB_RM_STOP             BITMAP                  "icons/rm_stop.bmp"
+IDB_RM_UP               BITMAP                  "icons/rm_up.bmp"
+IDB_RM_ZOOM1            BITMAP                  "icons/rm_zoom1.bmp"
+IDB_RM_ZOOMIN           BITMAP                  "icons/rm_zoomin.bmp"
+IDB_RM_ZOOMOUT          BITMAP                  "icons/rm_zoomout.bmp"
+IDB_RM_CLOCKWISE        BITMAP                  "icons/rm_clockwise.bmp"
 
 /////////////////////////////////////////////////////////////////////////////
 //
-// Icon
+// CEUX
 //
+#ifdef HI_RES_SCREEN
+HI_RES_AWARE CEUX 
+BEGIN
+    0x0001
+END
+#endif
 
-// Icon with lowest ID value placed first to ensure application icon
-// remains consistent on all systems.
-IDI_ROADMAP             ICON    DISCARDABLE     "roadmap.ico"
-#endif    // Unknown language: 0xD, 0x1 resources
+#endif    // Hebrew resources
 /////////////////////////////////////////////////////////////////////////////
 
 

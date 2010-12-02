@@ -46,7 +46,7 @@
 
 #ifdef IPHONE
 #include "iphone/roadmap_list_menu.h"
-#endif IPHONE
+#endif //IPHONE
 
 
 #define MAX_CAR_ENTRIES 20
@@ -75,7 +75,7 @@ static int roadmap_car_call_back (SsdWidget widget, const char *new_value, const
 
    roadmap_config_declare
         ("user", &CarCfg, "car_blue", NULL);
-   roadmap_config_set (&CarCfg, value); 
+   roadmap_config_set (&CarCfg, value);
 #ifndef IPHONE
    ssd_generic_list_dialog_hide ();
 #else

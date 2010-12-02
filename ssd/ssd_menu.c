@@ -394,10 +394,16 @@ static void delayed_short_click (void) {
    RoadMapCallback callback = (RoadMapCallback) delayed_widget->context;
 
    roadmap_main_remove_periodic (delayed_short_click);
-   delayed_widget->in_focus = FALSE;
+
    if (callback) {
       (*callback) ();
    }
+
+   delayed_widget->in_focus = FALSE;
+
+   if (delayed_widget->parent->parent->flags & SSD_DIALOG_FLOAT)
+      ssd_dialog_hide(delayed_widget->parent->parent->name, dec_close);
+
 #ifdef TOUCH_SCREEN
    if (delayed_widget)
       ssd_widget_loose_focus(delayed_widget);
@@ -405,6 +411,7 @@ static void delayed_short_click (void) {
 
    /* Hide dialog */
    while (delayed_widget->parent) delayed_widget = delayed_widget->parent;
+
 
    roadmap_screen_redraw ();
 }
@@ -467,11 +474,22 @@ static int long_click (SsdWidget widget, const RoadMapGuiPoint *point) {
 }
 
 SsdWidget ssd_menu_new (const char           *name,
-							   SsdWidget        	 addition_conatiner,
+                               SsdWidget          addition_conatiner,
                                const char           *items_file,
                                const char           *items[],
                                const RoadMapAction  *actions,
                                int                   flags) {
+
+     return ssd_menu_new_cb(name, addition_conatiner, items_file, items, actions, flags, NULL);
+}
+
+SsdWidget ssd_menu_new_cb (const char           *name,
+							   SsdWidget        	 addition_conatiner,
+                               const char           *items_file,
+                               const char           *items[],
+                               const RoadMapAction  *actions,
+                               int                   flags,
+                               PFN_ON_DIALOG_CLOSED on_dialog_closed) {
 
    SsdWidget container;
    int i;
@@ -481,7 +499,7 @@ SsdWidget ssd_menu_new (const char           *name,
    const char **menu_items =
       roadmap_factory_user_config (items_file, "menu", actions);
 
-   SsdWidget dialog = ssd_dialog_new (name, roadmap_lang_get (name), NULL,
+   SsdWidget dialog = ssd_dialog_new (name, roadmap_lang_get (name), on_dialog_closed,
                       flags|SSD_ALIGN_CENTER|SSD_DIALOG_GUI_TAB_ORDER);
 
    if ( roadmap_screen_is_hd_screen() )
@@ -492,14 +510,14 @@ SsdWidget ssd_menu_new (const char           *name,
    if (flags & SSD_DIALOG_FLOAT) {
       int height = roadmap_canvas_height();
       int width = roadmap_canvas_width();
-
+#ifndef EMBEDDED_CE
       if (height < width)
 #ifndef IPHONE_NATIVE
          width = height;
 #else
          width = 320;
 #endif
-      
+#endif
 
       width -= 40;
       if (!roadmap_screen_is_hd_screen()){
@@ -527,10 +545,10 @@ SsdWidget ssd_menu_new (const char           *name,
    	SsdWidget space;
       int height = roadmap_canvas_height();
        int width = roadmap_canvas_width();
-
+#ifndef EMBEDDED_CE
        if (height < width)
           width = height;
-
+#endif
        width -= 10;
       container = ssd_container_new (name, NULL, width, SSD_MIN_SIZE,
                                   SSD_ROUNDED_WHITE|SSD_ROUNDED_CORNERS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
@@ -635,8 +653,10 @@ SsdWidget ssd_menu_new (const char           *name,
                w->short_click = on_cancel;
                w->pointer_down = on_pointer_down;
                w->key_pressed = on_key_pressed_cancel;
+               ssd_widget_set_pointer_force_click(w);
                text = ssd_text_new("cancel", roadmap_lang_get("Cancel"), 18, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
                ssd_text_set_color(text, "#ffffff");
+			   ssd_widget_set_pointer_force_click(w);
                ssd_widget_add(w, text);
                ssd_widget_add (container, w);
             }
@@ -832,35 +852,51 @@ static SsdWidget  ssd_menu_list_new(const char           *name,
       } else {
          char focus_name[250];
          SsdWidget button;
-		 SsdWidget w;
+         SsdWidget w;
          const RoadMapAction *this_action = find_action (actions, item);
 
+
+         strcpy(focus_name, item);
+         strcat(focus_name,"_focus_");
+         strcat(focus_name, roadmap_lang_get_system_lang());
+         if ( !roadmap_res_get( RES_BITMAP, RES_SKIN, focus_name ) )
+         {
+			int offset;
+            roadmap_log( ROADMAP_WARNING, "Cannot find resource: %s. Loading english resource instead", focus_name );
+            offset = strlen( focus_name ) - strlen( roadmap_lang_get_system_lang() );
+            strcpy( focus_name + offset, "eng" );
+         }
+
+         button_icon[0] = item;
+         button_icon[1] = strdup(focus_name);
+         button_icon[2] = NULL;
 
          w = ssd_container_new (item, NULL,
                            SSD_MIN_SIZE, SSD_MIN_SIZE,
                            next_item_flags|rtl_flag);
-
-         button_icon[0] = item;
-         strcpy(focus_name, item);
-         strcat(focus_name,"_focus_");
-         strcat(focus_name, roadmap_lang_get_system_lang());
-
-         button_icon[1] = strdup(focus_name);
-         button_icon[2] = NULL;
 
          ssd_widget_set_color (w, "#000000", NULL);
 
 
         button = ssd_button_new
                     ("button", item, button_icon, 2,
-                     SSD_WS_TABSTOP|SSD_VAR_SIZE,
-                     button_callback);
+                     SSD_WS_TABSTOP|SSD_VAR_SIZE|SSD_ALIGN_CENTER,
+                     button_callback );
          ssd_widget_get_size(button, &button_size, NULL );
          button->long_click = long_click;
 
          ssd_widget_set_context (button, this_action->callback);
          ssd_widget_add (w, button);
          ssd_widget_hide(w);
+
+         if ( rtl_flag == SSD_ALIGN_RIGHT )
+         {
+            ssd_widget_set_offset( w, -10, 0 );
+         }
+         else
+         {
+            ssd_widget_set_offset( w, 5, 0 );
+         }
          data->MenuWidgets[data->num_items] = w;
          data->num_items++;
          ssd_widget_add (data->container, w);
@@ -1011,10 +1047,18 @@ void ssd_menu_set_item_icon( SsdWidget menu, const char* item_name, const char* 
 	const char* icons[2];
 	/* Menu item */
 	item = ssd_widget_get( menu, item_name );
+	if (!item)
+	   return;
+
 	/* Button container */
 	btn_cnt = ssd_widget_get( item, "button_container" );
+	if (!btn_cnt)
+	   return;
+
 	/* Button */
 	btn = ssd_widget_get( btn_cnt, item_name );
+	if (!btn)
+	   return;
 
 	icons[0] = icon_name;
 	icons[1] = NULL;

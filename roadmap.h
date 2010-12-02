@@ -55,11 +55,11 @@ typedef unsigned short      uint16_t;
 
 #endif
 
-#define  CLIENT_VERSION_MAJOR       (1)
-#define  CLIENT_VERSION_MINOR       (8)
-#define  CLIENT_VERSION_SUB         (99)
-#define  CLIENT_VERSION_CFG         (101)	/* Build number for internal use only */
 
+#define  CLIENT_VERSION_MAJOR       (2)
+#define  CLIENT_VERSION_MINOR       (0)
+#define  CLIENT_VERSION_SUB         (0)
+#define  CLIENT_VERSION_CFG         (0)	/* Build number for internal use only */
 
 #include "roadmap_types.h"
 #if defined (_WIN32) && !defined (__SYMBIAN32__)

@@ -24,6 +24,7 @@ gnumakefile ..\help\build_help.mk
 FreeMap.mmp
 ..\libRealTime\libRealTime.mmp
 ..\libagg\libagg.mmp
+..\libeditor\libeditor.mmp
 // gnumakefile ..\..\freetype\config.mk
 
 

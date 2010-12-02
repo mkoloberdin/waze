@@ -86,7 +86,7 @@ RoadMapConfigDescriptor RT_CFG_PRM_PASSWORD_Var =
                                     RT_CFG_PRM_PASSWORD_Name);
 
 //======= Local interface ========
-extern void roadmap_login_ssd_on_signup_skip( void );
+extern void roadmap_login_ssd_on_signup_skip( messagebox_closed cb );
 extern BOOL roadmap_login_ssd_new_existing_in_process();
 
 /***********************************************************
@@ -202,9 +202,13 @@ int roadmap_login_on_login( SsdWidget this, const char *new_value )
 {
    const char *username = NULL;
    const char *password = NULL;
+   const char *nickname = NULL;
 
    username = roadmap_login_dlg_get_username();
    password = roadmap_login_dlg_get_password();
+#ifdef IPHONE
+   nickname = roadmap_login_dlg_get_nickname();
+#endif
 
    if (!*username || !*password )
    {
@@ -217,6 +221,9 @@ int roadmap_login_on_login( SsdWidget this, const char *new_value )
 
    Realtime_SetLoginUsername( username );
    Realtime_SetLoginPassword( password );
+#ifdef IPHONE
+   Realtime_SetLoginNickname( nickname );
+#endif //IPHONE
    Realtime_VerifyLoginDetails( roadmap_login_on_login_cb );
 
    return 0;
@@ -293,6 +300,13 @@ BOOL check_alphanumeric(const char *str){
    return TRUE;
 }
 
+#ifndef IPHONE
+void on_signup_skip_msgbox_closed( int exit_code )
+{
+   roadmap_welcome_guided_tour();
+}
+#endif //IPHONE
+
 void roadmap_login_on_signup_skip( void )
 {
    /*
@@ -311,12 +325,14 @@ void roadmap_login_on_signup_skip( void )
    }
    
 #else
+   messagebox_closed cb = NULL;
    if ( !Realtime_IsLoggedIn() )
    {
       Realtime_RandomUserRegister();
+      cb = on_signup_skip_msgbox_closed;
    }
    
-   roadmap_login_ssd_on_signup_skip();
+   roadmap_login_ssd_on_signup_skip( cb );
 #endif //IPHONE
 }
 
@@ -336,7 +352,7 @@ int roadmap_login_on_create( const char *username, const char* password, const c
    sgIsCreateAccount = 1;
 #endif //IPHONE
    
-   ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating new account . . . " ) );
+   ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating account" ) );
 
    if ( !Realtime_CreateAccount( username, password, email, send_updates ) )
    {
@@ -433,6 +449,22 @@ BOOL roadmap_login_validate_email( const char* email )
 	return TRUE;
 }
 
+BOOL roadmap_login_validate_nickname( const char* nickname )
+{
+	if ( strlen( nickname ) < 4 )
+	{
+      roadmap_messagebox("Error", "Nickname should have at least 4 characters");
+      return FALSE;
+	}
+   
+	if (nickname[0] == ' ' ){
+      roadmap_messagebox("Error", "Nickname must not begin with a space");
+      return FALSE;
+	}
+   
+	return TRUE;
+}
+
 void roadmap_login_details_update_profile_ok_repsonse()
 {
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Signing in . . . " ) );
@@ -462,32 +494,32 @@ void roadmap_login_update_details_on_response( roadmap_result rc )
       }
       case err_upd_account_invalid_user_name: //invalid user name
       {
-         roadmap_messagebox ("Error", "Invalid username");
+         roadmap_messagebox ("Oops", "Invalid username");
          break;
       }
       case err_upd_account_name_already_exists://user already exists
       {
-         roadmap_messagebox ("Error", "Username already exists");
+         roadmap_messagebox ("Oops", "This username already exists, please select another one");
          break;
       }
       case err_upd_account_invalid_password://invalid password
       {
-         roadmap_messagebox ("Error", "Invalid password");
+         roadmap_messagebox ("Oops", "Invalid password");
          break;
       }
       case err_upd_account_invalid_email:// invalid email
       {
-         roadmap_messagebox ("Error", "Invalid email address");
+         roadmap_messagebox ("Oops", "Invalid email address");
          break;
       }
       case err_upd_account_email_exists://Email address already exist
       {
-         roadmap_messagebox ("Error", "Email address already exist");
+         roadmap_messagebox ("Oops", "Email address already exist");
          break;
       }
       case err_upd_account_cannot_complete_request://internal server error cannot complete request
       {
-         roadmap_messagebox ("Error", "Failed to update account, please try again");
+         roadmap_messagebox ("Oops", "Failed to update account, please try again");
          break;
       }
       default:

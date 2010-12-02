@@ -795,7 +795,7 @@ static int pointer_up( SsdWidget this, const RoadMapGuiPoint *point)
 	   else
 	   {
 		   event_handled = 1;
-#ifndef ANDROID
+#ifdef PLAY_CLICK
 		   if (!list) {
 			  list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 			  roadmap_sound_list_add (list, "click");
@@ -997,6 +997,7 @@ SsdWidget ssd_keyboard_layout_create(
    w->pointer_down      = pointer_down;
    w->pointer_up        = pointer_up;
    w->long_click     = on_long_click;
+   w->short_click     = on_long_click; //Avi
    w->fg_color          = background_color;
    w->bg_color          = font_color;
    w->context           = ctx;

@@ -51,6 +51,8 @@ typedef struct
 	int is_icon_native;
 	int portrait_order;									// The order of the item in the portrait mode
 	int landscape_order;								// The order of the item in the landscape mode
+	// 0 - regular, 1 - more button
+	int item_type;
 	const RoadMapAction* action;
 
 } android_menu_item;
@@ -154,7 +156,13 @@ static void roadmap_androidmenu_load( const char* data, int size )
 				  item->item_id = atoi( param );
 				  break;
 			  }
-			  case 'I':
+           case 'T':
+           {
+              GET_MENU_PARAM( param, argv[1], argl[1] );
+              item->item_type = atoi( param );
+              break;
+           }
+           case 'I':
 			  {
 				  GET_MENU_PARAM( item->icon_name, argv[1], argl[1] );
 				  GET_MENU_PARAM( param, argv[2], argl[2] );
@@ -205,7 +213,7 @@ static void roadmap_androidmenu_update()
 	{
 		item = &sgMenuItems[i];
 		WazeMenuManager_AddOptionsMenuItem( item->item_id, roadmap_lang_get( item->label ),
-											item->icon_name, item->is_icon_native, item->portrait_order, item->landscape_order  );
+											item->icon_name, item->is_icon_native, item->portrait_order, item->landscape_order, item->item_type  );
 	}
 }
 

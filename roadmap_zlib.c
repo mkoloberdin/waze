@@ -77,9 +77,11 @@ int roadmap_zlib_compress (const char* in_path, const char* in_file, const char*
    }
 
    if (isLogFile){
+#ifndef __SYMBIAN32__
       if ( roadmap_verbosity() <= ROADMAP_MESSAGE_DEBUG )
          fseek(source,-5000000,SEEK_END); //In debug send only 5000K
       else
+#endif
          fseek(source,-200000,SEEK_END); //Send only 200K
    }
 

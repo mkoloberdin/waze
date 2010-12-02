@@ -50,6 +50,8 @@
 #include "../editor_log.h"
 #include "../export/editor_report.h"
 
+#include "roadmap_editbox.h"
+
 #ifdef SSD
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_container.h"
@@ -58,9 +60,8 @@
 #include "ssd/ssd_text.h"
 #endif
 
-#ifdef IPHONE
+#if defined(IPHONE)
 #include "roadmap_main.h"
-#include "roadmap_editbox.h"
 #endif //IPHONE
 
 #include "update_range.h"
@@ -364,7 +365,7 @@ static int button_callback (SsdWidget widget, const char *new_value) {
    }
 
 
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE)
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE) || defined(ANDROID)
     ShowEditbox(title, "",
             keyboard_callback, (void *)widget, EEditBoxStandard | EEditBoxNumeric );
 #else

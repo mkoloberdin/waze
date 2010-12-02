@@ -35,6 +35,8 @@
 
 #include <stdlib.h>
 
+#include "roadmap_editbox.h"
+
 extern "C" {
 #include "roadmap_canvas.h"
 #include "ssd_keyboard_dialog.h"
@@ -51,7 +53,7 @@ static CRoadMapQueryDialog* pAddNoteDialog = NULL;
 extern void roadmap_canvas_start( void );
 extern void roadmap_canvas_stop( void );
 
-void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, CB_OnKeyboardDone callback, void *context, int aBoxType )
+EXTERN_C void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, SsdKeyboardCallback callback, void *context, TEditBoxType aBoxType )
 {
 	kbd_callback = callback;
 	kbd_context = context;
@@ -59,6 +61,8 @@ void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, CB_OnKeyboardDon
 	TUint newCapabilities = TCoeInputCapabilities::ENavigation | TCoeInputCapabilities::EAllText;
 	CFreeMapAppUi* pAppUi;
 
+	if (aTitleUtf8 == NULL)
+		aTitleUtf8 = "";
 	// Update the UI object
 	pAppUi = static_cast<CFreeMapAppUi*>( CEikonEnv::Static()->EikAppUi() );
 	curCapabilities = pAppUi->InputCapabilities();
@@ -67,11 +71,6 @@ void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, CB_OnKeyboardDon
     {
 		newCapabilities = TCoeInputCapabilities::ENavigation | 
 							TCoeInputCapabilities::EWesternNumericIntegerPositive;
-    }
-    if ( aBoxType & EEditBoxAlphabetic ) // Alphabetic
-    {
-		// Use the default capabilities
-		newCapabilities = TCoeInputCapabilities::ENavigation | TCoeInputCapabilities::EAllText;
     }
     if ( aBoxType & EEditBoxStandard ) // Standard
     {
@@ -129,6 +128,7 @@ void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, CB_OnKeyboardDon
     }
     else
     {
+	  kbd_callback(dec_cancel, "", kbd_context);
       //Do nothing
     }
     

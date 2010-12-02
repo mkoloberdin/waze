@@ -36,10 +36,8 @@
 #include "ssd_confirm_dialog.h"
 
 #include "ssd_entry.h"
-
-#ifdef IPHONE
 #include "roadmap_editbox.h"
-#endif //IPHONE
+
 typedef struct
 {
 	const char* 	  mb_text;			/* Message box text for the confirmed entry */
@@ -48,6 +46,8 @@ typedef struct
     const char* 	  kb_note;			/* Note for the extended keyboard */
     CB_OnKeyboardDone kb_post_done_cb; 	/* Post processing callback for the keyboard done */
     int				  kb_flags;			/* Flags for the extended keyboard */
+
+    const char*     editbox_title;       /* Title for the native edit box*/
 } SsdEntryContext;
 
 
@@ -65,18 +65,21 @@ static BOOL on_kb_closed(  int         exit_code,
    BOOL retVal = TRUE;
 
    if( dec_ok == exit_code)
+   {
       w->set_value( w, value);
 
-   if( value && value[0])
-      ssd_widget_hide( ssd_widget_get( w, "BgText"));
-   else
-   	ssd_widget_show( ssd_widget_get( w, "BgText"));
+      if( value && value[0])
+         ssd_widget_hide( ssd_widget_get( w, "BgText"));
+      else
+         ssd_widget_show( ssd_widget_get( w, "BgText"));
+   }
 
+#ifndef ANDROID
    if ( ctx->kb_post_done_cb )
    {
 	   retVal = ctx->kb_post_done_cb( exit_code, value, context );
    }
-
+#endif
    return retVal;
 }
 
@@ -92,17 +95,23 @@ static int edit_callback (SsdWidget widget, const char *new_value) {
 
    value = widget->get_value (widget);
 
-#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE) || defined( ANDROID ))
    {
 	   SsdWidget text = ssd_widget_get(widget->children, "Text");
 
 	   if ( text && (text->flags & SSD_TEXT_PASSWORD) )
 	   {
-	   		ShowEditbox( "", value, on_kb_closed, widget, EEditBoxPassword );
+            if (!ctx->editbox_title)
+               ShowEditbox( ctx->kb_title, value, on_kb_closed, widget, EEditBoxPassword );
+            else
+               ShowEditbox( ctx->editbox_title, value, on_kb_closed, widget, EEditBoxPassword );
 	   }
 	   else
 	   {
-			ShowEditbox( "", value, on_kb_closed, widget, EEditBoxStandard );
+	      if (!ctx->editbox_title)
+	         ShowEditbox( ctx->kb_title, value, on_kb_closed, widget, EEditBoxStandard );
+	      else
+	         ShowEditbox( ctx->editbox_title, value, on_kb_closed, widget, EEditBoxStandard );
 	   }
    }
 
@@ -276,7 +285,7 @@ SsdWidget ssd_confirmed_entry_new (const char *name,
          bg_text = ssd_text_new ("BgText", background_text, -1, SSD_ALIGN_VCENTER);
    ssd_widget_set_color(bg_text, "#C0C0C0",NULL);
    ssd_widget_add (text_box, bg_text);
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    if (!ssd_widget_rtl(NULL))
       button = ssd_button_new ("edit_button", "", &edit_button[0], 1,
                           SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, edit_callback);
@@ -342,3 +351,14 @@ void ssd_entry_set_kb_title( SsdWidget widget, const char* kb_title )
 	ctx->kb_title = kb_title;
 }
 
+/*
+ * Set edit box title - to be shown at the top of the native edit box
+ */
+void ssd_entry_set_editbox_title( SsdWidget widget, const char* editbox_title )
+{
+   SsdEntryContext *ctx = (SsdEntryContext* ) widget->context;
+   if ( ctx == NULL )
+      return;
+
+   ctx->editbox_title = editbox_title;
+}

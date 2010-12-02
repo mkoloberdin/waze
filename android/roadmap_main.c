@@ -48,6 +48,7 @@
 #include "roadmap_main.h"
 #include "roadmap_androidmain.h"
 #include "roadmap_androidcanvas.h"
+#include "roadmap_androidbrowser.h"
 #include "roadmap_messagebox.h"
 #include "JNI/FreeMapJNI.h"
 #
@@ -85,6 +86,8 @@ static int sgHandledSignals[] = {SIGSEGV, SIGSTOP, SIGILL, SIGABRT, SIGBUS, SIGF
 
 static int sgAndroidBuildSdkVersion = -1;
 static char sgAndroidDeviceName[128] = {0};
+static char sgAndroidDeviceManufacturer[128] = {0};
+static char sgAndroidDeviceModel[128] = {0};
 
 //======= IO section ========
 typedef enum
@@ -272,6 +275,17 @@ int roadmap_main_get_build_sdk_version( void )
 }
 
 /*************************************************************************************************
+ * BOOL roadmap_main_mtouch_supported( void )
+ * Indicates if multitouch supported
+ *
+ */
+BOOL roadmap_main_mtouch_supported( void )
+{
+   return ( sgAndroidBuildSdkVersion >= ANDROID_OS_VER_ECLAIR );
+}
+
+
+/*************************************************************************************************
  * void roadmap_main_set_device_name( const char* device_name )
  * Sets the current device name
  *
@@ -282,6 +296,27 @@ void roadmap_main_set_device_name( const char* device_name )
 }
 
 /*************************************************************************************************
+ * void roadmap_main_set_device_model( const char* model )
+ * Sets the current device model
+ *
+ */
+void roadmap_main_set_device_model( const char* model )
+{
+   strncpy( sgAndroidDeviceModel, model, sizeof( sgAndroidDeviceModel )-1 );
+}
+
+/*************************************************************************************************
+ * void roadmap_main_set_device_manufacturer( const char* manufacturer )
+ * Sets the current device manufacturer
+ *
+ */
+void roadmap_main_set_device_manufacturer( const char* manufacturer )
+{
+   strncpy( sgAndroidDeviceManufacturer, manufacturer, sizeof( sgAndroidDeviceManufacturer )-1 );
+}
+
+
+/*************************************************************************************************
  * const char* roadmap_main_get_device_name( void )
  * Returns the device name
  *
@@ -289,6 +324,16 @@ void roadmap_main_set_device_name( const char* device_name )
 const char* roadmap_main_get_device_name( void )
 {
 	return sgAndroidDeviceName;
+}
+
+/*************************************************************************************************
+ * void roadmap_main_show_contacts( void )
+ * Requests the system to show the contacts activity
+ *
+ */
+void roadmap_main_show_contacts( void )
+{
+   FreeMapNativeManager_ShowContacts();
 }
 
 /*************************************************************************************************
@@ -1248,17 +1293,6 @@ static EVirtualKey roadmap_main_back_btn_handler( void )
 
 
 /*************************************************************************************************
- * void roadmap_main_browser_launcher( RMBrowserContext* context )
- * Shows the android browser view
- *
- */
-static void roadmap_main_browser_launcher( RMBrowserContext* context )
-{
-   FreeMapNativeManager_ShowWebView( context->height, context->top_margin, context->url );
-}
-
-
-   /*************************************************************************************************
  * void roadmap_start_event (int event)
  * Start event hanler
  *
@@ -1271,9 +1305,8 @@ static void roadmap_start_event (int event) {
 		  editor_main_check_map ();
 	#endif
 		  roadmap_device_events_register( on_device_event, NULL);
-		  roadmap_browser_register_launcher( roadmap_main_browser_launcher );
-		  roadmap_browser_register_close( FreeMapNativeManager_HideWebView );
 		  roadmap_main_set_bottom_bar( TRUE );
+		  roadmap_androidbrowser_init();
 		  break;
 	   }
    }
@@ -1328,7 +1361,6 @@ static void roadmap_main_set_bottom_bar( BOOL force_hidden )
    if ( !roadmap_screen_refresh() )
 	   roadmap_screen_redraw();
 }
-
 
 void roadmap_main_set_first_run( BOOL value )
 {

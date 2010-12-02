@@ -31,6 +31,7 @@
 #include "ssd_widget.h"
 #include "../roadmap_native_keyboard.h"
 
+#define SSD_DIALOG_BUTTON_BACK_NAME "ssd_dialog.right_button"
 typedef enum
 {
 	_ntv_kb_action_none = 0x0,

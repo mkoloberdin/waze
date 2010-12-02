@@ -213,8 +213,8 @@ static void roadmap_lang_new_item (const char *name, const char *value) {
    roadmap_hash_add (RoadMapLangHash, hash, RoadMapLangCount);
 
    RoadMapLangCount++;
-   
-#ifdef OPENGL
+
+#ifndef _WIN32
    {
       //cache characters
       int width, ascent, descent, can_tilt=1;

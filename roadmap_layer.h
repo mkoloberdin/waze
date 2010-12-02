@@ -138,6 +138,12 @@ INLINE_DEC RoadMapPen roadmap_layer_get_label_pen (int layer) {
    return RoadMapCategory[layer].label_pen;
 }
 
+INLINE_DEC int roadmap_layer_get_declutter(int layer) {
+   struct roadmap_canvas_category *category = RoadMapCategory + layer;
+
+   return category->declutter;
+}
+
 
 INLINE_DEC int roadmap_layer_visible_lines (int *layers, int size, int pen_type) {
 
@@ -180,6 +186,7 @@ int  roadmap_layer_is_visible (int layer, int area);
 
 RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area);
 RoadMapPen roadmap_layer_get_label_pen (int layer);
+int roadmap_layer_get_declutter (int layer);
 
 void roadmap_layer_adjust (void);
 

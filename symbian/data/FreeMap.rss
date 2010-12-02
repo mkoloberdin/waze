@@ -76,7 +76,7 @@ RESOURCE EDWIN r_inputbox
 RESOURCE DIALOG r_wait_note
 {
   flags = EAknWaitNoteFlags;
-  buttons = R_AVKON_SOFTKEYS_EMPTY;
+  buttons = R_AVKON_SOFTKEYS_CANCEL;
   items = {
       DLG_LINE
       {

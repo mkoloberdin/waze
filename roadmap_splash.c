@@ -44,7 +44,7 @@ static BOOL initialized = FALSE;
 static RoadMapCallback SplashNextLoginCb = NULL;
 static void download_wide_splash(void);
 
-#define START_DOWNLOAD_DELAY 2*60000 
+#define START_DOWNLOAD_DELAY 30000
 
 typedef struct {
    const char   *name;
@@ -58,7 +58,7 @@ static SplashFiles RoadMapSplashFiles[] = {
    {"welcome_768_1004", 500, -1,FALSE},
    {"welcome_320_480", 200, -1,FALSE},
    {"welcome_wide_480_320", 200,-1, TRUE},
-#else               
+#else
    {"welcome_480_816", 480, -1,FALSE},
    {"welcome_360_640", 360, -1,FALSE},
    {"welcome_320_480", 320, 480,FALSE},
@@ -69,7 +69,7 @@ static SplashFiles RoadMapSplashFiles[] = {
    {"welcome_wide_480_320", 480,320, TRUE},
    {"welcome_wide_480_295", 480,295, TRUE},
    {"welcome_wide_320_240", 320,-1, TRUE},
-#endif   
+#endif
 };
 
 //////////////////////////////////////////////////////////////////
@@ -78,7 +78,7 @@ static void roadmap_splash_init_params (void) {
    roadmap_config_declare ("session", &RoadMapConfigSplashUpdateTime, "", NULL);
 
    roadmap_config_declare ("session", &RoadMapConfigLastCheckTime, "-1", NULL);
-   
+
    roadmap_config_declare_enumeration ("preferences", &RoadMapConfigSplashFeatureEnabled, NULL, "no",
                   "yes", NULL);
 
@@ -116,6 +116,11 @@ static void roadmap_splash_set_check_time(void){
 }
 
 //////////////////////////////////////////////////////////////////
+void roadmap_splash_reset_check_time(void){
+   roadmap_config_set_integer (&RoadMapConfigLastCheckTime, -1);
+}
+
+//////////////////////////////////////////////////////////////////
 int roadmap_splash_get_last_check_time(void){
  return roadmap_config_get_integer(&RoadMapConfigLastCheckTime);
 }
@@ -124,12 +129,12 @@ int roadmap_splash_get_last_check_time(void){
 static BOOL should_check_for_new_file(){
    time_t now;
    int last_check_time = roadmap_splash_get_last_check_time();
-   
+
    if (last_check_time == -1)
       return TRUE;
 
    now = time(NULL);
-   
+
    if ((now - last_check_time) > (24 * 3600))
       return TRUE;
    else
@@ -140,10 +145,10 @@ static BOOL should_check_for_new_file(){
 static const char *roadmap_splash_get_splash_name(BOOL wide){
    unsigned int i;
    const char *splash_file = NULL;
-   
+
    int width = roadmap_canvas_width();
    int height = roadmap_canvas_height();
-   
+
    if ((height < width) && !wide){
       width = height;
       height = roadmap_canvas_width();
@@ -152,7 +157,7 @@ static const char *roadmap_splash_get_splash_name(BOOL wide){
       width = height;
       height = roadmap_canvas_width();
    }
-      
+
    for (i=0; i<sizeof(RoadMapSplashFiles)/sizeof(RoadMapSplashFiles[0]); i++) {
 
       if ((width >= RoadMapSplashFiles[i].min_screen_width) && (wide == RoadMapSplashFiles[i].is_wide)) {
@@ -182,7 +187,7 @@ static const char *roadmap_splash_get_splash_name(BOOL wide){
          sprintf(file_name,"welcome_%d_%d",width, height);
          return &file_name[0];
       }
-      
+
    }
 
    return splash_file;
@@ -195,9 +200,9 @@ static void on_splash_downloaded (const char* res_name, int success, void *conte
    if (success){
        if (last_modified && *last_modified)
           roadmap_splash_set_update_time(last_modified);
-#ifndef IPHONE       
+#ifndef IPHONE
        download_wide_splash();
-#endif       
+#endif
    }
    roadmap_splash_set_check_time();
 }
@@ -221,7 +226,7 @@ static void download_splash(void){
 
    if (!file_name)
       return;
-   
+
    if (last_save_time[0] == 0) {
       update_time = 0;
    }
@@ -230,7 +235,7 @@ static void download_splash(void){
    }
    roadmap_res_download (RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES, file_name, "welcome", "", TRUE, update_time,
                   on_splash_downloaded, NULL);
-   
+
 }
 
 //////////////////////////////////////////////////////////////////
@@ -244,13 +249,16 @@ static void download_wide_splash(void){
 
 //////////////////////////////////////////////////////////////////
 static void roadmap_splash_delayed_start_download(void){
-   download_splash();   
+   download_splash();
    roadmap_main_remove_periodic(roadmap_splash_delayed_start_download);
 }
 
 //////////////////////////////////////////////////////////////////
 void roadmap_splash_login_cb(void){
    roadmap_main_set_periodic(START_DOWNLOAD_DELAY,roadmap_splash_delayed_start_download);
+
+   Realtime_NotifySplashUpdateTime(roadmap_splash_get_update_time());
+
    if (SplashNextLoginCb) {
       SplashNextLoginCb ();
       SplashNextLoginCb = NULL;
@@ -261,7 +269,7 @@ void roadmap_splash_login_cb(void){
 void roadmap_splash_download_init(void){
    if (!initialized)
       roadmap_splash_init_params();
-   
+
    if (roadmap_splash_feature_enabled() && should_check_for_new_file())
       SplashNextLoginCb = Realtime_NotifyOnLogin (roadmap_splash_login_cb);
    else
@@ -283,7 +291,7 @@ void roadmap_splash_display (void) {
       image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "welcome");
    else
       image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, "welcome_wide");
-   
+
    if( !image)
       return;
 

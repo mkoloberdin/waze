@@ -208,8 +208,8 @@ DWORD WINAPI DeviceEventsMonitorThread( void* params)
             bQuit = TRUE;
             break;
          
-         default:
-            assert(0);
+//         default:
+         //   assert(0);
       }
       
    }  while( !bQuit);   

@@ -272,7 +272,7 @@ static void roadmap_driver_listener
             (gps_time, position, ROADMAP_DRIVER_NMEA);
       }
    }
-   
+
    if (RoadMapDriverSubscription & ROADMAP_DRIVER_RMC) {
 
       if ((RoadMapDriverLastPosition.latitude  != position->latitude) ||
@@ -329,6 +329,10 @@ static void roadmap_driver_pxrmadd (void *context,
                        fields->pxrmadd.id,
                        fields->pxrmadd.name,
                        fields->pxrmadd.sprite,
+                       NULL,
+                       NULL,
+                       NULL,
+                       0,
                        NULL);
 }
 
@@ -477,12 +481,12 @@ static void roadmap_driver_onexit (void *context) {
       /* We need to free the structure */
       RoadMapDriver *cursor;
       RoadMapDriver *previous = NULL;
-      
+
       for (cursor = RoadMapDriverList; cursor != NULL; cursor = cursor->next) {
          if (cursor == driver) break;
          previous = cursor;
       }
-            
+
       if (cursor == NULL) {
          roadmap_log (ROADMAP_ERROR,
                       "Can't find driver(%s) in RoadMapDriverList",
@@ -496,7 +500,7 @@ static void roadmap_driver_onexit (void *context) {
       roadmap_string_release (driver->name);
       free (driver->command);
       free (driver->arguments);
-                        
+
       free (driver);
    }
 }
@@ -514,7 +518,7 @@ static void roadmap_driver_send (const char *data, int mask) {
 
       if ((driver->subscription & mask) &&
           (driver->output.subsystem != ROADMAP_IO_INVALID)) {
-          
+
          if (roadmap_io_write (&driver->output, data, length, 0) < 0) {
             roadmap_driver_onexit (driver);
          }
@@ -647,33 +651,33 @@ void roadmap_driver_accept (RoadMapIO *io) {
    RoadMapDriver *driver;
 
    RoadMapIO client;
-   
+
    if (io->subsystem != ROADMAP_IO_NET) {
       roadmap_log (ROADMAP_FATAL, "Driver server has invalid socket");
       return;
    }
-         
+
    client.os.socket = roadmap_net_accept(io->os.socket);
-         
+
    if (!ROADMAP_NET_IS_VALID(client.os.socket)) {
       roadmap_log (ROADMAP_ERROR,
                    "Can't accept a connection for driver server");
       return;
    }
-               
+
    client.subsystem = ROADMAP_IO_NET;
-                  
+
    driver = calloc (1, sizeof(RoadMapDriver));
    if (driver == NULL) {
       roadmap_io_close (&client);
       return;
    }
-                     
+
    snprintf(name, sizeof(name), "Network driver %d", ++name_id);
    driver->name      = roadmap_string_new(name);
    driver->command   = roadmap_driver_strdup("");
    driver->arguments = roadmap_driver_strdup("");
-                     
+
    driver->input  = client;
    driver->output = client;
    driver->flags  = 0;

@@ -24,9 +24,10 @@
 #ifndef _ROADMAP_RES__H_
 #define _ROADMAP_RES__H_
 
-#define RES_BITMAP 0
-#define RES_SOUND  1
-#define MAX_RESOURCES 2
+#define RES_BITMAP         0
+#define RES_SOUND          1
+#define RES_NATIVE_IMAGE   2
+#define MAX_RESOURCES      3
 
 /* Flags */
 #define RES_SKIN      0x1

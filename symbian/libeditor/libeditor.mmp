@@ -1,0 +1,44 @@
+//
+// libRealTime makefile for the symbian platform
+//
+
+#include "../group/waze.mmh"
+
+TARGET                  libeditor.lib
+TARGETTYPE              lib
+
+USERINCLUDE	   	..
+USERINCLUDE	   	..\..
+USERINCLUDE    	..\help
+USERINCLUDE		..\..\agg\include
+USERINCLUDE		..\..\agg\include\util
+USERINCLUDE		..\..\agg\font_freetype
+USERINCLUDE		..\..\freetype\include
+USERINCLUDE		..\..\freetype\include\freetype
+USERINCLUDE		..\..\libfribidi
+USERINCLUDE		..\..\zlib
+USERINCLUDE		..\..\ssd
+USERINCLUDE		..\..\libpng
+USERINCLUDE		..\..\websvc_trans
+
+SOURCEPATH ..\..\editor
+SOURCE editor_main.c editor_plugin.c editor_screen.c editor_points.c editor_cleanup.c editor_bar.c
+SOURCEPATH ..\..\editor\static
+SOURCE add_alert.c update_range.c edit_marker.c notes.c             
+SOURCEPATH ..\..\editor\db
+SOURCE editor_marker.c editor_dictionary.c editor_db.c
+SOURCEPATH ..\..\editor\export
+SOURCE editor_download.c editor_sync.c editor_report.c editor_upload.c
+SOURCEPATH ..\..\editor\db
+SOURCE editor_line.c editor_override.c editor_point.c editor_shape.c editor_street.c editor_trkseg.c
+SOURCEPATH ..\..\editor\track
+SOURCE editor_gps_data.c editor_track_filter.c editor_track_known.c editor_track_main.c editor_track_unknown.c editor_track_util.c editor_track_report.c
+SOURCEPATH ..\..\editor\static
+SOURCE editor_dialog.c
+SOURCEPATH ..\..\editor\track
+SOURCE editor_track_compress.c
+
+SYSTEMINCLUDE           \epoc32\include
+SYSTEMINCLUDE           \epoc32\include\libc
+
+LIBRARY                 estlib.lib      //      Symbian STDLIB

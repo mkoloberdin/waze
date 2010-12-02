@@ -31,6 +31,7 @@
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
+#include "roadmap_androidmain.h"
 //#include <ui/EventHub.h>
 
 typedef struct

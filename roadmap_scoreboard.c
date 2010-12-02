@@ -27,8 +27,11 @@
 #include "Realtime/Realtime.h"
 #include "roadmap_browser.h"
 #include "roadmap_canvas.h"
+#include "roadmap_social.h"
+#include "roadmap_lang.h"
 #include "roadmap_scoreboard.h"
 #include "roadmap_analytics.h"
+#include "roadmap_start.h"
 
 
 
@@ -61,49 +64,52 @@ BOOL roadmap_scoreboard_feature_enabled (void) {
    if (0 == strcmp (roadmap_config_get (&RoadMapConfigScoreboardFeatureEnabled), "yes")){
       return TRUE;
    }
-   
+
    return FALSE;
 }
 
 ///////////////////////////////////////////////////////////////
-static void create_url(void) {   
-   snprintf(gs_url, sizeof(gs_url),"%s?sessionid=%d&cookie=%s&deviceid=%d&width=%d&height=%d",
-         roadmap_config_get(&RoadMapConfigScoreboardUrl),
-         Realtime_GetServerId(),
-         Realtime_GetServerCookie(),
-         RT_DEVICE_ID,
-         roadmap_canvas_width(),
-         roadmap_canvas_height() - roadmap_bar_bottom_height());
+static void create_url(void) {
+   snprintf(gs_url, sizeof(gs_url),"%s?sessionid=%d&cookie=%s&deviceid=%d&width=%d&height=%d&lang=%s&client_version=%s&web_version=%s",
+            roadmap_config_get(&RoadMapConfigScoreboardUrl),
+            Realtime_GetServerId(),
+            Realtime_GetServerCookie(),
+            RT_DEVICE_ID,
+            roadmap_canvas_width(),
+            roadmap_canvas_height() - roadmap_bar_bottom_height(),
+            roadmap_lang_get_system_lang(),
+            roadmap_start_version(),
+            BROWSER_WEB_VERSION);
 }
 
 ///////////////////////////////////////////////////////////////
 static void roadmap_scoreboard_init(void) {
    roadmap_config_declare_enumeration ("preferences", &RoadMapConfigScoreboardFeatureEnabled, NULL, "no",
                                        "yes", NULL);
-   
+
    roadmap_config_declare_enumeration ("preferences", &RoadMapConfigScoreboardUrl, NULL,
                                        "http://www.waze.com/WAS/mvc/scoreboard", NULL);
-   
+
    gs_url[0] = 0;
 }
 
 ///////////////////////////////////////////////////////////////
 void roadmap_scoreboard(void) {
    static BOOL initialized = FALSE;
-   
+
    if (!initialized) {
       roadmap_scoreboard_init();
       initialized = TRUE;
    }
-   
+
    if (!roadmap_scoreboard_feature_enabled()) {
       roadmap_messagebox_timeout("Info", "Scoreboard is currently not available in your area", 5);
       return;
    }
-   
+
    roadmap_analytics_log_event(ANALYTICS_EVENT_SCOREBOARD_NAME, NULL, NULL);
-   
+
    create_url();
-   
-   roadmap_browser_show( "Scoreboard", gs_url, NULL );
+
+   roadmap_browser_show( "Scoreboard", gs_url, roadmap_facebook_check_login, BROWSER_BAR_NORMAL );
 }

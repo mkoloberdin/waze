@@ -49,6 +49,14 @@
 #define  WELCOME_WIZ_SHOW_INTRO_SCREEN_No     ("no")
 #define  WELCOME_WIZ_MINUTES_FOR_ACTIVATION_Defaut ("1440")
 
+// Guided tour defines
+#define WELCOME_WIZ_URL_MAXLEN    (512)
+#define WELOCME_WIZ_GUIDED_TOUR_URL_Name       ("Guided Tour Url")
+// AGA TODO:: Fix this (Add to server's preferences????)
+#define WELOCME_WIZ_GUIDED_TOUR_URL_Default       ("http://www.waze.com/guided_tour/client")
+
+
+
 void roadmap_welcome_wizard(void);
 BOOL roadmap_welcome_on_preferences( void );
 #ifndef IPHONE
@@ -56,10 +64,11 @@ void welcome_wizard_twitter_dialog(void);
 #endif //!IPHONE
 void roadmap_welcome_personalize_dialog();
 void roadmap_term_of_use(RoadMapCallback callback);
+void roadmap_welcome_guided_tour( void );
 
 #ifdef IPHONE
 void roadmap_welcome_personalize_later_dialog();
-void welcome_wizard_twitter_dialog(int showIntro);
+void welcome_wizard_twitter_dialog(int afterCreate);
 BOOL roadmap_welcome_wizard_is_first_time(void);
 #endif //IPHONE
 
