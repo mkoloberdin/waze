@@ -258,7 +258,7 @@ void roadmap_skin_init(void){
    const char *map_scheme;
 
    roadmap_config_declare
-      ("user", &RoadMapConfigMapScheme, "2", NULL);
+      ("user", &RoadMapConfigMapScheme, "", NULL);
 
    map_scheme = get_map_schema();
    if (map_scheme[0] != 0){

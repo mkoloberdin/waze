@@ -38,6 +38,7 @@
 #include "ssd/ssd_choice.h"
 #include "ssd/ssd_button.h"
 #include "ssd/ssd_entry.h"
+#include "ssd/ssd_entry_label.h"
 #include "ssd/ssd_checkbox.h"
 #include "ssd/ssd_separator.h"
 #include "ssd/ssd_bitmap.h"
@@ -458,13 +459,17 @@ static void create_checkedin_dialog(void) {
 static void create_login_dialog(void) {
 
    SsdWidget dialog;
-   SsdWidget group;
+   SsdWidget group, entry_label;
    SsdWidget box, box2;
    SsdWidget bitmap;
    int width;
    int tab_flag = SSD_WS_TABSTOP;
+   int row_height = ssd_container_get_row_height();
+   int total_width = ssd_container_get_width();
+   const char * notesColor = "#383838";
+   SsdWidget text;
 
-   width = roadmap_canvas_width()/2;
+   width = total_width/2;
 
    dialog = ssd_dialog_new(FOURSQUARE_LOGIN_DIALOG_NAME,
          roadmap_lang_get(FOURSQUARE_TITLE), on_login_dlg_close, SSD_CONTAINER_TITLE);
@@ -473,49 +478,49 @@ static void create_login_dialog(void) {
    ssd_widget_add (dialog, space(5));
 #endif
 
-   box = ssd_container_new("UN/PW group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   box = ssd_container_new("UN/PW group", NULL, total_width, SSD_MIN_SIZE,
          SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS
-               | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+               | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER | SSD_ALIGN_CENTER);
 
    //Accound details header
-   group = ssd_container_new("Foursquare Account Header group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
+   group = ssd_container_new("Foursquare Account Header group", NULL, SSD_MAX_SIZE, row_height,
          SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color(group, "#000000", "#ffffff");
    ssd_widget_add(group, ssd_text_new("Label", roadmap_lang_get("Account details"),
-         16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-   bitmap = ssd_bitmap_new ("foursquare_icon", "foursquare_logo",SSD_ALIGN_RIGHT|SSD_WS_TABSTOP);
+         SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
+   bitmap = ssd_bitmap_new ("foursquare_icon", "foursquare_logo",SSD_ALIGN_RIGHT);
    ssd_widget_add(group, bitmap);
-   ssd_widget_add (group, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_add(box, group);
+   ssd_widget_add (box, ssd_separator_new ("separator", SSD_END_ROW));
    //Accound login status
-   group = ssd_container_new("Foursquare Account Login group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
+   group = ssd_container_new("Foursquare Account Login group", NULL, SSD_MAX_SIZE, row_height,
          SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color(group, "#000000", "#ffffff");
    ssd_widget_add(group, ssd_text_new("Login Status Label", "",
-            16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-   ssd_widget_add (group, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
+         SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
    ssd_widget_add(box, group);
+   ssd_widget_add (box, ssd_separator_new ("separator", SSD_END_ROW));
    //User name
-   group = ssd_container_new("Foursquare Name group", NULL, SSD_MAX_SIZE,SSD_MIN_SIZE,
+   group = ssd_container_new("Foursquare Name group", NULL, SSD_MAX_SIZE, row_height,
          SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color(group, "#000000", "#ffffff");
-   ssd_widget_add(group, ssd_text_new("Label", roadmap_lang_get("Email/phone"),
-         -1, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-   ssd_widget_add(group, ssd_entry_new("FoursquareUserName", "", SSD_ALIGN_VCENTER
-         | SSD_ALIGN_RIGHT | tab_flag, 0, width, SSD_MIN_SIZE,
-         roadmap_lang_get("User name")));
-   ssd_widget_add(box, group);
+
+   entry_label = ssd_entry_label_new( "FoursquareUserName", roadmap_lang_get("Email/phone"), SSD_MAIN_TEXT_SIZE, 160 /* Half of the SD canvas width. Scaled internally */,
+                                             SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER | SSD_WS_TABSTOP, roadmap_lang_get("User name") );
+   ssd_widget_add( group, entry_label );
+   ssd_widget_add( box, group );
+
+   ssd_widget_add (box, ssd_separator_new ("separator", SSD_END_ROW));
 
    //Password
-   group = ssd_container_new("Foursquare PW group", NULL, SSD_MAX_SIZE, 40,
+   group = ssd_container_new("Foursquare PW group", NULL, SSD_MAX_SIZE, row_height,
          SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color(group, "#000000", "#ffffff");
+   entry_label = ssd_entry_label_new( "FoursquarePassword", roadmap_lang_get("Password"), SSD_MAIN_TEXT_SIZE, 160 /* Half of the SD canvas width. Scaled internally */,
+                                             SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER | SSD_WS_TABSTOP, roadmap_lang_get("Password") );
+   ssd_entry_label_set_text_flags( entry_label, SSD_TEXT_PASSWORD );
+   ssd_widget_add( group, entry_label );
 
-   ssd_widget_add(group, ssd_text_new("Label", roadmap_lang_get("Password"),
-         -1, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-   ssd_widget_add(group, ssd_entry_new("FoursquarePassword", "", SSD_ALIGN_VCENTER
-         | SSD_ALIGN_RIGHT | tab_flag, SSD_TEXT_PASSWORD, width, SSD_MIN_SIZE,
-         roadmap_lang_get("Password")));
    ssd_widget_add(box, group);
 
    ssd_widget_add(dialog, box);
@@ -527,49 +532,25 @@ static void create_login_dialog(void) {
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
    ssd_widget_add (box, ssd_text_new ("foursquare_auto_settings_header",
-         roadmap_lang_get ("Automatically tweet to my followers that I:"), 16, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+         roadmap_lang_get ("Automatically tweet to my followers that I:"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (dialog, box);
    ssd_widget_add(dialog, space(5));
 
    //Tweets
-   box = ssd_container_new("Tweet toggles group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   box = ssd_container_new("Tweet toggles group", NULL, total_width, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS
-                  | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER);
+                  | SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER | SSD_ALIGN_CENTER);
 
-   group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
-   ssd_widget_set_color(group, "#000000", "#ffffff");
-
-   box2 = ssd_container_new ("box2", NULL, (2*roadmap_canvas_width())/3, SSD_MIN_SIZE,
-                            SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (box2, NULL, NULL);
-
-   ssd_widget_add(box2, ssd_text_new("Send_login_label", roadmap_lang_get(
-         "Am checking out this integration"), -1, SSD_TEXT_LABEL
-         | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
-   ssd_widget_add(group, box2);
-
-   ssd_widget_add(group, ssd_checkbox_new("FoursquareSendLogin", TRUE,
-         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
-         CHECKBOX_STYLE_ON_OFF));
-
+   group = ssd_checkbox_row_new("FoursquareSendLogin", roadmap_lang_get ("Am checking out this integration"),
+                                       TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
    ssd_widget_add(box, group);
+   ssd_widget_add (box, ssd_separator_new ("separator", SSD_END_ROW));
 
-   group = ssd_container_new("Send_Tweets group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-         SSD_WIDGET_SPACE | SSD_END_ROW| tab_flag);
-   box2 = ssd_container_new ("box2", NULL, (2*roadmap_canvas_width())/3, SSD_MIN_SIZE,
-                            SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (box2, NULL, NULL);
-   ssd_widget_add(box2, ssd_text_new("Send_waze_badge_label", roadmap_lang_get(
-         "Have unlocked the Roadwarrior Badge"), -1, SSD_TEXT_LABEL
-         | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
-   ssd_widget_add(group, box2);
 
-   ssd_widget_add(group, ssd_checkbox_new("FoursquareSendBadgeUnlock", TRUE,
-         SSD_END_ROW | SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER , NULL, NULL, NULL,
-         CHECKBOX_STYLE_ON_OFF));
 
+   group = ssd_checkbox_row_new("FoursquareSendBadgeUnlock", roadmap_lang_get ("Have unlocked the Roadwarrior Badge"),
+                                          TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
    ssd_widget_add(box, group);
 
    ssd_widget_add(dialog, box);
@@ -580,17 +561,30 @@ static void create_login_dialog(void) {
    box = ssd_container_new ("Comments", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
-   ssd_widget_add (box, ssd_text_new ("comment footer",
-         roadmap_lang_get ("We've partnered with Foursquare to give you quick access to check-in to nearby venues."), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
-   ssd_widget_add (box, ssd_text_new ("comment footer",
-         roadmap_lang_get ("What is Foursquare?"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
-   ssd_widget_add (box, ssd_text_new ("comment footer",
-        roadmap_lang_get ("It's a cool way to discover and promote cool places in your city and be rewarded for doing so."), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
-   ssd_widget_add (box, ssd_text_new ("comment footer",
-        roadmap_lang_get ("Don't have an account? Sign up on:"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE));
-   ssd_widget_add (box, ssd_text_new ("comment footer",
-           roadmap_lang_get ("www.foursquare.com"), 16, SSD_TEXT_LABEL | SSD_WIDGET_SPACE|SSD_WS_TABSTOP));
+   text = ssd_text_new ("comment footer",
+         roadmap_lang_get ("We've partnered with Foursquare to give you quick access to check-in to nearby venues."), SSD_FOOTER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text,notesColor);
+   ssd_widget_add (box, text);
 
+   text = ssd_text_new ("comment footer",
+         roadmap_lang_get ("What is Foursquare?"), SSD_FOOTER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text,notesColor);
+   ssd_widget_add (box, text);
+
+   text = ssd_text_new ("comment footer",
+        roadmap_lang_get ("It's a cool way to discover and promote cool places in your city and be rewarded for doing so."), SSD_FOOTER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text,notesColor);
+   ssd_widget_add (box, text);
+
+   text = ssd_text_new ("comment footer",
+        roadmap_lang_get ("Don't have an account? Sign up on:"), SSD_FOOTER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text,notesColor);
+   ssd_widget_add (box, text);
+
+   text = ssd_text_new ("comment footer",
+           roadmap_lang_get ("www.foursquare.com"), SSD_FOOTER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_TEXT_LABEL | SSD_WIDGET_SPACE|SSD_WS_TABSTOP);
+   ssd_text_set_color(text,notesColor);
+   ssd_widget_add (box, text);
 
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (dialog, box);
@@ -666,7 +660,8 @@ void roadmap_foursquare_venues_list (void) {
                              NULL,
                              NULL,
                              60,
-                             0);
+                             0,
+                             NULL);
 #else
    ssd_generic_icon_list_dialog_show(roadmap_lang_get(FOURSQUARE_VENUES_TITLE),
                                        gsVenuesCount,
@@ -1158,22 +1153,8 @@ static int on_foursquare_checkin( SsdWidget this, const char *new_value){
 SsdWidget roadmap_foursquare_create_alert_menu(void) {
    SsdWidget foursquare_container, container, box, text;
    char *icon[2];
-   int height = 60;
-   int width;
-   int s_height = roadmap_canvas_height();
-   int s_width = roadmap_canvas_width();
-
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   height = 90;
-   }
-
-   if (s_height < s_width)
-     width = s_height;
-   else
-     width = s_width;
-
-   width -= 10;
+   int height = ssd_container_get_row_height();
+   int width = ssd_container_get_width();
 
    if (!roadmap_foursquare_is_enabled())
       return NULL;
@@ -1206,7 +1187,7 @@ SsdWidget roadmap_foursquare_create_alert_menu(void) {
 
    text = ssd_text_new ("label_long",
                        roadmap_lang_get ("Check-in with Foursquare"),
-                       16, /* 60,*/ SSD_ALIGN_VCENTER|SSD_END_ROW);
+                       SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER|SSD_END_ROW);
    ssd_widget_add (container, text);
    ssd_widget_add (box, container);
 

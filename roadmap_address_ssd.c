@@ -45,6 +45,7 @@
 #include "roadmap_display.h"
 #include "roadmap_street.h"
 #include "roadmap_math.h"
+#include "roadmap_editbox.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_keyboard_dialog.h"
 #include "ssd/ssd_generic_list_dialog.h"
@@ -366,11 +367,15 @@ static void roadmap_address_street_result (const char *result, void *data) {
    if (context->street_name) free(context->street_name);
    context->street_name = strdup(name);
 
-
+#ifdef ANDROID
+   ShowEditbox( roadmap_lang_get ("House number"), "",
+         house_keyboard_callback, (void *)context, EEditBoxStandard | EEditBoxAlphaNumeric );
+#else
    ssd_show_keyboard_dialog(  roadmap_lang_get ("House number"),
                               NULL,
                               house_keyboard_callback,
                               context);
+#endif
 }
 
 
@@ -484,10 +489,15 @@ void roadmap_address_search_dialog (const char *city,
       title = roadmap_lang_get ("Street");
    }
 
+#ifdef ANDROID
+   ShowEditbox( title, "",
+         keyboard_callback, (void *)context, EEditBoxStandard | EEditBoxAlphaNumeric );
+#else
    ssd_show_keyboard_dialog(  title,
                               NULL,
                               keyboard_callback,
                               context);
+#endif
 }
 
 

@@ -43,6 +43,7 @@
 #include "roadmap_main.h"
 #include "roadmap_history.h"
 #include "roadmap_messagebox.h"
+#include "roadmap_editbox.h"
 #include "ssd/ssd_keyboard_dialog.h"
 
 #include "roadmap_address_tc_defs.h"

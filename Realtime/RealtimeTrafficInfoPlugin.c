@@ -48,7 +48,8 @@
 static void RealtimeTrafficInfoScreenRepaint (int max_pen);
 static void RealtimeTrafficInfoPaintGeoms (void);
 
-#define TRAFFIC_PEN_WIDTH 4
+#define TRAFFIC_PEN_WIDTH_BASE 4
+#define TRAFFIC_PEN_WIDTH ( ADJ_SCALE( (TRAFFIC_PEN_WIDTH_BASE) ) )
 #define MAX_SEGEMENTS 2500
 
 static int plugId;

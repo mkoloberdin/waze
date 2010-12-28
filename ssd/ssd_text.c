@@ -87,9 +87,11 @@ static void init_containers (void) {
    RoadMapImage cursor_image;
    pen = roadmap_canvas_create_pen ("ssd_text_pen");
    roadmap_canvas_set_foreground (def_color);
+#ifndef IPHONE
    cursor_image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, "cursor" );
    cursor_width = roadmap_canvas_image_width( cursor_image );
    cursor_height = roadmap_canvas_image_height( cursor_image );
+#endif
    initialized = 1;
 }
 
@@ -158,7 +160,7 @@ static int format_text (SsdWidget widget, int draw,
                         RoadMapGuiRect *rect) {
 
    text_ctx_ptr ctx = (text_ctx_ptr) widget->data;
-   char line[255] = {0};
+   char line[512] = {0};
    const char *text;
    int text_width;
    int text_ascent;
@@ -251,17 +253,21 @@ static int format_text (SsdWidget widget, int draw,
          }
          //Trim display of long strings
          new_len--;
+         if (new_len >= sizeof(line)-1)
+            new_len = sizeof(line)-1;
+
          if (text_width > width && new_len )
          {
             int estimated_width;
             int letter_ascent;
             int letter_descent;
-            while (text_width > width )
+            while (text_width > width && new_len )
             {
                /*
                 * Make it shorter ...
                 */
                 new_len--;
+               
                 if ( is_text_input )
                 {
                    display_offset++; // Truncate from left
@@ -285,7 +291,7 @@ static int format_text (SsdWidget widget, int draw,
                  if ( estimated_width )
                     text_width = estimated_width;
                  else
-                    continue;
+                    return 0;
             }
          }
 

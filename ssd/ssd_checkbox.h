@@ -30,6 +30,7 @@
 #define CHECKBOX_STYLE_ON_OFF  0
 #define CHECKBOX_STYLE_ROUNDED 1
 #define CHECKBOX_STYLE_DEFAULT 2
+#define CHECKBOX_STYLE_V       3
 
 SsdWidget ssd_checkbox_new (const char *name,
 							BOOL Selected,
@@ -39,5 +40,12 @@ SsdWidget ssd_checkbox_new (const char *name,
                             const char *unchecked_icon,
                           	int style);
 
+SsdWidget ssd_checkbox_row_new (const char *name,
+                                 const char* label,
+                                 BOOL Selected,
+                                 SsdCallback callback,
+                                 const char *checked_icon,
+                                 const char *unchecked_icon,
+                                 int style);
 
 #endif // __SSD_CHECKBOX_H_

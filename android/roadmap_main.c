@@ -48,9 +48,10 @@
 #include "roadmap_main.h"
 #include "roadmap_androidmain.h"
 #include "roadmap_androidcanvas.h"
+#include "roadmap_androidbrowser.h"
 #include "roadmap_messagebox.h"
 #include "JNI/FreeMapJNI.h"
-#
+
 #include "roadmap_android_msg.h"
 #include <pthread.h>
 #include <ctype.h>
@@ -85,6 +86,8 @@ static int sgHandledSignals[] = {SIGSEGV, SIGSTOP, SIGILL, SIGABRT, SIGBUS, SIGF
 
 static int sgAndroidBuildSdkVersion = -1;
 static char sgAndroidDeviceName[128] = {0};
+static char sgAndroidDeviceManufacturer[128] = {0};
+static char sgAndroidDeviceModel[128] = {0};
 
 //======= IO section ========
 typedef enum
@@ -129,8 +132,8 @@ struct ucontext {
 };
 typedef struct ucontext ucontext_t;
 
-#define SOCKET_READ_SELECT_TIMEOUT {30, 0} // {sec, u sec}
-#define SOCKET_WRITE_SELECT_TIMEOUT {30, 0} // {sec, u sec}
+const struct timeval SOCKET_READ_SELECT_TIMEOUT = {30, 0}; // {sec, u sec}
+const struct timeval SOCKET_WRITE_SELECT_TIMEOUT = {30, 0}; // {sec, u sec}
 #define MESSAGE_DISPATCHER_TIMEOUT {10, 0} // {sec, nano sec}
 
 #define CRASH_DUMP_ADDR_NUM		200		/* The number of addresses to dump when crash is occured */
@@ -154,6 +157,7 @@ static void on_device_event( device_event event, void* context );
 static void roadmap_main_set_bottom_bar( BOOL force_hidden );
 static BOOL roadmap_main_is_pending_close( roadmap_main_io *data );
 
+extern void roadmap_androidrecommend_init( void );
 //===============================================================
 
 typedef enum
@@ -272,6 +276,17 @@ int roadmap_main_get_build_sdk_version( void )
 }
 
 /*************************************************************************************************
+ * BOOL roadmap_main_mtouch_supported( void )
+ * Indicates if multitouch supported
+ *
+ */
+BOOL roadmap_main_mtouch_supported( void )
+{
+   return ( sgAndroidBuildSdkVersion >= ANDROID_OS_VER_ECLAIR );
+}
+
+
+/*************************************************************************************************
  * void roadmap_main_set_device_name( const char* device_name )
  * Sets the current device name
  *
@@ -282,6 +297,49 @@ void roadmap_main_set_device_name( const char* device_name )
 }
 
 /*************************************************************************************************
+ * void roadmap_main_set_device_model( const char* model )
+ * Sets the current device model
+ *
+ */
+void roadmap_main_set_device_model( const char* model )
+{
+   strncpy( sgAndroidDeviceModel, model, sizeof( sgAndroidDeviceModel )-1 );
+}
+
+/*************************************************************************************************
+ * const char* roadmap_main_get_device_model( void )
+ * Returns the device model name
+ *
+ */
+const char* roadmap_main_get_device_model( void )
+{
+   return sgAndroidDeviceModel;
+}
+
+
+/*************************************************************************************************
+ * void roadmap_main_set_device_manufacturer( const char* manufacturer )
+ * Sets the current device manufacturer
+ *
+ */
+void roadmap_main_set_device_manufacturer( const char* manufacturer )
+{
+   strncpy( sgAndroidDeviceManufacturer, manufacturer, sizeof( sgAndroidDeviceManufacturer )-1 );
+}
+
+
+/*************************************************************************************************
+ * const char* roadmap_main_get_device_manufacturer( void )
+ * Returns the device manufacturer
+ *
+ */
+const char* roadmap_main_get_device_manufacturer( void )
+{
+   return sgAndroidDeviceManufacturer;
+}
+
+
+/*************************************************************************************************
  * const char* roadmap_main_get_device_name( void )
  * Returns the device name
  *
@@ -289,6 +347,16 @@ void roadmap_main_set_device_name( const char* device_name )
 const char* roadmap_main_get_device_name( void )
 {
 	return sgAndroidDeviceName;
+}
+
+/*************************************************************************************************
+ * void roadmap_main_show_contacts( void )
+ * Requests the system to show the contacts activity
+ *
+ */
+void roadmap_main_show_contacts( void )
+{
+   FreeMapNativeManager_ShowContacts();
 }
 
 /*************************************************************************************************
@@ -438,11 +506,13 @@ static void *roadmap_main_socket_handler( void* aParams )
 		// Try to read or write from the file descriptor. fd + 1 is the max + 1 of the fd-s set!
 		if ( data->io_type == _IO_DIR_WRITE )
 		{
+		   selectWriteTO = SOCKET_WRITE_SELECT_TIMEOUT;
 			retVal = select( fd+1, NULL, &fdSet, NULL, &selectWriteTO );
 //			roadmap_log( ROADMAP_DEBUG, "Thread %d. IO %d WRITE : %d. FD: %d", pthread_self(), data->io_id, retVal, fd );
 		}
 		else
 		{
+		   selectReadTO = SOCKET_READ_SELECT_TIMEOUT;
 			retVal = select( fd+1, &fdSet, NULL, NULL, &selectReadTO );
 //			roadmap_log( ROADMAP_DEBUG, "Thread %d. IO %d READ : %d. FD: %d", pthread_self(), data->io_id, retVal, fd );
 		}
@@ -455,7 +525,7 @@ static void *roadmap_main_socket_handler( void* aParams )
 
 		if ( retVal == 0 )
 		{
-//			roadmap_log( ROADMAP_INFO, "IO %d Socket %d timeout", data->io_id, io->os.socket );
+			roadmap_log( ROADMAP_ERROR, "IO %d Socket %d timeout", data->io_id, io->os.socket );
 		}
 		if( retVal  < 0 )
 		{
@@ -764,6 +834,10 @@ void roadmap_main_set_input ( RoadMapIO *io, RoadMapInput callback )
 			RoadMapMainIo[i].callback = callback;
 			RoadMapMainIo[i].io_type = _IO_DIR_READ;
 			RoadMapMainIo[i].io_id = i;
+			retVal = pthread_mutex_init( &RoadMapMainIo[i].mutex, NULL );
+         LogResult( retVal, "Mutex init. ", ROADMAP_ERROR );
+         retVal = pthread_cond_init( &RoadMapMainIo[i].cond, NULL );
+         LogResult( retVal, "Condition init init. ", ROADMAP_ERROR );
 			break;
 		}
    }
@@ -785,7 +859,7 @@ void roadmap_main_set_input ( RoadMapIO *io, RoadMapInput callback )
 void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback )
 {
 
-	int i;
+	int i, retVal;
 	int fd;
 
 	roadmap_log( ROADMAP_DEBUG, "Setting the output for the subsystem : %d\n", io->subsystem );
@@ -801,7 +875,11 @@ void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback )
 			RoadMapMainIo[i].callback = callback;
 			RoadMapMainIo[i].io_id = i;
 			RoadMapMainIo[i].io_type = _IO_DIR_WRITE;
-			RoadMapMainIo[i].start_time = time(NULL);
+         RoadMapMainIo[i].start_time = time(NULL);
+         retVal = pthread_mutex_init( &RoadMapMainIo[i].mutex, NULL );
+         LogResult( retVal, "Mutex init. ", ROADMAP_ERROR );
+         retVal = pthread_cond_init( &RoadMapMainIo[i].cond, NULL );
+         LogResult( retVal, "Condition init init. ", ROADMAP_ERROR );
 			break;
 		}
 	}
@@ -844,25 +922,23 @@ void roadmap_main_remove_input ( RoadMapIO *io )
 
 	for (i = 0; i < ROADMAP_MAX_IO; ++i)
 	{
-
 	   if ( IO_VALID( RoadMapMainIo[i].io_id ) && roadmap_io_same(&RoadMapMainIo[i].io, io))
 	   {
 			 // Cancel the thread and set is valid to zero
  			 roadmap_log( ROADMAP_DEBUG, "Canceling IO # %d thread %d\n", i, RoadMapMainIo[i].handler_thread );
-			 RoadMapMainIo[i].io.os.file = -1;
 			 pthread_mutex_lock( &RoadMapMainIo[i].mutex );
 			 RoadMapMainIo[i].pending_close = 1;
 			 RoadMapMainIo[i].start_time = 0;
+			 roadmap_io_invalidate( &RoadMapMainIo[i].io );
 			 pthread_mutex_unlock( &RoadMapMainIo[i].mutex );
 
 			 roadmap_log( ROADMAP_DEBUG, "Removing the input id %d for the subsystem : %d \n", i, io->subsystem );
 			 break;
 	   }
 	}
-
 	if ( i == ROADMAP_MAX_IO )
 	{
-	   roadmap_log ( ROADMAP_ERROR, "Can't find input to remove!" );
+	   roadmap_log ( ROADMAP_ERROR, "Can't find input to remove! System: %d. FD: %d", io->subsystem, io->os.file );
 	}
 }
 
@@ -877,9 +953,12 @@ static void roadmap_main_reset_IO( roadmap_main_io *data )
 
 	data->callback = NULL;
 	data->handler_thread = 0;
-	data->io.os.file = -1;
+	roadmap_io_invalidate( &data->io );
 	data->io_id = IO_INVALID_VAL;
 	data->pending_close = 0;
+   pthread_mutex_destroy( &data->mutex );
+   pthread_cond_destroy( &data->cond );
+
 }
 
 /*************************************************************************************************
@@ -1248,17 +1327,6 @@ static EVirtualKey roadmap_main_back_btn_handler( void )
 
 
 /*************************************************************************************************
- * void roadmap_main_browser_launcher( RMBrowserContext* context )
- * Shows the android browser view
- *
- */
-static void roadmap_main_browser_launcher( RMBrowserContext* context )
-{
-   FreeMapNativeManager_ShowWebView( context->height, context->top_margin, context->url );
-}
-
-
-   /*************************************************************************************************
  * void roadmap_start_event (int event)
  * Start event hanler
  *
@@ -1271,9 +1339,9 @@ static void roadmap_start_event (int event) {
 		  editor_main_check_map ();
 	#endif
 		  roadmap_device_events_register( on_device_event, NULL);
-		  roadmap_browser_register_launcher( roadmap_main_browser_launcher );
-		  roadmap_browser_register_close( FreeMapNativeManager_HideWebView );
 		  roadmap_main_set_bottom_bar( TRUE );
+		  roadmap_androidbrowser_init();
+		  roadmap_androidrecommend_init();
 		  break;
 	   }
    }
@@ -1328,7 +1396,6 @@ static void roadmap_main_set_bottom_bar( BOOL force_hidden )
    if ( !roadmap_screen_refresh() )
 	   roadmap_screen_redraw();
 }
-
 
 void roadmap_main_set_first_run( BOOL value )
 {

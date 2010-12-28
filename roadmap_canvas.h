@@ -35,6 +35,7 @@
 
 #define MAX_CORDING_POINTS 2
 
+
 enum { IMAGE_NORMAL,
        IMAGE_SELECTED,
        IMAGE_NOBLEND
@@ -98,6 +99,7 @@ RoadMapPen roadmap_canvas_select_pen (RoadMapPen pen);
  * althrough the thickness may be changed when the zoom level changes.
  */
 void roadmap_canvas_set_foreground (const char *color);
+void roadmap_canvas_set_background (const char *color);
 void roadmap_canvas_set_thickness  (int thickness);
 int  roadmap_canvas_get_thickness  (RoadMapPen pen);
 void roadmap_canvas_set_opacity (int opacity);
@@ -121,7 +123,7 @@ void roadmap_canvas_erase_area (const RoadMapGuiRect *rect);
 #define ROADMAP_CANVAS_TOP         0
 #define ROADMAP_CANVAS_BOTTOM      2
 #define ROADMAP_CANVAS_CENTER      4
-
+#define ROADMAP_CANVAS_TOPMIDDLE    (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_MIDDLE)
 #define ROADMAP_CANVAS_TOPLEFT      (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_LEFT)
 #define ROADMAP_CANVAS_TOPRIGHT     (ROADMAP_CANVAS_TOP|ROADMAP_CANVAS_RIGHT)
 #define ROADMAP_CANVAS_BOTTOMRIGHT  (ROADMAP_CANVAS_BOTTOM|ROADMAP_CANVAS_RIGHT)
@@ -211,6 +213,8 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
 void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
 											const RoadMapGuiPoint *pivot_pos, int opacity, int mode );
 
+void roadmap_canvas_draw_image_middle_stretch( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                int opacity, int mode );
 
 RoadMapImage roadmap_canvas_new_image (int width, int height);
 
@@ -237,11 +241,13 @@ void roadmap_canvas_image_invalidate( RoadMapImage image );
 void roadmap_canvas_unmanaged_list_add( RoadMapImage image );
 void roadmap_canvas_shutdown();
 
-#ifdef IPHONE
+#if defined(IPHONE) || defined(ANDROID)
 void roadmap_canvas_get_cording_pt (RoadMapGuiPoint points[MAX_CORDING_POINTS]);
 int roadmap_canvas_is_cording();
+#if defined(IPHONE)
 void roadmap_canvas_cancel_touches();
 void roadmap_canvas_should_accept_layout (int bAcceptLayout);
+#endif
 #endif
 
 #endif // INCLUDE__ROADMAP_CANVAS__H

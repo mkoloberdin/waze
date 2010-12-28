@@ -32,12 +32,14 @@
 package com.waze;
 
 import javax.microedition.khronos.egl.EGL10;
+import javax.microedition.khronos.egl.EGL11;
 import javax.microedition.khronos.egl.EGLConfig;
 import javax.microedition.khronos.egl.EGLContext;
 import javax.microedition.khronos.egl.EGLDisplay;
 import javax.microedition.khronos.egl.EGLSurface;
 import javax.microedition.khronos.opengles.GL10;
 
+import android.content.DialogInterface;
 import android.util.Log;
 import android.view.SurfaceView;
 
@@ -82,20 +84,16 @@ public final class WazeEglManager {
         EglCheck( "InitEgl eglInitialize" );
         
         int[] configAttrs = new int[] {
-//                EGL10.EGL_RED_SIZE, 	4,
-//                EGL10.EGL_GREEN_SIZE, 	4,
-//                EGL10.EGL_BLUE_SIZE, 	4,
-//                EGL10.EGL_ALPHA_SIZE, 	4,
-//                EGL10.EGL_DEPTH_SIZE, 	16,                
-//                EGL10.EGL_STENCIL_SIZE, 0, 
+                EGL10.EGL_RED_SIZE, 	5,
+                EGL10.EGL_GREEN_SIZE, 	6,
+                EGL10.EGL_BLUE_SIZE, 	5,
+                EGL10.EGL_ALPHA_SIZE, 	0,
+                EGL10.EGL_DEPTH_SIZE, 	0,                
+                EGL10.EGL_STENCIL_SIZE, 0, 
                 EGL10.EGL_NONE};
         
         EGLConfig[] configs = new EGLConfig[1];
-        int numConfigs = 1;
-        int[] num_config = new int[1];
-        mEgl.eglChooseConfig( mEglDisplay, configAttrs, configs, numConfigs, num_config );
-        mEglConfig = configs[0];
-        EglCheck( "InitEgl eglChooseConfig" );
+        mEglConfig = ChooseEglConfig( configAttrs );
         
         if ( EGL_DEBUG )
         {
@@ -125,6 +123,8 @@ public final class WazeEglManager {
         * Create an OpenGL ES context. This must be done only once, an
         * OpenGL context is a somewhat heavy object.
         */
+//        final int EGL_CONTEXT_CLIENT_VERSION = 0x3098;
+//        int egl_attribs[] = { EGL_CONTEXT_CLIENT_VERSION, 1, EGL10.EGL_NONE };
         mEglContext = mEgl.eglCreateContext( mEglDisplay, mEglConfig, EGL10.EGL_NO_CONTEXT, null );
         EglCheck( "InitEgl eglCreateContext" );
         
@@ -175,6 +175,82 @@ public final class WazeEglManager {
 //    	Log.w("WAZE", "Destroying EGL has finalized" );
     }
     
+    /*************************************************************************************************
+     * EGL config chooser
+     *   @param aCfgAttribs - the array of the configuration attributes
+     *   @return the matching EGL config object
+     */
+    public  EGLConfig ChooseEglConfig( int[] aCfgAttribs )
+    {
+    	EGLConfig resCfg = null;
+    	int[] num_config = new int[1];
+        if ( !mEgl.eglChooseConfig( mEglDisplay, aCfgAttribs, null, 0,
+                num_config ) ) {
+        	
+        	EglCheck( "InitEgl eglChooseConfig" );
+            WazeLog.w( "eglChooseConfigfailed - failed getting configuration number" );
+            return null;
+        }
+
+        int numConfigs = num_config[0];
+
+        if ( numConfigs <= 0 ) 
+        {
+            WazeLog.w( "eglChooseConfigfailed - failed getting configuration number" );
+            return null;
+        }
+
+        EGLConfig[] resConfigs = new EGLConfig[numConfigs];
+        if ( !mEgl.eglChooseConfig( mEglDisplay, aCfgAttribs, resConfigs, numConfigs,
+                num_config ) ) 
+        {
+        	EglCheck( "InitEgl eglChooseConfig II" );
+            WazeLog.w( "eglChooseConfigfailed - failed getting configuration number" );
+            return null;
+        }
+        /*
+         * Find the matching configuration
+         */
+        EGLConfig config;
+        for (  int i = 0; i < resConfigs.length; ++i ) 
+        {
+        	config = resConfigs[i];
+        	int d = getCfgValue( config, EGL10.EGL_DEPTH_SIZE, 0 );
+            int s = getCfgValue( config, EGL10.EGL_STENCIL_SIZE, 0 );
+            if ( ( d >= getAttrValue( aCfgAttribs, EGL10.EGL_DEPTH_SIZE ) ) && 
+            		( s >= getAttrValue( aCfgAttribs, EGL10.EGL_STENCIL_SIZE ) ) ) 
+            {
+                int r = getCfgValue( config, EGL10.EGL_RED_SIZE, 0 );
+                int g = getCfgValue( config, EGL10.EGL_GREEN_SIZE, 0 );
+                int b = getCfgValue( config, EGL10.EGL_BLUE_SIZE, 0 );
+                int a = getCfgValue( config, EGL10.EGL_ALPHA_SIZE, 0 );
+                if ( ( r == getAttrValue( aCfgAttribs, EGL10.EGL_RED_SIZE ) ) 
+                		&& ( g == getAttrValue( aCfgAttribs, EGL10.EGL_GREEN_SIZE ) )
+                        && ( b == getAttrValue( aCfgAttribs, EGL10.EGL_BLUE_SIZE ) ) 
+                        && ( a == getAttrValue( aCfgAttribs, EGL10.EGL_ALPHA_SIZE ) ) ) 
+                {
+                		resCfg = config;
+                		break;
+                }
+            }
+        }
+        /*
+         * Get the default one
+         */
+        if ( resCfg == null )
+        {
+            int[] configAttrs = new int[] {
+                    EGL10.EGL_NONE};
+            
+            EGLConfig[] configs = new EGLConfig[1];
+            numConfigs = 1;
+            mEgl.eglChooseConfig( mEglDisplay, configAttrs, configs, numConfigs, num_config );
+            EglCheck( "InitEgl eglChooseConfig III" );
+            resCfg = configs[0];                        
+
+        }
+    	return resCfg;    	
+    }
     
     /*************************************************************************************************
      * EGL surface destruction procedure
@@ -217,13 +293,13 @@ public final class WazeEglManager {
     		DestroyEglSurface();
     	}
         mEglSurface = mEgl.eglCreateWindowSurface( mEglDisplay, mEglConfig, mSurfaceView, null );
-        if ( !EglCheck( "CreateEglSurface eglCreateWindowSurface" ) )
+        if ( EglCheck( "CreateEglSurface eglCreateWindowSurface" ) != EGL10.EGL_SUCCESS )
         {
         	return false;
         }
         
         mEgl.eglMakeCurrent( mEglDisplay, mEglSurface, mEglSurface, mEglContext );
-    	if ( !EglCheck( "CreateEglSurface eglMakeCurrent" ) )
+    	if ( EglCheck( "CreateEglSurface eglMakeCurrent" )  != EGL10.EGL_SUCCESS )
     	{
     		return false;
     	}
@@ -238,18 +314,106 @@ public final class WazeEglManager {
      */
     public void SwapBuffersEgl()
     {
-    	mEgl.eglSwapBuffers( mEglDisplay, mEglSurface );
+    	boolean eglRes = true;
+
+    	eglRes = mEgl.eglSwapBuffers( mEglDisplay, mEglSurface );
     	
-    	if ( EGL_DEBUG )
+    	if ( !eglRes )
     	{
-    		EglCheck( "SwapBuffersEgl" );
+    		int error = EglCheck( "EGL Swap buffers" );
+    		switch( error ) 
+    		{
+    			case EGL11.EGL_CONTEXT_LOST:
+    			{
+    				if ( mContextRecoverRetry++ < EGL_CONTEXT_RECOVER_RETRY_NUM )
+    				{
+	    				/*
+	    				 * Reset the surface
+	    				 */
+	    				DestroyEglSurface();
+	    				CreateEglSurface();
+	    				break;
+    				}
+    			}
+    			case EGL10.EGL_SUCCESS:
+    			{
+    				break;
+    			}
+    			case EGL10.EGL_BAD_NATIVE_WINDOW:
+    			default:
+    			{
+    				WazeMsgBox msgBox = WazeMsgBox.getInstance();
+    				msgBox.setBlocking( true );
+    				msgBox.Show( "Error", "Critical problem occured! Please restart waze", "Ok", null,
+    						new EglErrorListener(), null );
+    				FreeMapAppService.RestartApplication();
+    			}
+    		
+    		}
+        }
+    	else
+    	{
+    		mContextRecoverRetry = 0;
     	}
+
+    	 
+//    	Log.w("AGA DEBUG", "Just swapped" );
+//    	android.os.SystemClock.sleep( 200L );
+    	
     }
     /*************************************************************************************************
      * EGL engine swap buffers procedure
      * Should be called when canvas is rendered  
      */
-    private boolean EglCheck( String aErrStr )
+    private class EglErrorListener implements DialogInterface.OnClickListener
+    {
+    	public void onClick( DialogInterface dialog, int which )
+    	{
+    		final WazeMsgBox msgBox = WazeMsgBox.getInstance();
+    		synchronized( msgBox ) {
+    			msgBox.notify();
+    		}    		
+    	}
+    }
+    
+    
+    /*************************************************************************************************
+     * Extracts EGL configuration value
+     * Auxiliary  
+     */
+    private int getCfgValue( EGLConfig aConfig, int aAttr, int aDefault )
+    {
+    	int value[] = new int[1];
+        if ( mEgl.eglGetConfigAttrib( mEglDisplay, aConfig, aAttr, value ) ) 
+        {
+            return value[0];
+        }
+        return aDefault;
+    }
+    /*************************************************************************************************
+     * Extracts attribute value from the given set of attributes
+     * Not efficient for large arrays. This supposed to be used only at the application start 
+     *  
+     * Auxiliary  
+     */
+    private int getAttrValue( int[] aAttrSet, int aAttr )
+    {
+    	int res = -1;    	
+    	for ( int i = 0; i < aAttrSet.length; i+=2 )
+    	{
+    		if ( aAttrSet[i] == aAttr )
+    		{
+    			res = aAttrSet[i+1];
+    			break;
+    		}
+    	}
+        return res;
+    }
+    /*************************************************************************************************
+     * EGL error checker
+     * Auxiliary  
+     */
+    private int EglCheck( String aErrStr )
     {
     	int error = mEgl.eglGetError();
     	if ( error != EGL10.EGL_SUCCESS )
@@ -258,9 +422,8 @@ public final class WazeEglManager {
     		Log.e("WAZE", errStr );
     		WazeLog.e( errStr );
     	}    	
-    	return ( error == EGL10.EGL_SUCCESS );
+    	return error;
     }
-    
     
     /*************************************************************************************************
      * GL test procedure
@@ -305,6 +468,16 @@ public final class WazeEglManager {
 		    android.os.SystemClock.sleep( 300 );
     	}
     }
+    /*************************************************************************************************
+     * Wrapper for the EGL engine getGL
+     * 
+     */
+    public GL10 getGL()
+    {
+    	final GL10 gl = ( mEglContext == null ) ? null : ( ( GL10 ) mEglContext.getGL() ); 
+    	return gl;
+    }
+
 
 	/*************************************************************************************************
      *================================= Private interface section =================================
@@ -319,15 +492,22 @@ public final class WazeEglManager {
      *================================= Data members section =================================
      * 
      */
+    private int mContextRecoverRetry = 0;
     
 	private SurfaceView mSurfaceView = null;
-    EGLDisplay mEglDisplay = null;
-    EGLContext mEglContext = null;
-    EGLSurface mEglSurface = null;
-    EGLConfig  mEglConfig  = null;
-    EGL10 mEgl = null;
+	private EGLDisplay mEglDisplay = null;
+	private EGLContext mEglContext = null;
+	private EGLSurface mEglSurface = null;
+	private EGLConfig  mEglConfig  = null;
+	private EGL10 mEgl = null;
 
     // DEBUG SESSION
-    private static final boolean EGL_DEBUG = false;
     public boolean mGLTestStop = false;
+    
+    /*************************************************************************************************
+     *================================= Constants section =================================
+     */
+    private static final boolean EGL_DEBUG = false;
+    private static final int EGL_CONTEXT_RECOVER_RETRY_NUM = 5;
 }
+

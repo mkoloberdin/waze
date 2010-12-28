@@ -71,7 +71,8 @@ typedef struct cahced_resource {
    int header;
    int width;
    int num_items;
-   unsigned int cache_hit_count;
+   unsigned int age;
+   //unsigned int cache_hit_count; Deprecated
 } RoadMapCacheBorder;
 
 typedef struct cahce_table {
@@ -142,7 +143,7 @@ void roadmap_border_shutdown()
 
 BOOL roadmap_border_initialize()
 {
-   int   i; 
+   int   i;
 
    for( i=0; i<border_img__count; i++)
    {
@@ -412,7 +413,10 @@ static RoadMapImage get_image (int side, int style, int header, int pointer_type
    RoadMapGuiPoint sign_bottom, sign_top;
    int index;
    int lru_index = 0;
-   unsigned int min_cache_hit_count = UINT_MAX;
+   // unsigned int min_cache_hit_count = UINT_MAX; Deprecated
+   unsigned int least_recent_age = UINT_MAX;
+   static unsigned int counter  = 0 ;  // counter for how many times function was accessed - A timeline needed for the cache age calculations
+   counter++;
 
    screen_width = roadmap_canvas_width();
    screen_height = roadmap_canvas_height();
@@ -439,6 +443,17 @@ static RoadMapImage get_image (int side, int style, int header, int pointer_type
 
    image_width = sign_bottom.x  - sign_top.x;
 
+   /*
+    * To avoid chance of overflow, though HIGHLY unlikely.
+    */
+   if(counter == UINT_MAX){
+	   counter = 1;
+	   for (i = 0; i < border_cached_table.count; i++){
+		   border_cached_table.resource[i].age = 1;
+	   }
+   }
+
+
 
 #ifdef __ROADMAP_BORDER_CACHE__
 
@@ -451,24 +466,43 @@ static RoadMapImage get_image (int side, int style, int header, int pointer_type
             ( res->num_items == num_items ) &&
             ( res->width == image_width ) )
        {
-    	   res->cache_hit_count++;
+    	   // res->cache_hit_count++; Deprecated
+    	   res->age = counter;
     	   return res->image;
        }
        else
        {
+    	   /* Deprecated
     	   if ( min_cache_hit_count > res->cache_hit_count )
     	   {
     		   min_cache_hit_count = res->cache_hit_count;
     		   lru_index = i;
     	   }
+    	   */
+
+    	   if ( least_recent_age > res->age )
+		   {
+    		   least_recent_age = res->age;
+			   lru_index = i;
+		   }
+
        }
+
    }
 
    if ( border_cached_table.count == MAX_CACHE ) /* Cache is full - replace the lru element */
    {
 	   index = lru_index;
+	   roadmap_log( ROADMAP_DEBUG, "Border cache no hit. Index %d age: %d  year : %d, **OLD**  style : %d ,  Side : %d , Header : %d. Num_items : %d, Image_width : %d  **NEW** style %d, new side : %d Header : %d, Num_items : %d, Image_width : %d \n",
+	  			       index, least_recent_age, counter,
+	  			       border_cached_table.resource[index].style,
+	  			       border_cached_table.resource[index].side,
+	  			       border_cached_table.resource[index].header,
+	  			       border_cached_table.resource[index].num_items,
+	  			       border_cached_table.resource[index].width, image_width);
+
 	   roadmap_canvas_free_image( border_cached_table.resource[index].image );
-	   roadmap_log( ROADMAP_DEBUG, "Border cache no hit. Replacing: %d with hit count: %d", index, min_cache_hit_count );
+
    }
    else
    {
@@ -483,8 +517,8 @@ static RoadMapImage get_image (int side, int style, int header, int pointer_type
    border_cached_table.resource[index].side = side;
    border_cached_table.resource[index].num_items = num_items;
    border_cached_table.resource[index].image = create_image( side, style, header, pointer_type, bottom, top, num_items );
-   border_cached_table.resource[index].cache_hit_count = 1;
-
+   border_cached_table.resource[index].age = counter;
+   // border_cached_table.resource[index].cache_hit_count = 1; Deprecated
    return border_cached_table.resource[index].image;
 #endif
 
@@ -564,11 +598,14 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 	num_items = ( sign_height - start_sides_point.y +sign_top.y - s_images[border_white_bottom+style].height ) / s_images[border_white_right+style].height;
 	if (num_items < 0 )
 	   return;
-	image  = get_image(border_sides, style, header, pointer_type, bottom, top, num_items+1);
+	image  = get_image(border_sides, style, header, pointer_type, bottom, top, 1);
 
-    point.x = left_point.x;
-	point.y = start_sides_point.y ;
-	roadmap_canvas_draw_image (image, &point, 0, IMAGE_NORMAL);
+	for (i = 0; i < num_items; i++){
+	   point.x = left_point.x;
+      point.y = start_sides_point.y + i*s_images[border_white_right+style].height;
+      roadmap_canvas_draw_image (image, &point, 0, IMAGE_NORMAL);
+
+	}
 
 	point.y += roadmap_canvas_image_height(image)-1;
 #ifndef __ROADMAP_BORDER_CACHE__
@@ -616,7 +653,7 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 				RoadMapGuiPoint points[3];
 				RoadMapPen pointer_pen;
 				roadmap_math_coordinate (position, points);
-				roadmap_math_rotate_coordinates (1, points);
+				roadmap_math_rotate_project_coordinate ( points );
 				if (points[0].y > (point.y +10) ){
 				points[1].x = point.x;
 				points[1].y = point.y+s_images[border_black_bottom_no_frame].height-3;

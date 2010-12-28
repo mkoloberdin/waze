@@ -63,7 +63,6 @@ void roadmap_screen_move_center (int dy);
 void roadmap_screen_toggle_view_mode (void);
 void roadmap_screen_set_view(int view_mode);
 void roadmap_screen_restore_view(void);
-int  roadmap_screen_get_view_mdode(void);
 void roadmap_screen_toggle_orientation_mode (void);
 void roadmap_screen_set_orientation_fixed (void);
 void roadmap_screen_set_orientation_dynamic (void);
@@ -71,6 +70,7 @@ void roadmap_screen_increase_horizon (void);
 void roadmap_screen_decrease_horizon (void);
 int roadmap_screen_get_orientation_mode (void);
 int roadmap_screen_get_view_mode (void);
+int roadmap_screen_get_nonogl_view_mode (void);
 
 void roadmap_screen_rotate (int delta);
 
@@ -91,7 +91,7 @@ typedef void (*RoadMapScreenSubscriber) (void);
 RoadMapScreenSubscriber roadmap_screen_subscribe_after_refresh
                                     (RoadMapScreenSubscriber handler);
 
-void roadmap_screen_subscribe_after_flow_control_refresh
+RoadMapScreenSubscriber roadmap_screen_subscribe_after_flow_control_refresh
                                     (RoadMapScreenSubscriber handler);
 
 int  roadmap_screen_draw_one_line (RoadMapPosition *from,
@@ -150,10 +150,11 @@ int roadmap_screen_not_touched_state(void);
 void roadmap_screen_touched(void);
 void roadmap_screen_touched_off(void);
 
-
+int roadmap_screen_is_ld_screen( void );
 int roadmap_screen_is_hd_screen( void );
-void roadmap_screen_set_screen_type( int screen_type );
+void roadmap_screen_set_screen_type( int width, int height );
 int roadmap_screen_get_screen_type( void );
+int roadmap_screen_get_screen_scale( void );
 int roadmap_screen_adjust_height( int orig_height );
 int roadmap_screen_adjust_width( int orig_width );
 
@@ -200,5 +201,12 @@ BOOL roadmap_screen_get_background_run( void );
 void roadmap_screen_shade_bg(void);
 void roadmap_screen_flush_lines_and_points(void);
 
+void roadmap_screen_set_animating( BOOL value );
+void roadmap_screen_set_cording_rotation_enabled( BOOL value );
+
+#define isViewModeAny3D()	\
+((RoadMapScreenViewMode == VIEW_MODE_3D) || (RoadMapScreenOGLViewMode == VIEW_MODE_3D))
+
+#define ADJ_SCALE(_size) ( _size * roadmap_screen_get_screen_scale()/100 )
 
 #endif // INCLUDE__ROADMAP_SCREEN__H

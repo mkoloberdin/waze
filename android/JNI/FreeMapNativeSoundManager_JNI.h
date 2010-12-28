@@ -7,8 +7,8 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-#undef com_waze_FreeMapNativeSoundManager_MAX_PLAYERS_NUMBER
-#define com_waze_FreeMapNativeSoundManager_MAX_PLAYERS_NUMBER 5L
+#undef com_waze_FreeMapNativeSoundManager_SOUND_BUFFERING_ENABLED
+#define com_waze_FreeMapNativeSoundManager_SOUND_BUFFERING_ENABLED 0L
 /*
  * Class:     com_waze_FreeMapNativeSoundManager
  * Method:    InitSoundManagerNTV
@@ -21,34 +21,30 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeSoundManager_InitSoundManagerN
 }
 #endif
 #endif
-/* Header for class com_waze_FreeMapNativeSoundManager_MediaPlayerQueued */
+/* Header for class com_waze_FreeMapNativeSoundManager_WazeAudioPlayer */
 
-#ifndef _Included_com_waze_FreeMapNativeSoundManager_MediaPlayerQueued
-#define _Included_com_waze_FreeMapNativeSoundManager_MediaPlayerQueued
+#ifndef _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer
+#define _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_MIN_PRIORITY
+#define com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_MIN_PRIORITY 1L
+#undef com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_NORM_PRIORITY
+#define com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_NORM_PRIORITY 5L
+#undef com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_MAX_PRIORITY
+#define com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_MAX_PRIORITY 10L
 #ifdef __cplusplus
 }
 #endif
 #endif
-/* Header for class com_waze_FreeMapNativeSoundManager_PlayersCache */
+/* Header for class com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_CompletionListener */
 
-#ifndef _Included_com_waze_FreeMapNativeSoundManager_PlayersCache
-#define _Included_com_waze_FreeMapNativeSoundManager_PlayersCache
+#ifndef _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_CompletionListener
+#define _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_CompletionListener
 #ifdef __cplusplus
 extern "C" {
 #endif
-#undef com_waze_FreeMapNativeSoundManager_PlayersCache_DEFAULT_INITIAL_CAPACITY
-#define com_waze_FreeMapNativeSoundManager_PlayersCache_DEFAULT_INITIAL_CAPACITY 16L
-#undef com_waze_FreeMapNativeSoundManager_PlayersCache_MAXIMUM_CAPACITY
-#define com_waze_FreeMapNativeSoundManager_PlayersCache_MAXIMUM_CAPACITY 1073741824L
-#undef com_waze_FreeMapNativeSoundManager_PlayersCache_DEFAULT_LOAD_FACTOR
-#define com_waze_FreeMapNativeSoundManager_PlayersCache_DEFAULT_LOAD_FACTOR 0.75f
-#undef com_waze_FreeMapNativeSoundManager_PlayersCache_serialVersionUID
-#define com_waze_FreeMapNativeSoundManager_PlayersCache_serialVersionUID 362498820763181265LL
-#undef com_waze_FreeMapNativeSoundManager_PlayersCache_serialVersionUID
-#define com_waze_FreeMapNativeSoundManager_PlayersCache_serialVersionUID 3801124242820219131LL
 #ifdef __cplusplus
 }
 #endif

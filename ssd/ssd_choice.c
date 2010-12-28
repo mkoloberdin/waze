@@ -74,7 +74,7 @@ static int choice_callback (SsdWidget widget, const char *new_value) {
    data = (struct ssd_choice_data *)widget->data;
 
    ssd_generic_list_dialog_show (data->title, data->num_values, data->labels,
-                                 NULL, list_callback, NULL, widget, SSD_GEN_LIST_ENTRY_HEIGHT );
+                                 NULL, list_callback, NULL, widget, ssd_container_get_row_height() );
    return 1;
 }
 
@@ -174,8 +174,8 @@ SsdWidget ssd_choice_new (const char *name, const char *title, int count,
    if (!ssd_widget_rtl(NULL))
    	rtl_flag = SSD_ALIGN_RIGHT;
 
-   text = ssd_text_new ("Label", labels[0], -1, SSD_ALIGN_VCENTER);
-   ssd_text_set_color(text, "#434e6e");
+   text = ssd_text_new ("Label", labels[0], SSD_SECONDARY_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
+   ssd_text_set_color(text, "#4c4c4c");
    ssd_widget_add (text_box, text);
    if (!ssd_widget_rtl(NULL)){
    	   buttons[0] = edit_button[0];

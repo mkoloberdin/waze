@@ -271,8 +271,12 @@ static void roadmap_square_unload (int slot) {
 
 
 static int roadmap_square_find (int square) {
+   int slot;
 
-	int slot = roadmap_hash_get_first (RoadMapSquareActive->SquareHash, square);
+   if (RoadMapSquareActive == NULL)
+      return -1;
+
+	slot = roadmap_hash_get_first (RoadMapSquareActive->SquareHash, square);
 
 	while (slot >= 0) {
 
@@ -782,6 +786,7 @@ int roadmap_square_view (int *square, int size) {
    int index;
 	int step;
 	int slot;
+   int filter_count = 0;
 
    if (RoadMapSquareActive == NULL) return 0;
 
@@ -801,9 +806,58 @@ int roadmap_square_view (int *square, int size) {
 
 	for (position.longitude = origin.longitude; position.longitude < screen.east; position.longitude += step) {
 		for (position.latitude = origin.latitude; position.latitude <= screen.north; position.latitude += step) {
+			RoadMapArea edges;
+			RoadMapPosition topleft, topright;
+			RoadMapPosition bottomright, bottomleft;
+			RoadMapGuiPoint points[4];
+			int i, il, ir;
 
 			index = roadmap_tile_get_id_from_position (RoadMapScaleCurrent, &position);
+
 			slot = roadmap_square_find (index);
+
+			if (slot >= 0)
+				roadmap_square_edges (index, &edges);
+			else
+				roadmap_tile_edges(index, &edges.west, &edges.east, &edges.south, &edges.north);
+			topleft.longitude     = edges.west;
+			topright.longitude		= edges.east;
+			topleft.latitude      = edges.north;
+			topright.latitude      = edges.north;
+			bottomleft.longitude = edges.west;
+			bottomright.longitude = edges.east;
+			bottomleft.latitude  = edges.south;
+			bottomright.latitude  = edges.south;
+			roadmap_math_coordinate (&topleft, points);
+			roadmap_math_coordinate (&bottomright, points+1);
+			roadmap_math_coordinate (&topright, points+2);
+			roadmap_math_coordinate (&bottomleft, points+3);
+			for (i=0; i< 4; ++i) {
+				roadmap_math_rotate_project_coordinate(points+i);
+			}
+
+			if ((abs(points[0].x - points[1].x) < 30 &&
+					abs(points[0].y - points[1].y) < 30)) {
+				filter_count++;
+				continue;
+			}
+			for (il=0; il< 4; ++il) {
+				if (points[il].x>= 0)
+					break;
+			}
+			if (il==4) {
+				filter_count++;
+				continue;
+			}
+			for (ir=0; ir< 4; ++ir) {
+				if (points[ir].x<= roadmap_canvas_width())
+					break;
+			}
+			if (ir==4) {
+				filter_count++;
+				continue;
+			}
+
 
 			if (slot < 0) {
 				roadmap_tile_request (index, ROADMAP_TILE_STATUS_PRIORITY_ON_SCREEN, 0, NULL);
@@ -812,31 +866,32 @@ int roadmap_square_view (int *square, int size) {
 				}
 			}
 
-         if (slot >= 0) {
+			if (slot >= 0) {
 
 				if (RoadMapSquareForceUpdateMode ||
-					 ((*roadmap_tile_status_get (index)) & ROADMAP_TILE_STATUS_FLAG_ROUTE)) {
+						((*roadmap_tile_status_get (index)) & ROADMAP_TILE_STATUS_FLAG_ROUTE)) {
 					// force new version of route tiles when on screen
 					roadmap_tile_request (index, ROADMAP_TILE_STATUS_PRIORITY_ON_SCREEN, 1, NULL);
 				}
 				if (count < size) {
-            	square[count] = index;
+					square[count] = index;
 				}
-            count += 1;
+				count += 1;
 
-            if (size > 0 && count > size) {
-               roadmap_log (ROADMAP_ERROR,
-                            "too many square are visible: %d is not enough",
-                            size);
-            }
-         }
-      }
-   }
+				if (size > 0 && count > size) {
+					roadmap_log (ROADMAP_ERROR,
+							"too many square are visible: %d is not enough",
+							size);
+				}
+			}
+		}
+	}
 
 #ifndef J2ME
 	roadmap_square_get_tiles (&peripheral, RoadMapScaleCurrent);
 #endif
 	RoadMapSquareForceUpdateMode = 0;
+   //printf("count: %d filter: %d \n", count, filter_count);
    return count;
 }
 

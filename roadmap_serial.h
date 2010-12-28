@@ -38,11 +38,12 @@
 
 typedef struct Win32SerialConn *RoadMapSerial; /* WIN32 style. */
 #define ROADMAP_SERIAL_IS_VALID(f) ((f != NULL) && (f->valid))
-
+#define ROADMAP_INVALID_SERIAL   NULL
 #else
 
 typedef int RoadMapSerial; /* UNIX style. */
 #define ROADMAP_SERIAL_IS_VALID(f) (f != (RoadMapSerial)-1)
+#define ROADMAP_INVALID_SERIAL   -1
 
 #endif
 

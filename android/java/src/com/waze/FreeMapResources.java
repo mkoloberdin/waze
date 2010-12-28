@@ -49,16 +49,17 @@ import java.util.zip.ZipFile;
 
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Application;
 import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.graphics.drawable.Drawable;
 import android.os.Message;
 import android.util.Log;
 import android.view.Display;
 import android.view.View;
+import android.view.WindowManager;
 
 import com.waze.FreeMapNativeManager.FreeMapUIEvent;
 import com.waze.WazeUtils.ExceptionEntry;
@@ -79,49 +80,23 @@ public final class FreeMapResources
      * Extraction of the native library and other resources from the APK package
      * 
      */
-    public static void InitContext( Activity aContext )
-    {
-        mContext = aContext;
-    }
-    /*************************************************************************************************
-     * Extraction of the native library and other resources from the APK package
-     * 
-     */
-    public static boolean CheckSDCardAvailable()
-    {
-    	boolean res = true;
-    	File file = new File("/sdcard");
-    	if ( !file.exists() || !file.canWrite() )
-    	{
-    		if ( mMsgSDDialogRunner == null )
-    		{
-	    		mMsgSDDialogRunner = new UIProgressDlgRunner( null, UIProgressDlgRunner.ACTION_CREATE_MESSAGE_OK|UIProgressDlgRunner.ACTION_SHOW );
-	        	View curView = ( (FreeMapAppActivity) mContext ).getCurrentView();        	
-	        	curView.post( mMsgSDDialogRunner );
-    		}
-    		res = false;
-    	}
-    	return res;
-    }
-    /*************************************************************************************************
-     * Extraction of the native library and other resources from the APK package
-     * 
-     */
-    public static void ExtractResources()
+    public static boolean ExtractResources()
     {
         // Check if we have context to run in
-        if (mContext == null)
+    	final Context context = FreeMapAppService.getAppContext();
+    	boolean isExtracted = false;
+        if ( context == null )
         {
             Log.e("FreeMapResources", "The context is not initialized");
-            return;
+            return isExtracted;
         }
 
         try
         {
             String resDir = mAppDir;
             String libFile = mPkgDir + mLibFile;
-            PackageInfo pi = mContext.getPackageManager().getPackageInfo(
-                    mContext.getPackageName(), 0 );
+            PackageInfo pi = context.getPackageManager().getPackageInfo(
+            		context.getPackageName(), 0 );
             File appDirFile = new File( mAppDir );
             int currentVerCode = GetVersionFromFile();
             int verCode = pi.versionCode;
@@ -130,9 +105,10 @@ public final class FreeMapResources
             // Log.d("Waze installation", "Current version: " + verCode + ". Previous version: " + GetVersionFromFile() );
             if ( currentVerCode < verCode || !appDirFile.exists() )
             {
-            	View curView = ( (FreeMapAppActivity) mContext ).getCurrentView();
+            	View curView = FreeMapAppService.getMainView();
             	UIProgressDlgRunner showRunner = new UIProgressDlgRunner( null, UIProgressDlgRunner.ACTION_CREATE_PROGRESS|UIProgressDlgRunner.ACTION_SHOW );            	
             	curView.postDelayed( showRunner, PROGRESS_DLG_SHOW_TIMEOUT ); 
+            	isExtracted = true;
             	
             	mUpgradeRun = 1;
                 // Remove the log files
@@ -183,7 +159,13 @@ public final class FreeMapResources
                     ExtractFromZip("assets/freemapHD", resDir,
                             ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
                 }
-                
+                // Extract the LD resources if necessary
+                if ( IsLD() )
+                {
+                    ExtractFromZip("assets/freemapLD", resDir,
+                            ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
+                }
+
                 // Extract the user
                 ExtractFromZip("assets/freemap/user", mPkgDir + mUserFile,
                         ZipEntryType.ZIP_ENTRY_FILE, userException );
@@ -200,6 +182,11 @@ public final class FreeMapResources
             {
                 Log.d("Freemap installation",
                         "Resources extraction unnecessary");
+                // AGA TEMP
+                // Extract the library
+//                ExtractFromZip("assets/libandroidroadmap.so", libFile,
+//                        ZipEntryType.ZIP_ENTRY_FILE, null );
+
             }
         }
         catch ( NameNotFoundException ex )
@@ -207,25 +194,32 @@ public final class FreeMapResources
             Log.e("FreeMapNativeActivity", "ExtractResources() failed."
                     + ex.getMessage() + ex.getStackTrace());
         }
+        return isExtracted;
     }
 
     static public boolean IsHD()
     {
-    	return IsHD( mContext );
-    }
-
-    static public boolean IsHD( Activity aContext )
-    {
-    	Display display = aContext.getWindowManager().getDefaultDisplay();
+    	Context ctx = FreeMapAppService.getAppContext();
+    	WindowManager windowManager = ( WindowManager ) ctx.getSystemService( Context.WINDOW_SERVICE );
+    	Display display = windowManager.getDefaultDisplay();
     	return ( display.getHeight() >= SCREEN_HD_DIM_PIX || display.getWidth() >= SCREEN_HD_DIM_PIX );
     }
-
+    static public boolean IsLD()
+    {
+    	Context ctx = FreeMapAppService.getAppContext();
+    	WindowManager windowManager = ( WindowManager ) ctx.getSystemService( Context.WINDOW_SERVICE );
+    	Display display = windowManager.getDefaultDisplay();
+    	return ( display.getHeight() <= SCREEN_LD_DIM_PIX || display.getWidth() <= SCREEN_LD_DIM_PIX );
+    }
     
     static public String GetBaseDir()
     {
     	String base_dir = mBaseDirSD;
     	if ( IsHD() )
     		base_dir = mBaseDirHD;
+    	if ( IsLD() )
+    		base_dir = mBaseDirLD;
+
     	return base_dir;
     }
     
@@ -238,19 +232,6 @@ public final class FreeMapResources
     		splashPath += mSplashPath;
     	
     	return splashPath;
-    }
-
-    static public String GetReportPath()
-    {
-    	String path = mSDCardResDir;
-   		path += mReportPath;    
-    	return path;
-    }
-    static public String GetEventsPath()
-    {
-    	String path = mSDCardResDir;
-   		path += mEventsPath;    
-    	return path;
     }
     static public String GetSkinsPath()
     {
@@ -274,44 +255,51 @@ public final class FreeMapResources
     	{
     		if ( ( mAction & ACTION_CREATE_PROGRESS ) > 0)
     		{
-            	mDlg = new ProgressDialog( mContext, ProgressDialog.STYLE_SPINNER );
-            	mDlg.setTitle( new String( "Please wait" ) );
-            	mDlg.setMessage( new String( "waze is preparing to run for the first time. It may take a minute or two" ) );
+    			mDlg = null;
+    			if ( FreeMapAppService.getMainActivity() != null )
+    			{
+	            	mDlg = new ProgressDialog( FreeMapAppService.getMainActivity(), ProgressDialog.STYLE_SPINNER );
+	            	mDlg.setTitle( new String( "Please wait" ) );
+	            	mDlg.setMessage( new String( "waze is preparing to run for the first time. It may take a minute or two" ) );
+    			}
     		}
     		if ( ( mAction & ACTION_CREATE_MESSAGE_OK ) > 0)
     		{
-        		AlertDialog.Builder dlgBuilder = new AlertDialog.Builder( mContext );
-        		FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
-        		
-        		mDlg = dlgBuilder.create();
-        		
-        		final String btnLabel = new String( "Ok" );
-        		final String title = new String( "Error" );
-        		final String msgText = new String( "Waze can't access your SD card. Make sure it isn't mounted." );
-        		Message msg = mgr.GetUIMessage( FreeMapUIEvent.UI_EVENT_STARTUP_NOSDCARD );
-    			
-    			mDlg.setTitle( title );
-    			mDlg.setButton( DialogInterface.BUTTON_POSITIVE, btnLabel, msg );
-            	mDlg.setMessage( msgText );
-            	mDlg.setIcon( android.R.drawable.ic_dialog_alert );
+    			mDlg = null;
+    			if ( FreeMapAppService.getMainActivity() != null )
+    			{
+	        		AlertDialog.Builder dlgBuilder = new AlertDialog.Builder( FreeMapAppService.getMainActivity() );
+	        		FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+	        		
+	        		mDlg = dlgBuilder.create();
+	        		
+	        		final String btnLabel = new String( "Ok" );
+	        		final String title = new String( "Error" );
+	        		final String msgText = new String( "Waze can't access your SD card. Make sure it isn't mounted." );
+	        		Message msg = mgr.GetUIMessage( FreeMapUIEvent.UI_EVENT_STARTUP_NOSDCARD );
+	    			
+	    			mDlg.setTitle( title );
+	    			mDlg.setButton( DialogInterface.BUTTON_POSITIVE, btnLabel, msg );
+	            	mDlg.setMessage( msgText );
+	            	mDlg.setIcon( android.R.drawable.ic_dialog_alert );
+    			}
     		}
 			if ( ( mAction & ACTION_SHOW ) > 0 )
     		{
-    			mDlg.show();	    			
+				if ( mDlg != null )
+					mDlg.show();	    			
     		}
     		if ( ( mAction & ACTION_CANCEL ) > 0 )
     		{
-    			mDlg.dismiss();
+    			if ( mDlg != null )
+    				mDlg.dismiss();
     		}
     	}
     	public void setAction( int aAction )
     	{
     		mAction = aAction;
     	}
-    	public AlertDialog getDialog()
-    	{
-    		return mDlg;
-    	}
+
     	public static final int ACTION_CREATE_PROGRESS = 0x1;
     	public static final int ACTION_CREATE_MESSAGE_OK = 0x2;
     	public static final int ACTION_SHOW = 0x100;
@@ -402,8 +390,9 @@ public final class FreeMapResources
         try
         {
             boolean stopFlag = false;
-            String pkgFile = mContext.getPackageManager().getApplicationInfo(
-                    mContext.getPackageName(), 0).sourceDir;
+            final Context context = FreeMapAppService.getAppContext();
+            String pkgFile = context.getPackageManager().getApplicationInfo(
+            		context.getPackageName(), 0).sourceDir;
             // Open the zip
             pkgZip = new ZipFile(pkgFile);
             // Zip entries
@@ -636,7 +625,6 @@ public final class FreeMapResources
      * 
      */
 
-	static private Activity mContext = null; // The context
 	public static byte mUpgradeRun = 0;
 	private static UIProgressDlgRunner mMsgSDDialogRunner = null;
 	
@@ -663,14 +651,14 @@ public final class FreeMapResources
     public static final String mPkgLibDir    	 = "lib";
     public static final String mBaseDirSD        = "freemap/";
     public static final String mBaseDirHD        = "freemapHD/";
-    public static final String mSkinsPath        = "skins/default/";
-    public static final String mReportPath       = "skins/default/ReportAndroid.bin";
-    public static final String mEventsPath       = "skins/default/EventsAndroid.bin";
+    public static final String mBaseDirLD        = "freemapLD/";
+    public static final String mSkinsPath        = "skins/default/";    
     public static final String mSplashPath       = "skins/default/welcome.bin";    
     public static final String mSplashWidePath   = "skins/default/welcome_wide.bin";
 	public static final int mVersionCodeSize = 7; // Version code size in bytes
 	private static final int PROGRESS_DLG_SHOW_TIMEOUT = 1000; // Milliseconds
 	private static final int SCREEN_HD_DIM_PIX	= 640;	// The minimimum dimension size to define the screen as HD (in pixels)
+	private static final int SCREEN_LD_DIM_PIX	= 240;	// The minimimum dimension size to define the screen as HD (in pixels)
 }
 
 

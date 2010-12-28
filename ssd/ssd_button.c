@@ -204,7 +204,7 @@ static int ssd_button_short_click (SsdWidget widget,
 
    widget->force_click = FALSE;
 
-#ifndef IPHONE
+#ifdef PLAY_CLICK
 	if (!list) {
       list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
       roadmap_sound_list_add (list, "click");
@@ -453,11 +453,19 @@ SsdWidget ssd_button_label (const char *name, const char *label,
                             int flags, SsdCallback callback) {
 
    const char *button_icon[]   = {"button_up", "button_down", "button_disabled"};
+   int y_offset = ADJ_SCALE( -2 );
+
    SsdWidget text;
    SsdWidget button = ssd_button_new (name, "", button_icon, 3,
                                       flags, callback);
 
-   text = ssd_text_new ("label", label, 14, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
+   #if defined (_WIN32) && !defined (OPENGL)
+      text = ssd_text_new ("label", label, 12, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
+   #else
+      text = ssd_text_new ("label", label, 14, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER) ;
+   #endif
+
+   ssd_widget_set_offset( text, 0, y_offset );
    ssd_widget_set_color(text, "#ffffff", "#ffffff");
    ssd_widget_add (button,text);
 
@@ -471,9 +479,11 @@ SsdWidget ssd_button_label_custom (const char *name, const char *label,
    SsdWidget text;
    SsdWidget button = ssd_button_new (name, "", button_icon, 2,
                                       flags, callback);
+   int y_offset = ADJ_SCALE( -2 );
 
    text = ssd_text_new ("label", label, 14, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
    ssd_widget_set_color(text, txt_color, txt_focus_color);
+   ssd_widget_set_offset( text, 0, y_offset );
    ssd_widget_add (button,text);
 
    return button;

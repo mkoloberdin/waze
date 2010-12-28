@@ -30,6 +30,7 @@
 #include <stdlib.h>
 
 #include "roadmap_canvas.h"
+#include "roadmap_main.h"
 
 #include "roadmap_sound.h"
 #include "roadmap_hash.h"
@@ -40,11 +41,17 @@
 
 #include "roadmap_res.h"
 
-#define RES_CACHE_SIZE 50
-
+#if defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)
+#define RES_CACHE_SIZE 30	// Symbian non touch
+#elif defined(ANDROID)
+#define RES_CACHE_SIZE 600	// Default
+#else
+#define RES_CACHE_SIZE 150 // Default
+#endif
 const char *ResourceName[] = {
    "bitmap_res",
-   "sound_res"
+   "sound_res",
+   "native_img_res"
 };
 
 struct resource_slot {
@@ -80,7 +87,7 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key );
 static void roadmap_res_cache_set_MRU( RoadMapResource* res, int slot );
 
 static void dbg_cache( RoadMapResource* res, int slot, const char* name );
-
+static void print_cache( RoadMapResource* res, const char* note );
 static void allocate_resource (unsigned int type) {
    RoadMapResource *res = &Resources[type];
    res->res_type = type;
@@ -113,8 +120,14 @@ static void *load_resource (unsigned int type, unsigned int flags,
             case RES_SOUND:
                data = roadmap_sound_load (cursor, name, mem);
                break;
-         }
+#ifdef IPHONE_NATIVE
+            case RES_NATIVE_IMAGE:
+               *mem = 0;
 
+               data = roadmap_main_load_image (cursor, name);
+               break;
+#endif
+         }
          if (data) break;
       }
 
@@ -133,6 +146,13 @@ static void *load_resource (unsigned int type, unsigned int flags,
             roadmap_path_format (path, sizeof (path), path, roadmap_prompts_get_name());
             data = roadmap_sound_load (path, name, mem);
             break;
+#ifdef IPHONE_NATIVE
+         case RES_NATIVE_IMAGE:
+            *mem = 0;
+            roadmap_path_format (path, sizeof (path), user_path, "icons");
+            data = roadmap_main_load_image (path, name);
+            break;
+#endif
       }
    }
 
@@ -153,6 +173,11 @@ static void free_resource ( RoadMapResource* res, int slot) {
          case RES_SOUND:
             roadmap_sound_free ((RoadMapSound)data);
             break;
+#ifdef IPHONE_NATIVE
+         case RES_NATIVE_IMAGE:
+            roadmap_main_free_image ((RoadMapNativeImage)data);
+            break;
+#endif
       }
    }
 
@@ -190,7 +215,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    RoadMapResource *res = &Resources[type];
    int slot;
 
-   if (name == NULL)
+   if (name == NULL || (name[0] == 0))
    	return NULL;
 
    if (Resources[type].hash == NULL) allocate_resource (type);
@@ -198,9 +223,9 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
    if (! (flags & RES_NOCACHE))
    {
       int slot;
-      slot = find_resource ( type, name );
+         slot = find_resource ( type, name );
 
-      if ( slot > 0 )
+      if ( slot >= 0 )
 	  {
     	  roadmap_res_cache_set_MRU( res, slot );
     	  data = res->slots[slot].data;
@@ -212,6 +237,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
 
    switch (type) {
    case RES_BITMAP:
+   case RES_NATIVE_IMAGE:
       if ( strchr (name, '.') )
       {
      	 if ( !data )
@@ -311,9 +337,9 @@ static void roadmap_res_cache_set_MRU( RoadMapResource* res, int slot )
 		cache[last].next = slot;
 
 		// Fix the connections
-		if ( prev > 0 )
+		if ( prev >= 0 )
 			cache[prev].next = next;
-		if ( next > 0 )
+		if ( next >= 0 )
 			cache[next].prev = prev;
 
 	}
@@ -344,6 +370,9 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 	}
 	else
 	{
+#ifdef ANDROID
+	   roadmap_log( ROADMAP_ERROR, "Exceeding cache entries number %d!!!", RES_CACHE_SIZE );
+#endif
 	    /*
 	     * Remove and deallocate the LRU element in the cache
 	     */
@@ -351,7 +380,7 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 		while ( res->slots[non_locked_lru].flags & RES_LOCK )
 		{
 			non_locked_lru = cache[non_locked_lru].prev;
-		}
+		} 
 		if ( non_locked_lru == res->cache_head )
 		{
 			roadmap_log( ROADMAP_ERROR, "Cannot find non-locked resource!!! Removing the locked LRU" );
@@ -440,10 +469,27 @@ static void dbg_cache( RoadMapResource* res, int slot, const char* name )
 	int next = res->cache_head;
 	ResCacheEntry* cache = res->cache;
 
-	roadmap_log( ROADMAP_WARNING, "The cache size exceed - deallocating slot %d. Name %s. Adding: %s", slot, res->slots[slot].name, name );
+	roadmap_log( ROADMAP_WARNING, "The cache size exceed (Count: %d)  - deallocating slot %d. Name %s. Adding: %s", res->count, slot, res->slots[slot].name, name );
 	for( i = 0; i < RES_CACHE_SIZE; ++i )
 	{
-		roadmap_log_raw_data_fmt( "Cache snapshot: %d: %d, %s \n", i, next, res->slots[next].name );
+
+		roadmap_log_raw_data_fmt( "Cache snapshot: %d: (Prev: %d, Next: %d) %d, %s \n", i, res->cache[next].prev, res->cache[next].next,
+                                       next, res->slots[next].name );
 		next = cache[next].next;
 	}
+}
+
+static void print_cache( RoadMapResource* res, const char* note )
+{
+   int i;
+   int next = res->cache_head;
+   ResCacheEntry* cache = res->cache;
+
+   roadmap_log( ROADMAP_WARNING, "The cache data for %s. ( Count:%d )", note, res->count );
+   for( i = 0; i < RES_CACHE_SIZE; ++i )
+   {
+      roadmap_log_raw_data_fmt( "Cache snapshot: %d: (Prev: %d, Next: %d) %d, %s \n", i, res->cache[next].prev, res->cache[next].next,
+                                       next, res->slots[next].name );
+      next = cache[next].next;
+   }
 }

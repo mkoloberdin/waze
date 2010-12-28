@@ -36,6 +36,12 @@
 #include <OpenGLES/ES1/gl.h>
 #elif defined(ANDROID)
 #include <GLES/gl.h>
+#elif defined(GTK2_OGL)
+#include <GL/gl.h>
+#elif defined(_WIN32)
+#include <GLES/gl.h>
+#elif defined(GTK2_OGL)
+#include <GL/gl.h>
 #else
 #error "Platform not recognized"
 #endif
@@ -165,16 +171,25 @@ GLAPI void GLAPIENTRY gluBeginPolygon (GLUtesselator* tess);
 GLAPI GLboolean GLAPIENTRY gluCheckExtension (const GLubyte *extName, const GLubyte *extString);
 GLAPI void GLAPIENTRY gluDeleteTess (GLUtesselator* tess);
 GLAPI void GLAPIENTRY gluEndPolygon (GLUtesselator* tess);
+
 GLAPI const GLubyte * GLAPIENTRY gluErrorString (GLenum error);
 GLAPI const GLubyte * GLAPIENTRY gluGetString (GLenum name);
 GLAPI void GLAPIENTRY gluGetTessProperty (GLUtesselator* tess, GLenum which, GLdouble* data);
-GLAPI void GLAPIENTRY gluLookAt (GLdouble eyeX, GLdouble eyeY, GLdouble eyeZ, GLdouble centerX, GLdouble centerY, GLdouble centerZ, GLdouble upX, GLdouble upY, GLdouble upZ);
+void GLAPIENTRY gluLookAt(GLfloat eyex, GLfloat eyey, GLfloat eyez,
+						  GLfloat centerx, GLfloat centery, GLfloat centerz,
+						  GLfloat upx, GLfloat upy, GLfloat upz);
 GLAPI GLUtesselator* GLAPIENTRY gluNewTess (void);
 GLAPI void GLAPIENTRY gluNextContour (GLUtesselator* tess, GLenum type);
+
 GLAPI void GLAPIENTRY gluOrtho2D (GLdouble left, GLdouble right, GLdouble bottom, GLdouble top);
-GLAPI void GLAPIENTRY gluPerspective (GLdouble fovy, GLdouble aspect, GLdouble zNear, GLdouble zFar);
+
+void GLAPIENTRY gluPerspective(GLfloat fovy, GLfloat aspect, GLfloat zNear, GLfloat zFar);
+
 GLAPI void GLAPIENTRY gluPickMatrix (GLdouble x, GLdouble y, GLdouble delX, GLdouble delY, GLint *viewport);
-GLAPI GLint GLAPIENTRY gluProject (GLdouble objX, GLdouble objY, GLdouble objZ, const GLdouble *model, const GLdouble *proj, const GLint *view, GLdouble* winX, GLdouble* winY, GLdouble* winZ);
+GLint GLAPIENTRY gluProjectf(GLfloat objx, GLfloat objy, GLfloat objz,
+									   const GLfloat model[16], const GLfloat proj[16],
+									   const GLint viewport[4],
+									   GLfloat * winx, GLfloat * winy, GLfloat * winz);
 GLAPI void GLAPIENTRY gluTessBeginContour (GLUtesselator* tess);
 GLAPI void GLAPIENTRY gluTessBeginPolygon (GLUtesselator* tess, GLvoid* data);
 GLAPI void GLAPIENTRY gluTessCallback (GLUtesselator* tess, GLenum which, _GLUfuncptr CallBackFunc);
@@ -183,7 +198,12 @@ GLAPI void GLAPIENTRY gluTessEndPolygon (GLUtesselator* tess);
 GLAPI void GLAPIENTRY gluTessNormal (GLUtesselator* tess, GLdouble valueX, GLdouble valueY, GLdouble valueZ);
 GLAPI void GLAPIENTRY gluTessProperty (GLUtesselator* tess, GLenum which, GLdouble data);
 GLAPI void GLAPIENTRY gluTessVertex (GLUtesselator* tess, GLdouble *location, GLvoid* data);
-GLAPI GLint GLAPIENTRY gluUnProject (GLdouble winX, GLdouble winY, GLdouble winZ, const GLdouble *model, const GLdouble *proj, const GLint *view, GLdouble* objX, GLdouble* objY, GLdouble* objZ);
+GLint GLAPIENTRY gluUnProjectf(GLfloat winx, GLfloat winy, GLfloat winz, 
+										 const GLfloat modelMatrix[16],  
+										 const GLfloat projMatrix[16], 
+										 const GLint viewport[4], 
+										 GLfloat *objx, GLfloat *objy, GLfloat *objz);
+
 GLAPI GLint GLAPIENTRY gluUnProject4 (GLdouble winX, GLdouble winY, GLdouble winZ, GLdouble clipW, const GLdouble *model, const GLdouble *proj, const GLint *view, GLdouble nearVal, GLdouble farVal, GLdouble* objX, GLdouble* objY, GLdouble* objZ, GLdouble* objW);
 
 #ifdef __cplusplus

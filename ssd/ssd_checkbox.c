@@ -28,6 +28,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "roadmap_screen.h"
 #include "ssd_dialog.h"
 #include "ssd_container.h"
 #include "ssd_button.h"
@@ -43,13 +44,14 @@ struct ssd_checkbox_data {
    int style;
 };
 
-#define CHKBOX_CLICK_OFFSETS_DEFAULT	{-300, -20, 300, 20 };
+#define CHKBOX_CLICK_OFFSET_DEFAULT_X 300
+#define CHKBOX_CLICK_OFFSET_DEFAULT_Y 20
 
-static SsdClickOffsets sgChkBoxOffsets = CHKBOX_CLICK_OFFSETS_DEFAULT;
+static SsdClickOffsets sgChkBoxOffsets = {0, 0, 0, 0};
 static const char *yesno[] = {"yes", "no"};
 
-static const char *checked_button[] = {"checkbox_on", "round_checkbox_checked", "default_checkbox_on" };
-static const char *unchecked_button[] = {"checkbox_off", "round_checkbox_unchecked", "default_checkbox_off"};
+static const char *checked_button[] = {"checkbox_on", "round_checkbox_checked", "default_checkbox_on", "v" };
+static const char *unchecked_button[] = {"checkbox_off", "round_checkbox_unchecked", "default_checkbox_off", "empty_image"};
 
 
 static int choice_callback (SsdWidget widget, const char *new_value) {
@@ -188,9 +190,56 @@ SsdWidget ssd_checkbox_new (const char *name,
    	button = ssd_button_new ("checkbox_button", "", &data->unchecked_icon, 1,
                    SSD_ALIGN_VCENTER, choice_callback);
    ssd_widget_add (choice, button);
+
+   if (sgChkBoxOffsets.left == 0) {
+      sgChkBoxOffsets.left = -ADJ_SCALE(CHKBOX_CLICK_OFFSET_DEFAULT_X);
+      sgChkBoxOffsets.top = -ADJ_SCALE(CHKBOX_CLICK_OFFSET_DEFAULT_Y);
+      sgChkBoxOffsets.right = ADJ_SCALE(CHKBOX_CLICK_OFFSET_DEFAULT_X);
+      sgChkBoxOffsets.bottom = ADJ_SCALE(CHKBOX_CLICK_OFFSET_DEFAULT_Y);
+   }
+
    ssd_widget_set_click_offsets( button, &sgChkBoxOffsets );
    ssd_widget_set_click_offsets( choice, &sgChkBoxOffsets );
 
    return choice;
 }
 
+SsdWidget ssd_checkbox_row_new (const char *name,
+                                 const char* label,
+                                 BOOL Selected,
+                                 SsdCallback callback,
+                                 const char *checked_icon,
+                                 const char *unchecked_icon,
+                                 int style) {
+   char widget_name[256];
+   SsdWidget box, box2;
+   int row_height = ssd_container_get_row_height();
+   int width = ssd_container_get_width();
+
+   //Create container
+   snprintf(widget_name, sizeof(widget_name), "%s_group", name);
+   box = ssd_container_new (widget_name, NULL, SSD_MAX_SIZE, row_height,
+                           SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP);
+   ssd_widget_set_color (box, "#000000", "#ffffff");
+
+   //Create text label
+   snprintf(widget_name, sizeof(widget_name), "%s_label", name);
+   box2 = ssd_container_new ("box2", NULL, 2*width/3, SSD_MAX_SIZE,
+                              SSD_ALIGN_VCENTER);
+   ssd_widget_set_color(box2, NULL, NULL);
+   ssd_widget_add (box2,
+                  ssd_text_new (widget_name,
+                    label,
+                    SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+
+   ssd_widget_add(box,box2);
+
+   //Create checkbox
+   snprintf(widget_name, sizeof(widget_name), "%s", name);
+   ssd_widget_add (box,
+                  ssd_checkbox_new (widget_name, Selected
+                                 ,  SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, callback,checked_icon,unchecked_icon,style));
+   ssd_dialog_add_hspace (box, 5, SSD_ALIGN_RIGHT);
+
+   return box;
+}

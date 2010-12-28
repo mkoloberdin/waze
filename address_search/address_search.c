@@ -230,6 +230,8 @@ const char* on_address_option(   /* IN  */   const char*       data,
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;
 
+   ac.type = ADDRESS_CANDIDATE_TYPE_ADRESS;
+
    // Expected data:
    //    <longtitude>,<latitude>,[state],[county],<city>,<street>,<house number>\n
 
@@ -384,7 +386,7 @@ const char* on_address_option(   /* IN  */   const char*       data,
    // Fix [out] param:
    (*rc) = succeeded;
 
-   return data; 
+   return data;
 }
 
 roadmap_result address_search_resolve_address(
@@ -412,15 +414,15 @@ roadmap_result address_search_report_wrong_address(const char* user_input)
       roadmap_log( ROADMAP_ERROR, "address_search_report_wrong_address() - MODULE NOT INITIALIZED");
       assert(0);  // 'address_search_init()' was not called
       return err_internal_error;
-      
+
    }
-   tstate = wst_get_trans_state( s_websvc);	
+   tstate = wst_get_trans_state( s_websvc);
    if( trans_idle != tstate)
    {
       roadmap_log( ROADMAP_DEBUG, "address_search_report_wrong_address() - Cannot start transaction: Transaction is not idle yet");
       wst_watchdog( s_websvc);
       return err_as_already_in_transaction;
-   }	
+   }
    report = address_search_prepare_report(user_input);
    // Perform WebService Transaction:
    if( wst_start_trans( s_websvc,

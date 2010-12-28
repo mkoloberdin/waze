@@ -31,8 +31,10 @@
 #include "roadmap.h"
 #include "roadmap_gui.h"
 #include "roadmap_canvas.h"
-#include "roadmap_canvas_ogl.h"
 #include "roadmap_canvas_atlas.h"
+#ifdef GTK2_OGL
+#include <GL/gl.h>
+#endif// GTK2_OGL
 
 
 #define CANVAS_ATLAS_MAX_TREES   20
@@ -51,6 +53,7 @@ typedef struct root_t {
 
 static AtlasRoot roots[CANVAS_ATLAS_MAX_TREES];
 
+extern void roadmap_canvas_bind (int texture);
 
 
 ////////////////////////////////////////////////////////////
@@ -65,19 +68,24 @@ static AtlasNode *create_new_node(void) {
    return n;   
 }
 
-static AtlasRoot create_new_root (const char *hint) {
+static AtlasRoot create_new_root (const char *hint, int min_filter, int mag_filter) {
    AtlasRoot root;
    GLuint texture;
    GLubyte* temp_buf;
    int i, j;
    
+#ifdef ANDROID
+   // Should be reduced when stable AGA
+   roadmap_log (ROADMAP_WARNING, "roadmap_canvas_atlas - creating new root for hint '%s'", hint);
+#else
    roadmap_log (ROADMAP_DEBUG, "roadmap_canvas_atlas - creating new root for hint '%s'", hint);
-   
+#endif
+
    glGenTextures( 1, &texture);
-   glBindTexture( GL_TEXTURE_2D, texture);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-   glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
-   
+   roadmap_canvas_bind(texture);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, min_filter);
+   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, mag_filter);
+   check_gl_error();
    temp_buf= malloc(4 * CANVAS_ATLAS_TEX_SIZE * CANVAS_ATLAS_TEX_SIZE);
    roadmap_check_allocated (temp_buf);
    for( j = 0; j < CANVAS_ATLAS_TEX_SIZE; j++) {
@@ -91,6 +99,7 @@ static AtlasRoot create_new_root (const char *hint) {
 
    glTexImage2D( GL_TEXTURE_2D, 0, GL_RGBA, CANVAS_ATLAS_TEX_SIZE, CANVAS_ATLAS_TEX_SIZE, 0,
                 GL_RGBA, GL_UNSIGNED_BYTE, temp_buf );
+   check_gl_error();
    free(temp_buf);
    
    root.root_node = create_new_node();
@@ -98,11 +107,12 @@ static AtlasRoot create_new_root (const char *hint) {
    root.root_node->rect.maxx = root.root_node->rect.maxy = CANVAS_ATLAS_TEX_SIZE - 1;
    root.texture = texture;
    strncpy_safe (root.hint, hint, sizeof(root.hint));
+   
    return root;
 }
 
 ////////////////////////////////////////////////////////////
-static int get_root_index (const char *hint, int start_index) {
+static int get_root_index (const char *hint, int start_index, int min_filter, int mag_filter) {
    int i;
    static BOOL initialized = FALSE;
    
@@ -111,18 +121,18 @@ static int get_root_index (const char *hint, int start_index) {
          roots[i].root_node = NULL;
          roots[i].hint[0] = 0;
       }
-      
+
       initialized = TRUE;
    }
    
    for (i = start_index; i < CANVAS_ATLAS_MAX_TREES; i++) {
       if (roots[i].root_node == NULL) {
-         roots[i] = create_new_root(hint);
+         roots[i] = create_new_root(hint, min_filter, mag_filter);
          return i;
       }
-      
-      if (!strcmp(roots[i].hint, hint))
-         return i;
+
+         if (!strcmp(roots[i].hint, hint))
+            return i;
    }
    
    return -1;
@@ -189,16 +199,16 @@ static AtlasNode *insert(RoadMapImage *image, AtlasNode *node) {
    return insert(image, node->child[0]);
 }
 
-BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image) {
+BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image, int min_filter, int mag_filter) {
    int root_index = 0;
    AtlasRoot *root = NULL;
    AtlasNode *node = NULL;
    RoadMapImage img = (*image);
    
    while (node == NULL && root_index != -1) {
-      root_index = get_root_index(hint, root_index);
+      root_index = get_root_index(hint, root_index, min_filter, mag_filter);
       if (root_index != -1) {
-         root = &roots[root_index];
+         root = &roots[root_index];         
          node = insert(image, root->root_node);
          root_index++;
       }
@@ -211,14 +221,20 @@ BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image) {
    
    node->image = img;
 
-   glBindTexture( GL_TEXTURE_2D, root->texture);
+   roadmap_canvas_bind(root->texture);
    glTexSubImage2D(GL_TEXTURE_2D, 0, node->rect.minx, node->rect.miny, img->width, img->height,
                    GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
    check_gl_error();
+
+#ifdef ANDROID
+   if ( roadmap_main_get_build_sdk_version() >= ANDROID_OS_VER_FROYO )
+      glFinish();
+#endif
    
    img->offset.x = node->rect.minx;
    img->offset.y = node->rect.miny;
    img->texture = root->texture;
+   
    
    return TRUE;
 }

@@ -161,7 +161,7 @@ public class WazeLog
              {
                  // Start the process
                  mLogcatProc = Runtime.getRuntime().exec( new String[]
-                         {"logcat", "-v" ,"time", "*:W" } );
+                         {"logcat", "-v" ,"time", "*:I" } );
                  
                  // Start the reader and writer
                  reader = new BufferedReader(new InputStreamReader( mLogcatProc.getInputStream()) );
@@ -247,10 +247,19 @@ public class WazeLog
      {
          if ( mInstance == null )
              return;
-        synchronized ( mInstance )
-        {
-             mInstance.WazeLogNTV( aLevel, LOG_PREFIX + aStr );            
-        }
+         
+         try
+         {
+	         synchronized ( mInstance )
+	         {
+	             mInstance.WazeLogNTV( aLevel, LOG_PREFIX + aStr );            
+	         }
+         }
+         catch( Exception ex )
+         {
+        	 Log.w( "WAZE", "Error in LogData: " + ex.getMessage() );
+        	 ex.printStackTrace();
+         }
 
      }
      

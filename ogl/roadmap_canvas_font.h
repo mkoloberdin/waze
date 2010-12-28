@@ -30,7 +30,7 @@
 #ifndef INCLUDE__ROADMAP_CANVAS_FONT__H
 #define INCLUDE__ROADMAP_CANVAS_FONT__H
 
-
+#define ACTUAL_FONT_SIZE(size) ((size / 10 +1) * 10)
 
 typedef struct  {
    RoadMapImage   image;

@@ -86,6 +86,7 @@ INLINE_DEC int roadmap_layer_is_visible (int layer, int area) {
     if (! category->visible) {
         return 0;
     }
+
     return roadmap_math_declutter (category->declutter, area);
 }
 
@@ -111,7 +112,14 @@ INLINE_DEC int roadmap_layer_max_pen(void) {
 
 INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) {
 
-   if (!roadmap_layer_is_visible (layer, area)) return NULL;
+    int proj = area;
+
+#ifdef VIEW_MODE_3D_OGL
+	 /* rely on opengl to shrink the lines on the horizon */
+         if (proj < 4) proj = 0;
+#endif
+
+   if (!roadmap_layer_is_visible (layer, proj)) return NULL;
 
    // Do not draw city polygons while in fast draw mode
 
@@ -122,20 +130,30 @@ INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) 
       int i;
       for (i=roadmap_layer_max_pen() - 1; i>=0; i--) {
 
-         if (RoadMapCategory[layer].in_use[area][i])
-            return RoadMapCategory[layer].pen[area][i];
+         if (RoadMapCategory[layer].in_use[proj][i])
+            return RoadMapCategory[layer].pen[proj][i];
       }
 
       return NULL;   
    }
 
-   if (!RoadMapCategory[layer].in_use[area][pen_type]) return NULL;
+   if (!RoadMapCategory[layer].in_use[proj][pen_type]) return NULL;
+
+   if (proj && (pen_type == 0) && !RoadMapCategory[layer].in_use[proj][1] &&
+                   RoadMapCategory[layer].in_use[0][1])
+      return RoadMapCategory[layer].pen[0][1];
    
-   return RoadMapCategory[layer].pen[area][pen_type];
+   return RoadMapCategory[layer].pen[0][pen_type];
 }
 
 INLINE_DEC RoadMapPen roadmap_layer_get_label_pen (int layer) {
    return RoadMapCategory[layer].label_pen;
+}
+
+INLINE_DEC int roadmap_layer_get_declutter(int layer) {
+   struct roadmap_canvas_category *category = RoadMapCategory + layer;
+
+   return category->declutter;
 }
 
 
@@ -180,6 +198,7 @@ int  roadmap_layer_is_visible (int layer, int area);
 
 RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area);
 RoadMapPen roadmap_layer_get_label_pen (int layer);
+int roadmap_layer_get_declutter (int layer);
 
 void roadmap_layer_adjust (void);
 

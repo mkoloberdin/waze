@@ -15,7 +15,7 @@ SOUNDSRC =
 else 
 ifeq ($(DESKTOP),ANDROID)
 include ../android/Makefile.in.android
-
+ 
 else
 RANLIB = ranlib
 
@@ -31,6 +31,9 @@ else
 	ARFLAGS="r"
 endif
 
+CFLAGS=$(MODECFLAGS) $(CFLAGS_ANDROID) $(INCLUDES) -I$(PWD) $(LIBDIRS)
+CXXFLAGS=$(CFLAGS) 
+LDFLAGS=$(MODELDFLAGS)
 
 # --- RoadMap sources & targets --------------------------------------------
 
@@ -53,6 +56,7 @@ endif
 
 OSLIBSRCS=$(OSLIBSRCSCORE) $(SOUNDSRC)
 OSLIBOBJS=$(OSLIBSRCS:.c=.o)
+
 
 
 # --- Conventional targets ----------------------------------------

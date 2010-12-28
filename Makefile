@@ -19,7 +19,7 @@ INSTALL_DATA = install -m644
 # --- Tool specific options ------------------------------------------------
 ifeq ($(DESKTOP),ANDROID)
 include android/Makefile.in.android
-LIB_INCLUDES = -Izlib -Ifreetype/include -Iandroid
+LIB_INCLUDES = -Izlib -Ifreetype/include -Iandroid -Ifreetype/include/freetype
 #ZLIB = zlib/libz.a
 endif
 
@@ -80,7 +80,13 @@ ifeq ($(HI_RES_SCREEN),YES)
 endif
 
 ifeq ($(RENDERING),OPENGL)
-  MODECFLAGS+= -DOPENGL
+   OPENGL_DIR=ogl
+   MODECFLAGS+= -DOPENGL  -DVIEW_MODE_3D_OGL  
+   ifeq ($(DESKTOP),GTK2)
+      LIB_INCLUDES+= -I$(PROJ_NAME)/src/ogl/glu -I$(PROJ_NAME)/src/ogl/glu/include -I/usr/include/freetype2
+   # GTK2 with OPENGL
+      MODECFLAGS+=-DGTK2_OGL -DVIEW_MODE_3D_OGL
+   endif
 endif
 
 ifeq ($(CSV_GPS),REALTIME)
@@ -156,7 +162,9 @@ LDFLAGS=$(MODELDFLAGS)
 RDMLIBS=libroadmap.a unix/libosroadmap.a libroadmap.a
 
 ifeq ($(RENDERING),OPENGL)
-  RDMLIBS += libglu.a  
+ifneq ($(DESKTOP),GTK2)	# GTK libs include the glu  
+  RDMLIBS += libglu.a
+endif    
 endif
 
 
@@ -223,7 +231,6 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_map_download.c \
           roadmap_reminder.c \
           roadmap_scoreboard.c \
-          roadmap_browser.c \
           roadmap_analytics.c
 
 #TILE STORAGE DEPENDENT SOURCES
@@ -256,7 +263,8 @@ RMGUISRCS=roadmap_sprite.c \
           roadmap_softkeys.c \
           roadmap_utf8.c \
           roadmap_display.c \
-	  roadmap_ticker.c \
+	  	  roadmap_ticker.c \
+	  	  roadmap_message_ticker.c \
           roadmap_social.c \
           roadmap_foursquare.c \
     	  roadmap_factory.c \
@@ -273,6 +281,7 @@ RMGUISRCS=roadmap_sprite.c \
           roadmap_login.c \
           auto_hide_dlg.c \
           roadmap_welcome_wizard.c \
+          roadmap_recommend_ssd.c \
 	  roadmap_geo_location_info.c \
           roadmap_start.c \
 	  roadmap_geo_config.c \
@@ -280,20 +289,32 @@ RMGUISRCS=roadmap_sprite.c \
 	  roadmap_res_download.c \
 	  roadmap_prompts.c \
 	  roadmap_splash.c \
-	  roadmap_speedometer.c
+	  roadmap_speedometer.c \
+	  roadmap_social_image.c \
+	  roadmap_browser.c \
+	  roadmap_groups.c \
+	  roadmap_groups_settings.c
 	  
 ifneq ($(SSD),YES)
 	RMGUISRCS += roadmap_address.c
 else
-	RMGUISRCS += roadmap_address_ssd.c roadmap_address_tc.c roadmap_search.c address_search/address_search.c address_search/address_search_dlg.c address_search/local_search.c address_search/local_search_dlg.c address_search/generic_search_dlg.c address_search/generic_search.c ssd/ssd_progress.c \
+	RMGUISRCS += roadmap_address_ssd.c roadmap_address_tc.c roadmap_search.c address_search/address_search.c address_search/address_search_dlg.c address_search/local_search.c address_search/local_search_dlg.c address_search/single_search.c address_search/single_search_dlg.c address_search/generic_search_dlg.c address_search/generic_search.c ssd/ssd_progress.c \
 	roadmap_login_ssd.c	
 endif
 
 #OPENGL DEPENDENT SOURCES
 ifeq ($(RENDERING),OPENGL)
-  RMGUISRCS += roadmap_border_ogl.c
+  RMGUISRCS += roadmap_border_ogl.c animation/roadmap_animation.c
 else  
   RMGUISRCS += roadmap_border.c
+endif
+ifeq ($(RENDERING),OPENGL)
+   ifeq ($(BIDI),YES)
+      LIBS += -lfribidi
+      CFLAGS += -DUSE_FRIBIDI -I/usr/include/fribidi
+   endif
+   RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas.c $(OPENGL_DIR)/roadmap_canvas_font.c 
+   RMLIBSRCS+= $(OPENGL_DIR)/roadmap_canvas_atlas.c $(OPENGL_DIR)/roadmap_canvas3d.c $(OPENGL_DIR)/roadmap_glmatrix.c  
 endif
 
 
@@ -368,8 +389,10 @@ RTSRCS=Realtime/Realtime.c \
        Realtime/RealtimeOffline.c \
        Realtime/RealtimeBonus.c \
        Realtime/RealtimeAltRoutes.c \
+       Realtime/RealtimeExternalPoi.c \
+       Realtime/RealtimeExternalPoiDlg.c \
+       Realtime/RealtimeExternalPoiNotifier.c \
        
-
 
 
 RTOBJS=$(RTSRCS:.c=.o)
@@ -392,6 +415,7 @@ SSD_WIDGETS_SRCS=ssd/ssd_dialog.c \
                  ssd/ssd_container.c \
                  ssd/ssd_text.c \
                  ssd/ssd_entry.c \
+                 ssd/ssd_entry_label.c \
                  ssd/ssd_button.c \
                  ssd/ssd_list.c \
                  ssd/ssd_generic_list_dialog.c \
@@ -448,9 +472,11 @@ clean: cleanone
 	find Realtime -name \*.o -exec rm {} \;
 	find websvc_trans -name \*.o -exec rm {} \;
 	find address_search -name \*.o -exec rm {} \;
-
+	find ogl -name \*.o -exec rm {} \;
+	find animation -name \*.o -exec rm {} \;
+	
 cleanone:
-	rm -f *.o *.a *.da 
+	rm -f *.o *.a *.da		
 	# Clean up CVS backup files as well.
 	$(RM) .#*
 
@@ -471,7 +497,11 @@ cleanall:
 			$(MAKE) -C $$module clean ; \
 		fi ; \
 	done
-	find editor/ -name \*.o -exec rm {} \;
+	find editor -name \*.o -exec rm {} \;	
+	if [ "$(RENDERING)"=="OPENGL" ] ; then \
+		find ogl -name \*.o -exec rm {} \; ; \
+		rm ogl/glu/libglu.a; \
+	fi
 
 rebuild: cleanall everything
 

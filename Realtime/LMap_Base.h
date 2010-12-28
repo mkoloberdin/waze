@@ -48,7 +48,7 @@
 #endif
 
 #elif defined (_WIN32)
-#define	RT_DEVICE_ID							(40)
+#define RT_DEVICE_ID                      (40)
 
 #elif defined (ANDROID)
 #define	RT_DEVICE_ID							(50)

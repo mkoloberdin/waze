@@ -39,14 +39,16 @@
 #include "roadmap_main.h"
 #include "roadmap_res.h"
 
+#define MAX_OVERLAY_IMAGES          3
 #define SSD_BITMAP_NAME_MAXLEN		64
 typedef struct tag_bitmap_info
 {
    char    bitmap_name[SSD_BITMAP_NAME_MAXLEN];
+   char    overlays_name[MAX_OVERLAY_IMAGES][SSD_BITMAP_NAME_MAXLEN];
    RoadMapImage   bitmap;
+   int            num_overlays;
    int            width;
    int            height;
-
 }  bitmap_info, *bitmap_info_ptr;
 
 void bitmap_info_init( bitmap_info_ptr this)
@@ -54,6 +56,7 @@ void bitmap_info_init( bitmap_info_ptr this)
    this->bitmap      = NULL;
    this->width       = -1;
    this->height      = -1;
+   this->num_overlays = 0;
 }
 
 
@@ -62,7 +65,7 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    bitmap_info_ptr bi = (bitmap_info_ptr)this->data;
    RoadMapGuiPoint point;
    RoadMapImage image2draw;
-
+   RoadMapImage overlays_image2draw[MAX_OVERLAY_IMAGES] = {0,0,0};
    point.x = rect->minx;
    point.y = rect->miny;
 
@@ -72,13 +75,25 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    }
    else
    {
-	   image2draw = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
+      if (bi->bitmap_name[0] != 0)
+         image2draw = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
+      else
+         image2draw = NULL;
+   }
+
+   if (bi->num_overlays > 0){
+      int i;
+      for (i = 0; i < bi->num_overlays; i++){
+             overlays_image2draw[i] = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->overlays_name[i] );
+      }
    }
 
    if( -1 == bi->width )
    {
-      bi->width = roadmap_canvas_image_width ( image2draw );
-      bi->height= roadmap_canvas_image_height( image2draw );
+      if (image2draw != NULL){
+         bi->width = roadmap_canvas_image_width ( image2draw );
+         bi->height= roadmap_canvas_image_height( image2draw );
+      }
    }
 
    if ( ( flags & SSD_GET_SIZE ) )
@@ -90,12 +105,41 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 
    if ( image2draw )
    {
-	   roadmap_canvas_draw_image( image2draw, &point, 0, IMAGE_NORMAL);
+#ifdef OPENGL
+      if ( this->flags & SSD_BITMAP_MIDDLE_STRETCH )
+      {
+         RoadMapGuiPoint top_left_pos, bottom_right_pos;
+         top_left_pos.x = rect->minx;
+         top_left_pos.y = rect->miny;
+         bottom_right_pos.x = rect->maxx-1;
+         bottom_right_pos.y = rect->maxy-1;
+         roadmap_canvas_draw_image_middle_stretch( image2draw, &top_left_pos, &bottom_right_pos, 0, IMAGE_NORMAL );
+      }
+      else
+#endif //OPENGL
+      {
+         roadmap_canvas_draw_image( image2draw, &point, 0, IMAGE_NORMAL);
+      }
    }
    else
    {
 	   roadmap_log( ROADMAP_ERROR, "Cannot draw bitmap image. Widget: %s, Bitmap: %s", this->name, bi->bitmap_name );
    }
+
+   if (bi->num_overlays > 0){
+      int i;
+      for (i = 0; i < bi->num_overlays; i++){
+         if (overlays_image2draw[i] )
+          {
+             roadmap_canvas_draw_image( overlays_image2draw[i], &point, 0, IMAGE_NORMAL);
+          }
+          else
+          {
+             roadmap_log( ROADMAP_ERROR, "Cannot draw overlay bitmap image. Widget: %s,Overlay Bitmap: %s", this->name, bi->overlays_name[i] );
+          }
+      }
+   }
+
 
 }
 
@@ -105,6 +149,7 @@ static void set_bitmap_name( bitmap_info_ptr bi, const char* name )
 	if ( strlen(name) <= SSD_BITMAP_NAME_MAXLEN )
 	{
 	   strcpy( bi->bitmap_name, name );
+	   bi->width = -1;
 	}
 	else
 	{
@@ -136,7 +181,11 @@ static int set_value( SsdWidget widget, const char *value )
    bi->bitmap     = NULL;
    widget->data        = bi;
 
-   image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
+   if ( bi->bitmap_name[0] != 0 )
+      image = (RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, bi->bitmap_name );
+   else
+      image = NULL;
+
    if ( image != NULL )
    {
 	  widget->size.height = roadmap_canvas_image_height( image );
@@ -231,4 +280,35 @@ void ssd_bitmap_splash(const char *bitmap, int seconds){
 const char *ssd_bitmap_get_name(SsdWidget widget){
 	bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
 	return bi->bitmap_name;
+}
+
+void ssd_bitmap_remove_overlays(SsdWidget widget){
+   bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
+   bi->num_overlays = 0;
+}
+
+void ssd_bitmap_add_overlay(SsdWidget widget, const char *bitmap){
+   bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
+
+   if (bi->num_overlays == MAX_OVERLAY_IMAGES)
+      return;
+
+   if ( strlen(bitmap) <= SSD_BITMAP_NAME_MAXLEN )
+   {
+      strcpy( bi->overlays_name[bi->num_overlays], bitmap );
+      bi->num_overlays++;
+   }
+
+}
+/*
+ * Sets current bitmap to be middle stretched
+ */
+void ssd_bitmap_set_middle_stretch( SsdWidget widget, int stretched_width, int stretched_height )
+{
+   bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
+   widget->flags |= SSD_BITMAP_MIDDLE_STRETCH;
+   bi->width = stretched_width;
+   bi->height = stretched_height;
+   widget->size.width = stretched_width;
+   widget->size.height = stretched_height;
 }

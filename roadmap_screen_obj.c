@@ -384,20 +384,20 @@ static void roadmap_screen_obj_decode_action
 static void roadmap_screen_obj_decode_dt_action
                   (RoadMapScreenObj object,
                    int argc, const char **argv, int *argl) {
-   
+
    char arg[255];
-   
+
    argc -= 1;
    if (argc < 1) {
       roadmap_log (ROADMAP_ERROR, "screen object:'%s' illegal double tap action.",
                    object->name);
       return;
    }
-   
+
    roadmap_screen_obj_decode_arg (arg, sizeof(arg), argv[1], argl[1]);
-   
+
    object->dt_action = roadmap_start_find_action (arg);
-   
+
    if (!object->dt_action) {
       roadmap_log (ROADMAP_ERROR, "screen object:'%s' can't find double tap action.",
                    object->name);
@@ -469,9 +469,9 @@ static void roadmap_screen_obj_load (const char *data, int size) {
 
             roadmap_screen_obj_decode_action (object, argc, argv, argl);
             break;
-            
+
          case 'D':
-            
+
             roadmap_screen_obj_decode_dt_action (object, argc, argv, argl);
             break;
 
@@ -684,7 +684,7 @@ static int roadmap_screen_obj_pressed (RoadMapGuiPoint *point) {
    if (RoadMapScreenObjSelected->flags & OBJ_FLAG_REPEAT) {
       if (RoadMapScreenObjSelected->action) {
          roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, RoadMapScreenObjSelected->action->label_long);
-         
+
          (*(RoadMapScreenObjSelected->action->callback)) ();
       }
 
@@ -730,16 +730,16 @@ static int roadmap_screen_obj_short_click (RoadMapGuiPoint *point) {
    if (object->action) {
       static RoadMapSoundList list;
 
+#ifdef PLAY_CLICK
       if (!list) {
          list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
          roadmap_sound_list_add (list, "click");
          roadmap_res_get (RES_SOUND, 0, "click");
       }
-#ifndef IPHONE
       roadmap_sound_play_list (list);
-#endif //IPHONE
+#endif //PLAY_CLICK
       roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
-      
+
       (*(object->action->callback)) ();
       roadmap_screen_touched();
    }
@@ -776,7 +776,7 @@ static int roadmap_screen_obj_long_click (RoadMapGuiPoint *point) {
       roadmap_sound_play_list (list);
 #endif //IPHONE
       roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->long_action->label_long);
-      
+
       (*(object->long_action->callback)) ();
 
    } else if (object->action) {
@@ -784,7 +784,7 @@ static int roadmap_screen_obj_long_click (RoadMapGuiPoint *point) {
       roadmap_sound_play_list (list);
 #endif //IPHONE
       roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
-      
+
       (*(object->action->callback)) ();
    }
 
@@ -792,43 +792,43 @@ static int roadmap_screen_obj_long_click (RoadMapGuiPoint *point) {
 }
 
 static int roadmap_screen_obj_double_click (RoadMapGuiPoint *point) {
-   
+
    static RoadMapSoundList list;
    RoadMapScreenObj object = RoadMapScreenObjSelected;
-   
+
    if (!RoadMapScreenObjSelected) {
       return 0;
    }
-   
+
    if (RoadMapScreenObjSelected->flags & OBJ_FLAG_REPEAT) return 1;
-   
+
    if (!obj_is_active(object)) return 0;
-   
+
    RoadMapScreenObjSelected = NULL;
-   
+
    if (!list) {
       list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
       roadmap_sound_list_add (list, "click_long");
       roadmap_res_get (RES_SOUND, 0, "click_long");
    }
-   
+
    if (object->dt_action) {
 #ifndef IPHONE
       roadmap_sound_play_list (list);
 #endif //IPHONE
       roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->dt_action->label_long);
-      
+
       (*(object->dt_action->callback)) ();
-      
+
    } else if (object->action) {
 #ifndef IPHONE
       roadmap_sound_play_list (list);
 #endif //IPHONE
       roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
-      
+
       (*(object->action->callback)) ();
    }
-   
+
    return 1;
 }
 
@@ -943,7 +943,7 @@ void roadmap_screen_obj_initialize (void) {
 
    roadmap_pointer_register_long_click
       (roadmap_screen_obj_long_click, POINTER_HIGH);
-   
+
    roadmap_pointer_register_double_click
       (roadmap_screen_obj_double_click, POINTER_HIGH);
 

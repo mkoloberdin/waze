@@ -38,6 +38,7 @@ import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.List;
 
 import android.content.Context;
 import android.graphics.Bitmap;
@@ -46,9 +47,11 @@ import android.graphics.Canvas;
 import android.graphics.ColorMatrix;
 import android.graphics.ColorMatrixColorFilter;
 import android.graphics.Paint;
-import android.graphics.PixelFormat;
 import android.graphics.Bitmap.CompressFormat;
 import android.hardware.Camera;
+import android.hardware.Camera.Size;
+import android.util.AttributeSet;
+import android.util.Log;
 import android.view.KeyEvent;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
@@ -71,9 +74,9 @@ public class FreeMapCameraPreView extends SurfaceView implements
      * 
      */
 
-    public FreeMapCameraPreView(Context aContext)
+    public FreeMapCameraPreView(Context aContext, AttributeSet aAttrs )
     {
-        super(aContext);
+        super(aContext, aAttrs );
         setFocusableInTouchMode(true);
         // This class implements the SurfaceHolder.Callback to be notified on
         // changes in the underlying
@@ -114,15 +117,26 @@ public class FreeMapCameraPreView extends SurfaceView implements
      */
     public void surfaceDestroyed( SurfaceHolder aHolder )
     {    
-        if ( mCamera != null )
+        try
         {
-            mCamera.stopPreview();
-            mCamera.release();
-            mCamera = null;                        
+	        if ( mCamera != null )
+	        {
+	            mCamera.stopPreview();
+	            mCamera.release();
+	            mCamera = null;                        
+	        }
+	        
         }
-        mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
-        // In case of manager waiting - release to continue
-        FreeMapNativeManager.Notify(0);        
+        catch( Exception ex )
+        {
+            WazeLog.e( "Error in destroying the surface", ex );
+        }
+        finally
+        {
+        	mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
+        	// In case of manager waiting - release to continue
+            FreeMapNativeManager.Notify(0);
+        }                
     }
 
     /*************************************************************************************************
@@ -131,65 +145,114 @@ public class FreeMapCameraPreView extends SurfaceView implements
     public void surfaceChanged( SurfaceHolder aHolder, int aFormat, int aWidth,
             int aHeight )
     {
-        if ( mPreviewStatus == CAMERA_PREVIEW_STATUS_PREPARED )
+    	try
+    	{
+	        if ( mPreviewStatus == CAMERA_PREVIEW_STATUS_PREPARED )
+	        {
+	            if ( (mCaptureParams.mImageWidth >= 0)
+	                    || (mCaptureParams.mImageHeight >= 0))
+	            {
+	                Camera.Parameters parameters = mCamera.getParameters();
+//	                parameters.setPreviewSize(aWidth, aHeight); 
+//	                parameters.setPictureFormat( PixelFormat.RGB_565 );
+	                
+	                int sdkBuildVersion = Integer.parseInt( android.os.Build.VERSION.SDK );
+	                if ( sdkBuildVersion < 5 ) 
+	                {
+		                // Picture size should be landscape
+		                if ( mCaptureParams.mImageWidth > mCaptureParams.mImageHeight )
+		                	parameters.setPictureSize( mCaptureParams.mImageWidth, mCaptureParams.mImageHeight );
+		                else
+		                	parameters.setPictureSize( mCaptureParams.mImageHeight, mCaptureParams.mImageWidth );
+	                }
+	                else
+	                {
+	                	Size size = CompatabilityWrapper.getBestFitSize( mCaptureParams.mImageWidth, mCaptureParams.mImageHeight, parameters );
+	                	parameters.setPictureSize( size.width, size.height );
+	                }
+	                
+	                mCamera.setParameters(parameters);
+	                
+	                mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
+	                mPreviewStatus = CAMERA_PREVIEW_STATUS_ACTIVE;
+	                mCamera.startPreview();
+	            }
+	            else
+	            {
+	                WazeLog.w( "Requested image dimensions are invalid. Width: "
+	                        + mCaptureParams.mImageWidth + ". Height: "
+	                        + mCaptureParams.mImageHeight );
+	            }
+	        }
+	        else
+	        {
+	            WazeLog.w( "Camera preivew is not ready!" );
+	        }
+    	}
+        catch( Exception ex )
         {
-            if ( (mCaptureParams.mImageWidth >= 0)
-                    || (mCaptureParams.mImageHeight >= 0))
-            {
-                Camera.Parameters parameters = mCamera.getParameters();
-                parameters.setPreviewSize(aWidth, aHeight);
-//                parameters.setPictureFormat( PixelFormat.RGB_565 );
-                mCamera.setParameters(parameters);
-                mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
-                mPreviewStatus = CAMERA_PREVIEW_STATUS_ACTIVE;
-                mCamera.startPreview();
-            }
-            else
-            {
-                WazeLog.w( "Requested image dimensions are invalid. Width: "
-                        + mCaptureParams.mImageWidth + ". Height: "
-                        + mCaptureParams.mImageHeight );
-            }
-        }
-        else
-        {
-            WazeLog.w( "Camera preivew is not ready!" );
+            WazeLog.e( "Error in surfaceChanged", ex );
+            ex.printStackTrace();
+            // Return to the application
+            mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
+            mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
+            // This will call the surfaceDestroy
+            FreeMapNativeManager.Notify(0);
         }
     }
-
+    
     /*************************************************************************************************
      * onKeyDown Trigger the capture process
      */
     @Override
     public boolean onKeyDown( int aKeyCode, KeyEvent aEvent )
     {
+    	boolean res = false;
+    	switch ( aKeyCode )
+    	{
+    		case KeyEvent.KEYCODE_DPAD_CENTER:
+    		case KeyEvent.KEYCODE_CAMERA:
+    		{
+    			if ( mCaptureStatus == CAMERA_CAPTURE_STATUS_NONE )
+    			{
+	    			Capture();
+	    			res = true;
+    			}
+    			break;
+    		}
+    		case KeyEvent.KEYCODE_BACK:
+    		{
+                // This will call the surfaceDestroy
+                FreeMapNativeManager.Notify(0);
+                res = true;
+    			break;
+    		}
+    	}
+    	
+    	if ( !res )
+    		res = super.onKeyDown(aKeyCode, aEvent);
+    	
+        return res; 
+    
+    };
+
+    public void Capture()
+    {
         try
         {            
-            if ( ( (aKeyCode == KeyEvent.KEYCODE_CAMERA)
-                    || (aKeyCode == KeyEvent.KEYCODE_DPAD_CENTER) ) && ( mCaptureStatus == CAMERA_CAPTURE_STATUS_NONE ) )
-            {
-                
-                mCamera.takePicture(null, null, new CaptureCallback());
-                mCaptureStatus = CAMERA_CAPTURE_STATUS_IN_PROCESS;
-                return true;
-            }
-            else
-            {
-                return super.onKeyDown(aKeyCode, aEvent);
-            }
+	        mCamera.takePicture( null, null, new CaptureCallback());
+	        mCaptureStatus = CAMERA_CAPTURE_STATUS_IN_PROCESS;
         }
         catch( Exception ex )
         {
-            WazeLog.e( "Error in creating the surface", ex );
+            WazeLog.e( "Error in capturing the picture", ex );
             // Return to the application
             mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
             mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
             // This will call the surfaceDestroy
             FreeMapNativeManager.Notify(0);
-            return true;
         }
-    };
-
+    }
     /*************************************************************************************************
      * getPreviewActive Inspects if the preview is active
      * 
@@ -287,29 +350,38 @@ public class FreeMapCameraPreView extends SurfaceView implements
         {
             // Decode the JPEG result to the bitmap
         	Bitmap imageBitmap = BitmapFactory.decodeByteArray(aData, 0,
-                    aData.length );
-            // Scale the bitmap to the destination size
-            // Here the image in the landscape => horizontal scaling according
-            // to height
-            Bitmap scaledBitmap = Bitmap.createScaledBitmap(imageBitmap,
-                    mCaptureParams.mImageHeight, mCaptureParams.mImageWidth,
-                    true);
-            // Force GC
-            imageBitmap.recycle();
-            // Rotate the image to be portrait
-            Canvas canvas = new Canvas(scaledBitmap);
-            canvas.rotate(90);
-            canvas.save();
-            scaledBitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap
-                    .getWidth(), scaledBitmap.getHeight(), canvas.getMatrix(),
-                    true);
-
-            // Saving the bitmap to the file
-            CompressToBuffer(scaledBitmap, CompressFormat.JPEG);
-            mBitmapOut = scaledBitmap;
-            // Notify the manager (Assumption is that the callback have taken
-            // some time. So the delay is a bit smaller )
-            mCaptureStatus = CAMERA_CAPTURE_STATUS_SUCCESS;
+                    aData.length );        	
+        	
+        	if ( imageBitmap != null )
+        	{
+	            // Scale the bitmap to the destination size
+	            // Here the image in the landscape => horizontal scaling according
+	            // to height
+	            Bitmap scaledBitmap = Bitmap.createScaledBitmap(imageBitmap,
+	                    mCaptureParams.mImageHeight, mCaptureParams.mImageWidth,
+	                    true);
+	            // Force GC
+	            imageBitmap.recycle();
+	            // Rotate the image to be portrait
+	            Canvas canvas = new Canvas(scaledBitmap);
+	            canvas.rotate(90);
+	            canvas.save();
+	            scaledBitmap = Bitmap.createBitmap(scaledBitmap, 0, 0, scaledBitmap
+	                    .getWidth(), scaledBitmap.getHeight(), canvas.getMatrix(),
+	                    true);
+	
+	            // Saving the bitmap to the file
+	            CompressToBuffer(scaledBitmap, CompressFormat.JPEG);
+	            mBitmapOut = scaledBitmap;
+	            // Notify the manager (Assumption is that the callback have taken
+	            // some time. So the delay is a bit smaller )
+	            mCaptureStatus = CAMERA_CAPTURE_STATUS_SUCCESS;
+        	}
+        	else
+        	{
+        		mCaptureStatus = CAMERA_CAPTURE_STATUS_FAILURE;
+        	}
+        	
             // Release the camera (surface destroyed) and return to the main
             // activity
             FreeMapNativeManager.Notify(MainScreenShowDelay);
@@ -443,7 +515,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
     public static int[] GetThumbnail( int aThumbWidth, int aThumbHeight )
     {
         Bitmap bmScaled;
-        int destWidth, destHeight;
+        int destWidth, destHeight;        
         Paint paint = new Paint();
         
         if ( mBitmapOut == null )
@@ -515,13 +587,55 @@ public class FreeMapCameraPreView extends SurfaceView implements
                 bmRes.getHeight());
         // Force GC
         bmScaled.recycle();
-        bmRes.recycle();
+        bmRes.recycle();        
         return pixBufInt;
     }
 
     /*************************************************************************************************
-     *================================= Data members section
-     * =================================
+     * CompatabilityWrapper the compatability wrapper class used to overcome dalvik delayed  
+     * class loading. Supposed to be loaded only for the matching os version  
+     */
+    private static final class CompatabilityWrapper
+    {
+    	/*
+    	 * For 2.2 only
+    	 */
+    	public static Size getBestFitSize( int aWidth, int aHeight, Camera.Parameters aParams )
+    	{
+    		List<Size> sizes = aParams.getSupportedPictureSizes();
+    		int bestFitIndex = 0;
+    		int bestFitPenalty = Integer.MAX_VALUE;
+    		
+    		// Landscape only
+    		if ( aWidth < aHeight )
+    		{
+    			int tmp = aWidth;
+    			aWidth = aHeight;
+    			aHeight = tmp;
+    		}
+    		
+    		for ( int i = 0; i < sizes.size(); ++i )
+    		{
+    			Size candidate = sizes.get( i );
+    			// Take only bigger sizes
+    			if ( candidate.width < aWidth || candidate.height < aHeight )
+    				continue;
+    			
+    			int penalty = ( int ) ( Math.sqrt( ( double ) candidate.width - ( double ) aWidth ) + 
+    					Math.sqrt( ( double ) candidate.height - ( double ) aHeight ) );   
+    			if ( penalty < bestFitPenalty )
+    			{
+    				bestFitIndex = i;
+    				bestFitPenalty = penalty;
+    			}
+    		}    		
+    		return sizes.get( bestFitIndex );
+    	}
+    }
+
+    
+    /*************************************************************************************************
+     *================================= Data members section =================================
      */
 
     private static final int CAMERA_PREVIEW_STATUS_NOT_READY = 0;
@@ -531,7 +645,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
     private static final int CAMERA_CAPTURE_STATUS_NONE = 0;
     private static final int CAMERA_CAPTURE_STATUS_IN_PROCESS = 1;
     private static final int CAMERA_CAPTURE_STATUS_SUCCESS = 2;
-//    private static final int CAMERA_CAPTURE_STATUS_FAILURE = 3;
+    private static final int CAMERA_CAPTURE_STATUS_FAILURE = 3;
     
 	SurfaceHolder mHolder; // The customized holder of the surface
 	Camera mCamera; // The camera object

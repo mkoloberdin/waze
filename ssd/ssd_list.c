@@ -214,6 +214,7 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
    SsdWidget icon_container;
    SsdWidget next_icon_container;
    SsdWidget icon_w;
+   SsdWidget label_w;
 
    if (!list->rows) return;
 
@@ -237,7 +238,8 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
          row->flags     &= ~SSD_WS_TABSTOP;
          row->tab_stop   = FALSE;
          label           = "";
-         icon_w				 = NULL;
+         icon_w		    = NULL;
+         label_w         = NULL;
       }
       else
       {
@@ -246,6 +248,11 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
             icon_w = list->icons_w[current_index];
          else
             icon_w = NULL;
+
+         if (list->labels_w[current_index] != NULL)
+            label_w = list->labels_w[current_index];
+         else
+            label_w = NULL;
 
          row->flags     |= SSD_WS_TABSTOP;
          row->tab_stop   = TRUE;
@@ -257,6 +264,14 @@ static void setup_list_widgets_rows(ssd_list_data_ptr list)
      icon_container = ssd_widget_get (row, "icon_container");
      next_icon_container = ssd_widget_get (row, "next_icon_container");
 
+     if (label_w){
+        SsdWidget widget;
+        SsdWidget w_cont = ssd_widget_get(row, "widget_container");
+        widget = w_cont->children;
+        if (widget)
+           ssd_widget_remove(w_cont, widget);
+        ssd_widget_add(w_cont,label_w);
+     }
      if (icon_w == NULL){
            ssd_widget_hide(icon_container);
            if (next_icon_container)
@@ -383,6 +398,7 @@ static int label_callback (SsdWidget widget, const char *new_value) {
       return 0;
 
    for (i=0; i<data->num_rows; i++) {
+      data->rows[i]->force_click = FALSE;
    	ssd_widget_loose_focus(data->rows[i]);
    }
 
@@ -608,24 +624,11 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
    int num_rows;
    int row_height;
    int i;
-   int next_container_width = 45;
-   int icon_container_width = 70;
-
-   if ( roadmap_screen_is_hd_screen() )
-   {
-      next_container_width = 60;
-      icon_container_width = 110;
-   }
-
-   //ssd_widget_container_size (list_container->parent, &size);
-
-//   num_rows = size->height / data->min_row_height;
-//   row_height = data->min_row_height;
+   int next_container_width = ADJ_SCALE(45);
+   int icon_container_width = ADJ_SCALE(70);
 
    num_rows = data->num_values;
    row_height = data->min_row_height;
-
-   // if (data->num_rows == num_rows) return;
 
    if (num_rows > data->alloc_rows) {
       data->rows = realloc (data->rows, sizeof(SsdWidget) * num_rows);
@@ -636,8 +639,11 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
          int pointer_type = 0;
 
         SsdWidget image_con;
+        SsdWidget widget_con;
 #ifdef TOUCH_SCREEN
         SsdWidget image_con2;
+#else
+        next_container_width = 0;
 #endif
 
         if (data->flags && (data->flags[i] & SSD_POINTER_COMMENT))
@@ -648,25 +654,35 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
                SSD_WS_TABSTOP|SSD_END_ROW|pointer_type);
         ssd_widget_set_pointer_force_click( row );
         ssd_widget_set_color(row, "#000000","#ffffff");
-        label = ssd_text_new ("label", "", 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
+        label = ssd_text_new ("label", "", SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_VCENTER);
+        if (data->labels_w != NULL)
+           ssd_widget_set_color(label, "#ffffff", "#b0d504");
 
         ssd_widget_set_callback (row, label_callback);
-
         image_con = ssd_container_new ("icon_container", NULL, icon_container_width,
-               row_height-6,  SSD_ALIGN_VCENTER);
+               row_height-10,  SSD_ALIGN_VCENTER);
 
          ssd_widget_set_color (image_con, NULL, NULL);
 
+         if (data->labels_w != NULL){
+            widget_con = ssd_container_new ("widget_container", NULL,roadmap_canvas_width() - icon_container_width-next_container_width-10,
+                  row_height-10,  0);
+
+            ssd_widget_set_color (widget_con, NULL, NULL);
+         }
 
 #ifdef TOUCH_SCREEN
          image_con2 = ssd_container_new ("next_icon_container", NULL,next_container_width ,
-                                 row_height,  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
+                                 row_height-10,  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
 
          ssd_widget_add(row, image_con2);
 
          ssd_widget_set_color (image_con2, NULL, NULL);
 #endif
          ssd_widget_add (row,  image_con);
+         if (data->labels_w != NULL){
+            ssd_widget_add(row, widget_con);
+         }
 
          ssd_widget_add (row, label);
          row->short_click = ssd_list_short_click;
@@ -709,12 +725,6 @@ SsdWidget ssd_list_get_row(SsdWidget list, int index){
 static void ssd_list_draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    ssd_list_data_ptr data = (ssd_list_data_ptr) widget->data;
 
-#ifdef TOUCH_SCREEN
-      	rect->minx += 4;
-      	rect->miny += 4;
-      	rect->maxx -= 4;
-      	rect->maxy -= 4;
-#endif
    if (!(flags & SSD_GET_CONTAINER_SIZE)) {
 
       int height = rect->maxy - rect->miny + 1;
@@ -798,12 +808,7 @@ void ssd_list_resize (SsdWidget list, int min_height)
    ssd_list_data_ptr data = (ssd_list_data_ptr) list->data;
 
    if (min_height > 0) data->min_row_height = min_height;
-   else data->min_row_height = MIN_ROW_HEIGHT;
-
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   data->min_row_height *= 1.6;
-   }
+   else data->min_row_height = ADJ_SCALE(MIN_ROW_HEIGHT);
 
    data->list_size.width = -1;
    data->list_size.height = -1;
@@ -877,7 +882,7 @@ void ssd_list_populate (SsdWidget list, int count, const char **labels,
    ssd_dialog_invalidate_tab_order();
 }
 
-void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels,
+void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels, SsdWidget *labels_w,
                         const void **values, SsdWidget *icons, const int *flags, SsdListCallback callback, SsdListDeleteCallback del_callback, BOOL add_next_button) {
 
    SsdWidget list_container;
@@ -887,6 +892,7 @@ void ssd_list_populate_widgets (SsdWidget list, int count, const char **labels,
    data->labels = labels;
    data->data = values;
    data->icons_w = icons;
+   data->labels_w = labels_w;
    data->flags = flags;
    data->first_row_index = 0;
    data->callback = callback;

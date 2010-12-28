@@ -123,6 +123,31 @@ void JpegConvTargetBufType( JpegConvBufType type )
  }
 
  /***********************************************************
+  *  Name        : roadmap_jpeg_from_buff()
+  *  Purpose     : returns the RoadMapImage pointer to the caller from buffer. NULL in case of error
+  *
+  *  Params     : (in) buff
+  *               (in) size
+  *
+  *             : (out)
+  *
+  *  Notes      :  ANSI C implementation (uses FILE )
+  *
+  */
+  RoadMapImage roadmap_jpeg_from_buff( unsigned char *buf, int size ){
+     RoadMapImage image;
+
+     njInit();
+     njDecode( buf, size );
+
+     image = roadmap_canvas_image_from_buf( njGetImage(), njGetWidth(), njGetHeight(), njGetWidth()*TargetPixelSize() );
+
+     njDone( 0 );
+
+     return image;
+  }
+
+ /***********************************************************
   *  Name       : TargetPixelSize()
   *  Purpose    : Returns the pixel size (in bytes)
   *  			: 			of the target defined by the s_gJpegConvTargetType

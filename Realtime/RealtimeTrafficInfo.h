@@ -90,8 +90,9 @@ struct _RTTrafficInfo
 	int iNumGeometryPoints;
 	RoadMapPosition geometry[RT_TRAFFIC_INFO_MAX_GEOM];
 	RoadMapArea boundingBox;
-	
+
 	char sDescription[RT_TRAFFIC_INFO_MAX_DESCRIPTION+1];
+	BOOL bIsOnRoute;
 };
 
 

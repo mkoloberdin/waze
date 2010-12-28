@@ -30,4 +30,5 @@
 void roadmap_splash_display (void);
 void roadmap_splash_download_init(void);
 void roadmap_splash_set_update_time (const char *update_time);
+void roadmap_splash_reset_check_time(void);
 #endif /* ROADMAP_SPLASH_H_ */

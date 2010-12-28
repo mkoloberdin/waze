@@ -287,17 +287,17 @@ static struct dictionary_volume *
    struct dictionary_volume *dictionary;
    void *data;
    int size;
-   
+
    if (!roadmap_db_get_data (file,
    								  id,
    								  sizeof (char),
    								  &data,
    								  &size)) {
-   
+
    	roadmap_log (ROADMAP_ERROR, "invalid dictionary structure");
-   	return first;								  	
+   	return first;
    }
-   
+
    if (!data) return first;
 
 
@@ -325,7 +325,7 @@ static struct dictionary_volume *
    dictionary->subtrees_count = 0;
 
 	dictionary->next = first;
-	
+
    return dictionary;
 }
 
@@ -866,7 +866,7 @@ RoadMapDictionaryMask roadmap_dictionary_mask_new (RoadMapDictionary dictionary)
    return mask;
 }
 
-   
+
 void roadmap_dictionary_mask_free (RoadMapDictionaryMask mask) {
 
    free (mask);

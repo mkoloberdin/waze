@@ -390,11 +390,12 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 	  ssd_widget_add( box, ecnt);
 
 
-	  //// Spacing
-      ssd_dialog_add_hspace( box, SSD_KB_DLG_FIELDS_HOFFSET, SSD_END_ROW|SSD_ALIGN_RIGHT );
 
 	  //// Note under the edit box
-      note_cnt = ssd_container_new( s_notecnt_name, NULL, entry_width, 1, SSD_WIDGET_SPACE|SSD_ALIGN_RIGHT );
+      note_cnt = ssd_container_new( s_notecnt_name, NULL, entry_width, 1, SSD_WIDGET_SPACE );
+      ssd_widget_set_color(note_cnt, 0, 0);
+      //// Spacing
+       ssd_dialog_add_hspace( note_cnt, SSD_KB_DLG_FIELDS_HOFFSET, SSD_END_ROW|SSD_ALIGN_RIGHT );
 	  ssd_widget_add( note_cnt, ssd_text_new( s_notetext_name, "", -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER ) );
 	  ssd_widget_add( box, note_cnt );
 
@@ -424,6 +425,8 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    }
    else
    {
+      ssd_widget_reset_cache(s_dialog);
+      ssd_widget_reset_position(s_dialog);
       kb = ssd_get_keyboard( s_dialog );
    }
 	ecnt = ssd_widget_get( s_dialog, s_editcnt_name);

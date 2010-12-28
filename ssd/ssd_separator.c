@@ -41,11 +41,12 @@
 
 static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
-   static RoadMapPen pen;
+   static RoadMapPen pen = NULL;
 
-   if (pen == 0){
-      roadmap_canvas_create_pen("separator");
-      roadmap_canvas_set_foreground ("#d8dae0");
+   if (pen == NULL){
+      pen = roadmap_canvas_create_pen("separator");
+      //roadmap_canvas_set_foreground ("#d8dae0");
+      roadmap_canvas_set_foreground ("#ababab");
       roadmap_canvas_set_thickness (1);
    }
    else{
@@ -55,13 +56,14 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 
    if( SSD_GET_SIZE & flags)
       return;
-   rect->minx += 5;
-   rect->maxx -= 5;
-#if defined(IPHONE) || defined(OPENGL)
-   rect->maxy = rect->miny+1;
-#else
+   //rect->minx += 5;
+   //rect->maxx -= 5;
+
+//#if defined(IPHONE) || defined(OPENGL)
+//   rect->maxy = rect->miny+1;
+//#else
    rect->maxy = rect->miny;
-#endif
+//#endif
 
    roadmap_canvas_erase_area(rect);
    return;

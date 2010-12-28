@@ -1,15 +1,13 @@
 
 ifeq ($(DESKTOP),ANDROID)
 include ../../android/Makefile.in.android
-ARFLAGS = "r"
 else
 CC=cc
-AR=ar rc
 RANLIB=ranlib
 endif
 
 # --- Tool specific options ------------------------------------------------
-INCLUDES+= -Iinclude -Ilibtess -I.
+INCLUDES+= -Iinclude -Ilibtess -I. -I../
 LIBDIRS+= 
 
 ARFLAGS="r"
@@ -49,7 +47,11 @@ SRCS= libtess/dict.c \
 		libtess/render.c \
 		libtess/sweep.c \
 		libtess/tess.c \
-		libtess/tessmono.c 
+		libtess/tessmono.c \
+		gluUnProject.c \
+		gluProject.c \
+		gluLookAt.c \
+		gluPerspective.c 
 	
 	 
 OBJS=$(SRCS:.c=.o)

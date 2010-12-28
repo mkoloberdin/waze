@@ -10,7 +10,27 @@ extern "C" {
 #undef com_waze_FreeMapNativeManager_NATIVE_THREAD_PRIORITY
 #define com_waze_FreeMapNativeManager_NATIVE_THREAD_PRIORITY -18L
 #undef com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT
-#define com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT 30000LL
+#define com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT 60000LL
+#undef com_waze_FreeMapNativeManager_MEMORY_PROFILER_ENABLED
+#define com_waze_FreeMapNativeManager_MEMORY_PROFILER_ENABLED 1L
+#undef com_waze_FreeMapNativeManager_CPU_PROFILER_ENABLED
+#define com_waze_FreeMapNativeManager_CPU_PROFILER_ENABLED 1L
+#undef com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_ENABLED
+#define com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_ENABLED 1L
+#undef com_waze_FreeMapNativeManager_MEMORY_PROFILER_PERIOD
+#define com_waze_FreeMapNativeManager_MEMORY_PROFILER_PERIOD 120000LL
+#undef com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_PERIOD
+#define com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_PERIOD 120000LL
+#undef com_waze_FreeMapNativeManager_STORAGE_SPACE_LOW_BOUND
+#define com_waze_FreeMapNativeManager_STORAGE_SPACE_LOW_BOUND 5000000LL
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    UrlHandlerNTV
+ * Signature: (Ljava/lang/String;)Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_waze_FreeMapNativeManager_UrlHandlerNTV
+  (JNIEnv *, jobject, jstring);
+
 /*
  * Class:     com_waze_FreeMapNativeManager
  * Method:    NativeMsgDispatcherNTV
@@ -22,10 +42,10 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_NativeMsgDispatcherNTV
 /*
  * Class:     com_waze_FreeMapNativeManager
  * Method:    InitNativeManagerNTV
- * Signature: (Ljava/lang/String;ILjava/lang/String;)V
+ * Signature: (Ljava/lang/String;ILjava/lang/String;Ljava/lang/String;Ljava/lang/String;)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
-  (JNIEnv *, jobject, jstring, jint, jstring);
+  (JNIEnv *, jobject, jstring, jint, jstring, jstring, jstring);
 
 /*
  * Class:     com_waze_FreeMapNativeManager
@@ -75,6 +95,36 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetUpgradeRunNTV
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetBackgroundRunNTV
   (JNIEnv *, jobject, jint);
 
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    EditBoxCallbackNTV
+ * Signature: (ILjava/lang/String;J)V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_EditBoxCallbackNTV
+  (JNIEnv *, jobject, jint, jstring, jlong);
+
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_waze_FreeMapNativeManager_CheckSDCardCallback */
+
+#ifndef _Included_com_waze_FreeMapNativeManager_CheckSDCardCallback
+#define _Included_com_waze_FreeMapNativeManager_CheckSDCardCallback
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_waze_FreeMapNativeManager_CompatabilityWrapper */
+
+#ifndef _Included_com_waze_FreeMapNativeManager_CompatabilityWrapper
+#define _Included_com_waze_FreeMapNativeManager_CompatabilityWrapper
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifdef __cplusplus
 }
 #endif

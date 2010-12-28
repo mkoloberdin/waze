@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"		
+	android:installLocation="auto"
 	android:name="Waze" 
-	android:versionCode="1018803" package="com.waze" android:versionName="1.8.99.101">
+	android:versionCode="1019202" package="com.waze" android:versionName="2.0.3.0">
 
 	<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
 	<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -11,6 +12,7 @@
 	<uses-permission android:name="android.permission.WRITE_SETTINGS" />
 	<uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 	<uses-permission android:name="android.permission.READ_LOGS" />
+	<uses-permission android:name="android.permission.READ_CONTACTS" />
 	<uses-permission android:name="android.permission.WAKE_LOCK" />
 	<uses-permission android:name="android.permission.CAMERA" />
 
@@ -18,7 +20,7 @@
 	<application android:icon="@drawable/icon" android:label="@string/app_name" 
 				 android:debuggable="false">
 		<activity android:name=".FreeMapAppActivity" android:label="@string/app_name"
-			android:launchMode="singleTask" android:configChanges="orientation|keyboardHidden" android:screenOrientation="user">
+			android:launchMode="singleTask" android:configChanges="orientation|keyboardHidden" android:screenOrientation="portrait">
 			<intent-filter>
 				<action android:name="android.intent.action.MAIN" />
 				<category android:name="android.intent.category.LAUNCHER" />
@@ -37,8 +39,13 @@
 				<category android:name="android.intent.category.DEFAULT" />
 				<category android:name="android.intent.category.BROWSABLE" />
 				<data android:scheme="geo" />
+			</intent-filter>			
+			<intent-filter>
+				<action android:name="android.intent.action.VIEW" />			
+				<category android:name="android.intent.category.DEFAULT" />
+				<data android:mimeType="vnd.android.cursor.item/postal-address_v2" />
+				<data android:mimeType="vnd.android.cursor.item/postal-address" />
 			</intent-filter>
-			
 		</activity>
 		<activity android:name=".FreeMapCameraActivity"
 			android:screenOrientation="landscape" android:launchMode="singleTask">
@@ -47,6 +54,10 @@
 		<service android:name="com.waze.FreeMapAppService" />
 
 	</application>	
-	<uses-sdk android:minSdkVersion="3" android:targetSdkVersion="4"></uses-sdk>	
+	
+	<uses-sdk android:minSdkVersion="3" android:targetSdkVersion="8"></uses-sdk>
+		
+	<uses-feature android:name="android.hardware.camera" android:required="false" />
+
 
 </manifest> 

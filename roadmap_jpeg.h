@@ -39,6 +39,7 @@ typedef enum
 
 void JpegConvTargetBufType( JpegConvBufType type );
 RoadMapImage roadmap_jpeg_read_file( const char* file_path, const char* file_name );
+RoadMapImage roadmap_jpeg_from_buff( unsigned char *buf, int size );
 
 #ifdef __cplusplus
 }

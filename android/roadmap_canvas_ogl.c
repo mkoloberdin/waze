@@ -33,7 +33,7 @@
 #include "roadmap_screen.h"
 #include "roadmap_gui.h"
 #include "roadmap_device_events.h"
-
+#include "roadmap_performance.h"
 #include "roadmap_canvas.h"
 #include "roadmap_canvas_ogl.h"
 
@@ -46,16 +46,19 @@
 #include "JNI/FreeMapJNI.h"
 #include "ssd/ssd_dialog.h"
 
-
 static int sgOGLWidth = 320;
 static int sgOGLHeight = 455;
 static int sgOGLPixelFormat = 0;
+static const int sgcCordingPointInvalid[2] = {-1, -1 };
+static int sgCordingPointsXY[2*MAX_CORDING_POINTS];
+static int sgCordingPointsCount = 0;
 
 #define CANVAS_OGL_TARGET_FPS 25		// FPS
 #define SSD_CANVAS_OGL_TARGET_FPS 10		// FPS
 #define EGL_CONTEXT_INITIALIZER {NULL, NULL, NULL};
 
-#define ANDROID_HD_FONT_FACTOR			1.6F
+#define ANDROID_LD_FONT_FACTOR         0.9F
+#define ANDROID_SD_FONT_FACTOR         1.2F
 #define ANDROID_MIN_LINE_THICKNESS		3.0F
 
 EGLContextPack sgMainEGLContextPack = EGL_CONTEXT_INITIALIZER;
@@ -71,6 +74,25 @@ static BOOL sgEGLContextPackIsSaved = FALSE;
 		roadmap_log( ROADMAP_ERROR, "%s. EGL Error %x", s, err );	\
 	}	\
 }
+
+#define PNT_LIMIT_X( pnt ) ({ \
+   (pnt) = ( (pnt) < 0 ) ? 0 : (pnt); \
+   (pnt) = ( (pnt) >= sgOGLWidth ) ? (sgOGLWidth-1) : (pnt), \
+   (pnt); \
+})
+
+#define PNT_LIMIT_Y( pnt ) ({ \
+   (pnt) = ( (pnt) < 0 ) ? 0 : (pnt); \
+   (pnt) = ( (pnt) >= sgOGLHeight ) ? (sgOGLHeight-1) : (pnt), \
+   (pnt); \
+})
+
+#define BOOL_STR( val ) ( val ? "TRUE" : "FALSE" )
+const char* OGL_SW_RENDERER_NAME = "Android PixelFlinger";
+const char* TEX_UNITS_UNSUPPORTED_DEVICE_LIST[] = { "U8100", "U8110", "generic", "buzz"        , "iDEN"       , "bahamas"    };
+const char* TEX_UNITS_UNSUPPORTED_MODEL_LIST[] =  { "U8100", "U8110", "sdk"    , "HTC Wildfire", "Motorola_i1", "HTC Tattoo" };
+
+
 /*************************************************************************************************
  * roadmap_canvas_init
  * Initializes the canvas context this the display device parameters
@@ -88,7 +110,7 @@ static BOOL sgEGLContextPackIsSaved = FALSE;
 	/*
      * Screen type
      */
-	roadmap_screen_set_screen_type( roadmap_canvas_get_generic_screen_type( sgOGLWidth, sgOGLHeight ) );
+	roadmap_screen_set_screen_type( sgOGLWidth, sgOGLHeight );
 
 	roadmap_canvas_prepare_main_context();
 
@@ -110,7 +132,16 @@ static void roadmap_canvas_swap_buffers()
 		return;
 	}
 
-    FreeMapNativeManager_SwapBuffersEgl();
+	/*
+	 * Must flush the GPU pipeline because of the Froyo crashes
+	 */
+	glFinish();
+	check_gl_error();
+
+	/*
+    * Post swap buffers call
+    */
+   FreeMapNativeManager_SwapBuffersEgl();
 }
 
 const EGLContextPack* roadmap_canvas_get_main_context()
@@ -149,7 +180,7 @@ void roadmap_canvas_prepare_main_context( void )
 	/*
 	 * Enable the menu if the map is shown ( no dialogs on it )
 	 */
-	FreeMapNativeManager_SetIsMenuEnabled( !ssd_dialog_is_currently_active() );
+//	FreeMapNativeManager_SetIsMenuEnabled( !ssd_dialog_is_currently_active() );
 
 	if ( !roadmap_screen_get_background_run() )
 	{
@@ -168,27 +199,134 @@ void roadmap_canvas_prepare_main_context( void )
    return length;
 }
 
- void roadmap_canvas_mouse_pressed( int aX, int aY )
+static BOOL is_ogl_matrix_load_available()
 {
-	RoadMapGuiPoint point;
-	point.x = aX;
-	point.y = aY;
+   GLfloat mtx[16] = {0};
+   BOOL res = TRUE;
+   int i;
+
+   glGetFloatv( GL_MODELVIEW_MATRIX, mtx );
+   for( i = 0; i < 16; ++i )
+   {
+      if ( mtx[i] != 0 )
+         break;
+   }
+   if ( i == 16 )
+      res = FALSE;
+
+   glGetFloatv( GL_PROJECTION_MATRIX, mtx );
+   for( i = 0; i < 16; ++i )
+   {
+      if ( mtx[i] != 0 )
+         break;
+   }
+   if ( i == 16 )
+      res = FALSE;
+
+   if ( !res || ( glGetError() != GL_NO_ERROR ) || ( eglGetError() != EGL_SUCCESS ) )
+   {
+      roadmap_log( ROADMAP_WARNING, "OpenGL matrix load not available - using matrix tracking" );
+      res = FALSE;
+   }
+   return res;
+}
+
+static inline void cording_reset()
+{
+   int i;
+   const int pnt_size = sizeof( sgcCordingPointInvalid );
+
+   for ( i = 0; i < MAX_CORDING_POINTS; ++i )
+   {
+      memcpy( &sgCordingPointsXY[2*i], sgcCordingPointInvalid, pnt_size );
+   }
+   sgCordingPointsCount = 0;
+}
+
+static inline void cording_set( int xy[], int count )
+{
+   // count should be < MAX_CORDING_POINTS
+   int size = 2 * count * sizeof( int );
+   memcpy( sgCordingPointsXY, xy, size );
+   sgCordingPointsCount = count;
+}
+
+static inline void cording_debug( const char* entry_point, int count )
+{
+   int i = 0;
+   roadmap_log_raw_data_fmt( " ####### Cording at %s. Count: %d \n", entry_point, count );
+   roadmap_log_raw_data_fmt( " ####### Points count: %d. Points: ", sgCordingPointsCount );
+   for ( ;i < MAX_CORDING_POINTS; ++i )
+   {
+      roadmap_log_raw_data_fmt( "(%d,%d) ", sgCordingPointsXY[2*i], sgCordingPointsXY[2*i+1] );
+   }
+   roadmap_log_raw_data_fmt( "\n" );
+}
+
+void roadmap_canvas_get_cording_pt ( RoadMapGuiPoint points[MAX_CORDING_POINTS] )
+{
+   int i = 0;
+   for( ; i < MAX_CORDING_POINTS; ++i )
+   {
+      if ( i < sgCordingPointsCount )
+      {
+         points[i].x = sgCordingPointsXY[2*i];
+         points[i].y = sgCordingPointsXY[2*i+1];
+      }
+      else
+      {
+         points[i].x = -1;
+         points[i].y = -1;
+      }
+   }
+}
+
+int roadmap_canvas_is_cording( void )
+{
+   return ( sgCordingPointsCount > 1 );
+}
+
+
+void roadmap_canvas_mouse_pressed( int aXY[], int aCount )
+{
+   RoadMapGuiPoint point;
+   point.x = PNT_LIMIT_X( aXY[0] );
+   point.y = PNT_LIMIT_Y( aXY[1] );
+
+   if ( roadmap_main_mtouch_supported() )
+   {
+      cording_set( aXY, aCount );
+   }
+
+//   cording_debug( "Pressed", aCount );
 	(*RoadMapCanvasMouseButtonPressed)( &point );
 }
 
- void roadmap_canvas_mouse_released( int aX, int aY )
+void roadmap_canvas_mouse_released( int aXY[], int aCount )
 {
 	RoadMapGuiPoint point;
-	point.x = aX;
-	point.y = aY;
-	(*RoadMapCanvasMouseButtonReleased)( &point );
+   point.x = PNT_LIMIT_X( aXY[0] );
+   point.y = PNT_LIMIT_Y( aXY[1] );
+
+	if ( roadmap_main_mtouch_supported() )
+	{
+	   cording_reset();
+	}
+//	cording_debug( "Released", aCount );
+  (*RoadMapCanvasMouseButtonReleased)( &point );
 }
 
- void roadmap_canvas_mouse_moved( int aX, int aY )
+void roadmap_canvas_mouse_moved( int aXY[], int aCount )
 {
 	RoadMapGuiPoint point;
-	point.x = aX;
-	point.y = aY;
+   point.x = PNT_LIMIT_X( aXY[0] );
+   point.y = PNT_LIMIT_Y( aXY[1] );
+
+   if ( roadmap_main_mtouch_supported() )
+   {
+      cording_set( aXY, aCount );
+   }
+   //	cording_debug( "Moved I", aCount );
 	(*RoadMapCanvasMouseMoved)( &point );
 }
 
@@ -206,11 +344,51 @@ void roadmap_canvas_prepare_main_context( void )
  int roadmap_canvas_height (void) {
    return sgOGLHeight;
 }
+/*
+  * Checks if device is in the list of the devices that do not support
+  * various texture units
+  */
+static BOOL check_tex_units_unsupported_list( const char* device_name, const char* device_model )
+{
+   int i = 0;
+   int length;
 
+   length = sizeof( TEX_UNITS_UNSUPPORTED_DEVICE_LIST )/ sizeof( TEX_UNITS_UNSUPPORTED_DEVICE_LIST[0] );
+
+   for ( i = 0; i < length; ++i )
+   {
+      if ( !strcasecmp( device_name, TEX_UNITS_UNSUPPORTED_DEVICE_LIST[i] ) )
+         return TRUE;
+   }
+
+   length = sizeof( TEX_UNITS_UNSUPPORTED_MODEL_LIST )/ sizeof( TEX_UNITS_UNSUPPORTED_MODEL_LIST[0] );
+
+   for ( i = 0; i < length; ++i )
+   {
+      if ( !strcasecmp( device_model, TEX_UNITS_UNSUPPORTED_MODEL_LIST[i] ) )
+         return TRUE;
+   }
+
+   if ( roadmap_canvas_is_sw_renderer() )
+      return TRUE;
+
+   return FALSE;
+}
+
+static const char* get_renderer( void )
+{
+   static const char* renderer_name = NULL;
+   if ( renderer_name == NULL )
+   {
+      renderer_name = (const char*) glGetString( GL_RENDERER );
+   }
+   return renderer_name;
+}
 
 void roadmap_canvas_prepare()
 {
-	float aa_factor, font_factor = 1.F;
+	float aa_factor, font_factor = ANDROID_SD_FONT_FACTOR;
+	const char* renderer_name = get_renderer();
 
 	glMatrixMode( GL_PROJECTION );
 	glLoadIdentity();
@@ -243,12 +421,46 @@ void roadmap_canvas_prepare()
 
 	aa_factor = ( roadmap_main_get_build_sdk_version() <= ANDROID_OS_VER_DONUT ) ? 0.5F : 0.0F;
 
-    if ( roadmap_screen_is_hd_screen() )
-    {
-    	font_factor = ANDROID_HD_FONT_FACTOR;
-    }
+
+   font_factor = ADJ_SCALE( font_factor );
+
+   roadmap_log( ROADMAP_WARNING, "Device Data. Device name: %s. Device model: %s. Renderer: %s ( Software: %s )",
+         roadmap_main_get_device_name(), roadmap_main_get_device_model(),
+         renderer_name, BOOL_STR( roadmap_canvas_is_sw_renderer() ) );
+
+   if ( check_tex_units_unsupported_list( roadmap_main_get_device_name(), roadmap_main_get_device_model() ) )
+   {
+      roadmap_log( ROADMAP_WARNING, "The Device : %s ( model: %s ) is in the unsupported texture units " \
+            "devices list!\nSetting number of texture units to 1.",
+            roadmap_main_get_device_name(), roadmap_main_get_device_model() );
+
+      roadmap_canvas_set_max_tex_units( 1 );
+   }
+
+   if ( !strcasecmp( roadmap_main_get_device_manufacturer(), "HTC" ) )
+   {
+      roadmap_screen_set_cording_rotation_enabled( FALSE );
+   }
 
 	roadmap_canvas_ogl_configure( aa_factor, font_factor, ANDROID_MIN_LINE_THICKNESS );
+	check_gl_error()
+	// Enable matrix tracking for the earlier android builds
+	// to solve the absence of API call glGetFloatv( XXX_MATRIX, mtx )
+	if ( !is_ogl_matrix_load_available() )
+	{
+	   roadmap_canvas3_glmatrix_enable();
+	}
+	check_gl_error()
+	roadmap_canvas3_ogl_prepare();
+	check_gl_error()
+}
+
+/*
+ * Checks if software renderer
+ */
+BOOL roadmap_canvas_is_sw_renderer( void )
+{
+   return ( strncmp( get_renderer(), OGL_SW_RENDERER_NAME, strlen( OGL_SW_RENDERER_NAME ) ) == 0 );
 }
 
 void roadmap_canvas_new ( void )

@@ -205,13 +205,12 @@ BOOL local_candidate_build_address_string( address_candidate* this)
       }
    }
 
-#ifndef IPHONE   
+#ifndef IPHONE
    if (has_phone)
        snprintf( this->address + strlen(this->address), ADSR_ADDRESS_MAX_SIZE-strlen(this->address), "\n%s", this->phone);
 #endif //IPHONE
 
    add_distance_to_address_string(this);
-
 
    return TRUE;
 }
@@ -296,10 +295,10 @@ const char* local_search_get_provider( void )
 const char* local_search_get_provider_label( void )
 {
    static char provider_lbl[LSR_PROVIDER_LABEL_MAX_SIZE];
-   
+
 	/* Setting the label */
 	strncpy_safe( provider_lbl, roadmap_config_get( &s_web_service_ls_provider_label ), LSR_PROVIDER_LABEL_MAX_SIZE );
-   
+
 	/* Make upper case */
 	if ( ( provider_lbl[0] >=97 ) && ( provider_lbl[0] <= 122 ) )
 	{
@@ -403,6 +402,8 @@ const char* on_local_option(   /* IN  */   const char*       data,
    int               size;
 
    address_candidate_init( &ac);
+
+   ac.type = ADDRESS_CANDIDATE_TYPE_LS;
 
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;

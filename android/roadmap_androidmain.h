@@ -30,8 +30,9 @@
 #ifndef INCLUDE__ROADMAP_ANDROID_MAIN__H
 #define INCLUDE__ROADMAP_ANDROID_MAIN__H
 
-#define ANDROID_OS_VER_DONUT	4
-
+#define ANDROID_OS_VER_DONUT	 4
+#define ANDROID_OS_VER_ECLAIR  5
+#define ANDROID_OS_VER_FROYO   8
 
 // Main loop messages dispatcher
 void roadmap_main_message_dispatcher( int aMsg );
@@ -48,13 +49,25 @@ void roadmap_main_show_gps_disabled_warning();
 
 BOOL roadmap_horizontal_screen_orientation();
 
+BOOL roadmap_main_mtouch_supported( void );
+
 void roadmap_main_set_build_sdk_version( int aVersion );
 
 int roadmap_main_get_build_sdk_version( void );
 
 void roadmap_main_set_device_name( const char* device_name );
 
+void roadmap_main_set_device_model( const char* model );
+
+void roadmap_main_set_device_manufacturer( const char* manufacturer );
+
 const char* roadmap_main_get_device_name( void );
+
+const char* roadmap_main_get_device_manufacturer( void );
+
+void roadmap_main_show_contacts( void );
+
+const char* roadmap_main_get_device_model( void );
 
 int LogResult( int aVal, const char *aStrPrefix, int level, char *source, int line );
 

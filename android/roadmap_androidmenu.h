@@ -32,7 +32,7 @@
 
 
 #define ANDROID_MENU_FILE_NAME			"bottom_menu"
-#define ANDROID_MENU_MAX_ITEMS_NUM		(10)
+#define ANDROID_MENU_MAX_ITEMS_NUM		(20)
 
 void roadmap_androidmenu_handler( int item_id );
 

@@ -64,7 +64,7 @@ static void periodic_callack (void) {
       roadmap_message_unset('!');
       LastActivityTime = 0;
       roadmap_main_remove_periodic(periodic_callack);
-      //roadmap_screen_mark_redraw();
+      roadmap_screen_redraw();
    }
 }
 

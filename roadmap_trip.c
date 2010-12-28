@@ -75,6 +75,8 @@ static RoadMapConfigDescriptor RoadMapConfigCarName =
 
 /* Default location is: Kikar Ha-Medina, Tel Aviv, Israel. */
 #define ROADMAP_DEFAULT_POSITION "34794810, 32106010"
+#define DEFAULT_CAR_NAME         "car_blue"
+#define DEFAULT_3D_CAR_NAME      "3D_Arrow"
 
 static int RoadMapTripRotate   = 1;
 static int RoadMapTripModified = 0; /* List needs to be saved ? */
@@ -1078,7 +1080,7 @@ void roadmap_trip_display (void) {
 
         if (roadmap_math_point_is_visible (&waypoint->map)) {
             roadmap_math_coordinate (&waypoint->map, &point);
-            roadmap_math_rotate_coordinates (1, &point);
+            roadmap_math_rotate_project_coordinate (&point);
 
             if ((focus != NULL) && ((!strcmp(waypoint->sprite,"GPS") &&
             		!strcmp (focus, "GPS") && (roadmap_screen_get_orientation_mode() != ORIENTATION_FIXED) ))) {
@@ -1089,8 +1091,15 @@ void roadmap_trip_display (void) {
 
                 roadmap_math_coordinate ((RoadMapPosition *)&waypoint->gps, &screen_point);
 
-                roadmap_math_rotate_coordinates (1, &screen_point);
+                roadmap_math_rotate_project_coordinate (&screen_point);
                 config_car = roadmap_config_get (&RoadMapConfigCarName);
+
+#if defined (VIEW_MODE_3D_OGL)// && defined (IPHONE)
+               if (roadmap_screen_get_view_mode() == VIEW_MODE_3D &&
+                   !strcmp(config_car, DEFAULT_CAR_NAME))
+                  config_car = DEFAULT_3D_CAR_NAME;
+#endif //VIEW_MODE_3D_OGL
+
                 if (config_car[0] != 0){
                 	car_name = editor_screen_overide_car();
 
@@ -1142,7 +1151,7 @@ void roadmap_trip_display (void) {
         azymuth = roadmap_math_azymuth (&gps->map,
                                         &RoadMapTripNextWaypoint->map);
         roadmap_math_coordinate (&gps->map, &point);
-        roadmap_math_rotate_coordinates (1, &point);
+        roadmap_math_rotate_project_coordinate (&point);
         roadmap_sprite_draw ("Direction", &point, azymuth);
     }
 }
@@ -1197,7 +1206,7 @@ void roadmap_trip_initialize (void) {
     roadmap_config_declare
         ("session", &RoadMapConfigFocusRotate, "1", NULL);
     roadmap_config_declare
-    	("user", &RoadMapConfigCarName, "car_blue", NULL);
+    	("user", &RoadMapConfigCarName, DEFAULT_CAR_NAME, NULL);
 
     RoadMapTripNextMessageUpdate =
        roadmap_message_register (roadmap_trip_format_messages);

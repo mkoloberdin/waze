@@ -31,6 +31,7 @@
 #include <EGL/egl.h>
 #include <GLES/gl.h>
 #include <GLES/glext.h>
+#include "roadmap_androidmain.h"
 //#include <ui/EventHub.h>
 
 typedef struct
@@ -40,6 +41,7 @@ typedef struct
 	EGLSurface surface;
 } EGLContextPack;
 
+BOOL roadmap_canvas_is_sw_renderer();
 void roadmap_canvas_prepare_main_context( void );
 void roadmap_canvas_prepare( void );
 void roadmap_canvas_draw_multiple_lines_slow( int count, int *lines, RoadMapGuiPoint *points, int fast_draw );

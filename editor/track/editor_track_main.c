@@ -879,7 +879,7 @@ void editor_track_toggle_new_roads (void) {
        editor_bar_show();
    } else {
       if (editor_line_get_count () > 0)
-         roadmap_messagebox_timeout ("New roads", "Road successfully recorded.  A link to edit it will be sent to your email and to you Dashboard on www.waze.com. (May take 24 hrs.)", 8);
+         roadmap_messagebox_timeout ("New roads", "Road successfully recorded.  A link to edit it will be available on your Dashboard at www.waze.com. (May take 24 hrs.)", 8);
       else
          roadmap_messagebox_timeout("New roads", "New Road Recording is now OFF",5);
 
@@ -1016,13 +1016,19 @@ static void track_rec_locate(time_t gps_time,
    int context_save_zoom;
    int point_id;
    int res;
+   int zoom = 20;
 
    LastGpsUpdate = gps_time;
 
    track_filter_init ();
 
    roadmap_math_get_context (&context_save_pos, &context_save_zoom);
-   roadmap_math_set_context ((RoadMapPosition *)gps_position, 20);
+
+   if ( roadmap_screen_is_hd_screen() )
+      zoom *= 2;
+
+   roadmap_math_set_context ((RoadMapPosition *)gps_position, zoom );
+
    editor_track_util_set_focus ((RoadMapPosition *)gps_position);
 
    res = editor_track_filter_add (TrackFilter, gps_time, dilution, gps_position);
@@ -1062,15 +1068,15 @@ static void check_street_name (const RoadMapGpsPosition *gps_position) {
    const char *street_name = "skip";
    static int last_line = -1;
    static int last_square = -1;
-   
+
    if (TrackConfirmedStreet.valid) {
       if (last_line == TrackConfirmedLine.line.line_id &&
           last_square == TrackConfirmedLine.line.square)
          return;
-      
+
       last_line = TrackConfirmedLine.line.line_id;
       last_square = TrackConfirmedLine.line.square;
-      
+
       if (TrackConfirmedLine.line.plugin_id == EditorPluginID) {
          if (editor_db_activate (TrackConfirmedLine.line.fips) != -1) {
             int street_id = -1;
@@ -1088,7 +1094,7 @@ static void check_street_name (const RoadMapGpsPosition *gps_position) {
          return;
       }
    }
-   
+
    if (isTracking) {
       editor_street_bar_stop();
       isTracking = FALSE;
@@ -1128,10 +1134,10 @@ void editor_track_initialize (void) {
 
    roadmap_config_declare_enumeration
        ("preferences", &RoadMapConfigStartShortCuts, NULL,  "map-updates", "record", NULL);
-   
+
    roadmap_config_declare_enumeration
       ("preferences", &RoadMapConfigEditorGrid, NULL,  "no", "yes", NULL);
-   
+
    /*
     * Start recording if
     * 1. config is set to always
@@ -1154,10 +1160,10 @@ void editor_track_initialize (void) {
 int editor_track_shortcut(void){
    if (navigate_main_alt_routes_display())
       return 0;
-   
-   if (roadmap_config_match(&RoadMapConfigEditorGrid, "yes")) 
+
+   if (roadmap_config_match(&RoadMapConfigEditorGrid, "yes"))
       return 3;
-   else if (roadmap_config_match(&RoadMapConfigStartShortCuts, "record")) 
+   else if (roadmap_config_match(&RoadMapConfigStartShortCuts, "record"))
       return 2;
    else
       return 1;

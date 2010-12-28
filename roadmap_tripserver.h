@@ -36,5 +36,7 @@ typedef struct tag_TripServeHandlers
 }  TripServeHandlers;
 
 const char* roadmap_tripserver_response(int status, int NumParams, const char*  pData);
+void roadmap_trip_server_init(void);
+BOOL roadmap_trip_server_create_poi  (const char* name, RoadMapPosition* coordinates, BOOL overide);
 
 #endif /* ROADMAP_TRIPSERVER_H_ */

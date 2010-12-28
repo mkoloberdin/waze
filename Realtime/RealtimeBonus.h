@@ -31,6 +31,10 @@
 
 #define BONUS_TYPE_POINTS     0
 #define BONUS_TYPE_TREASURE   1
+
+#define MAX_SUCCESS_TEXT 250
+#define MAX_BONUS_TEXT   250
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // bonus
 typedef struct
@@ -38,13 +42,19 @@ typedef struct
     int  iID;     //   bonus ID (within the server)
     int  iType;   //   bonus Type
     int  iToken;  //   bonus Token
-    int  iRadius; //   Radius to collect 
+    int  iRadius; //   Radius to collect
     int  iNumPoints; // Number of bonus points
     RoadMapPosition position;
     char *pIconName; // Name of the icon
-    char sGUIID[MAX_GUID_ID+1]; // GUI ID 
+    char sGUIID[MAX_GUID_ID+1]; // GUI ID
     BOOL collected;
     roadmap_alerter_location_info location_info;
+    char *pBonusText;
+    BOOL bIsCustomeBonus;
+    BOOL displayed;
+    char *pCollectText;
+    char *pCollectTitle;
+    char *pCollectIcon;
 } RTBonus;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,6 +72,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus);
 BOOL RealtimeBonus_Delete (int iId);
 
 int RealtimeBonus_CollectedPointsConfirmed(int iID, int iType, int iPoints, BOOL bHasGift, BOOL bIsBigPrize, const char *gift);
+int RealtimeBonus_OpenMessageTicker(int iPoints,  const char *text, const char *title, const char *icon);
 void RealtimeBonus_Record_Init (RTBonus *pbonus);
 int   RealtimeBonus_Count (void);
 unsigned int RealtimeBonus_Get_Speed (int index);

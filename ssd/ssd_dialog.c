@@ -54,7 +54,7 @@
 #include "ssd_contextmenu.h"
 
 
-#define	SCROLL_AFTER_END_COUNTER 4
+#define	SCROLL_AFTER_END_COUNTER 16
 #define ALIGN_FOCUS_TIMEOUT		 40
 
 struct ssd_dialog_item;
@@ -633,7 +633,7 @@ void ssd_dialog_change_button(const char *name, const char **bitmaps, int num_bi
 }
 
 SsdWidget ssd_dialog_right_title_button(void){
-   SsdWidget button = ssd_widget_get(RoadMapDialogCurrent->container, "right_titlle_button");
+   SsdWidget button = ssd_widget_get(RoadMapDialogCurrent->container, "right_title_button");
    return button;
 }
 
@@ -960,7 +960,31 @@ void ssd_dialog_refresh_current_softkeys(){
    set_softkeys(RoadMapDialogCurrent);
 }
 
-#define SCROLL_AFTER_END_COUNTER 4
+static void keep_dragging (void) {
+   SsdDialog dialog = RoadMapDialogCurrent;
+   RoadMapGuiPoint point;
+   int diff;
+
+   if (dialog == NULL)
+      return;
+
+   dialog->scroll_counter++;
+   point.x = dialog->drag_start_point.x;
+   diff = dialog->drag_end_motion.y - dialog->drag_start_point.y;
+   if (diff > 0)
+        point.y= dialog->drag_last_motion.y + dialog->scroll_counter *   (dialog->drag_speed/3);
+   else
+        point.y = dialog->drag_last_motion.y - dialog->scroll_counter  * (dialog->drag_speed/3);
+
+   if (dialog->scroll_counter < SCROLL_AFTER_END_COUNTER)
+      ssd_dialog_drag_motion(&point);
+   else{
+      dialog->time_active = FALSE;
+      ssd_dialog_drag_end(&point);
+      roadmap_main_remove_periodic (keep_dragging);
+   }
+}
+
 
 int ssd_dialog_drag_start (RoadMapGuiPoint *point) {
    SsdDialog dialog = RoadMapDialogCurrent;
@@ -984,6 +1008,10 @@ int ssd_dialog_drag_start (RoadMapGuiPoint *point) {
       dialog->drag_last_motion.y = point->y;
       dialog->scroll_counter = 0;
       dialog->drag_start_time_ms = roadmap_time_get_millis();
+      if (dialog->time_active){
+         roadmap_main_remove_periodic (keep_dragging);
+         dialog->time_active = FALSE;
+      }
    }
    return 1;
 }
@@ -1011,18 +1039,30 @@ int ssd_dialog_drag_end (RoadMapGuiPoint *point) {
    time_diff = dialog->drag_end_time_ms - dialog->drag_start_time_ms;
    drag_diff = abs(dialog->drag_end_motion.y - dialog->drag_start_point.y);
    if (time_diff > 0)
-      speed = (int)(drag_diff*10)/time_diff;
+      speed = (int)(drag_diff*5)/time_diff;
+
+#ifdef OPENGL
+   if ((dialog->scroll_counter < SCROLL_AFTER_END_COUNTER) &&  (drag_diff > 40)){
+      dialog->drag_speed = speed;
+      roadmap_main_set_periodic (10, keep_dragging);
+      dialog->time_active = TRUE;
+      return 1;
+   }
+#endif
 
    if (dialog->scroll_container && dialog->scroll_container->drag_end)
       return (*dialog->scroll_container->drag_end)(dialog->container, point);
    else if ((dialog->scroll_container) && (dialog->scroll)){
       SsdWidget title;
       SsdSize size, size2;
-      int height;
+      int height, title_height = 0;
       int goffsef = (int)(1 * (point->y - dialog->drag_start_point.y ) + dialog->stop_offset);
       title = ssd_widget_get (RoadMapDialogCurrent->container, "title_bar");
 
-      height = roadmap_canvas_height() - title->cached_size.height - 4;
+      if ( title != NULL )
+         title_height = title->cached_size.height;
+
+      height = roadmap_canvas_height() - title_height - 4;
 
       ssd_widget_reset_cache(dialog->scroll_container);
       ssd_widget_get_size(dialog->scroll_container, &size, NULL);
@@ -1126,6 +1166,10 @@ SsdWidget ssd_dialog_activate (const char *name, void *context) {
    dialog->context = context;
 
    dialog->activated_prev = RoadMapDialogCurrent;
+   if (RoadMapDialogCurrent && (RoadMapDialogCurrent->container->flags & SSD_DIALOG_MODAL)){
+      ssd_dialog_hide (RoadMapDialogCurrent->name, dec_close);
+      dialog->activated_prev = NULL;
+   }
 
    if (!RoadMapDialogCurrent) {
       roadmap_keyboard_register_to_event__key_pressed( OnKeyPressed);
@@ -1624,7 +1668,13 @@ void ssd_dialog_set_free( const char* dlg_name, PFN_ON_DIALOG_FREE free_fn,  voi
 void ssd_dialog_free( const char* dlg_name, BOOL force )
 {
 
-	SsdDialog dialog = ssd_dialog_get( dlg_name );
+   SsdDialog dialog = ssd_dialog_get( dlg_name );
+   if ( dialog == RoadMapDialogCurrent )
+   {
+      roadmap_log( ROADMAP_WARNING, "Deallocating currently active dialog!!!" );
+   }
+
+   ssd_dialog_hide( dlg_name, dec_cancel );
 
 	ssd_dialog_free_internal( dialog, force, TRUE );
 }

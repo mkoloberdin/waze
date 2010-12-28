@@ -44,6 +44,12 @@ enum { MATH_DIST_ACTUAL = 0,
 
 #define ROADMAP_VISIBILITY_DISTANCE 80
 
+enum projection_modes {
+   PROJECTION_MODE_NONE,
+   PROJECTION_MODE_3D_NON_OGL,
+   PROJECTION_MODE_3D
+};
+
 struct RoadMapUnits_t;
 
 struct RoadMapContext_t {
@@ -81,6 +87,7 @@ struct RoadMapContext_t {
    struct RoadMapUnits_t *units;
 
    int _3D_horizon;
+   enum projection_modes _is3D_projection;
 
 };
 
@@ -151,7 +158,7 @@ INLINE_DEC int roadmap_math_area_zoom (int area) {
    int i;
    int zoom = RoadMapContext.zoom;
 
-   if (RoadMapContext._3D_horizon == 0) {
+   if (RoadMapContext._is3D_projection != PROJECTION_MODE_NONE) {
       return zoom;
    }
 
@@ -209,12 +216,14 @@ int  roadmap_math_zoom_set     (int zoom);
 void roadmap_math_adjust_zoom	 (int square);
 int  roadmap_math_set_scale    (int scale, int use_map_units);
 int  roadmap_math_get_scale    (int use_map_units);
+int  roadmap_math_valid_scale  (int scale, int use_map_units);
 
 void roadmap_math_set_center      (RoadMapPosition *position);
 void roadmap_math_set_size        (int width, int height);
+void roadmap_math_normalize_orientation (int *direction);
 int  roadmap_math_set_orientation (int direction);
 int  roadmap_math_get_orientation (void);
-void roadmap_math_set_horizon     (int horizon);
+void roadmap_math_set_horizon     (int horizon,int is_projection);
 
 void roadmap_math_set_focus     (const RoadMapArea *focus);
 void roadmap_math_release_focus (void);
@@ -246,6 +255,7 @@ void roadmap_math_to_position (const RoadMapGuiPoint *point,
 void roadmap_math_project     (RoadMapGuiPoint *point);
 void roadmap_math_unproject   (RoadMapGuiPoint *point);
 
+void roadmap_math_rotate_project_coordinate (RoadMapGuiPoint *point);
 void roadmap_math_rotate_coordinates (int count, RoadMapGuiPoint *points);
 void roadmap_math_counter_rotate_coordinate (RoadMapGuiPoint *point);
 

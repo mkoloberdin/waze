@@ -37,6 +37,7 @@
 #include "../roadmap_locator.h"
 #include "../roadmap_display.h"
 #include "../roadmap_main.h"
+#include "../roadmap_gps.h"
 #include "../roadmap_geo_config.h"
 #include "../roadmap_square.h"
 #include "../roadmap_tile_manager.h"
@@ -242,6 +243,13 @@ static void on_search(void)
       roadmap_start_reset_debug_mode();
       return;
    }
+
+   if ( !strcmp( "##@coord", ssd_text_get_text( edit ) ) )
+   {
+      roadmap_gps_reset_show_coordinates();
+      return;
+   }
+
    if ( !strcmp( "##@il", ssd_text_get_text( edit ) ) )
    {
       roadmap_geo_config_il(NULL);
@@ -507,7 +515,7 @@ static SsdWidget create_results_container()
                               0,
                               NULL);
    //ssd_widget_set_color(list, NULL,NULL);
-   ssd_list_resize( list, 50);
+   ssd_list_resize( list, ssd_container_get_row_height());
 
    ssd_widget_add( rcnt, list);
 
@@ -526,6 +534,23 @@ static SsdWidget get_result_container()
 static void on_auto_search_completed( int exit_code, void* context)
 { ssd_dialog_hide_all( dec_close);}
 
+
+void address_search_dlg_show_auto( PFN_ON_DIALOG_CLOSED cbOnClosed,
+                              void*                context)
+{
+   generic_search_dlg_show( search_address,
+                            ASD_DIALOG_NAME,
+                            ASD_DIALOG_TITLE,
+                            on_options,
+                            on_back,
+                            get_result_container(),
+                            cbOnClosed,
+                            on_search,
+                            address_search_dlg_show,
+                            context,TRUE);
+
+}
+
 BOOL address_search_auto_search( const char* address)
 {
    SsdWidget edit    = NULL;
@@ -536,7 +561,7 @@ BOOL address_search_auto_search( const char* address)
 //      return FALSE;
 //   }
 
-   address_search_dlg_show( on_auto_search_completed, (void*)address);
+   address_search_dlg_show_auto( on_auto_search_completed, (void*)address);
 
    edit  = generic_search_dlg_get_search_edit_box(search_address);
 
@@ -558,7 +583,7 @@ void address_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                             cbOnClosed,
                             on_search,
                             address_search_dlg_show,
-                            context);
+                            context,FALSE);
 
 }
 
@@ -567,7 +592,7 @@ static void search_progress_message_delayed(void)
 {
 	roadmap_main_remove_periodic( search_progress_message_delayed );
 	if( s_searching )
-		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching . . . " ) );
+		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching..." ) );
 }
 
 /* Callback for the error message box */

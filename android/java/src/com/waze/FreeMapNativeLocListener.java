@@ -73,9 +73,25 @@ public final class FreeMapNativeLocListener implements LocationListener
      * 
      * 
      */
-    public void onLocationChanged( Location location )
+    public void onLocationChanged( final Location location )
     {
-        UpdateNativeLayer( mStatusAvailable, location );
+    	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+    	if ( mgr != null && mgr.IsAppStarted()  )
+    	{
+    		if ( mgr.IsNativeThread() )
+    		{
+    			UpdateNativeLayer( mStatusAvailable, location );
+    		}
+    		else
+    		{
+    			Runnable msg = new Runnable() {
+					public void run() {
+		    			UpdateNativeLayer( mStatusAvailable, location );
+					}
+				};
+    			mgr.PostRunnable( msg );
+    		}
+    	}
 //        mLocationManager.removeUpdates( this );
 //        mLocationManager.requestLocationUpdates( LocationManager.GPS_PROVIDER, 0, 0,
 //                this );
@@ -114,8 +130,7 @@ public final class FreeMapNativeLocListener implements LocationListener
      */
     public void onStatusChanged( String provider, int status, Bundle extras )
     {
-        byte lStatus;
-        Location lastLoc;
+        byte lStatus;        
         if (status == LocationProvider.AVAILABLE)
         {
             lStatus = mStatusAvailable;
@@ -126,9 +141,27 @@ public final class FreeMapNativeLocListener implements LocationListener
         }
 
         // Adjustment of the parameters for the native layer
-        lastLoc = mLocationManager.getLastKnownLocation(provider);
+        final Location lastLoc = mLocationManager.getLastKnownLocation(provider);
+        FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
         if (lastLoc != null)
         {
+        	if ( mgr != null && mgr.IsAppStarted()  )
+        	{
+        		if ( mgr.IsNativeThread() )
+        		{
+        			UpdateNativeLayer( mStatusAvailable, lastLoc );
+        		}
+        		else
+        		{
+        			Runnable msg = new Runnable() {
+    					public void run() {
+    		    			UpdateNativeLayer( mStatusAvailable, lastLoc );
+    					}
+    				};
+        			mgr.PostRunnable( msg );
+        		}
+        	}
+
             UpdateNativeLayer( lStatus, lastLoc );
         }
     }
@@ -241,7 +274,26 @@ public final class FreeMapNativeLocListener implements LocationListener
     	            	iter.next();
     	            }
     	            // Update the native layer
-    	        	SatteliteListenerCallbackNTV( satelliteNumber );
+    	            final int satelliteNumberFinal = satelliteNumber;
+    	            FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+	            	if ( mgr != null && mgr.IsAppStarted()  )
+	            	{
+	            		if ( mgr.IsNativeThread() )
+	            		{
+	            			SatteliteListenerCallbackNTV( satelliteNumberFinal );
+	            		}
+	            		else
+	            		{
+	            			Runnable msg = new Runnable() {
+	        					public void run() {
+	        						SatteliteListenerCallbackNTV( satelliteNumberFinal );
+	        					}
+	        				};
+	            			mgr.PostRunnable( msg );
+	            		}
+	            	}
+
+    	        	
     				break;
     			}
     			

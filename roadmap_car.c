@@ -96,6 +96,7 @@ void roadmap_car_dialog (RoadMapCallback callback) {
     char **files;
     const char *cursor;
     char **cursor2;
+    char* png_name;
     char *directory = NULL;
     int count = 0;
 
@@ -119,8 +120,10 @@ void roadmap_car_dialog (RoadMapCallback callback) {
     		files = roadmap_path_list ( directory, NULL );
     	}
    		for (cursor2 = files; *cursor2 != NULL; ++cursor2) {
-   	  			labels[count]  =   (char *)roadmap_lang_get(*cursor2);
    	  			values[count] =   strtok(*cursor2,".");
+   	  			png_name = malloc( strlen( (char*) values[count] ) + strlen( ".png" ) + 1 );  // Leaked
+   	  			sprintf( png_name, "%s.png", (char*) values[count] );
+   	  			labels[count]  =   (char *) roadmap_lang_get( png_name );
    	  			icons[count]   =   roadmap_path_join("cars", *cursor2);
       			count++;
    		}

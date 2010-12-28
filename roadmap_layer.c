@@ -123,7 +123,7 @@ static void roadmap_layer_reload_internal (void) {
         const char *class_name;
         const char *color[ROADMAP_LAYER_PENS];
         const char *label_color;
-
+		int bg_color;
         int  thickness;
         int  other_pens_length = strlen(name) + 64;
         char *other_pens = malloc(other_pens_length);
@@ -163,13 +163,11 @@ static void roadmap_layer_reload_internal (void) {
         if (!initialized)
            roadmap_config_declare ("schema", &descriptor, "1", NULL);
         thickness = category->thickness = roadmap_config_get_integer (&descriptor);
-#ifndef ANDROID
+
         if ( roadmap_screen_is_hd_screen() )
         {
-         category->thickness = (int)(category->thickness * 1.5);
-         thickness = (int)(thickness * 1.5);
+           thickness = category->thickness = (int)(category->thickness * 2);
         }
-#endif
 
         if (!initialized) {
            descriptor.name     = "Declutter";
@@ -225,12 +223,11 @@ static void roadmap_layer_reload_internal (void) {
 
            category->delta_thickness[j] =
               roadmap_config_get_integer (&descriptor);
-#ifndef ANDROID
+
            if ( roadmap_screen_is_hd_screen() )
            {
-            category->delta_thickness[j] = (int)(category->delta_thickness[j] * 1.5);
+            category->delta_thickness[j] = (int)(category->delta_thickness[j] * 2);
            }
-#endif
 
            if (!is_new) free ((void *)descriptor.name);
 
@@ -291,9 +288,9 @@ static void roadmap_layer_reload_internal (void) {
            roadmap_canvas_set_foreground (global_label_color);
         }
 #ifdef OPENGL
-        int bg_color = (category->pen_count > 2 ? 1 : 0);
+        bg_color = (category->pen_count > 2 ? 1 : 0);
         if (color[bg_color] != NULL && *(color[bg_color]) > ' ') {
-           roadmap_canvas_set_background (global_label_bg_color);
+				roadmap_canvas_set_background (global_label_bg_color);
         }
 #endif //OPENGL
 
@@ -357,6 +354,7 @@ void roadmap_layer_adjust (void) {
    int i;
    int j;
    int k;
+   int future_thickness;
    int thickness;
    struct roadmap_canvas_category *category;
 
@@ -367,13 +365,19 @@ void roadmap_layer_adjust (void) {
       category = RoadMapCategory + i;
 
       for (k=0; k<LAYER_PROJ_AREAS; k++) {
+         int proj = k;
 
-         if (roadmap_layer_is_visible(i, k)) {
+#ifdef VIEW_MODE_3D_OGL
+	 /* rely on opengl to shrink the lines on the horizon */
+         if (proj < 4) proj = 0;
+#endif
+
+         if (roadmap_layer_is_visible(i, proj)) {
 
             thickness =
                roadmap_math_thickness (category->thickness,
                      category->declutter,
-                     k+1,
+                     proj+1,
                      category->pen_count > 1);
 
             if (thickness <= 0) thickness = 1;
@@ -389,7 +393,7 @@ void roadmap_layer_adjust (void) {
                /* As a matter of taste, I do dislike roads with a filler
                 * of 1 pixel. Lets force at least a filler of 2.
                 */
-               int future_thickness = thickness;
+               future_thickness = thickness;
 
                for (j = 1; j < category->pen_count; ++j) {
 
@@ -404,6 +408,12 @@ void roadmap_layer_adjust (void) {
             }
 #endif
 
+#ifdef VIEW_MODE_3D_OGL
+            if (roadmap_screen_get_view_mode() == VIEW_MODE_3D) {
+               thickness *= 2;
+               if (thickness > 50) thickness = 50;
+            }
+#endif
             if (k == 0) {
                roadmap_plugin_adjust_layer (i, thickness, category->pen_count);
             }
@@ -427,7 +437,7 @@ void roadmap_layer_adjust (void) {
                if (category->delta_thickness[j] < 0) {
 
                   thickness += category->delta_thickness[j];
-
+                  
                } else {
                   /* Don't end with a road mostly drawn with the latter
                    * pen.

@@ -42,7 +42,13 @@ extern RoadMapConfigDescriptor RoadMapConfigUseNativeKeyboard;
  */
 BOOL roadmap_native_keyboard_enabled()
 {
-	BOOL res = roadmap_config_match( &RoadMapConfigUseNativeKeyboard, "yes" );
+   /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    * AGA NOTE: Currently not in use!!! Native android edit box is used instead!!
+    *
+    */
+   BOOL res = FALSE;
+
+//	BOOL res = roadmap_config_match( &RoadMapConfigUseNativeKeyboard, "yes" );
 	return res;
 }
 

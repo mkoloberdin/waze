@@ -37,6 +37,7 @@
 #include "roadmap_string.h"
 #include "roadmap_object.h"
 #include "roadmap_config.h"
+#include "roadmap_display.h"
 
 #include "roadmap_net.h"
 #include "roadmap_file.h"
@@ -49,6 +50,7 @@
 #include "roadmap_warning.h"
 #include "navigate/navigate_main.h"
 #include "ssd/ssd_progress_msg_dialog.h"
+#include "ssd/ssd_dialog.h"
 
 #ifdef CSV_GPS
 #include "roadmap_gps_csv.h"
@@ -97,6 +99,9 @@ static RoadMapConfigDescriptor RoadMapConfigGPSSource =
 
 static RoadMapConfigDescriptor RoadMapConfigGpsRaw =
                         ROADMAP_CONFIG_ITEM("GPS", "Show GPS");
+
+static RoadMapConfigDescriptor RoadMapConfigShowGpsCoordinates =
+                        ROADMAP_CONFIG_ITEM("GPS", "Show GPS coordinates");
 
 static RoadMapConfigDescriptor RoadMapConfigGpsCoarseSwitchTO =
                         ROADMAP_CONFIG_ITEM("GPS", "Coarse location timeout");
@@ -222,6 +227,28 @@ int roadmap_gps_reception_state (void) {
    return RoadMapGpsReception;
 }
 
+BOOL roadmap_gps_show_coordinats(void){
+   return(roadmap_config_match(&RoadMapConfigShowGpsCoordinates, "yes"));
+}
+
+void roadmap_gps_set_show_coordinates(BOOL show){
+   const char* values[2] = {"no", "yes"};
+   roadmap_config_set( &RoadMapConfigShowGpsCoordinates, values[show] );
+   roadmap_config_save(FALSE);
+}
+
+void roadmap_gps_reset_show_coordinates(void){
+   ssd_dialog_hide_all(dec_close);
+   if (roadmap_gps_show_coordinats()){
+      roadmap_gps_set_show_coordinates(FALSE);
+      roadmap_messagebox( "Coordinates display", "Disabled" );
+   }
+   else{
+      roadmap_gps_set_show_coordinates(TRUE);
+      roadmap_messagebox( "Coordinates display", "Enabled" );
+   }
+}
+
 
 static void roadmap_gps_update_reception (void) {
 
@@ -273,27 +300,27 @@ static int roadmap_gps_validate (int gmt_time,
                                  int altitude,
                                  int *speed,
                                  int steering) {
-   
-   
+
+
 	static int last_valid_speed = 0;
 	static int last_valid_time = 0;
 	static RoadMapPosition last_valid_pos = {0, 0};
 	static RoadMapPosition last_pos = {0, 0};
 	int ok = 1;
 	RoadMapPosition position;
-   
+
 	position.longitude = longitude;
 	position.latitude = latitude;
-   
+
 	if (gmt_time < last_valid_time) {
-      
+
 		roadmap_log (ROADMAP_WARNING, "Ignoring GPS jump back in time.. from %d to %d", last_valid_time, gmt_time);
 		ok = 0;
 	}
-   
+
 	last_valid_time = gmt_time;
-   
-   
+
+
 	if (*speed == 0) {
 		int distance;
 
@@ -316,7 +343,7 @@ static int roadmap_gps_validate (int gmt_time,
 			}
 		}
 	}
-   
+
 	if (*speed >= 128) {
 		roadmap_log (ROADMAP_WARNING, "Ignoring GPS speed of %d knots, using previous speed of %d knots instead",
                    *speed, last_valid_speed);
@@ -324,12 +351,12 @@ static int roadmap_gps_validate (int gmt_time,
 	} else {
 		last_valid_speed = *speed;
 	}
-   
+
 	last_pos = position;
 	if (ok) {
 		last_valid_pos = position;
 	}
-   
+
    return ok;
 }
 
@@ -337,9 +364,9 @@ static int roadmap_gps_validate (int gmt_time,
 static void roadmap_gps_set_fix (int longitude, int latitude)
 {
    int i;
-   
+
    RoadMapGpsHasFix = TRUE;
-   
+
    RoadMapGpsLatestFix.longitude = longitude;
    RoadMapGpsLatestFix.latitude = latitude;
 
@@ -355,13 +382,13 @@ static void roadmap_gps_set_fix (int longitude, int latitude)
 const RoadMapPosition* roadmap_gps_get_fix (void)
 {
    if (!RoadMapGpsHasFix) return NULL;
-   
+
    return &RoadMapGpsLatestFix;
 }
 
 
 static void roadmap_gps_accept_fix (void)
-{   
+{
    roadmap_main_remove_periodic (roadmap_gps_accept_fix);
    if (!RoadMapGpsHasFix)
    {
@@ -399,12 +426,12 @@ static void roadmap_gps_process_position (void) {
     * Skip first point for location callback
     */
    if (RoadMapGpsLatestFineFix > 0) {
-      
+
       roadmap_gps_set_fix
               (RoadMapGpsReceivedPosition.longitude,
                RoadMapGpsReceivedPosition.latitude);
    }
-   
+
    /*
     * Valid GPS data is received
     * The time of the latest valid update from the GPS chip
@@ -423,6 +450,9 @@ static void roadmap_gps_process_position (void) {
             &RoadMapGpsQuality,
             &RoadMapGpsReceivedPosition);
    }
+
+   if (roadmap_gps_have_reception() && (roadmap_verbosity () <= ROADMAP_MESSAGE_DEBUG) && (roadmap_gps_show_coordinats()))
+      roadmap_display_text("DEBUG_LOC","%d.%06d, %d.%06d", abs(RoadMapGpsReceivedPosition.longitude)/1000000, abs(RoadMapGpsReceivedPosition.longitude)%1000000, abs(RoadMapGpsReceivedPosition.latitude)/1000000, abs(RoadMapGpsReceivedPosition.latitude)%1000000);
 
    roadmap_gps_update_reception ();
 }
@@ -468,6 +498,8 @@ static void roadmap_gps_keep_alive (void)
 		   !RoadMapGpsCoarseLocationMode )
    {
 	   RoadMapGpsCoarseLocationMode = TRUE;
+	   roadmap_log( ROADMAP_DEBUG, "Setting focus to the coarse fix. Time: %d. Last fine fix: %d. Timeout: %d",
+	         time( NULL ), RoadMapGpsLatestFineFix, coarse_switch_timeout );
 	   roadmap_gps_set_location_focus();
    }
 
@@ -495,11 +527,11 @@ static void roadmap_gps_keep_alive (void)
 void roadmap_gps_coarse_fix( int latitude, int longitude )
 {
 	RoadMapPosition position;
-   
+
 	position.latitude = latitude;
 	position.longitude = longitude;
 
-   // Update fix - when no GPS reception available 
+   // Update fix - when no GPS reception available
    if (RoadMapGpsLatestFineFix == 0)
    {
       if (RoadMapGpsLatestCoarseFix > 0)
@@ -515,7 +547,7 @@ void roadmap_gps_coarse_fix( int latitude, int longitude )
          roadmap_main_set_periodic (accept_fix_seconds * 1000, roadmap_gps_accept_fix);
       }
    }
-   
+
 	RoadMapGpsLatestCoarseFix = time( NULL );
 
    roadmap_trip_set_point ( "Location", &position );
@@ -531,7 +563,7 @@ static void roadmap_gps_set_location_focus( void )
   if ( RoadMapGpsCoarseLocationMode )
   {
 	  const char *focus = roadmap_trip_get_focus_name ();
-	  if ( focus && ( strcmp( focus, "Hold" ) != 0 ) )
+	  if ( focus && ( strcmp( focus, "GPS" ) == 0 ) )
 	  {
 		 roadmap_trip_set_focus ( "Location" );
 		 roadmap_screen_refresh();
@@ -1028,6 +1060,8 @@ void roadmap_gps_initialize (void) {
 
       roadmap_config_declare_enumeration ("preferences", &RoadMapConfigGpsRaw, NULL, "no", "yes", NULL);
 
+      roadmap_config_declare_enumeration ("preferences", &RoadMapConfigShowGpsCoordinates, NULL, "yes", "no", NULL);
+
       RoadMapGpsShowRawGps = roadmap_config_match(&RoadMapConfigGpsRaw, "yes");
 
       RoadMapGpsInitialized = 1;
@@ -1080,7 +1114,7 @@ void roadmap_gps_unregister_listener(roadmap_gps_listener listener) {
          break;
       }
    }
-   
+
    if (i == ROADMAP_GPS_CLIENTS) {
       roadmap_log (ROADMAP_ERROR, "Could not find gps listener 0x%08lx to remove", (long)listener);
    }
@@ -1112,7 +1146,7 @@ void roadmap_gps_unregister_fix_listener (roadmap_fix_listener listener) {
          break;
       }
    }
-   
+
    if (i == ROADMAP_GPS_CLIENTS) {
       roadmap_log (ROADMAP_ERROR, "Could not find gps fix listener 0x%08lx to remove", (long)listener);
    }
@@ -1167,6 +1201,7 @@ void roadmap_gps_open (void) {
 #ifdef ANDROID
    RoadMapGpsProtocol = ROADMAP_GPS_ANDROID;
    RoadMapGpsLink.subsystem = ROADMAP_IO_NULL;
+#ifdef CSV_GPS
    if (strncasecmp (url, "csv://", 6) == 0)
    {
         if (roadmap_gps_csv_connect (url+6) == 0) {
@@ -1174,8 +1209,9 @@ void roadmap_gps_open (void) {
               RoadMapGpsProtocol = ROADMAP_GPS_CSV;
         }
    }
+#endif
 #else
-   
+
 #if defined(IPHONE) && !defined(CSV_GPS)
    RoadMapGpsProtocol = ROADMAP_GPS_IPHONE;
    RoadMapGpsLink.subsystem = ROADMAP_IO_NULL;
@@ -1331,7 +1367,7 @@ void roadmap_gps_open (void) {
 #endif // __SYMBIAN32__
 #endif // IPHONE
 #endif // ANDROID
-	
+
    if (RoadMapGpsLink.subsystem == ROADMAP_IO_INVALID) {
       if (! RoadMapGpsRetryPending) {
          roadmap_log (ROADMAP_WARNING, "cannot access GPS source %s", url);
@@ -1391,11 +1427,11 @@ void roadmap_gps_open (void) {
 #endif //ANDROID
 #ifdef IPHONE
       case ROADMAP_GPS_IPHONE:
-         
+
          roadmap_location_subscribe_to_navigation (roadmap_gps_navigation);
          roadmap_location_subscribe_to_satellites (roadmap_gps_satellites);
          roadmap_location_subscribe_to_dilution   (roadmap_gps_dilution);
-         
+
          break;
 #endif //IPHONE
 #elif defined (J2ME)
@@ -1670,7 +1706,6 @@ int  roadmap_gps_is_nmea (void) {
 
 void roadmap_gps_raw (time_t tm, int longitude, int latitude,
                       int steering, int speed) {
-
 
    if (!RoadMapGpsShowRawGps)
       return;

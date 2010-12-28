@@ -304,11 +304,11 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
 #ifdef TOUCH_SCREEN
 
-  ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
+   ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
 
     ssd_widget_add (dialog,
     ssd_button_label (roadmap_lang_get ("Yes"), textYes,
-                        SSD_ALIGN_CENTER| SSD_WS_TABSTOP,
+                        SSD_ALIGN_CENTER|SSD_WS_TABSTOP,
                         yes_button_callback));
 
    ssd_widget_add (dialog,
@@ -320,8 +320,8 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 	set_soft_keys(dialog, textYes, textNo);
 
 #endif
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer3", NULL, 0, 2, SSD_END_ROW));
+	// AGA TODO: Scaling factor
+	ssd_dialog_add_vspace( dialog, 3, SSD_START_NEW_ROW|SSD_END_ROW );
 }
 
 void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL default_yes, ConfirmDialogCallback callback, void *context,const char *textYes, const char *textNo) {

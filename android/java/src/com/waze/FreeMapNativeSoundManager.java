@@ -1,12 +1,12 @@
 /**  
  * FreeMapNativeSoundManager.java
- * This class is responsible for the sound management. Playing sound and control
- * Provides both synchronous and asynchronous interfaces for the sound file playing
+ * This class is responsible for the sound management. Implements asynchronous playing, playlist management
+ * and pre-buffering.  
  *   
  * 
  * LICENSE:
  *
- *   Copyright 2008 	@author Alex Agranovich
+ *   Copyright 2010 	@author Alex Agranovich
  *   
  *
  *   This file is part of RoadMap.
@@ -32,18 +32,17 @@
 
 package com.waze;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Iterator;
-import java.util.LinkedHashMap;
 
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
-import android.media.MediaPlayer.OnPreparedListener;
 import android.util.Log;
-
+/**
+ * TODO: Manage failures in terms of media player release
+ * TODO: Check logger from the different thread
+ * 
+ */
 
 public final class FreeMapNativeSoundManager
 {
@@ -58,10 +57,10 @@ public final class FreeMapNativeSoundManager
         mNativeManager = aNativeManager;
 
         // At this stage the native library has to be loaded
-        InitSoundManagerNTV();
+        InitSoundManagerNTV(); 
 
-        mPlayersTable = new PlayersCache<String, MediaPlayerQueued>( MAX_PLAYERS_NUMBER );
         mPendingPlayersList = new ArrayList<String>();
+        
     }
 
     /*************************************************************************************************
@@ -72,29 +71,21 @@ public final class FreeMapNativeSoundManager
      */
     public void LoadSoundData( byte[] aDataDir )
     {
-    	String delim = new String( "/" );
-    	mSoundsDir = new String( aDataDir, 0, aDataDir.length ); // Null termination is unnecessary
-    	
-    	// Get the list of files
-    	File dir = new File( mSoundsDir );
-    	if ( !dir.isDirectory() )
-    	{
-    		WazeLog.w( "The path " + dir + " is not a directory!" );
-    		return;
-    	}
-    	String[] files = dir.list();
-    	// Load the file and add to the map
-    	for ( int i = 0; i < files.length && i < MAX_PLAYERS_NUMBER; ++i )
-    	{
-    		String path = dir.getAbsolutePath() + delim + files[i];
-    		
-            // Add the initialized player to the table
-    		MediaPlayerQueued player = new MediaPlayerQueued( path );
-            mPlayersTable.put( files[i], player );
-            player.Prepare();
-    	}    	
     }
-    
+
+    /*************************************************************************************************
+     * Add file to the list and try to play
+     * 
+     * @param aFileName
+     *            - the full path to the file
+     */
+    public void PlayFile( byte aFileName[] )
+    {
+        String fileName = new String( aFileName, 0, aFileName.length );
+    	mPendingPlayersList.add( fileName );
+    	PlayNext();
+    }
+
     /*************************************************************************************************
      * Playing the sound file for the SDK supported formats. The overloaded
      * function for the more convenient call from the native layer
@@ -108,55 +99,73 @@ public final class FreeMapNativeSoundManager
      */
 
     /*************************************************************************************************
-     * Add file to the list and try to play
+     * PlayNext() - Main logic of the manager. Plays the file and tries to buffer the next file in the list
      * 
-     * @param aFileName
-     *            - the full path to the file
+     * @param void
+     * @return void           
      */
-    public void PlayFile( byte aFileName[] )
-    {
-        String fileName = new String( aFileName, 0, aFileName.length );
-//    	File dir = new File( mSoundsDir );
-//		String path = dir.getAbsolutePath() + "/" + fileName;
-        
-    	mPendingPlayersList.add( fileName );
-        PlayNext();
-    }
-    
     private void PlayNext()
     {
-    	// Check if we have one in cache
-    	if ( mPendingPlayersList.size() > 0 )
-    	{
-	    	if ( mAudioIdle )
-	        {
-	    		MediaPlayerQueued player = PrepareNext();
-	        	mPendingPlayersList.remove( 0 );
-	        	player.Play();
-	        }
-	    	
-	    	// Prepare the next
-	    	PrepareNext();
-    	}
+		if ( mPlaying ) 
+		{
+			// If already playing - try to buffer the next			
+			BufferNext();
+		}
+		else
+		{
+			// If not playing - play the buffered file or play the new one
+			// If sound buffering is disabled - will be null always
+			if ( mBufferedPlayer == null )
+			{
+				if ( mPendingPlayersList.size() > 0 )
+				{
+					String nextFile = mPendingPlayersList.remove( 0 );
+					mCurrentPlayer = new WazeAudioPlayer( nextFile ); 
+					mCurrentPlayer.Play();
+				}
+			}
+			else
+			{
+				mCurrentPlayer = mBufferedPlayer;
+				mCurrentPlayer.Play();
+				
+				mBufferedPlayer = null;
+			}
+			// Try to buffer next file
+			BufferNext();
+		}
     }
-
-    public MediaPlayerQueued PrepareNext()
+    
+    /*************************************************************************************************
+     * BufferNext() - Creates thread with buffering request. Will be played later 
+     * 
+     * @param void
+     * @return void           
+     */
+    private void BufferNext()
     {
-    	MediaPlayerQueued player = null;
-        // Check if we have one in cache
-        if ( mPendingPlayersList.size() > 0 )
-        {    
-        	String nextFile = mPendingPlayersList.get( 0 );
-	    	player = mPlayersTable.get( nextFile );                
-	        if ( player == null )
-	        {                	
-	        	// Replace
-	        	player = new MediaPlayerQueued( nextFile );
-	    		mPlayersTable.put( nextFile, player );
-	    		player.Prepare();            		
-	        }
-        }
-        return player;
+		if ( SOUND_BUFFERING_ENABLED )
+		{
+			if ( mBufferedPlayer == null )
+			{
+				if ( mPendingPlayersList.size() > 0 )
+				{
+					String nextFile = mPendingPlayersList.get( 0 );
+					
+					/*
+					 * Avoid audio lock on playing the same file
+					 */
+					if ( mCurrentPlayer != null && nextFile.equals( mCurrentPlayer.getFileName() ) )
+					{
+						return;
+					}
+	
+					mPendingPlayersList.remove( 0 );
+					mBufferedPlayer = new WazeAudioPlayer( nextFile );
+					mBufferedPlayer.Buffer();
+				}
+			}
+		}
     }
     
     public void ShutDown()
@@ -164,175 +173,133 @@ public final class FreeMapNativeSoundManager
     	/*
     	 * Explicitly release the resources     	 
     	 */
-    	Collection<MediaPlayerQueued> players = mPlayersTable.values();    	
-    	Iterator<MediaPlayerQueued> it = players.iterator();
-    	MediaPlayerQueued val;
-    	while( it.hasNext() ) 
-    	{ 
-    		val = it.next();
-    		if ( val != null )
-    		{
-    			val.release();
-    		}
-		} 
-    	mPlayersTable.clear();
-    }
-    /*
-     * LRU cache implementation for the players table
-     * 
-     */
-    private class PlayersCache<K, V> extends LinkedHashMap<K, V>
-    {
-    	public PlayersCache( int aMaxCapacity )
-    	{
-    		/*
-    		 * 1 element more because the element inserted before removing
-    		 * 1.1 load factor - rehashing is unnecessary - constant size hash implementation
-    		 */
-    		super( aMaxCapacity + 1, 1.1F, true );
-    		this.mMaxCapacity = aMaxCapacity;
-    	}
-    	@Override
-    	public V put(K key, V value)
-    	{
-    		// AGA DEBUG
-    		return super.put( key, value );
-    	}
-    	@Override  
-    	protected boolean removeEldestEntry( Entry<K,V> eldest )
-    	{
-    		if ( size() >= ( mMaxCapacity + 1 ) )
-    		{
-    			// Release the resources
-    			MediaPlayerQueued mp = ( MediaPlayerQueued ) eldest.getValue();
-    			
-    			return releaseEntry( mp );
-    		}
-    		return false;
-    	}
-    	protected boolean releaseEntry( MediaPlayerQueued aMP )
-    	{
-    		boolean res = true;
-    		
-    		if ( aMP.isPlaying() )
-    		{
-    	    	Collection<MediaPlayerQueued> players = mPlayersTable.values();    	
-    	    	Iterator<MediaPlayerQueued> it = players.iterator();
-    	    	MediaPlayerQueued val;
-    	    	while( it.hasNext() ) 
-    	    	{ 
-    	    		val = it.next();
-    	    		if ( val != null )
-    	    		{
-    	    			if ( !val.isPlaying() )
-    	    			{
-    	    				this.remove( val.mFileName );
-    	    				val.release();
-    	    			}
-    	    		}
-    			} 
-    		}
-    		else
-    		{
-    			aMP.release();
-    		}
-    		return res;
-    	}
-    	
-    	private int mMaxCapacity = 0;
-    }
-    
-    private class MediaPlayerQueued extends MediaPlayer implements 
-                            OnCompletionListener, OnPreparedListener
-    {
-        public MediaPlayerQueued( String aFileName )
-        {
-            InitListeners();
-            
-            mFileName = new String( aFileName );
-        }
-        
-        public void Prepare()
-        {
-            try
-            {
-                // Load the file
-                final FileInputStream fileInStream = new FileInputStream( mFileName );
-                // Prepare the media player
-                setDataSource( fileInStream.getFD() );
-                // Set the volume to the maximum. Adjustment is performed through
-                // the general media volume setting
-                setVolume(1, 1);
-                mEnabled = true;
-                /*
-                 * Prepare the data file
-                 */
-                prepare();
-            }
-            catch( Exception ex )
-            {
-                WazeLog.e( "MediaPlayerQueued Prepare: Error in loading sound file "
-                        + mFileName, ex );
-                ex.printStackTrace();
-                
-            }
-        }
-        
-        public void Play()
-        {
-            try
-            {
-                if ( mEnabled )
-                {
-                    mAudioIdle = false;
-                    mPlaying = true;
-                    start(); // Just play
-                }
-            }
-            catch( Exception ex )
-            {
-                WazeLog.e( "MediaPlayerQueued: Error in preparing sound file "
-                        + mFileName, ex );
-                ex.printStackTrace();
-            }
-        }
-        @Override
-        public boolean isPlaying()
-        {
-        	return mPlaying;
-        }
-        public void onPrepared( MediaPlayer aMP )
-        {
-            mPrepared = true;
-        }
-        public void onCompletion( MediaPlayer aMP )
-        {
-            try 
-            {
-                mAudioIdle = true;
-                seekTo( 0 );
-                mPlaying = false;
-                PlayNext();                    
-            }
-            catch( Exception ex )
-            {
-                WazeLog.e( "MediaPlayerQueued: Error in preparing sound file "
-                        + mFileName, ex );
-                ex.printStackTrace();
-            }
-        }
-        private void InitListeners()
-        {
-            setOnCompletionListener( this );
-            setOnPreparedListener( this );
-        }
-        
-        private String mFileName = null;
-        private boolean mEnabled = false;
-        private boolean mPrepared = false;
-        private boolean mPlaying = false;
     }
    
+    
+    /*************************************************************************************************
+     * This class implements the logic of the player thread 
+     * 
+     * @author Alex Agranovich
+     */
+    private final class WazeAudioPlayer extends Thread
+    {
+    	WazeAudioPlayer( String aFileName )
+    	{
+    		mFileName = aFileName;
+    	}
+    	public void Play()
+    	{
+    		if ( mBuffering && !mBuffered ) // In the buffer process
+    			return;
+    		
+    		mPlaying = true;
+    		if ( mBuffered )
+    		{
+    			try
+                {
+	    			synchronized( this ) {
+	    				notify();
+	    			}
+                }
+                catch( Exception ex )
+                {
+                	WazeLog.e( "Audio Player. Error notifying the thread", ex );
+                }
+    		}
+    		else
+    		{  
+    			start();
+    		}
+    	}
+    	public void Buffer()
+    	{
+    		mBuffering = true;
+    		start();
+    	}
+    	public void run()
+    	{
+            try
+            {
+            	/*
+            	 * Always buffer first
+            	 */
+            	if ( !mBuffered )
+            		BufferInternal();
+            	
+            	/*
+            	 * if buffering request - wait for the play request
+            	 */
+            	if ( mBuffering )
+            	{
+	    			synchronized( this ) {
+	    				wait();
+	    			}
+            	}
+            	/*
+            	 * Start playing
+            	 */
+	            mMP.start();
+            }
+            catch( Exception ex )
+            {
+            	WazeLog.e( "Audio Player. Error playing the file " + mFileName, ex );
+            }
+    	}
+    	public String getFileName()
+    	{
+    		return mFileName;
+    	}
+    	private void BufferInternal()
+    	{
+            try
+            {
+	    		mMP = new MediaPlayer();
+	    		mMP.setOnCompletionListener( new CompletionListener() );
+	            // Load the file
+	            final FileInputStream fileInStream = new FileInputStream( mFileName );
+	            // Prepare the media player
+	            mMP.setDataSource( fileInStream.getFD() );
+	            // Set the volume to the maximum. Adjustment is performed through
+	            // the general media volume setting
+	            mMP.setVolume(1, 1);                     
+	            /*
+	             * Prepare the data file
+	             */
+	            mMP.prepare();
+	            
+	            mBuffered = true;
+            }
+            catch( Exception ex )
+            {
+            	Log.e( "WAZE", "Exception occurred: " + ex.getMessage() );
+            }
+
+    	}
+    	/*
+    	 * Completion  listener - indicate the next file can be played. Post request for the next file playing 
+    	 */
+    	private final class CompletionListener implements OnCompletionListener
+    	{
+            public void onCompletion( MediaPlayer aMP )
+            {            	
+            	aMP.release();            	
+            	mPlaying = false;
+            	
+            	Runnable playNext = new Runnable() {
+					public void run() {
+						PlayNext();
+					}
+				};
+				mNativeManager.PostRunnable( playNext );
+            }            
+    	}
+    	private String mFileName;
+    	private boolean mBuffered = false;			// Indicates whether the prepare is finished
+    	private boolean mBuffering = false;			// Indicates whether the buffering is requested  
+    	private MediaPlayer mMP = null;
+    }
+    
+    
     
     /*************************************************************************************************
      *================================= Native methods section ================================= These methods are implemented in the
@@ -346,12 +313,11 @@ public final class FreeMapNativeSoundManager
      */
     private FreeMapNativeManager mNativeManager;
 	
-	private PlayersCache<String, MediaPlayerQueued> mPlayersTable;
     private ArrayList<String> mPendingPlayersList;
+    private volatile boolean mPlaying = false;
+    private WazeAudioPlayer mBufferedPlayer = null;
+    private WazeAudioPlayer mCurrentPlayer = null;
     
-    private boolean mAudioIdle = true;
-    
-    private String mSoundsDir = null;
-    
-    private final static int  MAX_PLAYERS_NUMBER = 5;
+    private final static boolean SOUND_BUFFERING_ENABLED = false;
+//    private final static int  MAX_PLAYERS_NUMBER = 5;
 }

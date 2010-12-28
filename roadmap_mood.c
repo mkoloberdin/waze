@@ -29,6 +29,7 @@
 #include <stdlib.h>
 
 #include "roadmap.h"
+#include "roadmap_math.h"
 #include "roadmap_types.h"
 #include "roadmap_history.h"
 #include "roadmap_locator.h"
@@ -55,6 +56,7 @@
 #define MAX_MOOD_ENTRIES 35
 #define MAX_EXCLUSIVE_ICONS 3
 static int gState = -1;
+static BOOL initialized = FALSE;
 
 typedef struct {
 
@@ -76,19 +78,21 @@ static int g_exclusiveMoods = 0;
 static RoadMapConfigDescriptor MoodCfg =
                         ROADMAP_CONFIG_ITEM("User", "Mood");
 
+static RoadMapConfigDescriptor NewbieNumberOfMilesCfg =
+                        ROADMAP_CONFIG_ITEM("Newbie", "Number of Miles");
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 const char* roadmap_mood_to_string(MoodType mood){
 
    switch(mood)
    {
-      case Mood_Happy:    		    return roadmap_path_join("moods",MOOD_Name_Happy);
-      case Mood_Sad: 		  	    return roadmap_path_join("moods",MOOD_Name_Sad);
-      case Mood_Mad:     	  	    return roadmap_path_join("moods",MOOD_Name_Mad);
-      case Mood_Bored:     	    return roadmap_path_join("moods",MOOD_Name_Bored);
-      case Mood_Speedy:     	    return roadmap_path_join("moods",MOOD_Name_Speedy);
+      case Mood_Happy:            return roadmap_path_join("moods",MOOD_Name_Happy);
+      case Mood_Sad:              return roadmap_path_join("moods",MOOD_Name_Sad);
+      case Mood_Mad:              return roadmap_path_join("moods",MOOD_Name_Mad);
+      case Mood_Bored:            return roadmap_path_join("moods",MOOD_Name_Bored);
+      case Mood_Speedy:           return roadmap_path_join("moods",MOOD_Name_Speedy);
       case Mood_Starving:         return roadmap_path_join("moods",MOOD_Name_Starving);
-      case Mood_Sleepy:     	    return roadmap_path_join("moods",MOOD_Name_Sleepy);
+      case Mood_Sleepy:           return roadmap_path_join("moods",MOOD_Name_Sleepy);
       case Mood_Cool:             return roadmap_path_join("moods",MOOD_Name_Cool);
       case Mood_InLove:           return roadmap_path_join("moods",MOOD_Name_InLove);
       case Mood_LOL:              return roadmap_path_join("moods",MOOD_Name_LOL);
@@ -115,8 +119,8 @@ const char* roadmap_mood_to_string(MoodType mood){
       case Mood_Busy_Female:      return roadmap_path_join("moods",MOOD_Name_Busy_Female);
       case Mood_In_a_Hurry:       return roadmap_path_join("moods",MOOD_Name_In_A_Hurry);
       case Mood_In_a_Hurry_Female:return roadmap_path_join("moods",MOOD_Name_In_A_Hurry_Female);
-
-      default:             	    return roadmap_path_join("moods",MOOD_Name_Happy);
+      case Mood_Baby:             return strdup(MOOD_Name_Baby);
+      default:                    return roadmap_path_join("moods",MOOD_Name_Happy);
 
    }
 }
@@ -136,6 +140,10 @@ static const char* roadmap_exclusive_mood_string(MoodType mood){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 MoodType roadmap_mood_from_string( const char* szMood){
+   BOOL only_baby_mood = Realtime_IsNewbie();
+
+   if (only_baby_mood)
+      return Mood_Baby;
 
    if( !strcmp( szMood, MOOD_Name_Happy))            return Mood_Happy;
    if( !strcmp( szMood, MOOD_Name_Sad))              return Mood_Sad;
@@ -170,7 +178,6 @@ MoodType roadmap_mood_from_string( const char* szMood){
    if( !strcmp( szMood, MOOD_Name_Busy_Female))      return Mood_Busy_Female;
    if( !strcmp( szMood, MOOD_Name_In_A_Hurry))       return Mood_In_a_Hurry;
    if( !strcmp( szMood, MOOD_Name_In_A_Hurry_Female))return Mood_In_a_Hurry_Female;
-
    return Mood_Happy;
 }
 
@@ -195,19 +202,55 @@ void roadmap_mood_set_exclusive_moods(int mood){
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 const char *roadmap_mood_get(){
-	const char * mood_cfg;
-	roadmap_config_declare
-        ("user", &MoodCfg, "happy", NULL);
-    mood_cfg = roadmap_config_get (&MoodCfg);
-    if (strstr(mood_cfg, "wazer"))
+   const char * mood_cfg;
+
+   if (!initialized)
+      roadmap_mood_init();
+   mood_cfg = roadmap_config_get (&MoodCfg);
+
+   if (strstr(mood_cfg, "wazer"))
        return strdup(mood_cfg);
-    else
+   else
        return roadmap_path_join("moods", mood_cfg);
+}
+
+int roadmap_mood_get_number_of_newbie_miles(void){
+   int miles;
+
+   if (!initialized)
+       roadmap_mood_init();
+
+   miles = roadmap_config_get_integer(&NewbieNumberOfMilesCfg);
+
+   if (roadmap_math_is_metric())
+      miles *= 1.6;
+
+   return (int)miles;
+}
+
+void roadmap_mood_init(void){
+
+   const char * mood_cfg;
+
+   if (initialized)
+      return;
+
+   roadmap_config_declare("preferences", &NewbieNumberOfMilesCfg, "50", NULL);
+
+   roadmap_config_declare
+        ("user", &MoodCfg, "baby", NULL);
+    mood_cfg = roadmap_config_get (&MoodCfg);
+
+    if (strcmp(mood_cfg,"baby")){
+       Realtime_SetIsNewbieConfig(FALSE);
+    }
+
+    initialized = TRUE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 const char *roadmap_mood_get_name(){
-	roadmap_config_declare
+   roadmap_config_declare
         ("user", &MoodCfg, "happy", NULL);
     return roadmap_config_get (&MoodCfg);
 }
@@ -225,8 +268,8 @@ void roadmap_mood_set(const char *value){
 ///////////////////////////////////////////////////////////////////////////////////////////
 const char *roadmap_mood_get_top_name(){
 
-	static char mood_top[100];
-	roadmap_config_declare
+   static char mood_top[100];
+   roadmap_config_declare
         ("user", &MoodCfg, "happy", NULL);
     sprintf(mood_top, "top_mood_%s", roadmap_config_get (&MoodCfg));
     return &mood_top[0];
@@ -238,7 +281,7 @@ int roadmap_mood_state(void){
    if (!RealTimeLoginState())
       return 0;
 
-	return roadmap_mood_actual_state();
+   return roadmap_mood_actual_state();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -258,7 +301,7 @@ static int roadmap_mood_call_back (SsdWidget widget, const char *new_value, cons
    ssd_dialog_hide ( "MoodDlg", dec_close );
 
    if (cb)
-   		(*cb)();
+         (*cb)();
 
    return 1;
 }
@@ -305,33 +348,46 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
     SsdWidget moodDlg;
     SsdWidget list;
     SsdWidget exclusive_list;
+    SsdWidget baby_list;
     SsdWidget text;
     int i;
-    int row_height = 40;
+    BOOL only_baby_mood = Realtime_IsNewbie();
+    int row_height = ssd_container_get_row_height();
     SsdListCallback exclusive_callback = NULL;
+
+    SsdListCallback regular_mood_callback = roadmap_mood_call_back;
     int flags = 0;
+    int width = SSD_MAX_SIZE;
 
     static roadmap_mood_list_dialog context = {"roadmap_mood", NULL};
     static char *labels[MAX_MOOD_ENTRIES] ;
-	 static void *values[MAX_MOOD_ENTRIES] ;
-	 static void *icons[MAX_MOOD_ENTRIES];
+    static void *values[MAX_MOOD_ENTRIES] ;
+    static void *icons[MAX_MOOD_ENTRIES];
 
-	 static char *exclusive_labels[MAX_EXCLUSIVE_ICONS] ;
-	 static void *exclusive_values[MAX_EXCLUSIVE_ICONS] ;
-	 static void *exclusive_icons[MAX_EXCLUSIVE_ICONS];
+    static char *exclusive_labels[MAX_EXCLUSIVE_ICONS] ;
+    static void *exclusive_values[MAX_EXCLUSIVE_ICONS] ;
+    static void *exclusive_icons[MAX_EXCLUSIVE_ICONS];
+
+    static char *baby_labels[1] ;
+    static void *baby_values[1] ;
+    static void *baby_icons[1];
+
 
 #ifdef OPENGL
     flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
+    width = ssd_container_get_width();
 #endif
 
-    if (roadmap_screen_is_hd_screen())
-       row_height = 70;
 
     moodDlg   = ssd_dialog_new ( "MoodDlg", roadmap_lang_get ("Select your mood"), NULL, SSD_CONTAINER_TITLE);
-	 moodDlg->context = (void *)callback;
-	 exclusive_list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, flags, NULL);
+    moodDlg->context = (void *)callback;
+    exclusive_list = ssd_list_new ("list", width, SSD_MAX_SIZE, inputtype_none, flags, NULL);
 
     ssd_list_resize ( exclusive_list, row_height );
+
+    baby_list = ssd_list_new ("baby_list", width, SSD_MAX_SIZE, inputtype_none, flags, NULL);
+
+    ssd_list_resize ( baby_list, row_height );
 
     exclusive_labels[0] = (char *)roadmap_lang_get("wazer_gold");
     exclusive_values[0] = "wazer_gold";
@@ -351,9 +407,28 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
 
     ssd_list_populate (exclusive_list, 3, (const char **)exclusive_labels, (const void **)exclusive_values, (const char **)exclusive_icons, NULL, exclusive_callback, NULL, FALSE);
 
-    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Exclusive moods"), 14, SSD_END_ROW);
+    if (only_baby_mood){
+       char msg[150];
+       baby_labels[0] = (char *)roadmap_lang_get("Baby");
+       baby_values[0] = "wazer_baby";
+       baby_icons[0] = "wazer_baby";
+       ssd_list_populate (baby_list, 1, (const char **)baby_labels, (const void **)baby_values, (const char **)baby_icons, NULL, NULL, NULL, FALSE);
+
+       ssd_dialog_add_hspace(moodDlg, 20, 0);
+       text = ssd_text_new ("Baby Mood Txt", roadmap_lang_get("Waze newbie"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
+       ssd_widget_add(moodDlg, text);
+       ssd_dialog_add_hspace(moodDlg, 20, 0);
+       snprintf(msg, sizeof(msg), roadmap_lang_get("(Gotta drive %d+ %s to access other moods)"), roadmap_mood_get_number_of_newbie_miles(), roadmap_lang_get(roadmap_math_trip_unit()));
+       text = ssd_text_new ("Gold Mood Txt", msg, 12, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
+       ssd_widget_add(moodDlg, text);
+       ssd_widget_add (moodDlg, baby_list);
+
+    }
+    ssd_dialog_add_hspace(moodDlg, 20, 0);
+    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Exclusive moods"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
     ssd_widget_add(moodDlg, text);
-    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available only to top weekly scoring wazers)"), 12, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
+    ssd_dialog_add_hspace(moodDlg, 20, 0);
+    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available only to top weekly scoring wazers)"), SSD_FOOTER_TEXT_SIZE, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
     ssd_widget_add(moodDlg, text);
     ssd_widget_add (moodDlg, exclusive_list);
 
@@ -368,11 +443,13 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
 
 
 
-    list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, flags, NULL);
+    list = ssd_list_new ("list", width, SSD_MAX_SIZE, inputtype_none, flags, NULL);
     exclusive_list->key_pressed = NULL;
-    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Everyday moods"), 14, SSD_END_ROW);
+    ssd_dialog_add_hspace(moodDlg, 20, 0);
+    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Everyday moods"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
     ssd_widget_add(moodDlg, text);
-    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available to all)"), 12, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
+    ssd_dialog_add_hspace(moodDlg, 20, 0);
+    text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available to all)"), SSD_FOOTER_TEXT_SIZE, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
     ssd_widget_add(moodDlg, text);
     ssd_widget_add (moodDlg, list);
     ssd_list_resize ( list, row_height );
@@ -382,18 +459,18 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
             cursor != NULL;
             cursor = roadmap_path_next ("skin", cursor)) {
 
-	    directory = roadmap_path_join (cursor, "moods");
+       directory = roadmap_path_join (cursor, "moods");
 
-    	files = roadmap_path_list (directory, ".png");
-    	if ( *files == NULL )
-    	{
-    	   files = roadmap_path_list (directory, NULL);
-    	}
+      files = roadmap_path_list (directory, ".png");
+      if ( *files == NULL )
+      {
+         files = roadmap_path_list (directory, NULL);
+      }
 
-   		for (cursor2 = files; *cursor2 != NULL; ++cursor2) {
-   	  			labels[count]  =   (char *)(strtok(*cursor2,"."));
-      			count++;
-   		}
+         for (cursor2 = files; *cursor2 != NULL; ++cursor2) {
+               labels[count]  =   (char *)(strtok(*cursor2,"."));
+               count++;
+         }
    }
 
 
@@ -405,8 +482,33 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
        labels[i] = (char *)roadmap_lang_get(labels[i]);
     }
 
+
+
+    if (only_baby_mood){
+       regular_mood_callback = NULL;
+    }
+
     free(directory);
-    ssd_list_populate (list, count, (const char **)labels, (const void **)values, (const char **)icons, NULL, roadmap_mood_call_back, NULL, FALSE);
+    ssd_list_populate (list, count, (const char **)labels, (const void **)values, (const char **)icons, NULL, regular_mood_callback, NULL, FALSE);
+
+    if (only_baby_mood){
+       for (i = 0; i< count; i++){
+          SsdWidget row = ssd_list_get_row(list, i);
+          if (row){
+             SsdWidget label = ssd_widget_get(row,"label");
+             if (label)
+                ssd_text_set_color(label,"#999999");
+          }
+       }
+    }
+//    else{
+//       SsdWidget row = ssd_list_get_row(baby_list,0 );
+//       if (row){
+//          SsdWidget label = ssd_widget_get(row,"label");
+//          if (label)
+//             ssd_text_set_color(label,"#999999");
+//       }
+//    }
 
     exclusive_list->key_pressed = NULL;
     ssd_dialog_activate ("MoodDlg", NULL);
@@ -417,6 +519,6 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
 ///////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_mood(void){
 
-	roadmap_mood_dialog(NULL);
+   roadmap_mood_dialog(NULL);
 }
 #endif //IPHONE

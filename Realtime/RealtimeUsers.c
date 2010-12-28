@@ -42,10 +42,11 @@
 #include "roadmap_mood.h"
 #include "roadmap_layer.h"
 #include "roadmap_messagebox.h"
-
-#ifdef IPHONE
-#include "iphone/roadmap_editbox.h"
-#endif //IPHONE
+#include "roadmap_social_image.h"
+#include "roadmap_editbox.h"
+#include "roadmap_groups.h"
+#include "roadmap_res.h"
+#include "roadmap_res_download.h"
 
 #include "roadmap_analytics.h"
 
@@ -98,9 +99,16 @@ void RTUserLocation_Init( LPRTUserLocation this)
    this->iPoints          	= -1;
    this->iJoinDate      	= 0;
    this->iPingFlag         = 0;
+   this->bFacebookFriend   = FALSE;
+   this->bShowFacebookPicture = FALSE;
+   this->iGroupRelevance    = GROUP_RELEVANCE_NONE;
+   this->bShowGroupIcon     = 0;
    memset( this->sName, 0, sizeof(this->sName));
    memset( this->sGUIID,0, sizeof(this->sGUIID));
    memset( this->sTitle, 0, sizeof(this->sTitle));
+   memset( this->sFacebookName, 0, sizeof(this->sFacebookName));
+   memset( this->sGroup, 0, sizeof(this->sGroup));
+   memset( this->sGroupIcon, 0, sizeof(this->sGroupIcon));
 }
 
 void RTUserLocation_CreateGUIID( LPRTUserLocation this)
@@ -163,9 +171,23 @@ BOOL RTUsers_Add( LPRTUsers this, LPRTUserLocation pUser)
    if( RTUsers_Exists( this, pUser->iID))
       return FALSE;
 
+   if (pUser->sGroupIcon[0] != 0){
+      char temp[RT_USER_GROUP_ICON_MAXSIZE];
+      snprintf(temp, RT_USER_GROUP_ICON_MAXSIZE, "wazer_%s", pUser->sGroupIcon);
+      strcpy(pUser->sGroupIcon, temp);
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, pUser->sGroupIcon) == NULL){
+         roadmap_res_download(RES_DOWNLOAD_IMAGE, pUser->sGroupIcon,NULL, "",FALSE, 0, NULL, NULL );
+      }
+      else{
+         if ((roadmap_groups_get_show_wazer_config() == SHOW_WAZER_GROUP_ALL) ||
+             ((roadmap_groups_get_show_wazer_config() == SHOW_WAZER_GROUP_FOLLOWING) && (pUser->iGroupRelevance != 0)) ||
+             ((roadmap_groups_get_show_wazer_config() == SHOW_WAZER_GROUP_MAIN) && (pUser->iGroupRelevance == SHOW_WAZER_GROUP_MAIN))){
+               pUser->bShowGroupIcon = TRUE;
+            }
+      }
+   }
    this->Users[this->iCount]   = (*pUser);
    this->Users[this->iCount].bWasUpdated= TRUE;
-
    this->iCount++;
    gs_pfnOnAddUser( pUser);
 
@@ -181,6 +203,7 @@ BOOL RTUsers_Update( LPRTUsers this, LPRTUserLocation pUser)
    if( !pUI)
       return FALSE;
 
+   pUser->bShowGroupIcon = pUI->bShowGroupIcon;
    (*pUI) = (*pUser);
    gs_pfnOnMoveUser( pUser);
    pUI->bWasUpdated = TRUE;
@@ -426,7 +449,7 @@ static void RTUsers_zoom(RoadMapPosition UserPosition, int iCenterAround)
    if (iCenterAround == RT_USERS_CENTER_ON_ALERT)
    {
       roadmap_trip_set_point("Hold", &UserPosition);
-      roadmap_screen_update_center(&UserPosition);
+      roadmap_screen_update_center_animated(&UserPosition, 600, 0);
       scale = 1000;
       //gCentered = TRUE;
 
@@ -452,15 +475,14 @@ static void RTUsers_zoom(RoadMapPosition UserPosition, int iCenterAround)
          if (scale == -1) {
             scale = 5000;
          }
-         roadmap_screen_update_center(&pos);
+         roadmap_screen_update_center_animated(&pos, 600, 0);
       } else {
          scale = 5000;
-         roadmap_screen_update_center(&UserPosition);
+         roadmap_screen_update_center_animated(&UserPosition, 600, 0);
       }
    }
 
-   roadmap_math_set_scale(scale, roadmap_screen_height() / 3);
-   roadmap_layer_adjust();
+   roadmap_screen_set_scale(scale, roadmap_screen_height() / 3);
    roadmap_screen_set_orientation_fixed();
 }
 
@@ -478,11 +500,11 @@ static BOOL post_comment_keyboard_callback(int         exit_code,
     BOOL success;
     LPRTUserLocation user = (LPRTUserLocation)context;
     RoadMapGpsPosition position;
-    
+
 #ifdef IPHONE_NATIVE
 	roadmap_main_show_root(0);
 #endif //IPHONE_NATIVE
-   
+
     if( dec_ok != exit_code)
         return TRUE;
 
@@ -497,16 +519,16 @@ static BOOL post_comment_keyboard_callback(int         exit_code,
    success = Realtime_PinqWazer(&position, -1, -1, user->iID, RT_ALERT_TYPE_CHIT_CHAT, value, NULL, FALSE );
    if (success){
        ssd_dialog_hide_all(dec_ok);
-   }   
-   
+   }
+
    roadmap_analytics_log_event(ANALYTICS_EVENT_PING_NAME, NULL, NULL);
-   
+
    return TRUE;
 }
 static LPRTUserLocation g_user;
 
 static void disclaimer_cb( int exit_code ){
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(ANDROID)
     ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
           g_user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
@@ -518,11 +540,15 @@ static void disclaimer_cb( int exit_code ){
 }
 
 static int ping (LPRTUserLocation user){
-
-   if (Realtime_is_random_user()){
-      roadmap_messagebox_timeout("Error","You need to be a registered user in order to send Pings. Register in 'Settings > Profile'", 8);
+   
+   if (Realtime_RandomUserMsg()) {
       return 0;
    }
+   
+   if (Realtime_AnonymousMsg()) {
+      return 0;
+   }
+
 
    if (!DisclaimerShown()){
       g_user = user;
@@ -530,8 +556,8 @@ static int ping (LPRTUserLocation user){
       DisclaimerDisplayed();
       return 0;
    }
-   
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN) || defined(IPHONE_NATIVE))
+
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE_NATIVE) || defined(ANDROID))
     ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
             user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
@@ -564,6 +590,7 @@ int  on_sk_ping(SsdWidget widget, const char *new_value, void *context){
 }
 #endif
 
+
 void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 {
    SsdWidget text, position_con, image_con;
@@ -571,6 +598,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    static SsdWidget popup;
    SsdWidget stars_icon;
    SsdWidget mood_icon;
+   SsdWidget facebook_image;
    SsdSize size;
    SsdWidget spacer;
 #ifdef TOUCH_SCREEN
@@ -598,13 +626,14 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 #ifndef TOUCH_SCREEN
    g_user = NULL;
 #endif
-   if (width > roadmap_canvas_height())
-#ifdef IPHONE
-      width = 320;
-#else
-   width = roadmap_canvas_height();
-#endif // IPHONE
    
+#ifdef IPHONE
+   width = 320 * roadmap_screen_get_screen_scale() / 100;
+#else
+   if (width > roadmap_canvas_height())
+      width = roadmap_canvas_height();
+#endif // IPHONE
+
    user = RTUsers_UserByGUIID(this, id);
    if (!user) {
       return;
@@ -622,7 +651,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
       RTUsers_zoom(position, iCenterAround);
 
    mood_str = roadmap_mood_to_string(user->iMood);
-   mood_icon = ssd_bitmap_new("mood_icon", mood_str, SSD_ALIGN_CENTER);
+   mood_icon = ssd_bitmap_new("mood_icon", mood_str, SSD_ALIGN_BOTTOM);
    free((void *)mood_str);
 
    ssd_widget_get_size(mood_icon, &size, NULL);
@@ -637,6 +666,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    } else {
       strncpy_safe(name, user->sName, sizeof(name));
    }
+
    text = ssd_text_new("user_name", name, 18, 0);
 	ssd_widget_set_color(text,"#f6a201", NULL);
 	ssd_widget_add(position_con, text);
@@ -646,6 +676,12 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    stars_icon = ssd_bitmap_new("stars_icon",RTAlerts_Get_Stars_Icon(user->iStars), SSD_END_ROW);
    ssd_widget_add(position_con, stars_icon);
 
+   if (user->sFacebookName[0] != 0){
+      snprintf(name, sizeof(name), "(%s)",user->sFacebookName);
+      text = ssd_text_new("fb_user_name", name, 18,SSD_END_ROW);
+      ssd_widget_set_color(text,"#f6a201", NULL);
+      ssd_widget_add(position_con, text);
+   }
    //title
    if (strcmp(user->sTitle, "") != 0) {
       strncpy_safe(title, user->sTitle, sizeof(title));
@@ -734,8 +770,40 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
      ssd_container_new ("IMAGE_container", "", image_cont_width, SSD_MIN_SIZE, SSD_ALIGN_RIGHT);
    ssd_widget_set_color(image_con, NULL, NULL);
 
-   //mood
-   ssd_widget_add(image_con, mood_icon);
+   if (user->bShowFacebookPicture){
+      SsdWidget fb_image_cont;
+      int f_width = 52;
+      int f_height = 52;
+
+      if (roadmap_screen_is_hd_screen()){
+         f_height = 77;
+         f_width = 77;
+      }
+      fb_image_cont = ssd_container_new ("FB_IMAGE_container", "", f_width, f_height, SSD_ALIGN_CENTER);
+      ssd_widget_set_color(fb_image_cont, "#ffffff", "#ffffff");
+
+      facebook_image = ssd_bitmap_new("facebook_image", "facebook_default_image", SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
+
+      ssd_widget_add(fb_image_cont, facebook_image);
+      ssd_widget_set_offset(mood_icon, -20, 12);
+      spacer = ssd_container_new( "space", "", image_cont_width, 7, 0 );
+      ssd_widget_set_color(spacer, NULL, NULL);
+      ssd_widget_add(image_con, fb_image_cont);
+      ssd_widget_add(image_con, spacer);
+
+      //mood
+      ssd_widget_add(fb_image_cont, mood_icon);
+
+      // Social image download
+      roadmap_social_image_download_update_bitmap( SOCIAL_IMAGE_SOURCE_FACEBOOK, SOCIAL_IMAGE_ID_TYPE_USER, user->iID, -1, SOCIAL_IMAGE_SIZE_SQUARE,  facebook_image );
+
+   }
+   else{
+      mood_icon->flags &= ~ SSD_ALIGN_BOTTOM;
+      mood_icon->flags |=  SSD_ALIGN_CENTER;
+      //mood
+      ssd_widget_add(image_con, mood_icon);
+   }
 
 
    //distance
@@ -743,6 +811,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    text = ssd_text_new("distance", distance, 14, SSD_ALIGN_CENTER);
    ssd_widget_set_color(text,"#ffffff", NULL);
    ssd_widget_add(image_con, text);
+
 
    ssd_widget_add(popup, image_con);
 

@@ -39,4 +39,8 @@ void ssd_container_get_zero_offset(
 
 SsdWidget ssd_container_new (const char *name, const char *title,
                              int width, int height, int flags);
+
+int ssd_container_get_row_height(void);
+int ssd_container_get_width(void);
+
 #endif // __SSD_WIDGET_CONTAINER_H_

@@ -73,7 +73,7 @@ static int fill_dialog (int marker) {
 
    roadmap_math_coordinate (&pos, &point);
    point.y -= roadmap_canvas_height () / 2 - 15;
-   roadmap_math_rotate_coordinates (1, &point);
+   roadmap_math_rotate_project_coordinate (&point);
    roadmap_math_to_position (&point, &pos, 1);
    roadmap_trip_set_point ("Selection", &pos);
    roadmap_trip_set_focus ("Selection");

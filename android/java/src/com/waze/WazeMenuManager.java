@@ -36,6 +36,7 @@ import java.lang.reflect.Field;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.SubMenu;
 
 public final class WazeMenuManager
 {
@@ -58,6 +59,7 @@ public final class WazeMenuManager
      */
 	public void BuildOptionsMenu( Menu aMenu, boolean aIsPortrait )
 	{
+		SubMenu subMenuMore = null;
 		MenuItem item = null;		
 		int order = 0;
 		aMenu.clear();
@@ -69,8 +71,28 @@ public final class WazeMenuManager
 				int i;
 				for ( i = 0; i < mMenuItemCount; ++i )
 				{
+					// If exceeding the max front items add to the more sub menu
 					order = aIsPortrait ? mMenuItems[i].portrait_order : mMenuItems[i].landscape_order;
-					item = aMenu.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
+					// Special handling for the "More" button
+					if ( mMenuItems[i].is_more_button )
+					{
+						mMoreItemId = mMenuItems[i].item_id;
+						subMenuMore = aMenu.addSubMenu( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );						
+//						subMenuMore.clearHeader();
+						item = subMenuMore.getItem();
+					}
+					else
+					{
+						// Check if the item goes to the more menu
+						if ( i >= WAZE_OPT_MENU_MAX_FRONT_ITEMS )
+						{
+							item = subMenuMore.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
+						}
+						else
+						{
+							item = aMenu.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
+						}
+					}
 					if ( mMenuItems[i].icon_name != null )					
 					{
 						item.setIcon( mMenuItems[i].icon_id );
@@ -90,16 +112,20 @@ public final class WazeMenuManager
     /*************************************************************************************************
      * Handles the button pressed event
      */
-	public void OnMenuButtonPressed( int aButtonId )
+	public boolean OnMenuButtonPressed( int aButtonId )
 	{
+		if ( aButtonId == mMoreItemId )
+			return false;
+		
 		int msg = NATIVE_MSG_CATEGORY_MENU | aButtonId;
 		FreeMapAppService.getNativeManager().PostNativeMessage( msg );
+		return true;
 	}
 
     /*************************************************************************************************
      * Adds a new item to menu 
      */
-	public void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native, int portrait_order, int landscape_order )
+	public void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native, int portrait_order, int landscape_order, int item_type )
 	{
 		WazeMenuItem item = new WazeMenuItem();
 		
@@ -108,6 +134,7 @@ public final class WazeMenuManager
 		item.portrait_order = portrait_order;
 		item.landscape_order = landscape_order;
 		item.is_native = is_icon_native;
+		item.is_more_button = ( ( WAZE_OPT_MENU_MORE_TYPE & item_type ) > 0 ); 
 		
 		try 
 		{
@@ -144,6 +171,7 @@ public final class WazeMenuManager
 	}
 
 	
+	
 	/*************************************************************************************************
      *================================= Private interface section =================================
      * 
@@ -158,9 +186,8 @@ public final class WazeMenuManager
     	public int is_native;    	
     	public int portrait_order;
     	public int landscape_order;
+    	public boolean is_more_button;
     }
-	
-	
 	
     /*************************************************************************************************
      *================================= Native methods section ================================= 
@@ -174,8 +201,13 @@ public final class WazeMenuManager
      *================================= Data members section =================================
      * 
      */
+    private int mMoreItemId = -1;
     
-    private static final int WAZE_OPT_MENU_ITEMS_MAXNUM = 10;
+    private static final int WAZE_OPT_MENU_MORE_TYPE = 0x1;
+    
+    private static final int WAZE_OPT_MENU_MAX_FRONT_ITEMS = 6;	// After exceeding this number the rest is going to the more submenu 
+    
+    private static final int WAZE_OPT_MENU_ITEMS_MAXNUM = 20;
     
     private WazeMenuItem mMenuItems[];
 	private int mMenuItemCount;

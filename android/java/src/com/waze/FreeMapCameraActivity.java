@@ -34,8 +34,10 @@ package com.waze;
 import android.app.Activity;
 import android.graphics.PixelFormat;
 import android.os.Bundle;
+import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
+import android.widget.Button;
 
 public class FreeMapCameraActivity extends Activity
 {
@@ -54,12 +56,20 @@ public class FreeMapCameraActivity extends Activity
         getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
                 WindowManager.LayoutParams.FLAG_FULLSCREEN);
         // Creating the preview object
-        mCameraPreView = new FreeMapCameraPreView(this);
-
+//        mCameraPreView = new FreeMapCameraPreView(this);
         getWindow().setFormat(PixelFormat.TRANSLUCENT);
-        setContentView(mCameraPreView);
+        setContentView( R.layout.camera_preview );
+        
+        final FreeMapCameraPreView cameraPreView = ( FreeMapCameraPreView ) findViewById( R.id.CameraPreView );
+        Button captureBtn = ( Button ) findViewById( R.id.Capture );        
+        captureBtn.setOnClickListener( new View.OnClickListener() {
+            public void onClick(View v) {
+            	cameraPreView.Capture();
+            }
+        });
+     
     }
-
+    
     @Override
     protected void onResume()
     {
@@ -80,8 +90,7 @@ public class FreeMapCameraActivity extends Activity
     };
 
     /*************************************************************************************************
-     *================================= Private interface section
-     * =================================
+     *================================= Private interface section =================================
      * 
      */
 
@@ -91,6 +100,6 @@ public class FreeMapCameraActivity extends Activity
      * 
      */
 
-    FreeMapCameraPreView        mCameraPreView;
+//    FreeMapCameraPreView        mCameraPreView;
     // private static final String LOG_TAG = "FreeMapCameraActivity";
 }

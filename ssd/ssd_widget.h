@@ -81,7 +81,7 @@
 #define SSD_DIALOG_NO_SCROLL      0x100000
 #define SSD_DIALOG_NO_BACK        0x200000
 #define SSD_DIALOG_ADDITION_BELOW 0x400000
-
+#define SSD_DIALOG_MODAL          0x800000
 
 /* Container flags */
 #define SSD_CONTAINER_BORDER 	    0x1000
@@ -89,6 +89,7 @@
 #define SSD_ROUNDED_CORNERS	    0x4000
 #define SSD_NO_BG_IMAGE 		    0x8000
 #define SSD_CONTAINER_TXT_BOX     0x20000000
+#define SSD_CONTAINER_SEARCH_BOX  0x80000000
 
 /* Text flags */
 #define SSD_TEXT_LABEL        0x1000 /* Adds a ':' sign */
@@ -98,6 +99,10 @@
 #define SSD_TEXT_INPUT        0x10000
 #define SSD_TEXT_SINGLE_LINE  0x20000
 
+/* Bitmap flags */
+#define SSD_BITMAP_MIDDLE_STRETCH  0x1000 /* Stretch image indicator */
+
+
 /* Context-menu flags   */
 #define SSD_CONTEXTMENU_ROUNDED              0x0000
 #define SSD_CONTEXTMENU_SIMPLE_LIST          0x0001
@@ -106,6 +111,13 @@
 
 #define  SSD_ROUNDED_CORNER_WIDTH            (7)
 #define  SSD_ROUNDED_CORNER_HEIGHT           (7)
+
+#define  SSD_MAIN_TEXT_SIZE                  (15)
+#define  SSD_SECONDARY_TEXT_SIZE             (11)
+#define  SSD_HEADER_TEXT_SIZE                (13)
+#define  SSD_FOOTER_TEXT_SIZE                (11)
+
+#define  SSD_ROW_HEIGHT                      (58)
 
 #define  SOFT_MENU_BAR_HEIGHT                (24)
 #define  TITLE_BAR_HEIGHT                    (24)
@@ -299,4 +311,5 @@ BOOL ssd_widget_contains_point(  SsdWidget widget, const RoadMapGuiPoint *point,
 void ssd_widget_set_focus_highlight( SsdWidget widget, BOOL is_highlight );
 void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent );
 SsdWidget ssd_widget_set_recalculate( BOOL value );
+int ssd_widget_get_flags ( SsdWidget w );
 #endif // __SSD_WIDGET_H_

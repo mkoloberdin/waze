@@ -7,8 +7,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef com_waze_WazeMenuManager_WAZE_OPT_MENU_MORE_TYPE
+#define com_waze_WazeMenuManager_WAZE_OPT_MENU_MORE_TYPE 1L
+#undef com_waze_WazeMenuManager_WAZE_OPT_MENU_MAX_FRONT_ITEMS
+#define com_waze_WazeMenuManager_WAZE_OPT_MENU_MAX_FRONT_ITEMS 6L
 #undef com_waze_WazeMenuManager_WAZE_OPT_MENU_ITEMS_MAXNUM
-#define com_waze_WazeMenuManager_WAZE_OPT_MENU_ITEMS_MAXNUM 10L
+#define com_waze_WazeMenuManager_WAZE_OPT_MENU_ITEMS_MAXNUM 20L
 #undef com_waze_WazeMenuManager_NATIVE_MSG_CATEGORY_MENU
 #define com_waze_WazeMenuManager_NATIVE_MSG_CATEGORY_MENU 524288L
 /*

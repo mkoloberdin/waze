@@ -39,6 +39,7 @@
 #include "ssd/ssd_container.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_entry.h"
+#include "ssd/ssd_entry_label.h"
 #include "ssd/ssd_choice.h"
 #include "roadmap_keyboard.h"
 #include "roadmap_config.h"
@@ -63,7 +64,7 @@
 #include "roadmap_login.h"
 #include "roadmap_device_events.h"
 #include "roadmap_screen.h"
-
+#include "roadmap_res.h"
 //======== Local Types ========
 
 
@@ -71,14 +72,16 @@
 #define RM_SIGNUP_DLG_NAME			"Create Account Dialog"
 #define RM_SIGNUP_DLG_BTN   "SignUp"
 #define RM_NEW_EXISTING_NAME  "New Existing"
-#define RM_SIGNUP_DLG_TITLE		"Create your account"
+#define RM_SIGNUP_DLG_TITLE		"Profile"
 #define RM_SIGNUP_ENTRY_TITLE	RM_SIGNUP_DLG_TITLE
 
 
 #define RM_SIGNUP_DLG_LABEL_HOFFSET		5			// Horizontal offset for the label
-#define RM_SIGNUP_DLG_SIGNIN_FONT		18			// Sign in text font size
-#define RM_SIGNUP_DLG_LABEL_FONT		16			// Sign in text font size
+#define RM_SIGNUP_DLG_LABEL_CNT_WIDTH  160      // Base width of the label container
 
+#define RM_SIGNUP_DLG_ENTRY_HEIGHT     30      // Base entry height
+#define RM_SIGNUP_DLG_LABEL_FONT		   14	        // Sign in text font size
+#define RM_SIGNUP_DLG_LABEL_COLOR      "#202020"
 #if (defined(WIN32))
 #define RM_SIGNUP_ENTRY_WIDTH       120
 #elif (defined(__SYMBIAN32__))
@@ -195,6 +198,29 @@ static int on_skip_softkey( SsdWidget this, const char *new_value, void *context
 }
 #endif
 
+
+
+/***********************************************************
+ *  Name        : get_signup_entry_group
+ *  Purpose     : Labeled entry
+ *  Params      : [in]  - none
+ *              : [out] - none
+ *  Returns     :
+ *  Notes       :  AGA TODO:: Add general labeled entry widget
+ */
+static SsdWidget get_signup_entry( const char* label_text, const char* entry_name, const char* edit_box_title, CB_OnKeyboardDone post_done_cb )
+{
+   SsdWidget entry;
+
+   entry = ssd_entry_label_new( entry_name, roadmap_lang_get ( label_text ), RM_SIGNUP_DLG_LABEL_FONT, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
+                                             RM_SIGNUP_DLG_ENTRY_HEIGHT, SSD_END_ROW | SSD_WIDGET_SPACE | SSD_WS_TABSTOP, "" );
+   ssd_entry_label_set_label_offset( entry, RM_SIGNUP_DLG_LABEL_HOFFSET );
+   ssd_entry_label_set_label_color( entry, RM_SIGNUP_DLG_LABEL_COLOR );
+   ssd_entry_label_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( edit_box_title ), NULL, post_done_cb, SSD_KB_DLG_SHOW_NEXT_BTN|SSD_KB_DLG_INPUT_ENGLISH );
+   ssd_entry_label_set_editbox_title( entry, roadmap_lang_get( edit_box_title ) );
+   return entry;
+}
+
 /***********************************************************
  *  Name        : create_dialog
  *  Purpose     : Creates the create/update account dialog
@@ -207,158 +233,110 @@ static void create_dialog()
 {
     SsdWidget group;
     SsdWidget box;
-    SsdWidget button;
-    SsdWidget asteric;
-    SsdWidget entry;
-    SsdWidget label_cnt;
-    // int box_width =  ( roadmap_canvas_width()*95 )/100;
-    int tab_flag = SSD_WS_TABSTOP;
-    int entry_width = RM_SIGNUP_ENTRY_WIDTH;
-
-    if ( roadmap_screen_is_hd_screen() )
-    {
-    	entry_width = roadmap_screen_adjust_width( entry_width );
-    }
+    SsdWidget button, text;
+    const char* icons[3];
+    SsdWidget label_cnt, label;
+    SsdWidget group_title;
 
     sgSignUpDlg = ssd_dialog_new( RM_SIGNUP_DLG_NAME, roadmap_lang_get( RM_SIGNUP_DLG_TITLE ), on_signup_dlg_close, SSD_CONTAINER_TITLE );
 
-    box = ssd_container_new ( "Sign Up Box", NULL, SSD_MAX_SIZE,
-             SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_WIDGET_SPACE |SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE );
-    ssd_widget_set_offset( box, 0, -1 );
+    // Space before white container
+    ssd_dialog_add_vspace( sgSignUpDlg, ADJ_SCALE( 5 ), 0 );
 
-    // Space before next entry
-    ssd_dialog_add_vspace( box, 3, 0 );
+    box = ssd_container_new ( "Sign Up Box", NULL, SSD_MAX_SIZE,
+          SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE );
+
+    // Space before detail title
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 16 ), 0 );
+
+    // Your details title
+    group = ssd_container_new ( "Details title group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW );
+    ssd_dialog_add_hspace( group, ADJ_SCALE( RM_SIGNUP_DLG_LABEL_HOFFSET ), SSD_ALIGN_VCENTER );
+    group_title = ssd_text_new( "Details title", roadmap_lang_get( "Your Details" ), 15, SSD_TEXT_LABEL );
+    ssd_text_set_color( group_title, "#202020" );
+    ssd_widget_add( group, group_title );
+    ssd_widget_add( box, group );
+
+    // Separator
+//    ssd_dialog_add_vspace( box, ADJ_SCALE( 4 ), 0 );
+//    group = ssd_container_new ( "Separator group", NULL, 0.96*ssd_container_get_width(), SSD_MIN_SIZE,
+//                                                                                              SSD_END_ROW );
+//    ssd_widget_add( group, ssd_separator_new( "Details title separator", SSD_ALIGN_VCENTER ) );
+//    ssd_widget_add( box, group );
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 18 ), 0 );
 
     // Username
-    group = ssd_container_new ( "Username group", NULL, SSD_MAX_SIZE,
-             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-    ssd_widget_set_color ( group, "#000000", "#ffffff" );
+    group = get_signup_entry( "Username", "Username", "User name", next_btn_callback );
+    ssd_widget_add ( box, group );
 
-    label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_widget_add( label_cnt, ssd_text_new( "Label", roadmap_lang_get ("Username"),
-         RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER ) );
-    asteric = ssd_text_new( "Asteric", "*", SSD_MIN_SIZE, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER );
-    ssd_text_set_color( asteric, "#ff0000");
-    ssd_widget_add ( label_cnt, asteric );
-    ssd_widget_add ( group, label_cnt);
-    entry = ssd_entry_new ( "Username", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, 0, entry_width, SSD_MIN_SIZE, roadmap_lang_get ("Desired Username") );
-    ssd_entry_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( "User name" ), NULL, next_btn_callback, SSD_KB_DLG_SHOW_NEXT_BTN|SSD_KB_DLG_INPUT_ENGLISH );
-    ssd_widget_add ( group, entry);
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, SSD_ALIGN_RIGHT );
-    ssd_widget_add (box, group);
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
     // Password
-    group = ssd_container_new ( "PW group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-             SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-    ssd_widget_set_color ( group, "#000000", "#ffffff" );
+    group = get_signup_entry( "Password", "Password", "Password", next_btn_callback );
+    ssd_widget_add ( box, group );
 
-    label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get ( "Password"),
-         RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER ) );
-    asteric = ssd_text_new( "Asteric", "*", SSD_MIN_SIZE, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER );
-    ssd_text_set_color( asteric, "#ff0000");
-    ssd_widget_add ( label_cnt, asteric );
-    ssd_widget_add ( group, label_cnt );
-    entry = ssd_entry_new ("Password", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, SSD_TEXT_PASSWORD, entry_width,
-         SSD_MIN_SIZE, roadmap_lang_get ("Desired password") );
-    ssd_entry_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( "Password" ), NULL, next_btn_callback, SSD_KB_DLG_SHOW_NEXT_BTN|SSD_KB_DLG_LAST_KB_STATE );
-    ssd_widget_add (group, entry );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, SSD_ALIGN_RIGHT );
-    ssd_widget_add (box, group);
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
-    // Confirm PW
-    group = ssd_container_new ("Repeat PW group", NULL, SSD_MAX_SIZE,
-             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-    ssd_widget_set_color (group, "#000000", "#ffffff");
+    // Confirm Password
+    group = get_signup_entry( "Confirm password", "ConfirmPassword", "Confirm password", next_btn_callback );
+    ssd_widget_add ( box, group );
 
-    label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get ( "Confirm" ), RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-    asteric = ssd_text_new( "Asteric", "*", SSD_MIN_SIZE, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER );
-    ssd_text_set_color( asteric, "#ff0000");
-    ssd_widget_add ( label_cnt, asteric );
-    ssd_widget_add ( group, label_cnt );
-    entry = ssd_entry_new ("ConfirmPassword", "", SSD_ALIGN_VCENTER | SSD_ALIGN_RIGHT, SSD_TEXT_PASSWORD, entry_width,
-            SSD_MIN_SIZE, roadmap_lang_get ("Confirm password") );
-    ssd_entry_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( "Confirm password" ), NULL, next_btn_callback, SSD_KB_DLG_SHOW_NEXT_BTN|SSD_KB_DLG_LAST_KB_STATE );
-    ssd_widget_add (group, entry );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, SSD_ALIGN_RIGHT );
-    ssd_widget_add (box, group);
-
-    // Email
-    group = ssd_container_new ("email group", NULL, SSD_MAX_SIZE,
-             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
-    ssd_widget_set_color (group, "#000000", "#ffffff");
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-
-    label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get( "Email" ),
-                  RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER) );
-    asteric = ssd_text_new( "Asteric", "*", SSD_MIN_SIZE, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER );
-    ssd_text_set_color( asteric, "#ff0000");
-    ssd_widget_add ( label_cnt, asteric );
-    ssd_widget_add ( group, label_cnt );
-
-    entry = ssd_entry_new( "Email", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, 0,
-         entry_width, SSD_MIN_SIZE, roadmap_lang_get ( "Email" ) );
-    ssd_entry_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( "Email" ), NULL, next_btn_callback, SSD_KB_DLG_SHOW_NEXT_BTN|SSD_KB_DLG_LAST_KB_STATE );
-    ssd_widget_add (group, entry );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, SSD_ALIGN_RIGHT );
-    ssd_widget_add (box, group);
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 18 ), 0 );
 
     // Nickname
-    group = ssd_container_new ("Nickname group", NULL, SSD_MAX_SIZE,
-             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
-    ssd_widget_set_color ( group, "#000000", "#ffffff" );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
+    group = get_signup_entry( "Nickname", "Nickname", "Nickname", next_btn_callback );
+    ssd_widget_add ( box, group );
 
-    label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get ( "Nickname"), RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER ) );
-    ssd_widget_add ( group, label_cnt );
-    entry = ssd_entry_new ("Nickname", "", SSD_ALIGN_VCENTER |SSD_ALIGN_RIGHT, 0,
-         entry_width, SSD_MIN_SIZE, roadmap_lang_get( "Nickname" ) );
-    ssd_entry_set_kb_params( entry, RM_SIGNUP_ENTRY_TITLE, roadmap_lang_get( "Nickname" ), NULL, next_btn_callback, SSD_KB_DLG_LAST_KB_STATE );
-    ssd_widget_add ( group, entry );
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, SSD_ALIGN_RIGHT );
-    ssd_widget_add (box, group);
+    // Email
+    group = get_signup_entry( "Email", "Email", "Email", next_btn_callback );
+    ssd_widget_add ( box, group );
 
-    // Agree to receive
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 14 ), 0 );
+
+    // Send Update
     group = ssd_container_new ("Send Update group", NULL, SSD_MAX_SIZE,
-              SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
+              SSD_MIN_SIZE, SSD_END_ROW | SSD_WS_TABSTOP );
     ssd_widget_set_color ( group, "#000000", "#ffffff" );
-    ssd_dialog_add_hspace( group, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-    ssd_widget_add (group,
-          ssd_checkbox_new ("send_updates", TRUE,  0, NULL,NULL,NULL,CHECKBOX_STYLE_DEFAULT));
+    ssd_dialog_add_hspace( group, ADJ_SCALE( RM_SIGNUP_DLG_LABEL_HOFFSET ), 0 );
+    ssd_widget_add( group, ssd_checkbox_new ( "send_updates", TRUE,  0, NULL, NULL, NULL, CHECKBOX_STYLE_DEFAULT ) );
     label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
-    ssd_widget_set_color ( label_cnt, NULL,NULL );
-    ssd_dialog_add_hspace( label_cnt, RM_SIGNUP_DLG_LABEL_HOFFSET, 0 );
-    ssd_widget_add ( label_cnt, ssd_text_new ("Label", roadmap_lang_get ( "Send me updates"), RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER ) );
+    ssd_widget_set_color ( label_cnt, NULL, NULL );
+    ssd_dialog_add_hspace( label_cnt, ADJ_SCALE( 10 ), 0 );
+    label = ssd_text_new ("Label", roadmap_lang_get ( "Send me updates"), RM_SIGNUP_DLG_LABEL_FONT, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER );
+    ssd_widget_add ( label_cnt, label );
     ssd_widget_add ( group, label_cnt );
     ssd_widget_add (box, group);
 
-
-    // Space under button
-    ssd_dialog_add_vspace( box, 10, 0 );
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 22 ), 0 );
 
 #ifdef TOUCH_SCREEN
-    // Create button
-    button = ssd_button_label ( "SignUp", roadmap_lang_get ("Next"),
-             SSD_ALIGN_RIGHT | SSD_START_NEW_ROW | SSD_WS_TABSTOP, on_update );
-    ssd_widget_add ( box, button );
-    // Skip button
-    button = ssd_button_label ( "Skip", roadmap_lang_get ("Skip"),
-             SSD_ALIGN_CENTER | SSD_WS_TABSTOP, on_signup_skip );
-    ssd_widget_add ( box, button );
 
-    ssd_dialog_add_vspace( box, 30, 0 );
+    icons[0] = "welcome_btn";
+    icons[1] = "welcome_btn_h";
+    icons[2] = NULL;
+    // Skip button
+    group = ssd_container_new ( "Buttons group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_ALIGN_CENTER | SSD_END_ROW );
+    button = ssd_button_label_custom( "Skip", roadmap_lang_get ("Skip"), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER, on_signup_skip,
+          icons, "#FFFFFF", "#FFFFFF" );
+    text = ssd_widget_get( button, "label" );
+    text->flags |= SSD_TEXT_NORMAL_FONT;
+    ssd_text_set_font_size( text, 15 );
+    ssd_widget_add ( group, button );
+    ssd_dialog_add_hspace( group, ADJ_SCALE( 10 ), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER );
+
+    // Signup button
+    button = ssd_button_label_custom( "SignUp", roadmap_lang_get ("Next"), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER, on_update,
+          icons, "#FFFFFF", "#FFFFFF" );
+    text = ssd_widget_get( button, "label" );
+    text->flags |= SSD_TEXT_NORMAL_FONT;
+    ssd_text_set_font_size( text, 14 );
+    ssd_widget_add ( group, button );
+
+    ssd_widget_add ( box, group );
+
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 10 ), 0 );
 #endif
 
     ssd_widget_add ( sgSignUpDlg, box );
@@ -419,6 +397,163 @@ static int on_right_softkey_new_existing_touch( SsdWidget widget, const char *ne
 
 #endif
 
+/*
+ * TOUCH and OPENGL only dialog implementation.
+ */
+#if defined(TOUCH_SCREEN) && defined(OPENGL)
+void roadmap_login_new_existing_dlg(){
+
+   static SsdWidget sNewExistingDlg = NULL;
+   SsdWidget dialog;
+   SsdWidget main_container, bubble_container;
+   SsdWidget bubble_bmp, group_bg_bmp;
+   SsdWidget bubble_title;
+   SsdWidget btn_container, new_user_group, existing_user_group;
+   const char* icons[3];
+   SsdWidget text;
+   SsdWidget button;
+
+   /*
+    * If currently in process - don't show the dialog
+    */
+   if ( sgNewExistingInProcess )
+      return;
+
+   if ( !ssd_dialog_exists( RM_NEW_EXISTING_NAME ) )
+   {
+      int bubble_width, bubble_height;
+      int group_width, group_height;
+      int btn_container_width, btn_container_height;
+      dialog = ssd_dialog_new ( RM_NEW_EXISTING_NAME,
+                        roadmap_lang_get ("Welcome"),
+                        NULL,
+                        SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL|SSD_DIALOG_NO_BACK );
+
+      main_container = ssd_container_new ("Welcome", NULL,
+                          SSD_MAX_SIZE,SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW);
+      ssd_widget_set_color ( main_container, NULL,NULL );
+
+      ssd_dialog_add_vspace( main_container, ADJ_SCALE( 2 ), SSD_END_ROW );
+
+      /*
+       * Bubble drawing
+       */
+      bubble_width = roadmap_canvas_width() - 2*ADJ_SCALE( 5 );
+      bubble_height = ADJ_SCALE( 280 ) + 10; // Check this in the future
+
+      bubble_container = ssd_container_new ( "Bubble container", NULL, bubble_width, bubble_height, SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW );
+      ssd_widget_set_color ( bubble_container, NULL,NULL );
+      bubble_bmp = ssd_bitmap_new("Bubble bitmap", "Bubble_02_stretch", SSD_BITMAP_MIDDLE_STRETCH|SSD_ALIGN_CENTER );
+      ssd_bitmap_set_middle_stretch( bubble_bmp, bubble_width, bubble_height );
+      ssd_widget_add ( bubble_container, bubble_bmp );
+
+      /*
+       * Bubble title
+       */
+      bubble_title = ssd_text_new ( "Bubble title", roadmap_lang_get ("Login"), 16, SSD_TEXT_LABEL|SSD_END_ROW );
+      ssd_widget_set_offset( bubble_title, ADJ_SCALE( 14 ), ADJ_SCALE( 14 ) );
+      ssd_widget_add ( bubble_bmp, bubble_title );
+
+      ssd_dialog_add_vspace( bubble_bmp, ADJ_SCALE( 24 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+
+      /*
+       * New user group definition
+       */
+      group_width = bubble_width - 2*ADJ_SCALE( 12 );
+      group_height = ADJ_SCALE( 100 );
+      btn_container_width = ADJ_SCALE( 260 );
+      btn_container_height = SSD_MIN_SIZE;
+      // Group container
+      new_user_group = ssd_container_new ( "Group container", NULL, btn_container_width, btn_container_height, SSD_ALIGN_CENTER|SSD_END_ROW );
+      ssd_widget_set_color ( new_user_group, NULL,NULL );
+      group_bg_bmp = ssd_bitmap_new( "Group container background", "welcome_gray", SSD_BITMAP_MIDDLE_STRETCH|SSD_ALIGN_CENTER );
+      ssd_bitmap_set_middle_stretch( group_bg_bmp, group_width, group_height );
+      ssd_widget_add ( new_user_group, group_bg_bmp );
+      // Button container
+      btn_container = ssd_container_new ( "Button container", NULL, btn_container_width, btn_container_height, SSD_ALIGN_CENTER|SSD_END_ROW );
+      ssd_widget_set_color ( btn_container, NULL,NULL );
+      ssd_widget_add ( group_bg_bmp, btn_container );
+      ssd_dialog_add_vspace( btn_container, ADJ_SCALE( 22 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+      // Label
+      text = ssd_text_new ( "Button title", roadmap_lang_get ("New user"), 14, SSD_TEXT_LABEL|SSD_TEXT_NORMAL_FONT|SSD_END_ROW );
+      ssd_widget_set_color( text, "#545454", "#545454" );
+      ssd_widget_set_offset( text, ADJ_SCALE( 4 ), 0 );
+      ssd_widget_add ( btn_container, text );
+
+      ssd_dialog_add_vspace( btn_container, ADJ_SCALE( 10 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+      icons[0] = "welcome_btn_large";
+      icons[1] = "welcome_btn_large_h";
+      icons[2] = NULL;
+      button = ssd_button_label_custom( "New", roadmap_lang_get ("Sign up"), SSD_ALIGN_CENTER|SSD_END_ROW, new_existing_buttons_callback,
+            icons, "#FFFFFF", "#FFFFFF" );
+      text = ssd_widget_get( button, "label" );
+      text->flags |= SSD_TEXT_NORMAL_FONT;
+      ssd_widget_add ( btn_container, button );
+
+      ssd_widget_add ( bubble_bmp, new_user_group );
+
+      ssd_dialog_add_vspace( bubble_bmp, ADJ_SCALE( 5 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+
+      /*
+       * Existing user container
+       */
+      group_width = bubble_width - 2*ADJ_SCALE( 12 );
+      group_height = ADJ_SCALE( 100 );
+      btn_container_width = ADJ_SCALE( 260 );
+      btn_container_height = SSD_MIN_SIZE;
+      // Group container
+      existing_user_group = ssd_container_new ( "Group container", NULL, btn_container_width, btn_container_height, SSD_ALIGN_CENTER|SSD_END_ROW );
+      ssd_widget_set_color ( existing_user_group, NULL,NULL );
+      group_bg_bmp = ssd_bitmap_new( "Group container background", "welcome_gray", SSD_BITMAP_MIDDLE_STRETCH|SSD_ALIGN_CENTER );
+      ssd_bitmap_set_middle_stretch( group_bg_bmp, group_width, group_height );
+      ssd_widget_add ( existing_user_group, group_bg_bmp );
+      // Button container
+      btn_container = ssd_container_new ( "Button container", NULL, btn_container_width, btn_container_height, SSD_ALIGN_CENTER|SSD_END_ROW );
+      ssd_widget_set_color ( btn_container, NULL,NULL );
+      ssd_widget_add ( group_bg_bmp, btn_container );
+      ssd_dialog_add_vspace( btn_container, ADJ_SCALE( 22 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+      // Label
+      text = ssd_text_new ( "Button title", roadmap_lang_get ("Existing user"), 14, SSD_TEXT_LABEL|SSD_TEXT_NORMAL_FONT|SSD_END_ROW );
+      ssd_widget_set_color( text, "#545454", "#545454" );
+      ssd_widget_set_offset( text, ADJ_SCALE( 4 ), 0 );
+      ssd_widget_add ( btn_container, text );
+
+      ssd_dialog_add_vspace( btn_container, ADJ_SCALE( 10 ), SSD_ALIGN_CENTER|SSD_END_ROW );
+      icons[0] = "welcome_btn_large_g";
+      icons[1] = "welcome_btn_large_g_h";
+      icons[2] = NULL;
+      button = ssd_button_label_custom( "Existing", roadmap_lang_get ( "Get Started" ), SSD_ALIGN_CENTER|SSD_END_ROW, new_existing_buttons_callback,
+            icons, "#FFFFFF", "#FFFFFF" );
+      text = ssd_widget_get( button, "label" );
+      text->flags |= SSD_TEXT_NORMAL_FONT;
+      ssd_widget_add ( btn_container, button );
+
+      ssd_widget_add ( bubble_bmp, existing_user_group );
+
+
+
+      ssd_widget_add ( main_container, bubble_container );
+      ssd_widget_add ( dialog, main_container );
+
+      /*
+       * Right soft key is defined for the touch devices with the hw back button: this callback makes it
+       * impossible to be closed
+       */
+      ssd_widget_set_right_softkey_callback( dialog, on_right_softkey_new_existing_touch );
+
+
+      sNewExistingDlg = dialog;
+   }
+   /*
+    * Activate the dialog only if it is not active
+    */
+   ssd_dialog_activate( RM_NEW_EXISTING_NAME, NULL );
+
+   ssd_dialog_draw();
+
+   sgNewExistingInProcess = TRUE;
+}
+#else
 void roadmap_login_new_existing_dlg(){
 
    static SsdWidget sNewExistingDlg = NULL;
@@ -429,7 +564,7 @@ void roadmap_login_new_existing_dlg(){
    int bubble1_flags, bubble2_flags;
 
    /*
-    * If currently in process - don't show the dilog
+    * If currently in process - don't show the dialog
     */
    if ( sgNewExistingInProcess )
 	   return;
@@ -470,7 +605,7 @@ void roadmap_login_new_existing_dlg(){
 	   ssd_widget_set_offset(text, 10, -7);
 
 	   ssd_widget_add (group2, text);
-	   button = ssd_button_label ("New", roadmap_lang_get ("Get Started"),
+	   button = ssd_button_label ("New", roadmap_lang_get ("Sign Up"),
 				SSD_WS_TABSTOP|SSD_ALIGN_VCENTER|SSD_END_ROW|SSD_ALIGN_RIGHT|SSD_WS_TABSTOP, new_existing_buttons_callback );
 	   if (ssd_widget_rtl(NULL))
 		  ssd_widget_set_offset(button, 10, -7);
@@ -528,8 +663,11 @@ void roadmap_login_new_existing_dlg(){
     */
    ssd_dialog_activate( RM_NEW_EXISTING_NAME, NULL );
 
+   ssd_dialog_draw();
+
    sgNewExistingInProcess = TRUE;
 }
+#endif
 
 /*
  * SSD related handling
@@ -637,14 +775,12 @@ static void on_close_dialog (int exit_code, void* context)
 void roadmap_login_details_dialog_show_un_pw (void) {
 
    static SsdWidget sUnPwDlg = NULL;
-   static const char* sDlgName = "Login";
+   static const char* sDlgName = "Log In";
    int width;
-#ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
-#else
-   int tab_flag = SSD_WS_TABSTOP;
-#endif
-  	/*
+
+
+   /*
   	 * Currently shown login function for the
   	 * further processing in callbacks
   	 */
@@ -653,71 +789,55 @@ void roadmap_login_details_dialog_show_un_pw (void) {
 
    width = roadmap_canvas_width () / 2;
 
+
+   /*
+    * TODO:: Free the dialog after hiding
+    */
    if ( !ssd_dialog_exists( sDlgName ) ) {
 
       SsdWidget dialog;
-      SsdWidget group;
+      SsdWidget entry_label;
       SsdWidget box;
       SsdWidget button;
-      SsdWidget username, pwd;
       SsdWidget space;
 
-      // Define the labels and values
-      yesno_label[0] = roadmap_lang_get ("Yes");
-      yesno_label[1] = roadmap_lang_get ("No");
-      yesno[0] = "Yes";
-      yesno[1] = "No";
-
-      dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get ( sDlgName ),
-               NULL, SSD_CONTAINER_TITLE );
-
+      dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get ( sDlgName ), NULL, SSD_CONTAINER_TITLE );
 #ifdef TOUCH_SCREEN
-      space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10,
-               SSD_WIDGET_SPACE | SSD_END_ROW);
-      ssd_widget_set_color (space, NULL, NULL);
-      ssd_widget_add (dialog, space);
+      ssd_dialog_add_vspace( dialog, ADJ_SCALE( 10 ), SSD_END_ROW );
 #endif
 
-      box = ssd_container_new ("box group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-               SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS
-                        | SSD_ROUNDED_WHITE | SSD_POINTER_NONE
-                        | SSD_CONTAINER_BORDER);
+      box = ssd_container_new ("box group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS |
+                                                                           SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER );
 
-      group = ssd_container_new ("Name group", NULL, SSD_MAX_SIZE,
-               SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag |SSD_WS_DEFWIDGET);
+      ssd_dialog_add_vspace( box, ADJ_SCALE( 28 ), SSD_END_ROW );
+      // Username
+      entry_label = get_signup_entry( "Username", "Username", "Username", NULL );
+      ssd_widget_add ( box, entry_label );
 
-      ssd_widget_set_color (group, "#000000", "#ffffff");
-      ssd_widget_add (group, ssd_text_new ("Label", roadmap_lang_get (
-               "Username"), -1, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-      username = ssd_entry_new ("Username", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, 0, width, SSD_MIN_SIZE, roadmap_lang_get("Username"));
-      ssd_entry_set_kb_params( username, roadmap_lang_get( "User name" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
-      ssd_widget_add (group, username);
+      ssd_dialog_add_vspace( box, ADJ_SCALE( 24 ), SSD_END_ROW );
+      // Password
+      entry_label = get_signup_entry( "Password", "Password", "Password", NULL );
+      ssd_widget_add ( box, entry_label );
 
-      ssd_widget_add (box, group);
+      ssd_dialog_add_vspace( box, ADJ_SCALE( 24 ), SSD_END_ROW );
+      // Password
+      entry_label = get_signup_entry( "Nickname", "Nickname", "Nickname", NULL );
+      ssd_widget_add ( box, entry_label );
 
-      group = ssd_container_new ("PW group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-               SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
-
-      ssd_widget_add (group, ssd_text_new ("Label", roadmap_lang_get (
-               "Password"), -1, SSD_TEXT_LABEL | SSD_ALIGN_VCENTER));
-      pwd = ssd_entry_new ("Password", "", SSD_ALIGN_VCENTER| SSD_ALIGN_RIGHT,
-					  SSD_TEXT_PASSWORD, width, SSD_MIN_SIZE, roadmap_lang_get ("Password") );
-      ssd_entry_set_kb_params( pwd, roadmap_lang_get( "Password" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
-      ssd_widget_add ( group, pwd );
-      ssd_widget_add ( box, group );
+      ssd_dialog_add_vspace( box, ADJ_SCALE( 28 ), SSD_END_ROW );
 
       ssd_widget_add (dialog, box);
 
-      space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10,
-               SSD_WIDGET_SPACE | SSD_END_ROW);
-      ssd_widget_set_color (space, NULL, NULL);
-      ssd_widget_add (dialog, space);
+      ssd_dialog_add_vspace( dialog, ADJ_SCALE( 16 ), SSD_END_ROW );
+
 
       button = ssd_button_label ("LogIn", roadmap_lang_get ("Log In"),
                SSD_ALIGN_CENTER | SSD_START_NEW_ROW
                         | SSD_WS_TABSTOP, roadmap_login_on_login );
       ssd_widget_add (dialog, button);
+
+      ssd_dialog_add_vspace( dialog, ADJ_SCALE( 20 ), SSD_END_ROW );
+
 
       space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 20,
                SSD_WIDGET_SPACE | SSD_END_ROW);
@@ -725,7 +845,7 @@ void roadmap_login_details_dialog_show_un_pw (void) {
       ssd_widget_add (dialog, space);
 
       /* Makes it possible to click in the vicinity of the button  */
-      ssd_widget_set_click_offsets_ext( dialog, 0, 0, 0, 20 );
+      ssd_widget_set_click_offsets_ext( dialog, 0, 0, 0, ADJ_SCALE( 20 ) );
 
 #ifndef TOUCH_SCREEN
       ssd_widget_set_right_softkey_text ( dialog, roadmap_lang_get("Log In"));
@@ -737,6 +857,10 @@ void roadmap_login_details_dialog_show_un_pw (void) {
 
       sUnPwDlg = dialog;
    }
+   else
+   {
+      ssd_dialog_recalculate( sDlgName );
+   }
 
    if (  /* !SsdLoginShown && */ !Realtime_is_random_user() )
    {
@@ -744,6 +868,9 @@ void roadmap_login_details_dialog_show_un_pw (void) {
                &RT_CFG_PRM_NAME_Var ) );
       ssd_dialog_set_value ("Password", roadmap_config_get (
                &RT_CFG_PRM_PASSWORD_Var ) );
+      ssd_dialog_set_value ("Nickname", roadmap_config_get (
+               &RT_CFG_PRM_NKNM_Var ) );
+
    }
 
    sgLastLoginDlg = sUnPwDlg;
@@ -761,17 +888,14 @@ static SsdWidget create_button_group (const char* group_name,
    SsdWidget button;
    SsdWidget container;
    const char *buttons[2];
-#ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
-#else
-   int tab_flag = SSD_WS_TABSTOP;
-#endif
+
    SsdWidget group = ssd_container_new (group_name, NULL,
-                                        SSD_MAX_SIZE,SSD_MIN_SIZE,
+                                        SSD_MAX_SIZE,ssd_container_get_row_height(),
                                         SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    icon[0] = logo;
    icon[1] = NULL;
-   container =  ssd_container_new ("space", NULL, 47, 
+   container =  ssd_container_new ("space", NULL, 47,
                                    SSD_MIN_SIZE, SSD_ALIGN_VCENTER);
    ssd_widget_set_color(container, NULL, NULL);
    ssd_widget_add (container,
@@ -781,8 +905,8 @@ static SsdWidget create_button_group (const char* group_name,
    group->callback = callback;
    ssd_widget_add (group, container);
    ssd_widget_add (group,
-                   ssd_text_new (text, text, -1, SSD_ALIGN_VCENTER));
-   
+                   ssd_text_new (text, text, SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER));
+
 #ifdef TOUCH_SCREEN
    if (!ssd_widget_rtl(NULL)){
       buttons[0] = edit_button[0];
@@ -795,7 +919,7 @@ static SsdWidget create_button_group (const char* group_name,
                             SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, callback);
    ssd_widget_add(group, button);
 #endif
-   
+
    return group;
 }
 
@@ -806,140 +930,101 @@ void roadmap_login_profile_dialog_show( void )
    char *car_name;
    const char *config_car;
    char *icon[2];
+   int row_height = ssd_container_get_row_height();
+   int total_width = ssd_container_get_width();
    int width;
-   
-#ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
-#else
-   int tab_flag = SSD_WS_TABSTOP;
-#endif
-   
+
    /* Current shown login function for the
     * further processing in callbacks
     */
    roadmap_login_set_show_function( (RoadmapLoginDlgShowFn) roadmap_login_profile_dialog_show );
-   
-   width = roadmap_canvas_width()/2;
-   
+
+   width = total_width/2;
+
    if ( !ssd_dialog_exists( sDlgName ) ) {
-      
+
       SsdWidget dialog;
-      SsdWidget group, group2;
+      SsdWidget group;
       SsdWidget box;
       SsdWidget button;
-      SsdWidget username, pwd;
       SsdWidget space;
-      int height = 45;
+      SsdWidget entry_label;
       const char *edit_button[] = {"edit_right", "edit_left"};
       const char *buttons[2];
-      
-      if ( roadmap_screen_is_hd_screen() )
-      {
-         height = 65;
-      }
-      
+
       dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get(sDlgName), on_close_dialog,
                                SSD_CONTAINER_TITLE);
-      
+
 #ifdef TOUCH_SCREEN
-      space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 10, SSD_WIDGET_SPACE|SSD_END_ROW);
+      space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE|SSD_END_ROW);
       ssd_widget_set_color (space, NULL,NULL);
       ssd_widget_add(dialog, space);
 #endif
-      
+
       box = ssd_container_new ("box group", NULL,
-                               SSD_MAX_SIZE,SSD_MIN_SIZE,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      
+                               total_width,SSD_MIN_SIZE,
+                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+
+      //Username
       group = ssd_container_new ("Name group", NULL,
-                                 SSD_MAX_SIZE,SSD_MIN_SIZE,
+                                 SSD_MAX_SIZE,row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      ssd_widget_add (group,
-                      ssd_text_new ("Label", roadmap_lang_get("Username"), -1,
-                                    SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
-      username = ssd_confirmed_entry_new ("Username", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, 0,
-                                          width, SSD_MIN_SIZE,
-                                          roadmap_lang_get("Change of username and password should be done on www.waze.com, and only then entered here. Continue?"),
-                                          roadmap_lang_get("Username"));
-      ssd_entry_set_kb_params( username, roadmap_lang_get( "User name" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
-      
-      ssd_widget_add (group, username);
-      
+      entry_label = ssd_entry_label_new_confirmed( "Username", roadmap_lang_get("Username"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
+                                                   SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Username"),
+                                                   roadmap_lang_get("Change of username and password should be done on www.waze.com, and only then entered here. Continue?") );
+      ssd_entry_label_set_kb_params( entry_label, roadmap_lang_get( "User name" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
+      ssd_entry_label_set_editbox_title( entry_label, roadmap_lang_get( "User name" ) );
+      ssd_widget_add( group, entry_label );
+
       ssd_widget_add (box, group);
-      
+
+      ssd_widget_add( box, ssd_separator_new("separator", SSD_END_ROW) );
+
+      //Password
       group = ssd_container_new ("PW group", NULL,
-                                 SSD_MAX_SIZE,SSD_MIN_SIZE,
+                                 SSD_MAX_SIZE,row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
-      ssd_widget_add (group,
-                      ssd_text_new ("Label", roadmap_lang_get("Password"), -1,
-                                    SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
-      pwd = ssd_entry_new ("Password", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, SSD_TEXT_PASSWORD,
-                           width, SSD_MIN_SIZE,roadmap_lang_get("Password") );
-      ssd_entry_set_kb_params( pwd, roadmap_lang_get( "Password" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
-      ssd_widget_add (group, pwd );
+      entry_label = ssd_entry_label_new( "Password", roadmap_lang_get("Password"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
+                                                   SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Password") );
+      ssd_entry_label_set_text_flags( entry_label, SSD_TEXT_PASSWORD );
+      ssd_entry_label_set_kb_params( entry_label, roadmap_lang_get( "Password" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
+      ssd_entry_label_set_editbox_title( entry_label, roadmap_lang_get( "Password" ) );
+      ssd_widget_add ( group, entry_label );
       ssd_widget_add (box, group);
-      
+      ssd_widget_add(box, ssd_separator_new("separator", SSD_END_ROW));
+
+      //Nickname
       group = ssd_container_new ("Nick group", NULL,
-                                 SSD_MAX_SIZE, SSD_MIN_SIZE,
+                                 SSD_MAX_SIZE, row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
-      ssd_widget_add (group,
-                      ssd_text_new ("Label", roadmap_lang_get("Nickname"), -1,
-                                    SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
-      
-      ssd_widget_add (group,
-                      ssd_entry_new ("Nickname", "", SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT,
-                                     0, width, SSD_MIN_SIZE ,roadmap_lang_get("Nickname")));
+
+      entry_label = ssd_entry_label_new( "Nickname", roadmap_lang_get("Nickname"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
+                                                   SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Nickname") );
+      ssd_entry_label_set_kb_params( entry_label, roadmap_lang_get( "Nickname" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
+      ssd_entry_label_set_editbox_title( entry_label, roadmap_lang_get( "Nickname" ) );
+      ssd_widget_add (group, entry_label );
       ssd_widget_add (box, group);
-      
-      
+
+
       ssd_widget_add (dialog, box);
-      group = ssd_container_new ("Car group", NULL,
-                                 SSD_MAX_SIZE,SSD_MIN_SIZE,
-                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|
-                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
-      
-      config_car = roadmap_config_get (&RoadMapConfigCarName);
-      car_name = roadmap_path_join("cars", config_car);
-#ifdef TOUCH_SCREEN
-      if (!ssd_widget_rtl(NULL)){
-         buttons[0] = edit_button[0];
-         buttons[1] = edit_button[0];
-      }else{
-         buttons[0] = edit_button[1];
-         buttons[1] = edit_button[1];
-      }
-      button = ssd_button_new ("edit_button", "", &buttons[0], 2,
-                               SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_car_select);
-      ssd_widget_add(group, button);
-#endif
-      icon[0] = car_name;
-      icon[1] = NULL;
-      ssd_dialog_add_hspace(group, 10, 0);
-      ssd_widget_add (group,
-                      ssd_button_new (roadmap_lang_get ("Car"), roadmap_lang_get(config_car), (const char **)&icon[0], 1,
-                                      0,
-                                      on_car_select));
-      ssd_dialog_add_hspace(group, 10, 0);
-      ssd_widget_add (group,
-                      ssd_text_new ("Car Text", roadmap_lang_get("Car"), -1,
-                                    SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
-      group->callback = on_car_select;
-      ssd_widget_add (dialog, group);
-      
+
+
+      box = ssd_container_new ("Privacy section", NULL,
+                                 total_width,SSD_MIN_SIZE,
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|
+                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+      ssd_widget_set_color (box, "#000000", "#ffffff");
+
       //Privacy
       group = ssd_container_new ("Privacy group", NULL,
-                                 SSD_MAX_SIZE,SSD_MIN_SIZE,
-                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|
-                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+                                 SSD_MAX_SIZE, row_height,
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
       ssd_widget_set_color (group, "#000000", "#ffffff");
-      
+
 #ifdef TOUCH_SCREEN
       if (!ssd_widget_rtl(NULL)){
          buttons[0] = edit_button[0];
@@ -955,34 +1040,26 @@ void roadmap_login_profile_dialog_show( void )
       icon[0] = "privacy_settings";
       icon[1] = NULL;
       ssd_widget_add (group,
-                      ssd_button_new (roadmap_lang_get ("Car"), roadmap_lang_get(config_car), (const char **)&icon[0], 1,
+                      ssd_button_new ("Privacy btn", "Privacy btn", (const char **)&icon[0], 1,
                                       0,
                                       NULL));
-      
+
       ssd_widget_add (group,
-                      ssd_text_new ("Privacy Text", roadmap_lang_get("Privacy settings"), -1,
-                                    SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+                      ssd_text_new ("Privacy Text", roadmap_lang_get("Privacy settings"), SSD_MAIN_TEXT_SIZE,
+                            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
       group->callback = RealtimePrivacySettingsWidgetCallBack;
-      
-      
-      ssd_widget_add (dialog, group);
-      
-      group = ssd_container_new("AllowPing group",NULL,SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE
-                                |SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      ssd_widget_set_color (group, NULL, NULL);
-      group2 = ssd_container_new ("group2", NULL, 2*roadmap_canvas_width()/3, height,
-                                  SSD_ALIGN_VCENTER);
-      ssd_widget_set_color (group2, NULL, NULL);
-      ssd_widget_add(group2,
-                     ssd_text_new("Allow Pinvg TXT",
-                                  roadmap_lang_get("I agree to be pinged"),
-                                  -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-      ssd_widget_add(group,group2);
-      ssd_widget_add (group,
-                      ssd_checkbox_new ("AllowPing", TRUE,  SSD_ALIGN_RIGHT|SSD_ALIGN_VCENTER, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
-      
-      ssd_widget_add(dialog,group);
-      
+
+
+      ssd_widget_add (box, group);
+      ssd_widget_add(box, ssd_separator_new("separator", SSD_END_ROW));
+
+      //Allow ping
+      group = ssd_checkbox_row_new("AllowPing", roadmap_lang_get ("I agree to be pinged"),
+            TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
+      ssd_widget_add(box,group);
+
+      ssd_widget_add(dialog,box);
+
 #ifndef TOUCH_SCREEN
       group = ssd_container_new ("Car group", NULL,
                                  SSD_MAX_SIZE,SSD_MIN_SIZE,
@@ -1000,32 +1077,32 @@ void roadmap_login_profile_dialog_show( void )
                                       on_mood_select));
       group->callback = on_mood_select;
       ssd_widget_add (dialog, group);
-      
+
 #endif
-      
+
       //Social networks
       box = ssd_container_new ("social group", NULL,
-                               SSD_MAX_SIZE,SSD_MIN_SIZE,
+                               total_width,SSD_MIN_SIZE,
                                SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS
-                               |SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
-      
+                               |SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+
       //Twitter
       group = create_button_group ("Twitter group",
                                    "twitter_logo",
                                    "Twitter",
                                    twitter_button_cb);
       ssd_widget_add (box, group);
-      
-#if 0 //enable when facebook is supported      
+
+#if 1 //enable when facebook is supported
       //Facebook
       ssd_widget_add (box, ssd_separator_new ("separator", 0));
       group = create_button_group ("Facebook group",
-                                   "facebook_logo",
+                                   "facebook_settings",
                                    "Facebook",
                                    facebook_button_cb);
       ssd_widget_add (box, group);
 #endif
-      
+
       //Foursquare
       if (roadmap_foursquare_is_enabled()) {
          ssd_widget_add (box, ssd_separator_new ("separator", 0));
@@ -1035,19 +1112,62 @@ void roadmap_login_profile_dialog_show( void )
                                       foursquare_button_cb);
          ssd_widget_add (box, group);
       }
-      
+
       ssd_widget_add (dialog, box);
-      
-      
+
+      //Avatar
+      box = ssd_container_new ("Car group", NULL,
+                                 total_width,SSD_MIN_SIZE,
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|
+                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+      ssd_widget_set_color (box, "#000000", "#ffffff");
+
+      group = ssd_container_new ("Privacy group", NULL,
+                                 SSD_MAX_SIZE, row_height,
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+      ssd_widget_set_color (group, "#000000", "#ffffff");
+
+      config_car = roadmap_config_get (&RoadMapConfigCarName);
+      car_name = roadmap_path_join("cars", config_car);
+
+      icon[0] = car_name;
+      icon[1] = NULL;
+      ssd_widget_add (group,
+                            ssd_button_new (roadmap_lang_get ("Car"), roadmap_lang_get(config_car), (const char **)&icon[0], 1,
+                                            SSD_ALIGN_RIGHT,
+                                            on_car_select));
+
+#ifdef TOUCH_SCREEN
+      if (!ssd_widget_rtl(NULL)){
+         buttons[0] = edit_button[0];
+         buttons[1] = edit_button[0];
+      }else{
+         buttons[0] = edit_button[1];
+         buttons[1] = edit_button[1];
+      }
+      button = ssd_button_new ("edit_button", "", &buttons[0], 2,
+                               SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, on_car_select);
+      ssd_widget_add(group, button);
+#endif
+      //ssd_dialog_add_hspace(group, 10, 0);
+      //ssd_dialog_add_hspace(group, 10, 0);
+      ssd_widget_add (group,
+                      ssd_text_new ("Car Text", roadmap_lang_get("Car"), SSD_MAIN_TEXT_SIZE,
+                                    SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+      group->callback = on_car_select;
+      ssd_widget_add (box, group);
+      ssd_widget_add (dialog, box);
+
+
 #ifndef TOUCH_SCREEN
       ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Ok"));
       ssd_widget_set_left_softkey_callback   ( dialog, on_ok_softkey);
 #endif
-      
+
       sProfileDlg = dialog;
       free(car_name);
    }
-   
+
    if ( !SsdLoginShown) {
       const char *pVal;
       yesno[0] = "Yes";
@@ -1060,11 +1180,11 @@ void roadmap_login_profile_dialog_show( void )
       else pVal = yesno[1];
       ssd_widget_set_data (sProfileDlg, "AllowPing", (void *) pVal);
    }
-   
+
    SsdLoginShown = 1;
-   
+
    sgLastLoginDlg = sProfileDlg;
-   
+
    ssd_dialog_draw ();
    ssd_dialog_activate ( sDlgName, NULL);
 }
@@ -1237,10 +1357,10 @@ const char* roadmap_login_dlg_get_nickname()
 }
 
 
-void roadmap_login_ssd_on_signup_skip( void )
+void roadmap_login_ssd_on_signup_skip( messagebox_closed cb )
 {
 	ssd_dialog_hide_all( dec_cancel );
-	roadmap_messagebox("","You can personalize your account from Settings->profile");
+	roadmap_messagebox_cb("","You can personalize your account from Settings->profile", cb );
 	sgNewExistingInProcess = FALSE;
 }
 
