@@ -48,9 +48,17 @@ char *roadmap_time_get_hours_minutes (time_t gmt) {
     return image;
 }
 
-static unsigned long tv_to_msec(struct timeval *tv)
+static uint32_t tv_to_msec(struct timeval *tv)
 {
-    return (tv->tv_sec & 0xffff) * 1000 + tv->tv_usec/1000;
+   //return (tv->tv_sec & 0xffff) * 1000 + tv->tv_usec/1000;
+   
+   static time_t initial_sec = 0;
+   
+   if (initial_sec == 0) {
+      initial_sec = tv->tv_sec;
+   }
+   
+   return (uint32_t)(tv->tv_sec - initial_sec) * 1000 + (uint32_t)tv->tv_usec/1000;
 }
 
 uint32_t roadmap_time_get_millis(void) {
@@ -58,6 +66,5 @@ uint32_t roadmap_time_get_millis(void) {
 
    gettimeofday(&tv, NULL);
    return tv_to_msec(&tv);
-
 }
 

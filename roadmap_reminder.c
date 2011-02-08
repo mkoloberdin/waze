@@ -94,6 +94,7 @@ static void OnReminderShortClick (const char *name,
                                   BOOL is_visible,
                                   int scale,
                                   int opacity,
+                                  int scale_y,
                                   const char *id,
                                   const char *text);
 
@@ -347,7 +348,7 @@ static SsdWidget create_close_button(){
    icons[0] = "GeoReminderButtonUp";
    icons[1] = "GeoReminderButtonDown";
    icons[2] = NULL;
-   button = ssd_button_label_custom("Close_button", roadmap_lang_get("Close"), SSD_WS_DEFWIDGET|SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM, on_close, (const char**) &icons[0], "#ab5939", "#fff88d");
+   button = ssd_button_label_custom("Close_button", roadmap_lang_get("Close"), SSD_WS_DEFWIDGET|SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM, on_close, (const char**) &icons[0], 2, "#ab5939", "#fff88d", 14);
    ssd_widget_set_offset(button, 0, -20);
    return button;
 }
@@ -445,6 +446,7 @@ static void OnReminderShortClick (const char *name,
                                   BOOL is_visible,
                                   int scale,
                                   int opacity,
+                                  int scale_y,
                                   const char *id,
                                   const char *text){
 
@@ -551,7 +553,6 @@ static int reminder_add_dlg_buttons_callback (SsdWidget widget, const char *new_
       const char *repeat = (const char *)ssd_dialog_get_data("repeat");
       const char *add_reminder         = ssd_dialog_get_data("add_reminder");
 
-      ssd_dialog_hide_all(dec_close);
 
       argv[reminder_hi_house_number] = strdup(gContext.properties.address);
       argv[reminder_hi_street] = strdup(gContext.properties.street);
@@ -575,7 +576,7 @@ static int reminder_add_dlg_buttons_callback (SsdWidget widget, const char *new_
          argv[reminder_hi_repeat] = strdup("");
       }
       roadmap_reminder_add_entry (argv, add_reminder && !strcmp( add_reminder, "yes" ));
-
+      ssd_dialog_hide_all(dec_close);
       free((void *)argv[reminder_hi_house_number]);
       free((void *)argv[reminder_hi_street]);
       free((void *)argv[reminder_hi_city]);
@@ -806,7 +807,7 @@ void roadmap_reminder_add_at_position(RoadMapPosition *position,  BOOL isReminde
    PluginStreetProperties properties;
    RoadMapNeighbour neighbours[2];
    RoadMapPosition context_save_pos;
-   int context_save_zoom;
+   zoom_t context_save_zoom;
 
    if (!position)
       return;

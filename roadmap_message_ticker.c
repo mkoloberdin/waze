@@ -130,12 +130,14 @@ void roadmap_message_ticker_display(void) {
 #ifdef OPENGL
    if (roadmap_screen_is_hd_screen())
       factor = 1.5;
+   separator_position *= factor;
+
    image = roadmap_res_get( RES_BITMAP, RES_SKIN, "TickerBackground" );
    if (image){
       sign_top.x = 0;
       sign_top.y =roadmap_bar_top_height();
       position.x = roadmap_canvas_image_width(image)/2;
-      position.y =roadmap_canvas_image_height(image) / 2;
+      position.y = roadmap_canvas_image_height(image) / 2;
       sign_bottom.x = roadmap_canvas_width();
       sign_bottom.y = roadmap_bar_top_height() + roadmap_canvas_image_height(image)*factor ;
       roadmap_canvas_draw_image_stretch( image, &sign_top, &sign_bottom, &position, 0, IMAGE_NORMAL );
@@ -159,11 +161,11 @@ void roadmap_message_ticker_display(void) {
    position.x = 0;
    roadmap_canvas_select_pen (RoadMapTickerPen);
    position.x = roadmap_canvas_width()/2;
-   position.y = roadmap_bar_top_height() +  separator_position -4;
+   position.y = roadmap_bar_top_height() +  separator_position - 4*factor;
+
    roadmap_canvas_draw_string_size (&position,
                                     ROADMAP_CANVAS_BOTTOMMIDDLE,
                                     16,g_title);
-
    if (g_icon){
       icon = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, g_icon);
       if ( icon ) {
@@ -186,7 +188,7 @@ void roadmap_message_ticker_display(void) {
    if (g_text){
       rect.minx = roadmap_canvas_image_width(icon) + 10;
       rect.maxx = roadmap_canvas_width()-roadmap_canvas_image_width(x_image)-5;
-      rect.miny = roadmap_bar_top_height() + separator_position + 5;
+      rect.miny = roadmap_bar_top_height() + separator_position + 5*factor;
       rect.maxy = roadmap_bar_top_height() + gMiddleImageSize.height*factor -5;
       text = ssd_text_new("MessageTickerTxt",g_text, 14, SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
       text->draw(text, &rect, 0);
@@ -308,8 +310,7 @@ static int roadmap_message_ticker_short_click(RoadMapGuiPoint *point) {
    if (!gTickerOn)
       return 0;
 
-   if ((point->y >= (OpenIconRct.miny)) &&
-       (point->y <= (OpenIconRct.maxy))) {
+   if (point->y >= (OpenIconRct.miny)) /* &&(point->y <= (OpenIconRct.maxy+40)))*/ {
           gTickerOn = FALSE;
           if(g_callback)
              g_callback();

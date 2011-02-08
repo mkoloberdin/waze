@@ -44,7 +44,9 @@ static BOOL initialized = FALSE;
 static RoadMapCallback SplashNextLoginCb = NULL;
 static void download_wide_splash(void);
 
-#define START_DOWNLOAD_DELAY 30000
+#define START_DOWNLOAD_DELAY  30000
+#define SPLASH_CHECK_INTERVAL 6 * 3600
+
 
 typedef struct {
    const char   *name;
@@ -55,7 +57,8 @@ typedef struct {
 
 static SplashFiles RoadMapSplashFiles[] = {
 #ifdef IPHONE
-   {"welcome_768_1004", 500, -1,FALSE},
+   {"welcome_768_1004", 700, -1,FALSE},
+   {"welcome_640_960", 500, -1,FALSE},
    {"welcome_320_480", 200, -1,FALSE},
    {"welcome_wide_480_320", 200,-1, TRUE},
 #else
@@ -135,7 +138,7 @@ static BOOL should_check_for_new_file(){
 
    now = time(NULL);
 
-   if ((now - last_check_time) > (24 * 3600))
+   if ((now - last_check_time) > SPLASH_CHECK_INTERVAL)
       return TRUE;
    else
       return FALSE;
@@ -203,8 +206,11 @@ static void on_splash_downloaded (const char* res_name, int success, void *conte
 #ifndef IPHONE
        download_wide_splash();
 #endif
+       roadmap_splash_set_check_time();
    }
-   roadmap_splash_set_check_time();
+   else{
+      roadmap_splash_set_update_time("");
+   }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -255,7 +261,8 @@ static void roadmap_splash_delayed_start_download(void){
 
 //////////////////////////////////////////////////////////////////
 void roadmap_splash_login_cb(void){
-   roadmap_main_set_periodic(START_DOWNLOAD_DELAY,roadmap_splash_delayed_start_download);
+   if (should_check_for_new_file())
+      roadmap_main_set_periodic(START_DOWNLOAD_DELAY,roadmap_splash_delayed_start_download);
 
    Realtime_NotifySplashUpdateTime(roadmap_splash_get_update_time());
 
@@ -270,10 +277,10 @@ void roadmap_splash_download_init(void){
    if (!initialized)
       roadmap_splash_init_params();
 
-   if (roadmap_splash_feature_enabled() && should_check_for_new_file())
+   if (roadmap_splash_feature_enabled())
       SplashNextLoginCb = Realtime_NotifyOnLogin (roadmap_splash_login_cb);
    else
-      roadmap_log (ROADMAP_DEBUG, "Splash download disabled or check time < 24 hr");
+      roadmap_log (ROADMAP_DEBUG, "Splash download disabled");
 }
 
 //////////////////////////////////////////////////////////////////

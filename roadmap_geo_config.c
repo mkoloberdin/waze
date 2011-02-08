@@ -701,7 +701,7 @@ static void lang_loaded (void) {
 static void lang_selected(void){
    roadmap_main_remove_periodic(lang_selected);
    ssd_dialog_hide ("Select Language Dialog", dec_ok);
-   ssd_progress_msg_dialog_show("Downloading language");
+   ssd_progress_msg_dialog_show("Downloading language...");
    roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
 }
 
@@ -973,7 +973,7 @@ void roadmap_geo_config (RoadMapCallback callback) {
       roadmap_lang_set_lang_file_update_time("eng","");
       roadmap_screen_redraw ();
       if (request_geo_config()) {
-         ssd_progress_msg_dialog_show("Initializing, please wait..");
+         ssd_progress_msg_dialog_show("Initializing, please wait...");
          roadmap_main_set_periodic(REQUEST_TIMEOUT, GeoConfigTimer);
       }
    }
@@ -1014,7 +1014,7 @@ void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char 
 void roadmap_geo_config_il(RoadMapCallback callback){
    RoadMapPosition gpsPosition;
    ssd_dialog_hide_all(dec_close);
-   ssd_progress_msg_dialog_show("Initializing, please wait..");
+   ssd_progress_msg_dialog_show("Initializing, please wait...");
    gpsPosition.latitude = 32331226;
    gpsPosition.longitude = 35011466;
    if (callback == NULL)
@@ -1028,7 +1028,7 @@ void roadmap_geo_config_il(RoadMapCallback callback){
 void roadmap_geo_config_usa(RoadMapCallback callback){
     RoadMapPosition gpsPosition;
     ssd_dialog_hide_all(dec_close);
-    ssd_progress_msg_dialog_show("Initializing, please wait..");
+    ssd_progress_msg_dialog_show("Initializing, please wait...");
     gpsPosition.latitude = 37421354;
     gpsPosition.longitude = -122088173;
     if (callback == NULL)
@@ -1042,7 +1042,7 @@ void roadmap_geo_config_usa(RoadMapCallback callback){
 void roadmap_geo_config_stg(RoadMapCallback callback){
     RoadMapPosition gpsPosition;
     ssd_dialog_hide_all(dec_close);
-    ssd_progress_msg_dialog_show("Initializing, please wait..");
+    ssd_progress_msg_dialog_show("Initializing, please wait...");
     gpsPosition.latitude = 0;
     gpsPosition.longitude = 0;
     if (callback == NULL)
@@ -1053,10 +1053,21 @@ void roadmap_geo_config_stg(RoadMapCallback callback){
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
+void roadmap_geo_config_generic(char * name){
+    RoadMapPosition gpsPosition;
+    ssd_dialog_hide_all(dec_close);
+    ssd_progress_msg_dialog_show("Initializing, please wait...");
+    gpsPosition.latitude = 0;
+    gpsPosition.longitude = 0;
+    roadmap_geo_config_fixed_location(&gpsPosition, name, completed);
+}
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
 void roadmap_geo_config_other(RoadMapCallback callback){
     RoadMapPosition gpsPosition;
     ssd_dialog_hide_all(dec_close);
-    ssd_progress_msg_dialog_show("Initializing, please wait..");
+    ssd_progress_msg_dialog_show("Initializing, please wait...");
     gpsPosition.latitude = 0;
     gpsPosition.longitude = 0;
     if (callback == NULL)

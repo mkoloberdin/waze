@@ -623,6 +623,7 @@ int roadmap_net_receive (RoadMapSocket s, void *data, int size) {
 
    if (received < 0) {
       roadmap_net_mon_error("Error in recv.");
+      roadmap_log (ROADMAP_DEBUG, "Error in recv., errno = %d", errno);
       return -1; /* On UNIX, this is sign of an error. */
    }
 

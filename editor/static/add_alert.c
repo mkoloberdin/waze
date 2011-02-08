@@ -44,7 +44,7 @@
 #include "roadmap_messagebox.h"
 #include "roadmap_config.h"
 #include "roadmap_layer.h"
-
+#include "roadmap_alert.h"
 #include "roadmap_start.h"
 #include "roadmap_locator.h"
 #include "roadmap_trip.h"
@@ -62,7 +62,12 @@
 
 #include "ssd/ssd_menu.h"
 #include "ssd/ssd_confirm_dialog.h"
-
+#include "ssd/ssd_dialog.h"
+#include "ssd/ssd_text.h"
+#include "ssd/ssd_container.h"
+#include "ssd/ssd_button.h"
+#include "ssd/ssd_segmented_control.h"
+#include "ssd/ssd_separator.h"
 #include "Realtime/Realtime.h"
 #include "Realtime/RealtimeAlerts.h"
 
@@ -90,6 +95,8 @@ static void alert_get_city_street(PluginLine *line, const char **city_name, cons
 #define STREET_PREFIX "Street"
 #define CITY_PREFIX   "City"
 
+static int g_type;
+static int g_direction;
 
 static int extract_field(const char *note, const char *field_name,
 						 char *field, int size) {
@@ -482,6 +489,50 @@ static void add_red_light_cam(int direction){
     ssd_dialog_hide_all(dec_ok);
 }
 
+static void add_dummy_cam(int direction){
+
+
+    const char *street = NULL;
+    const char *city = NULL;
+    PluginLine line;
+    RoadMapGpsPosition *CurrentGpsPoint;
+    RoadMapPosition    CurrentFixedPosition;
+    int layers[128];
+    int layers_count;
+    RoadMapNeighbour neighbours[5];
+    int count;
+    int steering;
+
+    CurrentGpsPoint = (RoadMapGpsPosition *)roadmap_trip_get_gps_position("AlertSelection");
+
+    CurrentFixedPosition.longitude = CurrentGpsPoint->longitude;
+    CurrentFixedPosition.latitude = CurrentGpsPoint->latitude;
+
+    layers_count = roadmap_layer_all_roads(layers, 128);
+    count = roadmap_street_get_closest(&CurrentFixedPosition, 0, layers, layers_count,
+            1, &neighbours[0], 1);
+
+    if (count == -1) {
+        return;
+    }
+    line = neighbours[0].line;
+
+    steering = CurrentGpsPoint->steering;
+    roadmap_square_set_current(line.square);
+    alert_get_city_street(&line, &city, &street);
+
+    if (direction == OPPOSITE_DIRECTION){
+        steering = CurrentGpsPoint->steering + 180;
+        while (steering > 360)
+            steering -= 360;
+    }
+
+    add_alert(&CurrentFixedPosition,steering, "", "0", "Dummy Cam", "", city, street, SPEED_CAM_NEW_ICON);
+    roadmap_trip_restore_focus();
+    ssd_dialog_hide_all(dec_ok);
+}
+
+
 void add_speed_cam_my_direction(void){
 	add_speed_cam(MY_DIRECTION);
 }
@@ -490,6 +541,16 @@ void add_red_light_cam_my_direction(void){
    add_red_light_cam(MY_DIRECTION);
 }
 
+void add_red_light_cam_opposite_direction(void){
+   add_red_light_cam(OPPOSITE_DIRECTION);
+}
+void add_dummy_cam_my_direction(void){
+   add_dummy_cam(MY_DIRECTION);
+}
+
+void add_dummy_cam_opposite_direction(void){
+   add_dummy_cam(OPPOSITE_DIRECTION);
+}
 void add_speed_cam_opposite_direction(void){
 	add_speed_cam(OPPOSITE_DIRECTION);
 }
@@ -507,6 +568,165 @@ static void add_red_light_cam_callback(int exit_code, void *context){
 
     add_red_light_cam_my_direction();
 }
+
+static int send_button_callback (SsdWidget widget, const char *new_value){
+   if (g_type == -1)
+      return 0;
+
+   if (g_type == ALERT_CATEGORY_SPEED_CAM){
+      if (g_direction == MY_DIRECTION)
+         add_speed_cam_my_direction();
+      else
+         add_speed_cam_opposite_direction();
+   }
+   else if (g_type == ALERT_CATEGORY_RED_LIGHT_CAM){
+      if (g_direction == MY_DIRECTION)
+         add_red_light_cam_my_direction();
+      else
+         add_red_light_cam_opposite_direction();
+   }
+   else {
+      if (g_direction == MY_DIRECTION)
+         add_dummy_cam_my_direction();
+      else
+         add_dummy_cam_opposite_direction();
+   }
+   ssd_dialog_hide_all(dec_close);
+   return 1;
+}
+
+static const char * get_type_label(int type){
+   switch (type){
+      case 2:
+         return roadmap_lang_get("Speed");
+      case 3:
+         return roadmap_lang_get("Fake");
+      case 4:
+         return roadmap_lang_get("Red light");
+      default:
+         return "";
+   }
+
+}
+
+static const char * get_type_title(int type){
+   switch (type){
+      case 2:
+         return roadmap_lang_get("Speed cam");
+      case 3:
+         return roadmap_lang_get("Fake");
+      case 4:
+         return roadmap_lang_get("Red light cam");
+      default:
+         return "";
+   }
+
+}
+
+static int on_segmented_control_selected (SsdWidget widget, const char *new_value, void *context){
+   g_type = atoi(new_value);
+   ssd_dialog_change_text("title_text", get_type_title(g_type));
+   return 1;
+}
+
+static int on_lanes_segmented_control_selected (SsdWidget widget, const char *new_value, void *context){
+   g_direction = atoi(new_value);
+   return 1;
+}
+
+#ifndef IPHONE_NATIVE
+void add_cam_dlg(void){
+   SsdWidget dialog;
+   SsdWidget group;
+   SsdWidget box;
+   SsdWidget button;
+   SsdWidget container;
+   SsdWidget text;
+   SsdWidget segmented_control;
+   char *icon[3];
+   const char *tab_labels[3];
+   const char *tab_values[3];
+   const char *tab_icons[3];
+   SsdSegmentedControlCallback callbacks[3];
+   g_type = -1;
+
+   dialog = ssd_dialog_new ("AddCamDlg",
+                            roadmap_lang_get("Speed cam"),
+                            NULL,
+                            SSD_CONTAINER_TITLE);
+
+   group = ssd_container_new ("Report.Con", NULL,
+                                 SSD_MAX_SIZE,SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+
+   ssd_dialog_add_vspace(group,5,0);
+
+
+    container = ssd_container_new ("Alert.SubType.Container", NULL,
+                                SSD_MIN_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_CENTER);
+
+    tab_labels[0] = roadmap_lang_get("Speed");
+    tab_values[0] = "2";
+    tab_icons[0] = "speedcam";
+    callbacks[0] = on_segmented_control_selected;
+
+    tab_labels[1] = roadmap_lang_get("Red light");
+    tab_values[1] = "4";
+    tab_icons[1] = "redlightcam";
+    callbacks[1] = on_segmented_control_selected;
+
+    tab_labels[2] = roadmap_lang_get("Fake");
+    tab_values[2] = "3";
+    tab_icons[2] = "dummy_cam";
+    callbacks[2] = on_segmented_control_selected;
+
+    segmented_control =  ssd_segmented_icon_control_new ("CamOptions", 3, tab_labels, (const void **)tab_values, tab_icons, SSD_END_ROW|SSD_ALIGN_CENTER, callbacks, NULL, -1);
+    ssd_widget_add(container, segmented_control);
+    ssd_widget_add(group, container);
+
+    ssd_dialog_add_vspace(group,10,0);
+    ssd_widget_add(group, ssd_separator_new("sep", SSD_END_ROW));
+
+    box = ssd_container_new ("Lanes group", NULL,
+                   SSD_MAX_SIZE, ssd_container_get_row_height(),
+                   SSD_WIDGET_SPACE|SSD_END_ROW);
+     ssd_widget_set_color(box, NULL, NULL);
+
+     tab_labels[0] = roadmap_lang_get("My lane");
+     tab_labels[1] = roadmap_lang_get("Other lane");
+     tab_values[0] = roadmap_lang_get("1");
+     tab_values[1] = roadmap_lang_get("2");
+     callbacks[0] = on_lanes_segmented_control_selected;
+     callbacks[1] = on_lanes_segmented_control_selected;
+     segmented_control =  ssd_segmented_control_new ("Lanes", 2, tab_labels, (const void **)tab_values,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER, callbacks, NULL, 0);
+
+     g_direction = MY_DIRECTION;
+     ssd_widget_add(box, segmented_control);
+     ssd_widget_add(group, box);
+     ssd_widget_add(group, ssd_separator_new("sep", SSD_END_ROW));
+
+     ssd_dialog_add_vspace(group,20,0);
+     text = ssd_text_new("AddCamText1", roadmap_lang_get("Wazers are notified of speed cams only when approaching at an excessive speed."), 14, SSD_ALIGN_CENTER|SSD_END_ROW);
+     ssd_text_set_color(text, "#929292");
+     ssd_widget_add(group, text);
+
+     ssd_dialog_add_vspace(group,10,SSD_END_ROW);
+     text = ssd_text_new("AddCamText1", roadmap_lang_get("Note: New speed cams need to be validated by community map editors. You can do it, too: www.waze.com"), 14, SSD_ALIGN_CENTER);
+     ssd_text_set_color(text, "#929292");
+     ssd_widget_add(group, text);
+
+     icon[0] = "send_button";
+     icon[1] = "send_button_s";
+     icon[2] = NULL;
+     button = ssd_button_label_custom( "Send", roadmap_lang_get ("Send"),SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ALIGN_BOTTOM, send_button_callback,
+         (const char **)icon, 2, "#FFFFFF", "#FFFFFF",18 );
+    ssd_widget_add (group, button);
+
+    ssd_widget_add(dialog, group);
+
+    ssd_dialog_activate("AddCamDlg", NULL);
+
+}
+#endif //IPHONE_NATIVE
 
 /**
  * Starts the Direction menu

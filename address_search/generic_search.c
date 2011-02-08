@@ -40,20 +40,24 @@
 #include "generic_search.h"
 #include "../Realtime/Realtime.h"
 #include "../ssd/ssd_keyboard_dialog.h"
-#include "roadmap_editbox.h"
-
+#include "../roadmap_editbox.h"
+#include "../roadmap_time.h"
+#include "../roadmap_analytics.h"
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 extern void navigate_main_stop_navigation();
 extern int main_navigator( const RoadMapPosition *point,
                            address_info_ptr       ai);
-extern void convert_int_coordinate_to_float_string(char* buffer, int value);
+
 
 
 static CB_OnAddressResolved      s_cbOnAddressResolved= NULL;
 static void*                     s_context            = NULL;
 static address_candidate         s_results[ADSR_MAX_RESULTS];
 static int                       s_results_count      = 0;
+
+uint32_t                         s_start_time;
+
 
 
 const address_candidate* generic_search_results()
@@ -129,9 +133,9 @@ static const char* address__prepare_query( const char* address, const char* cust
 
    /* Main attributes */
    sprintf( s_current_location,
-            "q=%s&mobile=true&max_results=%d&server_cookie=%s&version=%s&lang=%s",
+            "q=%s&mobile=true&max_results=%d&server_cookie=%s&version=%s&lang=%s&sessionid=%d",
              address, ADSR_MAX_RESULTS,Realtime_GetServerCookie(), roadmap_start_version(),
-             roadmap_lang_get_system_lang() );
+             roadmap_lang_get_system_lang(),Realtime_GetServerId() );
    /* Append custom query */
    if ( custom_query )
    {
@@ -146,11 +150,18 @@ static const char* address__prepare_query( const char* address, const char* cust
 
 static void on_completed( void* ctx, roadmap_result res)
 {
+   uint32_t diff;
    if(s_cbOnAddressResolved)
       s_cbOnAddressResolved( ctx, s_results, s_results_count, res);
 
    s_cbOnAddressResolved = NULL;
    s_context             = NULL;
+
+   diff = roadmap_time_get_millis() - s_start_time;
+   if (res != succeeded)
+      roadmap_analytics_log_int_event(ANALYTICS_EVENT_SEARCH_FAILED, ANALYTICS_EVENT_INFO_ERROR, res);
+   else
+      roadmap_analytics_log_int_event( ANALYTICS_EVENT_SEARCH_SUCCESS, ANALYTICS_EVENT_INFO_TIME,  (diff/500)*500);
 }
 
 // q=beit a&mobile=true&max_results=10&longtitude=10.943983489&latitude=23.984398
@@ -199,6 +210,9 @@ roadmap_result generic_search_resolve_address(
    s_results_count = 0;
 
    roadmap_log (ROADMAP_INFO, "Local search query: %s", query);
+
+
+   s_start_time = roadmap_time_get_millis();
 
    // Perform WebService Transaction:
    if( wst_start_trans( websvc,
@@ -347,20 +361,20 @@ BOOL navigate_with_coordinates( BOOL take_me_there, search_types type, int   sel
       assert(0);
       return FALSE;
    }
-
    position.longitude= (int)(selection->longtitude* 1000000);;
    position.latitude = (int)(selection->latitude  * 1000000);;
 
    roadmap_trip_set_point ("Selection",&position);
    roadmap_trip_set_point ("Address",  &position);
 
+   ai.name     = "";
    ai.state    = selection->state;
    ai.country  = NULL;
    ai.city     = selection->city;
    ai.street   = selection->street;
    ai.house    = get_house_number__str( selection->house);
 
-   if (type == search_local)
+   if (selection->name)
       name = selection->name;
    generic_search_add_address_to_history( ADDRESS_HISTORY_CATEGORY,
                                           selection->city,
@@ -373,6 +387,13 @@ BOOL navigate_with_coordinates( BOOL take_me_there, search_types type, int   sel
    {
       // Cancel previous navigation:
       navigate_main_stop_navigation();
+
+      if (selection->type == ADDRESS_CANDIDATE_TYPE_ADRESS)
+         roadmap_analytics_log_int_event(ANALYTICS_EVENT_ADR_SEARCH_SELCTED, ANALYTICS_EVENT_INFO_VALUE, selection->offset+1);
+      else
+         roadmap_analytics_log_int_event(ANALYTICS_EVENT_LS_SEARCH_SELCTED, ANALYTICS_EVENT_INFO_VALUE, selection->offset+1);
+
+      roadmap_analytics_log_event (ANALYTICS_EVENT_NAVIGATE, ANALYTICS_EVENT_INFO_SOURCE,  "SEARCH");
 
       if( -1 == main_navigator( &position, &ai))
          return FALSE;

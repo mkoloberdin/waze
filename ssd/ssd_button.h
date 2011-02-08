@@ -38,7 +38,7 @@ SsdWidget ssd_button_new (const char *name, const char *value,
 SsdWidget ssd_button_label (const char *name, const char *label,
                             int flags, SsdCallback callback);
 SsdWidget ssd_button_label_custom (const char *name, const char *label,
-                            int flags, SsdCallback callback, const char **button_icon, const char *txt_color, const char *txt_focus_color);
+                            int flags, SsdCallback callback, const char **button_icon, int num_bitmaps, const char *txt_color, const char *txt_focus_color, int txt_size);
 
 int ssd_button_change_icon( SsdWidget widget, const char **bitmap_names, int num_bitmaps );
 int ssd_button_change_images( SsdWidget widget, RoadMapImage* bitmap_images, const char **bitmap_names, int num_bitmaps );

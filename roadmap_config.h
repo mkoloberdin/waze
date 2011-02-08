@@ -111,7 +111,7 @@ void  roadmap_config_set_integer (RoadMapConfigDescriptor *descriptor, int x);
 
 int   roadmap_config_match
         (RoadMapConfigDescriptor *descriptor, const char *text);
-void  roadmap_config_get_position
+BOOL  roadmap_config_get_position
         (RoadMapConfigDescriptor *descriptor, RoadMapPosition *position);
 void  roadmap_config_set_position
         (RoadMapConfigDescriptor *descriptor, const RoadMapPosition *position);

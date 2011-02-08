@@ -53,7 +53,7 @@
 #include "roadmap_ticker.h"
 #include "roadmap_message_ticker.h"
 #include "roadmap_screen.h"
-
+#include "roadmap_main.h"
 #include "navigate/navigate_bar.h"
 #include "ssd/ssd_widget.h"
 
@@ -668,10 +668,10 @@ void roadmap_display_sign_pop_up(RoadMapSign *sign) {
 
 #ifdef TOUCH_SCREEN
 	bottom.y = (lines) * 21 + top.y + 8;
-	sign_width = roadmap_display_border(sign->style, sign->header_type, sign->pointer_type, &bottom, &top, "#d2dfef", &sign->position);
+	sign_width = roadmap_display_border(sign->style, sign->header_type, sign->pointer_type, &bottom, &top, "#d2dfef", &sign->position,0);
 #else
 	bottom.y = (lines) * 21 + top.y;
-	sign_width = roadmap_display_border(sign->style, sign->header_type, sign->pointer_type, &bottom, &top, "#e4f1f9", &sign->position);
+	sign_width = roadmap_display_border(sign->style, sign->header_type, sign->pointer_type, &bottom, &top, "#e4f1f9", &sign->position,0);
 #endif
     if (sign->image != NULL){
     		RoadMapImage close;
@@ -1008,7 +1008,6 @@ static void roadmap_display_console_box
     char text[256];
     int count;
     int width, ascent, descent;
-    int i;
     int warning_font_size = 13;
     int offset = 62;
 

@@ -45,6 +45,7 @@
 #include "roadmap_mood.h"
 #include "roadmap_map_download.h"
 #include "roadmap_device_events.h"
+#include "Realtime/RealtimeExternalPoi.h"
 
 #include "roadmap_analytics.h"
 
@@ -64,6 +65,7 @@ enum IDs {
 	ID_GENERAL,
 	ID_GROUPS,
 	ID_HELP_MENU,
+   ID_MY_COUPONS,
    ID_DEBUG_INFO,
    ID_MEDIA_PLAYER,
    ID_DOWNLOAD,
@@ -75,21 +77,7 @@ enum IDs {
 static const char *id_actions[MAX_IDS];
 static int isSettingsShown = 0;
 
-// Settings events
-static const char* ANALYTICS_EVENT_SETTINGS_NAME          = "SETTINGS";
-static const char* ANALYTICS_EVENT_MUTE_NAME              = "TOGGLE_MUTE";
-static const char* ANALYTICS_EVENT_MUTE_INFO              = "CHANGED_TO";
-static const char* ANALYTICS_EVENT_MUTE_ON                = "ON";
-static const char* ANALYTICS_EVENT_MUTE_OFF               = "OFF";
-static const char* ANALYTICS_EVENT_VIEWMODESET_NAME       = "TOGGLE_VIEW";
-static const char* ANALYTICS_EVENT_VIEWMODESET_INFO       = "NEW_MODE";
-static const char* ANALYTICS_EVENT_VIEWMODESET_2D         = "2D";
-static const char* ANALYTICS_EVENT_VIEWMODESET_3D         = "3D";
-static const char* ANALYTICS_EVENT_DAYNIGHTSET_NAME       = "TOGGLE_DAY_NIGHT";
-static const char* ANALYTICS_EVENT_DAYNIGHTSET_INFO       = "NEW_MODE";
-static const char* ANALYTICS_EVENT_DAYNIGHTSET_DAY        = "DAY";
-static const char* ANALYTICS_EVENT_DAYNIGHTSET_NIGHT      = "NIGHT";
-                        
+                       
 
 void roadmap_settings(void) {
    SettingsDialog *dialog;
@@ -99,7 +87,7 @@ void roadmap_settings(void) {
 		return;
 	}
    
-   roadmap_analytics_log_event(ANALYTICS_EVENT_SETTINGS_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SETTINGS, NULL, NULL);
 	
 	isSettingsShown = 1;
 	dialog = [[SettingsDialog alloc] initWithStyle:UITableViewStyleGrouped];
@@ -220,7 +208,7 @@ void roadmap_settings(void) {
    
    //Light day/night
    selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
-   [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Light")]];
+   [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Mode")]];
    segmentsArray = [NSArray arrayWithObjects:[NSString stringWithUTF8String:roadmap_lang_get("Day")],
                     [NSString stringWithUTF8String:roadmap_lang_get("Night")],
                     NULL];
@@ -409,6 +397,34 @@ void roadmap_settings(void) {
                                 (this_action->label_long)];
    [groupArray addObject:actionCell];
    
+   //My coupons
+   if (RealtimeExternalPoi_MyCouponsEnabled()) {
+      [dataArray addObject:groupArray];
+      
+      
+      //4th group
+      groupArray = [NSMutableArray arrayWithCapacity:1];
+      
+      header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
+      [header setText:""];
+      [headersArray addObject:header];
+      [header release];
+      
+      actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+      icon_name = "my_coupons";
+      img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+      if (img) {
+         actionCell.imageView.image = img;
+      }
+      [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+      [actionCell setTag:ID_MY_COUPONS];
+      id_actions[ID_MY_COUPONS] = "my_coupons";
+      this_action =  roadmap_start_find_action (id_actions[ID_MY_COUPONS]);
+      actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                   (this_action->label_long)];
+      [groupArray addObject:actionCell];
+   }
+   
    [dataArray addObject:groupArray];
 }
 
@@ -505,11 +521,11 @@ void roadmap_settings(void) {
 	switch (tag) {
 		case ID_MUTE:
 			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE_NAME, ANALYTICS_EVENT_MUTE_INFO, ANALYTICS_EVENT_MUTE_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
 
 				roadmap_config_set (&NavigateConfigNavigationGuidance, yesno[0]);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE_NAME, ANALYTICS_EVENT_MUTE_INFO, ANALYTICS_EVENT_MUTE_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
 
 				roadmap_config_set (&NavigateConfigNavigationGuidance, yesno[1]);
 			}
@@ -530,22 +546,22 @@ void roadmap_settings(void) {
 	switch (tag) {
 		case ID_DISPLAY:
 			if ([view getItem] == 1) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_VIEWMODESET_NAME, ANALYTICS_EVENT_VIEWMODESET_INFO, ANALYTICS_EVENT_VIEWMODESET_3D);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_VIEWMODESET, ANALYTICS_EVENT_INFO_NEW_MODE, ANALYTICS_EVENT_3D);
 
 				roadmap_screen_set_view (VIEW_MODE_3D);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_VIEWMODESET_NAME, ANALYTICS_EVENT_VIEWMODESET_INFO, ANALYTICS_EVENT_VIEWMODESET_2D);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_VIEWMODESET, ANALYTICS_EVENT_INFO_NEW_MODE, ANALYTICS_EVENT_2D);
 
 				roadmap_screen_set_view (VIEW_MODE_2D);
          }
 			break;
 		case ID_LIGHT:
 			if ([view getItem] == 1) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_DAYNIGHTSET_NAME, ANALYTICS_EVENT_DAYNIGHTSET_INFO, ANALYTICS_EVENT_DAYNIGHTSET_NIGHT);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_DAYNIGHTSET, ANALYTICS_EVENT_INFO_NEW_MODE, ANALYTICS_EVENT_NIGHT);
 
 				roadmap_skin_set_subskin ("night");
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_DAYNIGHTSET_NAME, ANALYTICS_EVENT_DAYNIGHTSET_INFO, ANALYTICS_EVENT_DAYNIGHTSET_DAY);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_DAYNIGHTSET, ANALYTICS_EVENT_INFO_NEW_MODE, ANALYTICS_EVENT_DAY);
 
 				roadmap_skin_set_subskin ("day");
          }

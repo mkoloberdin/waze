@@ -1,5 +1,4 @@
-
-/* roadmap_keyboard.h
+/* roadmap_keyboard.c
  *
  * LICENSE:
  *
@@ -176,12 +175,6 @@ static void on_disabling_driving_lock(int exit_code, void *data){
 		roadmap_keyboard_set_typing_lock_enable(FALSE);
 }
 
-#ifdef IPHONE
-void on_ok_disabling_driving_lock(int exit_code ){
-   roadmap_keyboard_set_typing_lock_enable(FALSE);
-}
-#endif //IPHONE
-
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 /*************************************************************************************************
@@ -199,9 +192,6 @@ BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
 
 	RoadMapGpsPosition position;
 	BOOL res = FALSE;
-	char msg_text[KB_TYPING_LOCK_MSG_MAX_LEN];
-
-
 
 	/* In israel - always permitted 	*/
 	if ( !gs_TypingLockCheckEnabled /*&& ssd_widget_rtl( NULL )*/ )
@@ -222,31 +212,12 @@ BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
 	res = ( position.speed > sTypingLockSpeedThr );
 	if ( res && show_msg )
 	{
-
-#ifdef IPHONE_NATIVE
-      strncpy_safe(msg_text,
-                   roadmap_lang_get( "Typing is disabled when driving. Press OK to allow typing for passengers" ),
-                   KB_TYPING_LOCK_MSG_MAX_LEN);
-      roadmap_messagebox_cb ("", msg_text, on_ok_disabling_driving_lock);
-#else
-      int cur_len = 0;
-
-      strncpy_safe(msg_text,
-                   roadmap_lang_get( "Typing is disabled when driving." ),
-                   KB_TYPING_LOCK_MSG_MAX_LEN);
-
-#ifdef TOUCH_SCREEN
-		cur_len = strlen( msg_text );
-		snprintf( &msg_text[cur_len], KB_TYPING_LOCK_MSG_MAX_LEN-cur_len, "\n%s", roadmap_lang_get( "You can minimize the 'Report' screen and type later." ) );
-#endif //TOUCH_SCREEN
-
 		ssd_confirm_dialog_custom_timeout( "",
-                        msg_text,
-                        FALSE,
+                        roadmap_lang_get( "Typing is disabled while driving. Please try again when stopped." ),
+                        TRUE,
                         on_disabling_driving_lock,
-                        NULL, roadmap_lang_get( "Understood!" ),
-                        roadmap_lang_get( "I'm not the driver" ), KB_TYPING_LOCK_MSG_TIMEOUT );
-#endif //IPHONE_NATIVE
+                        NULL, roadmap_lang_get( "Ok" ),
+                        roadmap_lang_get( "Passenger" ), KB_TYPING_LOCK_MSG_TIMEOUT );
 
 	}
 	return res;

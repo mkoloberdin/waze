@@ -61,17 +61,13 @@ static char *mood_value[MAX_MOOD_ENTRIES];
 static RoadMapConfigDescriptor MoodCfg =
 	ROADMAP_CONFIG_ITEM("User", "Mood");
 
-//Mood set event
-static const char* ANALYTICS_EVENT_MOODSET_NAME = "TOGGLE_MOOD";
-static const char* ANALYTICS_EVENT_MOODSET_INFO = "CHANGED_TO";
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_mood_call_back (int value, int group) {
    if (group == 1)
       value += 3;
    
-   roadmap_analytics_log_event(ANALYTICS_EVENT_MOODSET_NAME, ANALYTICS_EVENT_MOODSET_INFO, mood_value[value]);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MOOD, ANALYTICS_EVENT_INFO_CHANGED_TO, mood_value[value]);
 
 	roadmap_mood_set (mood_value[value]);
 	
@@ -81,7 +77,7 @@ void roadmap_mood_call_back (int value, int group) {
 ///////////////////////////////////////////////////////////////////////////////////////////
 UIImage *loadMoodImage (const char *name) {
 	const char *cursor;
-	UIImage *img;
+	UIImage *img = NULL;
 	for (cursor = roadmap_path_first ("skin");
 		 cursor != NULL;
 		 cursor = roadmap_path_next ("skin", cursor)){
@@ -231,12 +227,13 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
         cursor = roadmap_path_next ("skin", cursor)) {
       
       directory = roadmap_path_join (cursor, "moods");
-      
       files = roadmap_path_list (directory, ".png");
       
       roadmap_path_free(directory);
       
       for (cursor2 = files; *cursor2 != NULL; ++cursor2) {
+         if (strstr(*cursor2, "@2x"))
+            continue;
          //set text
          dict = [NSMutableDictionary dictionaryWithCapacity:1];
          mood_value[count] = strdup(strtok(*cursor2,"."));
@@ -245,11 +242,11 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
          
          //set icon
          icon = roadmap_path_join("moods", *cursor2);
-         image = loadMoodImage(icon);
+         //image = loadMoodImage(icon);
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon);
          roadmap_path_free(icon);
          if (image) {
             [dict setValue:image forKey:@"image"];
-            [image release];
          }
          
          if (roadmap_config_match(&MoodCfg,*cursor2)) {

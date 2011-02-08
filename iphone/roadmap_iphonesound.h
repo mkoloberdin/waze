@@ -26,7 +26,7 @@
 
 
 
-@interface SoundDelegate : NSObject <AVAudioPlayerDelegate> {
+@interface SoundDelegate : NSObject <AVAudioPlayerDelegate, AVAudioRecorderDelegate> {
 }
 
 

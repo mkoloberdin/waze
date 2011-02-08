@@ -40,6 +40,7 @@
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneCellEdit.h"
 #include "widgets/iphoneCellSwitch.h"
+#include "widgets/iphoneTablePicker.h"
 #include "roadmap_factory.h"
 #include "roadmap_start.h"
 #include "roadmap_social.h"
@@ -84,7 +85,8 @@ enum IDs {
    ID_CONFIRM_PASSWORD,
    ID_EMAIL,
    ID_AGREE_PING,
-   ID_PRIVACY
+   ID_PRIVACY,
+   ID_REFERRER
 };
 
 #define MAX_IDS 25
@@ -93,12 +95,6 @@ enum IDs {
 static const char *id_actions[MAX_IDS];
 static RoadMapCallback id_callbacks[MAX_IDS];
 static LoginDialog *gRoadmapLoginDialog;
-
-// Allow ping events
-static const char* ANALYTICS_EVENT_ALLOWPING_NAME = "TOGGLE_ALLOW_PING";
-static const char* ANALYTICS_EVENT_ALLOWPING_INFO = "CHANGED_TO";
-static const char* ANALYTICS_EVENT_ALLOWPING_ON   = "ON";
-static const char* ANALYTICS_EVENT_ALLOWPING_OFF  = "OFF";
 
 
 const char *roadmap_login_dlg_get_username(){
@@ -844,10 +840,10 @@ void roadmap_login_update_dlg_show( void ) {
 	switch (tag) {
 		case ID_AGREE_PING:
 			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING_NAME, ANALYTICS_EVENT_ALLOWPING_INFO, ANALYTICS_EVENT_ALLOWPING_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
             strncpy_safe(LoginDialogAllowPing, yesno[0], sizeof(LoginDialogAllowPing));
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING_NAME, ANALYTICS_EVENT_ALLOWPING_INFO, ANALYTICS_EVENT_ALLOWPING_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
 				strncpy_safe(LoginDialogAllowPing, yesno[1], sizeof(LoginDialogAllowPing));
          }
 			break;
@@ -883,8 +879,18 @@ void roadmap_login_update_dlg_show( void ) {
              view.tag == ID_EMAIL)
             [(UITextField *)view resignFirstResponder];
       }
-
-      kbIsOn = FALSE;
+      
+      if (kbIsOn) {
+         CGRect rect = scrollView.frame;
+         if (!roadmap_horizontal_screen_orientation())
+            rect.size.height += 215;
+         else
+            rect.size.height += 162;
+         
+         scrollView.frame = rect;
+         kbIsOn = FALSE;
+      }
+      
    }
 }
 
@@ -913,6 +919,60 @@ void roadmap_login_update_dlg_show( void ) {
       }      
    }
    
+}
+
+- (void) onTablePickerChange: (id)object
+{
+   iphoneTablePicker *tablePicker = (iphoneTablePicker *)object;
+   char text[256];
+   char *referrer_name;
+   UIScrollView *scrollView = (UIScrollView *) self.view;
+   UIButton *button = (UIButton *)[scrollView viewWithTag: ID_REFERRER];
+   
+   gReferrer = [tablePicker getSelectedIndex];
+   referrer_name = roadmap_login_get_referrer_name(gReferrer);
+   snprintf (text, sizeof(text), "%s: %s", roadmap_lang_get("Heard about waze"), referrer_name);
+   free (referrer_name);
+   [button setTitle:[NSString stringWithUTF8String:text] forState:UIControlStateNormal];
+
+   [tablePicker removeFromSuperview];
+   
+   //hide left button
+	UINavigationItem *navItem = [self navigationItem];
+	[navItem setHidesBackButton:NO];
+}
+
+- (void) onReferrer
+{
+   iphoneTablePicker *tablePicker;
+   NSMutableArray *tableArray;
+   NSMutableDictionary *dict;
+   int i;
+   int count = roadmap_login_get_referrers_count();
+   char *referrer_name;
+   
+   [self hideKeyboard];
+   
+   tableArray = [NSMutableArray arrayWithCapacity:count];
+   for (i = 0; i < count; i++) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      referrer_name = roadmap_login_get_referrer_name(i);
+      [dict setObject:[NSString stringWithUTF8String:referrer_name] forKey:@"text"];
+      free (referrer_name);
+      [tableArray addObject:dict];
+   }
+   
+   CGRect rect;
+   rect.size = ((UIScrollView *)self.view).contentSize;
+   rect.origin = CGPointMake(0, 0);
+   tablePicker = [[iphoneTablePicker alloc] initWithFrame:rect];
+   [tablePicker populateWithData:tableArray andCallback:NULL andHeight:45 andWidth:290 andDelegate:self];
+   [self.view addSubview:tablePicker];
+   [tablePicker release];
+   
+   //hide left button
+	UINavigationItem *navItem = [self navigationItem];
+	[navItem setHidesBackButton:YES];
 }
 
 - (void) onLoginSkip
@@ -985,9 +1045,9 @@ void roadmap_login_update_dlg_show( void ) {
       return;
    
    if (isUpdate) {
-      roadmap_login_on_update (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates);
+      roadmap_login_on_update (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates, gReferrer);
    } else {
-      roadmap_login_on_create (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates);
+      roadmap_login_on_create (LoginDialogUserName, LoginDialogPassword, email, bSendUpdates, gReferrer);
    }
    
    roadmap_welcome_wizard_set_first_time_no();
@@ -1201,6 +1261,26 @@ void roadmap_login_update_dlg_show( void ) {
 	[textField release];
    
    viewPosY += TEXT_HEIGHT + 10;
+   
+   //How did you hear about us
+   gReferrer = login_referrer_none;
+   rect = bgView.frame;
+   rect.origin.y += viewPosY;
+   rect.origin.x += 50;
+   rect.size.height = TEXT_HEIGHT*2;
+   rect.size.width = bgView.bounds.size.width - 100;
+   button = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+   button.tag = ID_REFERRER;
+   button.titleLabel.numberOfLines = 2;
+   button.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
+   button.titleLabel.textAlignment = UITextAlignmentCenter;
+   [button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("We'd love to know how you heard about waze")]
+                                          forState:UIControlStateNormal];
+   [button setFrame:rect];
+	[button addTarget:self action:@selector(onReferrer) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+	
+   viewPosY += button.bounds.size.height + 10;
    
    //Send me updates
    button = [UIButton buttonWithType:UIButtonTypeCustom];

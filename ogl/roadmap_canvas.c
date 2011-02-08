@@ -76,8 +76,11 @@
 #define MAX(A,B)	({ __typeof__(A) __a = (A); __typeof__(B) __b = (B); __a < __b ? __b : __a; })
 #endif
 
-
+#ifndef OGL_TILE
 #define 	OGL_UNMANAGED_IMAGES_LIST_SIZE				64
+#else
+#define 	OGL_UNMANAGED_IMAGES_LIST_SIZE				200
+#endif
 
 #define 	OGL_TEX_NEXT_POINT_OFFSET					0.0001F
 
@@ -151,6 +154,7 @@ static RoadMapPen CurrentPen;
 static float 					RoadMapFontFactor 	= 1.0F;
 static float 					RoadMapMinThickness = 2.0F;
 static float 					RoadMapAAFactor 	= 0.0F;
+static float               GlobalCanvasAlpha = 1.0F;
 /*
  * Unmanaged list definitions
  */
@@ -177,6 +181,9 @@ static GLint   max_tex_units = MAX_TEX_UNITS;
 static void generate_aa_tex();
 INLINE_DEC float frsqrtes_nr(float x);
 static void draw_triangles( int vertex_count, unsigned long texture );
+
+void roadmap_canvas_draw_image_scaled_angle ( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                             int opacity, int angle, int mode );
 
 /* The canvas callbacks: all callbacks are initialized to do-nothing
  * functions, so that we don't care checking if one has been setup.
@@ -674,6 +681,19 @@ void roadmap_canvas_get_text_extents
    roadmap_canvas_get_formated_text_extents(text, size, width, ascent, descent, can_tilt, FONT_TYPE_BOLD);
 }
 
+static inline void internal_glcolor (GLfloat r, GLfloat g, GLfloat b, GLfloat a) {
+   static GLfloat red = -1, green = -1, blue = -1, alpha = -1;
+   
+   if (red == r && green == g && blue == b && alpha == a)
+      return;
+   
+   red = r;
+   green = g;
+   blue = b;
+   alpha = a;
+   glColor4f(red, green, blue, alpha);
+}
+
 RoadMapPen roadmap_canvas_select_pen (RoadMapPen pen) {
    RoadMapPen old_pen = CurrentPen;
    CurrentPen = pen;
@@ -684,7 +704,7 @@ RoadMapPen roadmap_canvas_select_pen (RoadMapPen pen) {
 	   return old_pen;
    }
 
-   glColor4f(pen->stroke.r, pen->stroke.g, pen->stroke.b, pen->stroke.a);
+   internal_glcolor(pen->stroke.r, pen->stroke.g, pen->stroke.b, pen->stroke.a * GlobalCanvasAlpha);
 
    check_gl_error();
 
@@ -699,7 +719,7 @@ static void select_background_color (RoadMapPen pen) {
 	   return;
    }
    
-   glColor4f(pen->background.r, pen->background.g, pen->background.b, pen->background.a);
+   internal_glcolor(pen->background.r, pen->background.g, pen->background.b, pen->background.a * GlobalCanvasAlpha);
    
    check_gl_error();
 }
@@ -843,11 +863,25 @@ void roadmap_canvas_set_thickness ( int thickness ) {
 void roadmap_canvas_erase (void)
 {
    /* 'erase' means fill the canvas with the foreground color */
+   static GLfloat red = -1, green = -1, blue = -1, alpha = -1;
+   
    if ( !set_state(CANVAS_GL_STATE_FORCE_GEOMETRY, 0) )
 	   return;
 
-   glClearColor(CurrentPen->stroke.r, CurrentPen->stroke.g, CurrentPen->stroke.b, CurrentPen->stroke.a);
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT );
+   if (red != CurrentPen->stroke.r ||
+       green != CurrentPen->stroke.g ||
+       blue != CurrentPen->stroke.b ||
+       alpha != CurrentPen->stroke.a) {
+      red = CurrentPen->stroke.r;
+      green = CurrentPen->stroke.g;
+      blue = CurrentPen->stroke.b;
+      alpha = CurrentPen->stroke.a;
+      glClearColor(red, green, blue, alpha);
+}
+   //glClearDepthf(0.0);
+   glClear(GL_COLOR_BUFFER_BIT/* | GL_DEPTH_BUFFER_BIT */);
+   check_gl_error();
+   //printf("\n\n-=-=-=-=-=-=-=-=-=-=-=-=-\nclear with %s\n", CurrentPen->name);
 }
 
 void roadmap_canvas_erase_area (const RoadMapGuiRect *rect)
@@ -908,6 +942,11 @@ void roadmap_canvas_draw_formated_string_size (RoadMapGuiPoint *position,
    case ROADMAP_CANVAS_BOTTOMLEFT:
       y = position->y - text_height;
       x = position->x;
+      break;
+
+   case ROADMAP_CANVAS_TOPMIDDLE:
+      y = position->y;
+      x = position->x - (text_width / 2);
       break;
 
    case ROADMAP_CANVAS_BOTTOMMIDDLE:
@@ -1305,9 +1344,17 @@ void roadmap_canvas_draw_multiple_points (int count, RoadMapGuiPoint *points) {
 
 void roadmap_canvas_draw_multiple_lines (int count, int *lines, RoadMapGuiPoint *points, int fast_draw) {
 
-#ifdef ANDROID /* Temporary workaround for the colors distortions problem in android <= 1.6    *** AGA *** */
-   if ( roadmap_main_get_build_sdk_version() <= ANDROID_OS_VER_DONUT )
+#ifdef ANDROID /* Temporary workaround for the colors distortions problem in android <= 1.6 and software renderer *** AGA *** */
+   if ( ( roadmap_main_get_build_sdk_version() <= ANDROID_OS_VER_DONUT )
+         || ( roadmap_canvas_is_sw_renderer() ) )
    {
+      static BOOL is_logged = FALSE;
+      if ( !is_logged )
+      {
+         roadmap_log( ROADMAP_WARNING, "Using slow lines drawing procedure!!" );
+         is_logged = TRUE;
+      }
+
       roadmap_canvas_draw_multiple_lines_slow( count, lines, points, fast_draw );
       return;
    }
@@ -1910,6 +1957,10 @@ void roadmap_canvas_save_screenshot (const char* filename) {
 
 }
 
+void roadmap_canvas_set_global_opacity (int opacity) {
+   GlobalCanvasAlpha = opacity/255.0;
+}
+
 void roadmap_canvas_set_opacity (int opacity)
 {
    //roadmap_log (ROADMAP_INFO, "\n\nroadmap_canvas_set_opacity");
@@ -1931,6 +1982,12 @@ static RoadMapImage roadmap_canvas_load_bmp ( const char *full_name, RoadMapImag
 {
 	roadmap_log( ROADMAP_ERROR, "Cannot load bmp image %s", full_name );
 	return NULL;
+}
+
+static inline BOOL image_fits_atlas (RoadMapImage image) {
+   return (image->width <= CANVAS_ATLAS_TEX_SIZE &&
+           image->height <= CANVAS_ATLAS_TEX_SIZE &&
+           strcmp(image->full_path, CANVAS_IMAGE_NEW_TYPE));
 }
 
 
@@ -1972,8 +2029,7 @@ static RoadMapImage roadmap_canvas_load_png ( const char *full_name, RoadMapImag
   image->height = img_h;
    
    
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
+   if (image_fits_atlas(image)) {
       image->buf = buf;
    } else {
       width = next_pot( img_w );
@@ -2017,6 +2073,8 @@ RoadMapImage roadmap_canvas_new_image (int width, int height) {
 
    image->width = width;
    image->height = height;
+   image->offset.x = 0;
+   image->offset.y = 0;
    image->restore_cb = roadmap_canvas_set_image_texture;
    image->full_path = strdup( CANVAS_IMAGE_NEW_TYPE );
    image->is_valid = 0;
@@ -2036,6 +2094,9 @@ RoadMapImage roadmap_canvas_new_image (int width, int height) {
    if ( is_canvas_ready() )
    {
 	   roadmap_canvas_set_image_texture( image );
+      //AviR - test - tODO: remove this free
+      free (image->buf);
+      image->buf = NULL;
 	   check_gl_error();
    }
 
@@ -2138,8 +2199,7 @@ BOOL roadmap_canvas_set_image_texture( RoadMapImage image )
 	   return FALSE;
    }
    
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
+   if (image_fits_atlas(image)) {
       if (!roadmap_canvas_atlas_insert (IMAGE_HINT, &image, GL_LINEAR, GL_NEAREST)) {
          roadmap_log (ROADMAP_ERROR, "Could not cache image '%s' in texture atlas !", SAFE_STR( image->full_path));
          return FALSE;
@@ -2173,6 +2233,17 @@ void roadmap_canvas_draw_image (RoadMapImage image, const RoadMapGuiPoint *pos,
 	bottom_right_point.y = pos->y + image->height; // Actually h-1
 
 	roadmap_canvas_draw_image_scaled( image, pos, &bottom_right_point, opacity, mode );
+}
+
+void roadmap_canvas_draw_image_angle (RoadMapImage image, const RoadMapGuiPoint *pos,
+                                int opacity, int angle, int mode )
+{
+	RoadMapGuiPoint bottom_right_point;
+
+	bottom_right_point.x = pos->x + image->width; // Actually w-1
+	bottom_right_point.y = pos->y + image->height; // Actually h-1
+   
+	roadmap_canvas_draw_image_scaled_angle( image, pos, &bottom_right_point, opacity, angle, mode );
 }
 
 
@@ -2217,7 +2288,7 @@ INLINE_DEC BOOL draw_image_prepare( RoadMapImage image, int opacity, int mode )
    }
 
    //Handle opacity
-	if ( ( mode == IMAGE_SELECTED ) || ( opacity <= 0 ) || ( opacity >= 255 ) )
+	if ( ( mode == IMAGE_SELECTED ) || ( opacity <= 0 ) || ( opacity > 255 ) )
 	{
 	   opacity = 255;
     }
@@ -2230,7 +2301,7 @@ INLINE_DEC BOOL draw_image_prepare( RoadMapImage image, int opacity, int mode )
    }
 
 
-   glColor4f(1, 1, 1, alpha);
+   internal_glcolor(1, 1, 1, alpha);
    
    if ( !set_state( CANVAS_GL_STATE_IMAGE, image->texture ) )
 	   return FALSE;
@@ -2238,8 +2309,8 @@ INLINE_DEC BOOL draw_image_prepare( RoadMapImage image, int opacity, int mode )
    return TRUE;
 }
 
-void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
-                                int opacity, int mode )
+void roadmap_canvas_draw_image_scaled_angle ( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                int opacity, int angle, int mode )
 {
    int tex_size_w, tex_size_h;
    float shift_value = OGL_FLT_SHIFT_VALUE;
@@ -2249,6 +2320,14 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
       return;
    }  
 
+   if (angle != 0) {
+      glPushMatrix();
+      glTranslatef((top_left_pos->x + bottom_right_pos->x)/2, (top_left_pos->y + bottom_right_pos->y)/2, 0);
+      glRotatef(angle, 0, 0, 1);
+      glTranslatef(-(top_left_pos->x + bottom_right_pos->x)/2, -(top_left_pos->y + bottom_right_pos->y)/2, 0);
+      check_gl_error();
+   }
+   
    {
       GLfloat glpoints[] = {
          top_left_pos->x, top_left_pos->y, Z_LEVEL,
@@ -2260,8 +2339,7 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
       GLfloat x_offset = image->offset.x;
       GLfloat y_offset = image->offset.y;
       
-      if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-          image->height <= CANVAS_ATLAS_TEX_SIZE) {
+      if (image_fits_atlas(image)) {
          tex_size_h = tex_size_w = CANVAS_ATLAS_TEX_SIZE;
       } else {
          tex_size_w = next_pot(image->width);
@@ -2269,7 +2347,8 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
       }
       
       if (bottom_right_pos->x == top_left_pos->x + image->width &&
-          bottom_right_pos->y == top_left_pos->y + image->height) { //for non scaled images, use nearest filter
+          bottom_right_pos->y == top_left_pos->y + image->height &&
+          strcmp(image->full_path, CANVAS_IMAGE_NEW_TYPE)) { //for non scaled images, use nearest filter
          shift_value = 0.0F;
       } else {
          shift_value = OGL_FLT_SHIFT_VALUE;
@@ -2297,6 +2376,16 @@ void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint
          }
       }
    }
+   
+   if (angle != 0) {
+      glPopMatrix();
+}
+}
+
+void roadmap_canvas_draw_image_scaled( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                      int opacity, int mode )
+{
+   roadmap_canvas_draw_image_scaled_angle (image, top_left_pos, bottom_right_pos, opacity, 0, mode);
 }
 /*
  * Draws the target image in the area defined by top_left_pos and bottom_right_pos by
@@ -2331,8 +2420,7 @@ void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoin
    btm_right_offset.x = image->width - pivot_pos->x;
    btm_right_offset.y = image->height - pivot_pos->y;
    
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
+   if (image_fits_atlas(image)) {
       x_offset = image->offset.x / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
       y_offset = image->offset.y / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
       middle_hrz_tex = x_offset + ( GLfloat) top_left_offset.x / (GLfloat)CANVAS_ATLAS_TEX_SIZE;
@@ -2469,6 +2557,55 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
    roadmap_canvas_draw_image_formated_text(image, position, size, text, FONT_TYPE_BOLD);
 }
 
+void roadmap_canvas_begin_draw_to_image (RoadMapImage image) {
+   if (image->frame_buf == CANVAS_INVALID_TEXTURE_ID) {
+      //create framebuffer
+      GLuint framebuffer;
+      glGenFramebuffersOES(1, &framebuffer);
+      glBindFramebufferOES(GL_FRAMEBUFFER_OES, framebuffer);
+      image->frame_buf = framebuffer;
+      
+      //attach tex to the framebuffer
+      glFramebufferTexture2DOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_TEXTURE_2D, image->texture, 0);
+      
+      //test buffer
+      GLenum status = glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) ;
+      
+      if(status != GL_FRAMEBUFFER_COMPLETE_OES) {
+         roadmap_log(ROADMAP_ERROR, "roadmap_canvas_copy_image(): failed to make complete framebuffer object %x", status);
+         glDeleteFramebuffersOES(1, &framebuffer);
+         image->frame_buf = CANVAS_INVALID_TEXTURE_ID; //flag so we don't try again
+         return;
+      }
+   }
+   
+   internal_glcolor(1.0, 1.0, 1.0, 1.0);
+   
+   glBindFramebufferOES(GL_FRAMEBUFFER_OES, image->frame_buf);
+   glMatrixMode(GL_PROJECTION);
+   glLoadIdentity();
+   glMatrixMode(GL_MODELVIEW);
+   glLoadIdentity();
+   
+   glOrthof(0.0f, image->width,   // left,right
+            0.0f, image->height, // bottom, top
+            -100.0f, 100.0f); // near, far
+   
+   glViewport(0, 0, image->width, image->height);
+}
+
+void roadmap_canvas_stop_draw_to_image (void) {
+   static GLint   screen_framebuffer = -1;
+   
+   if (screen_framebuffer == -1)
+      glGetIntegerv(GL_FRAMEBUFFER_BINDING_OES, &screen_framebuffer);
+   
+   glBindFramebufferOES(GL_FRAMEBUFFER_OES, screen_framebuffer);
+
+   //roadmap_canvas3_ogl_prepare();
+   roadmap_canvas_ogl_rotateMe(0);
+}
+
 void roadmap_canvas_free_image (RoadMapImage image)
 {
    GLuint item;
@@ -2555,8 +2692,7 @@ RoadMapImage roadmap_canvas_image_from_buf( unsigned char* buf, int width, int h
    image->restore_cb = roadmap_canvas_set_image_texture;
    unmanaged_list_add( image );
 
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
+   if (image_fits_atlas(image)) {
       image->buf = buf;
    } else {
       GLubyte* temp_buf;
@@ -2612,8 +2748,7 @@ int roadmap_canvas_buf_from_image( RoadMapImage image, unsigned char** image_buf
    new_buf = malloc(4 * image->width * image->height);
    roadmap_check_allocated (new_buf);
    
-   if (image->width <= CANVAS_ATLAS_TEX_SIZE &&
-       image->height <= CANVAS_ATLAS_TEX_SIZE) {
+   if (image_fits_atlas(image)) {
       memcpy(new_buf, temp_buf, 4 * image->width * image->height);
    } else {
       uWidth = next_pot(image->width);
@@ -2633,27 +2768,6 @@ int roadmap_canvas_buf_from_image( RoadMapImage image, unsigned char** image_buf
    return (4 * image->width * image->height);
 }
 
-int roadmap_canvas_get_generic_screen_type( int width, int height )
-{
-	int screen_type = RM_SCREEN_TYPE_SD_GENERIC;
-	/*
-	 * Temporary just simple classification
-	 */
-	if ( width >= 640 || height >= 640 )
-	{
-		screen_type = RM_SCREEN_TYPE_HD_GENERIC;
-	}
-   /*
-    * Temporary just simple classification
-    */
-   if ( width <= 240 || height <= 240 )
-   {
-      screen_type = RM_SCREEN_TYPE_LD_GENERIC;
-   }
-
-
-	return screen_type;
-}
 
 void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, float thickness_factor )
 {
@@ -2682,6 +2796,8 @@ void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, f
        * Texture units
        */
       glGetIntegerv(GL_MAX_TEXTURE_UNITS, &num_tex_units);
+      roadmap_log( ROADMAP_WARNING, "Number of texture units reported by OPENGL: %d", (int)num_tex_units );
+      roadmap_log( ROADMAP_WARNING, "Maximum Number of texture units: %d", (int)max_tex_units );
 
       if (num_tex_units > max_tex_units )
          num_tex_units = max_tex_units;
@@ -2707,7 +2823,7 @@ void roadmap_canvas_ogl_configure( float anti_alias_factor, float font_factor, f
 
 //////////////////////////////////////////
 // Anti Alias
-// minimal implementation, based on glAA code by arekkusu
+// minimal implementation, based on glAArg code by arekkusu
 
 INLINE_DEC float frsqrtes_nr(float x) {
 #ifdef OPTIMIZE_SQRT

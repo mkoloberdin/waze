@@ -129,6 +129,8 @@ void roadmap_main_free_image (RoadMapNativeImage image);
 #define ROADMAP_MAIN_OS_31             2
 #define ROADMAP_MAIN_OS_4              3
 
+BOOL roadmap_horizontal_screen_orientation();
+
 #endif //IPHONE
 
 #endif /* INCLUDE__ROADMAP_MAIN__H */

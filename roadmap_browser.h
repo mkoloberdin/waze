@@ -57,6 +57,7 @@
 #define BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL        0x00000040
 #define BROWSER_FLAG_WINDOW_TYPE_EMBEDDED         0x00000080
 #define BROWSER_FLAG_WINDOW_NO_TITLE_BAR          0x00000100        // Don't show title bar
+#define BROWSER_FLAG_CACHE_ONLY                   0x00000200        // Load page and release browser
 
 
 
@@ -66,6 +67,8 @@
 #define BROWSER_WEB_VERSION         "0"
 #endif
 
+
+typedef void(*RMBrowserCallback) (int succeeded, void* context);
 
 /*
  * Title bar button attributes
@@ -104,9 +107,9 @@ typedef struct
     */
    RMBrTitleAttributes title_attrs;
 
-   RoadMapCallback on_close_cb;  // To be called when the browser is closed
-
-
+   RoadMapCallback   on_close_cb;   // To be called when the browser is closed
+   RMBrowserCallback on_load_cb;    // To be called when browser finhishes loading a page
+   void *data;                      // external caller context
 } RMBrowserAttributes;
 
 /*
@@ -125,7 +128,8 @@ typedef struct
 /*
  * Simple browser view - only title text is shown
  */
-void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback, int browser_flags );
+void roadmap_browser_show (const char* title, const char* url, RoadMapCallback on_close_cb,
+                           RMBrowserCallback on_load_cb, void *context, int browser_flags );
 
 void roadmap_browser_show_embeded( RMBrowserContext* context );
 void roadmap_browser_hide(void);
@@ -151,9 +155,12 @@ BOOL roadmap_browser_url_handler( const char* url );
 
 void roadmap_browser_set_show_external (void);
 
+void roadmap_browser_preload (const char* url, RMBrowserCallback on_load_cb, void *context);
+
 #ifdef IPHONE
 BOOL roadmap_browser_show_preloaded (void);
-void roadmap_browser_preload (const char* title, const char* url, RoadMapCallback callback, int bar_type);
+void roadmap_browser_iphone_preload (const char* title, const char* url, RoadMapCallback on_close_cb,
+                              RMBrowserCallback on_load_cb, void *context, int bar_type, int flags);
 void roadmap_browser_unload (void);
 #endif //IPHONE
 

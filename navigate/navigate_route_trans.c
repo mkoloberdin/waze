@@ -33,6 +33,7 @@
 #include "roadmap_tile_status.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_social.h"
+#include "roadmap_analytics.h"
 #include "Realtime/Realtime.h"
 
 #define	MAX_RESULTS		10
@@ -53,6 +54,7 @@ typedef struct {
 	RoadMapPosition					pos_src;
 	RoadMapPosition					pos_dst;
 	const NavigateRouteCallbacks	*callbacks;
+	uint32_t                      request_time;
 } NavigateRoutingContext;
 
 
@@ -573,6 +575,7 @@ static int verify_alt_id (const char **data, roadmap_result *rc)
 static void routing_error (const char *description)
 {
 	roadmap_messagebox_timeout("Oops", description, 5);
+	roadmap_analytics_log_event (ANALYTICS_EVENT_ROUTE_ERROR, ANALYTICS_EVENT_INFO_ERROR,  description);
 
 	if (RoutingContext.callbacks->on_results) {
 		RoutingContext.callbacks->on_results (RoutingContext.route_rc, 0, NULL);
@@ -648,6 +651,9 @@ const char *on_routing_response_code (/* IN  */   const char*       data,
 	      //TODO move all error handling to RoutingContext.callbacks->on_rc
 	      routing_error (description);
 	   }
+		else{
+		    roadmap_analytics_log_int_event (ANALYTICS_EVENT_ROUTE_RESULT, ANALYTICS_EVENT_INFO_TIME, ((roadmap_time_get_millis() - RoutingContext.request_time) /500)*500);
+		}
 	}
 
 
@@ -1473,6 +1479,8 @@ void navigate_route_request (const PluginLine *from_line,
    }
 
    RoutingContext.flags = flags;
+   RoutingContext.request_time = roadmap_time_get_millis();
+
    bRes = Realtime_RequestRoute (RoutingContext.route_id,	 //iRoute
 								  route_type,						       //iType
 								  trip_id,							       //iTripId

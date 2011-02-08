@@ -15,7 +15,7 @@ SOUNDSRC =
 else 
 ifeq ($(DESKTOP),ANDROID)
 include ../android/Makefile.in.android
-
+ 
 else
 RANLIB = ranlib
 
@@ -31,6 +31,9 @@ else
 	ARFLAGS="r"
 endif
 
+CFLAGS=$(MODECFLAGS) $(CFLAGS_ANDROID) $(INCLUDES) -I$(PWD) $(LIBDIRS)
+CXXFLAGS=$(CFLAGS) 
+LDFLAGS=$(MODELDFLAGS)
 
 # --- RoadMap sources & targets --------------------------------------------
 
@@ -41,7 +44,8 @@ OSLIBSRCSCORE=roadmap_file.c \
               roadmap_serial.c \
               roadmap_device_events.c \
               roadmap_input_type.c \
-              roadmap_time.c
+              roadmap_time.c \
+              roadmap_thread.c
 	      
 
 ifneq ($(DESKTOP),ANDROID)
@@ -53,6 +57,7 @@ endif
 
 OSLIBSRCS=$(OSLIBSRCSCORE) $(SOUNDSRC)
 OSLIBOBJS=$(OSLIBSRCS:.c=.o)
+
 
 
 # --- Conventional targets ----------------------------------------

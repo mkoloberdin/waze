@@ -314,7 +314,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
    const char* btn_next_label = "Next";
 
    int entry_width = SSD_MAX_SIZE;
-   int entry_height = 40;
+   int entry_height = ADJ_SCALE(37);
    int box_height = SSD_MIN_SIZE;
    int label_width = SSD_KB_DLG_LABEL_WIDTH;
 
@@ -369,8 +369,9 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
       ssd_dialog_add_vspace( box, SSD_KB_DLG_FIELDS_VSPACE, 0 );
 
       ecnt = ssd_container_new( s_editcnt_name, NULL, entry_width, entry_height, SSD_CONTAINER_TXT_BOX|SSD_WS_TABSTOP );
-	  ssd_widget_set_color(ecnt, NULL, NULL);
+	   ssd_widget_set_color(ecnt, NULL, NULL);
       edit = ssd_text_new     ( s_editbox_name, "", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
+      ssd_widget_set_offset(edit, 0, -3);
       ssd_text_set_input_type ( edit, inputtype_free_text);
       ssd_text_set_readonly   ( edit, FALSE);
       //   Delegate the 'on key pressed' event to the child edit-box:
@@ -494,6 +495,7 @@ void ssd_show_keyboard_dialog_ext( const char*       title,		/* Title at the top
 
    ssd_dialog_set_focus( ecnt );
 
+   s_dialog->offset_y = 0;
    ssd_dialog_draw ();
 
 #endif //IPHONE

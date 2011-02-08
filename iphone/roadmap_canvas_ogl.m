@@ -43,6 +43,7 @@
 #include "roadmap_types.h"
 #include "roadmap_gui.h"
 #include "roadmap_device_events.h"
+#include "roadmap_screen.h"
 
 #include "roadmap_canvas.h"
 #include "roadmap_canvas3d.h"
@@ -255,13 +256,14 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
       roadmap_log (ROADMAP_FATAL, "Failed to resize renderbufferStorage");
 	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_WIDTH_OES, &backingWidth);
    glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_HEIGHT_OES, &backingHeight);
-   
+#if 0
    if (depthRenderbuffer != 0)
       glDeleteRenderbuffersOES(1, &depthRenderbuffer);
    glGenRenderbuffersOES(1, &depthRenderbuffer);
    glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
    glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT16_OES, backingWidth, backingHeight);
    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
+#endif
    
    if (glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES)
 	{
@@ -272,73 +274,15 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    
    [self setupView];
    
-   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+   glClear(GL_COLOR_BUFFER_BIT/* | GL_DEPTH_BUFFER_BIT*/);
    
    roadmap_canvas_refresh();
    
-   roadmap_canvas_ogl_configure (0.0, 1.2 * roadmap_screen_get_screen_scale()/100, 2.0);
+   roadmap_canvas_ogl_configure (0.0, ADJ_SCALE(1.2), 2.0);
    
    (*RoadMapCanvasConfigure) ();
    
    return YES;
-   
-   
-   
-   /*
-   roadmap_log (ROADMAP_WARNING, "changing from viewRenderbuffer %d", viewRenderbuffer);
-   if (viewRenderbuffer != 0)
-      glDeleteRenderbuffersOES(1, &viewRenderbuffer);
-	glGenRenderbuffersOES(1, &viewRenderbuffer);
-	roadmap_log (ROADMAP_WARNING, "changing to viewRenderbuffer %d", viewRenderbuffer);
-   
-	glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
-	glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
-	if (![RoadMapGc renderbufferStorage:GL_RENDERBUFFER_OES fromDrawable:RoadMapEAGLLayer])
-      roadmap_log (ROADMAP_FATAL, "resizeFromLayer: failed to set renderbufferStorage fromDrawable");
-	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, viewRenderbuffer);
-	
-	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_WIDTH_OES, &backingWidth);
-	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_HEIGHT_OES, &backingHeight);
-   roadmap_log(ROADMAP_WARNING, "Layer size is: (%d, %d)", backingWidth, backingHeight);
-   
-   roadmap_log (ROADMAP_WARNING, "changing from depthRenderbuffer %d", depthRenderbuffer);
-   if (depthRenderbuffer != 0)
-      glDeleteRenderbuffersOES(1, &depthRenderbuffer);
-   glGenRenderbuffersOES(1, &depthRenderbuffer);
-   roadmap_log (ROADMAP_WARNING, "changing to depthRenderbuffer %d", depthRenderbuffer);
-   glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
-   glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT16_OES, backingWidth, backingHeight);
-   glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
-	
-	if(glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES) {
-		roadmap_log (ROADMAP_FATAL, "failed to make complete framebuffer object 0x%04x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
-		return NO;
-	}
-	
-	return YES;
-   */
-   /*
-   // Allocate color buffer backing based on the current layer size
-   glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
-   [RoadMapGc renderbufferStorage:GL_RENDERBUFFER_OES fromDrawable:layer];
-	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_WIDTH_OES, &backingWidth);
-   glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_HEIGHT_OES, &backingHeight);
-   
-   glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
-   glRenderbufferStorageOES(GL_RENDERBUFFER_OES, 
-                            GL_DEPTH_COMPONENT16_OES, 
-                            backingWidth, backingHeight);
-   //glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
-	
-   if (glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES)
-	{
-      roadmap_log (ROADMAP_FATAL, "Failed to make complete framebuffer object 0x%04x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
-      //NSLog(@"Failed to make complete framebuffer object %x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
-      return NO;
-   }
-   
-   return YES;
-    */
 }
 
 - (BOOL)createFramebuffer
@@ -352,40 +296,13 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
    glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, viewRenderbuffer);
-   
+#if 0
    glGenRenderbuffersOES(1, &depthRenderbuffer);
    glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
    glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
+#endif
    
    return YES;
-   
-   
-   /*
-	glGenFramebuffersOES(1, &viewFramebuffer);
-	glGenRenderbuffersOES(1, &viewRenderbuffer);
-	
-	glBindFramebufferOES(GL_FRAMEBUFFER_OES, viewFramebuffer);
-	glBindRenderbufferOES(GL_RENDERBUFFER_OES, viewRenderbuffer);
-   if (![RoadMapGc renderbufferStorage:GL_RENDERBUFFER_OES fromDrawable:RoadMapEAGLLayer])
-      roadmap_log (ROADMAP_FATAL, "failed to set renderbufferStorage fromDrawable");
-	glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_COLOR_ATTACHMENT0_OES, GL_RENDERBUFFER_OES, viewRenderbuffer);
-	
-	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_WIDTH_OES, &backingWidth);
-	glGetRenderbufferParameterivOES(GL_RENDERBUFFER_OES, GL_RENDERBUFFER_HEIGHT_OES, &backingHeight);
-   roadmap_log(ROADMAP_WARNING, "Layer size is: (%d, %d)", backingWidth, backingHeight);
-   
-   glGenRenderbuffersOES(1, &depthRenderbuffer);
-   glBindRenderbufferOES(GL_RENDERBUFFER_OES, depthRenderbuffer);
-   glRenderbufferStorageOES(GL_RENDERBUFFER_OES, GL_DEPTH_COMPONENT16_OES, backingWidth, backingHeight);
-   glFramebufferRenderbufferOES(GL_FRAMEBUFFER_OES, GL_DEPTH_ATTACHMENT_OES, GL_RENDERBUFFER_OES, depthRenderbuffer);
-	
-	if(glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES) != GL_FRAMEBUFFER_COMPLETE_OES) {
-		roadmap_log (ROADMAP_FATAL, "failed to make complete framebuffer object 0x%04x", glCheckFramebufferStatusOES(GL_FRAMEBUFFER_OES));
-		return NO;
-	}
-	
-	return YES;
-    */
 }
 
 
@@ -418,6 +335,10 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 {
    self = [super initWithFrame: rect];
    //[self setClearsContextBeforeDrawing: NO]; //this should improve performance
+   
+   if (roadmap_screen_get_screen_scale() >= 200) {
+      [self setContentScaleFactor:2.0];
+   }
 
    RoadMapDrawingArea = self;
    
@@ -426,18 +347,11 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    RoadMapEAGLLayer.drawableProperties = [NSDictionary dictionaryWithObjectsAndKeys:
                                    [NSNumber numberWithBool:TRUE], kEAGLDrawablePropertyRetainedBacking, kEAGLColorFormatRGBA8, kEAGLDrawablePropertyColorFormat, nil];
    
-   if (roadmap_screen_get_screen_scale() == 200) {
-      RoadMapEAGLLayer.contentsScale = 2.0;
-   }
+   //if (roadmap_screen_get_screen_scale() == 200) {
+//      RoadMapEAGLLayer.contentsScale = 2.0;
+//   }
    
    [self setContext];
-	//roadmap_canvas3_ogl_prepare();
-
-   //[self setupView];
-
-   //roadmap_canvas_ogl_configure ();
-   
-   //(*RoadMapCanvasConfigure) ();
    
 	[self setMultipleTouchEnabled:YES];
 	CordingPoints = [[NSMutableArray alloc] initWithCapacity:MAX_CORDING_POINTS];
@@ -456,12 +370,11 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 
 - (void)layoutSubviews
 {
-   
    if ((!gs_bShouldAcceptLayout) ||
-       (roadmap_canvas_height() == self.bounds.size.height &&
-        roadmap_canvas_width() == self.bounds.size.width))
+       (roadmap_canvas_height() == floorf(ADJ_SCALE(self.bounds.size.height) + 0.5) &&
+        roadmap_canvas_width() == floorf(ADJ_SCALE(self.bounds.size.width) + 0.5)))
       return;
-
+   
    if (![EAGLContext setCurrentContext:RoadMapGc])
       roadmap_log(ROADMAP_FATAL, "Error setting EAGLContext");
    
@@ -516,7 +429,7 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    glEnable(GL_DEPTH_TEST);
    glDepthFunc(GL_LEQUAL);
    */
-   roadmap_canvas_ogl_configure(0.0, 1.2 * roadmap_screen_get_screen_scale()/100, 2.0);
+   roadmap_canvas_ogl_configure(0.0, ADJ_SCALE(1.2), 2.0);
 }
 
 
@@ -552,8 +465,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 	
 	touch = [CordingPoints objectAtIndex:0];
 	p = [touch locationInView:self];
-	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
-	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
+	point.x = (int)(ADJ_SCALE(p.x));
+	point.y = (int)(ADJ_SCALE(p.y));
 	(*RoadMapCanvasMouseButtonPressed) (&point);
 	
 }
@@ -566,8 +479,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 	
 	touch = [touches anyObject];
 	p = [touch locationInView:self];
-	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
-	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
+	point.x = (int)(ADJ_SCALE(p.x));
+	point.y = (int)(ADJ_SCALE(p.y));
 	
 	[CordingPoints removeObjectsInArray:[touches allObjects]];
 	/*
@@ -599,8 +512,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    
 	touch = [CordingPoints objectAtIndex:0];
 	p = [touch locationInView:self];
-	point.x = (int)(p.x * roadmap_screen_get_screen_scale() / 100);
-	point.y = (int)(p.y * roadmap_screen_get_screen_scale() / 100);
+	point.x = (int)(ADJ_SCALE(p.x));
+	point.y = (int)(ADJ_SCALE(p.y));
 	
 	(*RoadMapCanvasMouseMoved) (&point);
 }
@@ -613,6 +526,13 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
 - (void)touchesCancelled:(NSSet *)touches withEvent:(UIEvent *)event
 {
    [CordingPoints removeObjectsInArray:[touches allObjects]];
+}
+
+- (void) dealloc
+{
+   printf("dealloc\n");
+   
+   [super dealloc];
 }
 
 @end

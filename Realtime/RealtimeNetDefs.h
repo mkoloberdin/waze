@@ -31,12 +31,11 @@
 #include "websvc_trans/websvc_trans.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (140)
+#define  RTNET_PROTOCOL_VERSION                 (142)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -89,7 +88,7 @@
 #define  Point_STRING_MAXSIZE                (37)
 
 #define  MESSAGE_MAX_SIZE__At                (32 + RoadMapGpsPosition_STRING_MAXSIZE)
-#define  MESSAGE_MAX_SIZE__MapDisplyed       (100)
+#define  MESSAGE_MAX_SIZE__MapDisplyed       (100+(10*COORDINATE_VALUE_STRING_MAXSIZE)+9)
 #define  MESSAGE_MAX_SIZE__SeeMe             (20)
 #define  MESSAGE_MAX_SIZE__SetMood           (12)
 #define  MESSAGE_MAX_SIZE__Location          (28)
@@ -100,7 +99,8 @@
 															 RTNET_SERVERCOOKIE_MAXSIZE + 1 + \
 															 RT_USERNM_MAXSIZE * 2 + 1 + \
 															 10 + 1 + \
-															 64)
+															 64 + 1 + \
+                                              4)
 
 
 #define  MESSAGE_MAX_SIZE__AllTogether             \
@@ -114,7 +114,7 @@
             RTNET_CREATENEWROADS_BUFFERSIZE     +  \
             MESSAGE_MAX_SIZE__SeeMe             +  \
             MESSAGE_MAX_SIZE__UserPoints)
-#define  MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_,_AllowNewRoadCount_,_ExternalPoiDisplayedCount_) \
+#define  MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_,_AllowNewRoadCount_,_ExternalPoiDisplayedCount_, _iStatCount_) \
          (  HTTP_HEADER_MAX_SIZE                                           +  \
             CUSTOM_HEADER_MAX_SIZE                                         +  \
             MESSAGE_MAX_SIZE__At                                           +  \
@@ -124,6 +124,7 @@
             RTNET_NODEPATH_BUFFERSIZE__dynamic(_NodesPointsCount_)         +  \
             RTNET_CREATENEWROADS_BUFFERSIZE__dynamic(_AllowNewRoadCount_)  +  \
             RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE__dynamic(_ExternalPoiDisplayedCount_)  +  \
+            RTNET_STATS_BUFFERSIZE_dynamic(_iStatCount_)  +  \
             MESSAGE_MAX_SIZE__SeeMe                                        +  \
             MESSAGE_MAX_SIZE__UserPoints)
 
@@ -201,6 +202,12 @@
                            (RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_command_name    +  \
                             RTNET_EXTERNALPOIDISPLAYED_BUFFERSIZE_int_id * _n_)
 
+#define RTNET_STATS_BUFFERSIZE_command_name 20
+#define RTNET_STATS_BUFFERSIZE_record 200
+
+#define  RTNET_STATS_BUFFERSIZE_dynamic(_n_)                         \
+                           (RTNET_STATS_BUFFERSIZE_command_name    +  \
+                            RTNET_STATS_BUFFERSIZE_record * _n_)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -275,15 +282,15 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_1ReportSegmentNoAttr  (",%d\n")
 #define  RTNET_FORMAT_NETPACKET_2CreateNewRoads       ("CreateNewRoads,%u,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4NavigateTo           ("NavigateTo,%s,,%s,%s,%s\n")
-#define  RTNET_FORMAT_NETPACKET_5Auth		            ("Auth,%d,%s,%s,%d,%s\n")
+#define  RTNET_FORMAT_NETPACKET_6Auth		            ("Auth,%d,%s,%s,%d,%s,%d\n")
 #define  RTNET_FORMAT_NETPACKET_1SendSMS	            ("BridgeTo,DOWNLOADSMS,send_download,2,phone_number,%s\n")
 #define  RTNET_FORMAT_NETPACKET_5TwitterConnect       ("BridgeTo,TWITTER,twitter_connect,10,twitter_username,%s,twitter_password,%s,connect,%s,tweet_login,%s,device_id,%d\n")
 #define  RTNET_FORMAT_NETPACKET_4FoursquareConnect    ("BridgeTo,FOURSQUARE,signin,8,username,%s,password,%s,connect,%s,tweet_login,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2FoursquareSearch     ("BridgeTo,FOURSQUARE,getNearbyPlaces,4,lat,%s,lon,%s\n")
 #define  RTNET_FORMAT_NETPACKET_2FoursquareCheckin    ("BridgeTo,FOURSQUARE,checkin,4,vid,%s,tweet_badge,%s\n")
 #define	RTNET_FORMAT_NETPACKET_2SelectRoute				("SelectRoute,%d,%d\n")
-#define  RTNET_FORMAT_NETPACKET_4CreateAccount        ("BridgeTo,CREATEACCOUNT,signup_mobile,6,user_name,%s,password,%s,email,%s,receive_mails,%s\n")
-#define  RTNET_FORMAT_NETPACKET_4UpdateProfile        ("BridgeTo,UPDATEPROFILE,update_profile_mobile,8,user_name,%s,password,%s,email,%s,receive_mails,%s\n")
+#define  RTNET_FORMAT_NETPACKET_5CreateAccount        ("BridgeTo,CREATEACCOUNT,signup_mobile,10,user_name,%s,password,%s,email,%s,receive_mails,%s,referrer,%d\n")
+#define  RTNET_FORMAT_NETPACKET_5UpdateProfile        ("BridgeTo,UPDATEPROFILE,update_profile_mobile,10,user_name,%s,password,%s,email,%s,receive_mails,%s,referrer,%d\n")
 
 #define  RTNET_FORMAT_NETPACKET_5TripServerCreatePOI   		("BridgeTo,TRIPSERVER,CreatePOI,10,x,%d,y,%d,name,%s,override,%s,id,%d\n")
 #define  RTNET_FORMAT_NETPACKET_1TripServerDeletePOI   		("BridgeTo,TRIPSERVER,DeletePOI,2,name,%s\n")
@@ -297,6 +304,7 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints        ("BridgeTo,SCOREBOARD,getPoints,8,period,%s,geography,%s,from_rank,%s,count,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4PushNotificationsSet       ("BridgeTo,PUSHNOTIFICATIONS,setService,8,token,%s,score,%s,updates,%s,friends,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4FacebookPermissions        ("BridgeTo,FACEBOOKPERMISSIONS,facebook_permissions,8,show_name,%s,show_picture,%s,show_facebook_profile,%s,show_twitter_profile,%s\n")
+#define  RTNET_FORMAT_NETPACKET_2Stats                      ("Stats,%s,%s\n")
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -336,7 +344,11 @@ DECLARE_WEBSVC_PARSER(AddExternalPoiType)
 DECLARE_WEBSVC_PARSER(AddExternalPoi)
 DECLARE_WEBSVC_PARSER(RmExternalPoi)
 DECLARE_WEBSVC_PARSER(SetExternalPoiDrawOrder)
-
+DECLARE_WEBSVC_PARSER(ThumbsUpRes)
+DECLARE_WEBSVC_PARSER(UpdateAlert)
+DECLARE_WEBSVC_PARSER(ThumbsUpReceived)
+DECLARE_WEBSVC_PARSER(ReportTrafficRes)
+DECLARE_WEBSVC_PARSER(AddBonusTemplate)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 

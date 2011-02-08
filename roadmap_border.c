@@ -91,9 +91,6 @@ static const char* get_img_filename( border_images image_id)
 {
    switch( image_id)
    {
-   	  case border_heading_black_left:   return "Header_Black_left";
-   	  case border_heading_black_right:  return "Header_Black_right";
-   	  case border_heading_black_middle: return "Header_Black_Mid";
    	  case border_white_top:   			return "border_white_top";
    	  case border_white_top_right:   	return "border_white_top_right";
    	  case border_white_top_left:   		return "border_white_top_left";
@@ -524,7 +521,7 @@ static RoadMapImage get_image (int side, int style, int header, int pointer_type
 
 }
 
-int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position){
+int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position, int position_offset_y){
 	//static const char *fill_bg = "#f3f3f5";// "#e4f1f9";
 	RoadMapPen fill_pen;
 	int screen_width, screen_height, sign_width, sign_height;
@@ -533,7 +530,7 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 	int count, start_pos_x, top_height;
 	RoadMapGuiPoint sign_bottom, sign_top;
 	RoadMapImage image;
-
+	RoadMapGuiPoint points[3];
 	RoadMapGuiPoint fill_points[4];
 
 
@@ -559,6 +556,12 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 		sign_bottom.x = bottom->x ;
 		sign_bottom.y = bottom->y ;
 	}
+
+   if ((pointer_type == POINTER_POSITION) || (pointer_type == POINTER_FIXED_POSITION)){
+       roadmap_math_coordinate (position, points);
+       roadmap_math_rotate_project_coordinate ( points );
+       points[0].y += position_offset_y;
+   }
 
 	sign_width = sign_bottom.x  - sign_top.x;
 	sign_height = sign_bottom.y - sign_top.y;
@@ -597,7 +600,7 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 
 	num_items = ( sign_height - start_sides_point.y +sign_top.y - s_images[border_white_bottom+style].height ) / s_images[border_white_right+style].height;
 	if (num_items < 0 )
-	   return;
+	   return 0;
 	image  = get_image(border_sides, style, header, pointer_type, bottom, top, 1);
 
 	for (i = 0; i < num_items; i++){
@@ -633,12 +636,24 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 
 		if (pointer_type == POINTER_MENU)
 			num_items = 1;
-		else if (pointer_type == POINTER_COMMENT)
+		else if (pointer_type == POINTER_COMMENT){
 			num_items = ((right_point.x - left_point.x)/s_images[border_white_bottom+style].width)/4 -2;
+		}
+		else if (pointer_type == POINTER_FIXED_POSITION){
+         int pointer_draw_offset;
+           pointer_draw_offset = points[0].x - 15 - left_point.x;
+           if (pointer_draw_offset+sign_top.x > sign_bottom.x-52)
+              pointer_draw_offset = sign_bottom.x-52-sign_top.x;
+           if (pointer_draw_offset+sign_top.x < sign_top.x+30)
+              pointer_draw_offset = 30;
+
+           num_items = (pointer_draw_offset-21)/s_images[border_white_bottom+style].width;
+		}
 		else if (pointer_type == POINTER_POSITION)
-			num_items = (right_point.x - left_point.x- 100)/s_images[border_white_bottom+style].width;
+		         num_items = (right_point.x - left_point.x- 100)/s_images[border_white_bottom+style].width;
 		else
 			num_items = ((right_point.x - left_point.x)/s_images[border_white_bottom+style].width)/2 -2;
+
 		for (i = 0; i<num_items; i++){
 			point.x = left_point.x + s_images[border_white_bottom_left+style].width + i * s_images[border_white_bottom+style].width ;
 			point.y = left_point.y;
@@ -646,43 +661,34 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 		}
 
 
-		if (pointer_type == POINTER_POSITION){
+		if ((pointer_type == POINTER_POSITION) || (pointer_type == POINTER_FIXED_POSITION)){
 			int visible = roadmap_math_point_is_visible (position);
 			if (visible){
 				int count = 3;
-				RoadMapGuiPoint points[3];
 				RoadMapPen pointer_pen;
-				roadmap_math_coordinate (position, points);
-				roadmap_math_rotate_project_coordinate ( points );
 				if (points[0].y > (point.y +10) ){
-				points[1].x = point.x;
-				points[1].y = point.y+s_images[border_black_bottom_no_frame].height-3;
-				points[2].x = point.x+42;
-				points[2].y = point.y+s_images[border_black_bottom_no_frame].height-3;
+				   points[1].x = point.x;
+				   points[1].y = point.y+s_images[border_black_bottom_no_frame].height-3;
+				   points[2].x = point.x+42;
+				   points[2].y = point.y+s_images[border_black_bottom_no_frame].height-3;
 
-    			pointer_pen = roadmap_canvas_create_pen ("fill_pop_up_pen");
+				   pointer_pen = roadmap_canvas_create_pen ("fill_pop_up_pen");
 
-    			roadmap_canvas_set_foreground("#000000");
-    		   roadmap_canvas_set_opacity(181);
-    		   count = 3;
-				roadmap_canvas_draw_multiple_polygons (1, &count, points, 1, 0);
+				   roadmap_canvas_set_foreground("#000000");
+				   roadmap_canvas_set_opacity(181);
+				   count = 3;
+				   roadmap_canvas_draw_multiple_polygons (1, &count, points, 1, 0);
 
-//				count = 3;
-//				roadmap_canvas_set_foreground("#9e9e9e");
-//				roadmap_canvas_set_thickness(2);
-//				roadmap_canvas_draw_multiple_polygons (1, &count, points, 0, 0);
+				   for (i=0; i<40; i++){
 
-    			//point.x += 1;
-    			for (i=0; i<40; i++){
-
-    				point.x = point.x + s_images[border_black_bottom_no_frame].width ;
-					point.y = point.y;
-					roadmap_canvas_draw_image (s_images[border_black_bottom_no_frame].image, &point, 0, IMAGE_NORMAL);
-    			}
+				      point.x = point.x + s_images[border_black_bottom_no_frame].width ;
+				      point.y = point.y;
+				      roadmap_canvas_draw_image (s_images[border_black_bottom_no_frame].image, &point, 0, IMAGE_NORMAL);
+				   }
 				}
 
-   			}
-   			start_pos_x = point.x+1;
+			}
+   		start_pos_x = point.x+1;
 		}
 		else{
 			roadmap_canvas_draw_image (s_images[pointer_type].image, &point, 0, IMAGE_NORMAL);
@@ -701,7 +707,7 @@ int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPo
 
 	//Fill the
 	if ((style == STYLE_NORMAL) || (style == STYLE_BLACK)){
-	   if ((pointer_type == POINTER_POSITION) || (pointer_type == POINTER_COMMENT))
+	   if ((pointer_type == POINTER_POSITION) || (pointer_type == POINTER_FIXED_POSITION)|| (pointer_type == POINTER_COMMENT))
 	      point.y -= 1;
 		fill_points[0].x =right_point.x ;
 		fill_points[0].y =point.y +1;

@@ -33,6 +33,7 @@
 #include "roadmap_math.h"
 #include "roadmap_file.h"
 #include "roadmap_canvas.h"
+#include "roadmap_screen.h"
 #include "roadmap_sprite.h"
 
 
@@ -98,7 +99,8 @@ static char *roadmap_sprite_string (const char *data, int length) {
 
 static void roadmap_sprite_decode_plane
                (RoadMapSprite sprite,
-                const char *arg, int length, const char *thickness) {
+                const char *arg, int length, const char *thickness)
+{
 
    int   t;
    char  pen[256];
@@ -126,6 +128,10 @@ static void roadmap_sprite_decode_plane
    strncpy (color, arg, length);
    color[length] = 0;
 
+#ifdef IPHONE_NATIVE
+   t = ADJ_SCALE(t);
+#endif //IPHONE_NATIVE
+
    sprintf (pen, "%s.%d.%s", sprite->name, t, color);
    sprite->last->pen = roadmap_canvas_create_pen (pen);
 
@@ -135,7 +141,8 @@ static void roadmap_sprite_decode_plane
 
 
 static void roadmap_sprite_decode_point
-               (RoadMapGuiPoint *point, const char *data) {
+               (RoadMapGuiPoint *point, const char *data)
+{
 
    char *p;
 
@@ -146,6 +153,11 @@ static void roadmap_sprite_decode_point
    } else {
       point->y = 0;
    }
+   
+#ifdef IPHONE_NATIVE
+   point->x = ADJ_SCALE(point->x);
+   point->y = ADJ_SCALE(point->y);
+#endif //IPHONE_NATIVE
 }
 
 
@@ -179,7 +191,8 @@ static void roadmap_sprite_decode_sequence
 
 
 static void roadmap_sprite_decode_circle
-               (RoadmapSpriteDrawingSequence *sequence, const char **argv) {
+               (RoadmapSpriteDrawingSequence *sequence, const char **argv)
+{
 
    sequence->object_count += 1;
    sequence->point_count += 1;
@@ -188,6 +201,10 @@ static void roadmap_sprite_decode_circle
                 sequence->object_count * sizeof(*(sequence->objects)));
 
    sequence->objects[sequence->object_count-1] = atoi(argv[2]);
+   
+#ifdef IPHONE_NATIVE
+   sequence->objects[sequence->object_count-1] = ADJ_SCALE(sequence->objects[sequence->object_count-1]);
+#endif //IPHONE_NATIVE
 
    sequence->points =
        realloc (sequence->points,

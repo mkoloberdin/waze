@@ -624,24 +624,11 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
    int num_rows;
    int row_height;
    int i;
-   int next_container_width = 45;
-   int icon_container_width = 70;
-
-   if ( roadmap_screen_is_hd_screen() )
-   {
-      next_container_width = 60;
-      icon_container_width = 110;
-   }
-
-   //ssd_widget_container_size (list_container->parent, &size);
-
-//   num_rows = size->height / data->min_row_height;
-//   row_height = data->min_row_height;
+   int next_container_width = ADJ_SCALE(45);
+   int icon_container_width = ADJ_SCALE(70);
 
    num_rows = data->num_values;
    row_height = data->min_row_height;
-
-   // if (data->num_rows == num_rows) return;
 
    if (num_rows > data->alloc_rows) {
       data->rows = realloc (data->rows, sizeof(SsdWidget) * num_rows);
@@ -667,7 +654,7 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
                SSD_WS_TABSTOP|SSD_END_ROW|pointer_type);
         ssd_widget_set_pointer_force_click( row );
         ssd_widget_set_color(row, "#000000","#ffffff");
-        label = ssd_text_new ("label", "", 14, SSD_END_ROW|SSD_ALIGN_VCENTER);
+        label = ssd_text_new ("label", "", SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_VCENTER);
         if (data->labels_w != NULL)
            ssd_widget_set_color(label, "#ffffff", "#b0d504");
 
@@ -738,12 +725,6 @@ SsdWidget ssd_list_get_row(SsdWidget list, int index){
 static void ssd_list_draw (SsdWidget widget, RoadMapGuiRect *rect, int flags) {
    ssd_list_data_ptr data = (ssd_list_data_ptr) widget->data;
 
-#ifdef TOUCH_SCREEN
-      	rect->minx += 4;
-      	rect->miny += 4;
-      	rect->maxx -= 4;
-      	rect->maxy -= 4;
-#endif
    if (!(flags & SSD_GET_CONTAINER_SIZE)) {
 
       int height = rect->maxy - rect->miny + 1;
@@ -822,17 +803,20 @@ const void* ssd_list_selected_value( SsdWidget list)
    return data->data[absolute_index];
 }
 
+const void* ssd_list_row_value( SsdWidget list, int index)
+{
+   ssd_list_data_ptr data = (ssd_list_data_ptr)list->data;
+
+   assert( (0 <= index) && (index < data->num_values));
+
+   return data->data[index];
+}
 void ssd_list_resize (SsdWidget list, int min_height)
 {
    ssd_list_data_ptr data = (ssd_list_data_ptr) list->data;
 
    if (min_height > 0) data->min_row_height = min_height;
-   else data->min_row_height = MIN_ROW_HEIGHT;
-
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   data->min_row_height *= 1.6;
-   }
+   else data->min_row_height = ADJ_SCALE(MIN_ROW_HEIGHT);
 
    data->list_size.width = -1;
    data->list_size.height = -1;

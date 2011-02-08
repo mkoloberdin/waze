@@ -25,8 +25,10 @@
 #include "roadmap_browser.h"
 #include "roadmap_lang.h"
 #include "roadmap_factory.h"
+#include "roadmap_screen.h"
 #include "roadmap_start.h"
 #include "roadmap_config.h"
+#include "roadmap_bar.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_button.h"
 #include <string.h>
@@ -46,7 +48,7 @@ static const char*  SSD_WEB_VIEW_BTN_NAMES[] = { "WEB_VIEW_DALOG.LEFT1 BUTTON", 
 void roadmap_browser_show_ssd( const char* url, int browser_flags );
 static int title_btn_cb ( SsdWidget widget, const char *new_value );
 static void roadmap_browser_format_title_bar( SsdWidget title_bar, int browser_flags );
-static void add_title_button( int btn_id, SsdWidget title_bar, int ssd_flags );
+static SsdWidget add_title_button( int btn_id, SsdWidget title_bar, int ssd_flags );
 static int button_id( int flag );
 #ifdef __SYMBIAN32__
 static RoadMapConfigDescriptor RoadMapConfigShowExternal =
@@ -182,28 +184,33 @@ char * encode_url(char *buf, const char *str, size_t buflen)
  *             : url - the url to load
  *  NOTE       : Single brwoser dialog currently supported. There will be no different dialog for another url request.
  */
-void roadmap_browser_show (const char* title, const char* url, RoadMapCallback callback, int browser_flags )
+void roadmap_browser_show (const char* title, const char* url, RoadMapCallback on_close_cb, RMBrowserCallback on_load_cb, void *context, int browser_flags )
 {
    char temp[1024];
-   RMBrowserAttributes attrs;
    /*
     * Set the attributes
     */
 
 #if defined (ANDROID) || defined (IPHONE)
+   RMBrowserAttributes attrs;
    roadmap_browser_reset_attributes( &attrs );
-   attrs.on_close_cb = callback;
+   attrs.on_close_cb = on_close_cb;
+   attrs.on_load_cb = on_load_cb;
+   attrs.data = context;
    attrs.title_attrs.title = title;
 
    roadmap_browser_show_extended( url, browser_flags, &attrs );
 #elif defined(__SYMBIAN32__)
    roadmap_browser_show_ssd( url, browser_flags );
 #elif defined (_WIN32)
-   if (!roadmap_file_exists("\\Windows","OperaL.exe")){
-      roadmap_messagebox("Oops", "Could not locate Opera broswe. Please install Opera");
-      return;
+   RMBrowserAttributes attrs;
+   if (roadmap_spawn ("OperaL.exe", encode_url(temp, url, 1024)) == -1){
+      roadmap_browser_reset_attributes( &attrs );
+      attrs.on_close_cb = on_close_cb;
+      attrs.title_attrs.title = title;
+
+      roadmap_browser_show_extended( url, browser_flags, &attrs );
    }
-   roadmap_spawn ("\\Windows\\OperaL.exe", encode_url(temp, url, 1024));
 #else
    roadmap_spawn ("firefox", encode_url(temp, url, 1024));
    return;
@@ -222,8 +229,9 @@ void roadmap_browser_show (const char* title, const char* url, RoadMapCallback c
  */
 void roadmap_browser_show_extended ( const char* url, int browser_flags, const RMBrowserAttributes* attrs )
 {
+#ifdef _WIN32
    char temp[1024];
-
+#endif
    // Set the attributes
    RMBrowserAttrs = *attrs;
    /*
@@ -240,13 +248,13 @@ void roadmap_browser_show_extended ( const char* url, int browser_flags, const R
    else
       roadmap_browser_show_ssd( url, browser_flags );
 #elif defined (_WIN32)
-   if (!roadmap_file_exists("\\Windows","OperaL.exe")){
-      roadmap_messagebox("Oops", "Could not locate Opera broswe. Please install Opera");
+   if (roadmap_spawn ("OperaL.exe", encode_url(temp, url, 1024)) == -1){
+      roadmap_browser_show_ssd( url, browser_flags );
       return;
    }
-	roadmap_spawn ("\\Windows\\OperaL.exe", encode_url(temp, url, 1024));
+
 #else
-   roadmap_browser_show( attrs->title_attrs.title, url, attrs->on_close_cb, browser_flags );
+   roadmap_browser_show( attrs->title_attrs.title, url, attrs->on_close_cb, NULL, NULL, browser_flags );
 #endif
 }
 
@@ -307,7 +315,7 @@ void roadmap_browser_set_button_attrs( RMBrTitleAttributes* attrs, int flag, con
    if ( ( btn_id >= 0 ) && ( btn_id < max_btns ) )
    {
       RMBrTitleBtnAttributes* btnAttrs = &attrs->buttons[btn_id];
-      btnAttrs->btn_label = label;
+      btnAttrs->btn_label = label ? label : "";
       btnAttrs->btn_cb = cb;
       btnAttrs->btn_icon_up = icon_up;
       btnAttrs->btn_icon_down = icon_down;
@@ -326,7 +334,7 @@ static void on_dlg_close( int exit_code, void* context )
 {
    RoadMapCallback on_close_cb = RMBrowserAttrs.on_close_cb;
 
-   roadmap_log( ROADMAP_WARNING, "Callback: 0x%x", on_close_cb );
+   roadmap_log( ROADMAP_INFO, "Callback: 0x%x", on_close_cb );
 
    // Close the native web window
    if ( RMBrowserClose )
@@ -355,10 +363,9 @@ void roadmap_browser_show_ssd( const char* url, int browser_flags )
    static SsdWidget dialog = NULL;
    SsdWidget container = NULL;
    SsdWidget title_bar = NULL;
-   SsdWidget title_text = NULL;
    RMBrowserContext context;
    SsdSize dlg_size, cnt_size;
-   RoadMapGuiRect rect = {0};
+   RoadMapGuiRect rect = {0,0,0,0};
 
    int dialog_flags = 0;
    if (!RMBrowserLauncher )
@@ -399,10 +406,12 @@ void roadmap_browser_show_ssd( const char* url, int browser_flags )
     * Get the size of the dialog and the container
     */
    container = ssd_widget_get( dialog, SSD_WEB_VIEW_CNT_NAME );
+
+   ssd_dialog_draw();
+
    ssd_widget_get_size( dialog, &dlg_size, NULL );
    ssd_widget_get_size( container, &cnt_size, NULL );
 
-   ssd_dialog_draw();
 #endif //!IPHONE
 
    /*
@@ -414,7 +423,12 @@ void roadmap_browser_show_ssd( const char* url, int browser_flags )
    rect.minx = 0;
    rect.maxx = roadmap_canvas_width() - 1;
    rect.miny = dlg_size.height - cnt_size.height;
-   rect.maxy = roadmap_canvas_height() - 1;
+#ifdef TOUCH_SCREEN
+   rect.maxy = roadmap_canvas_height() - 1 ;
+#else
+   rect.maxy = roadmap_canvas_height() - 1 - roadmap_bar_bottom_height() ;
+#endif
+
    context.rect = rect;
 
    strncpy_safe( context.url, url, WEB_VIEW_URL_MAXSIZE );
@@ -437,7 +451,6 @@ static void roadmap_browser_format_title_bar( SsdWidget title_bar, int browser_f
 {
    SsdWidget title_text = NULL;
    SsdWidget back_btn   = NULL;
-   SsdWidget btn;
    RMBrTitleAttributes attrs = RMBrowserAttrs.title_attrs;
    const char* title = attrs.title;
 
@@ -457,10 +470,15 @@ static void roadmap_browser_format_title_bar( SsdWidget title_bar, int browser_f
        */
       if ( browser_flags & BROWSER_FLAG_TITLE_BTN_LEFT1 )
       {
-         add_title_button( button_id( BROWSER_FLAG_TITLE_BTN_LEFT1 ), title_bar, SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE );
+         int ssd_flags = SSD_ALIGN_VCENTER;
+         SsdWidget btn;
+         btn = add_title_button( button_id( BROWSER_FLAG_TITLE_BTN_LEFT1 ), title_bar, ssd_flags );
+         if ( btn )
+            ssd_widget_set_offset( btn, ADJ_SCALE( -6 ), 0 );
       }
       if ( browser_flags & BROWSER_FLAG_TITLE_BTN_LEFT2 )
       {
+         ssd_dialog_add_hspace( title_bar, ADJ_SCALE( 6 ), 0 );
          add_title_button( button_id( BROWSER_FLAG_TITLE_BTN_LEFT2 ), title_bar, SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE );
       }
       if ( ( browser_flags & BROWSER_FLAG_WINDOW_TYPE_EXTENDED ) > 0 )
@@ -499,21 +517,25 @@ static void roadmap_browser_format_title_bar( SsdWidget title_bar, int browser_f
  *             :
  *             :
  */
-static void add_title_button( int btn_id, SsdWidget title_bar, int ssd_flags )
+static SsdWidget add_title_button( int btn_id, SsdWidget title_bar, int ssd_flags )
 {
    RMBrTitleAttributes* title_attrs = &RMBrowserAttrs.title_attrs;
    RMBrTitleBtnAttributes* btn_attrs = &title_attrs->buttons[btn_id];
    const char* icons[2] = { btn_attrs->btn_icon_up, btn_attrs->btn_icon_down };
    // AGA DEBUG
-   roadmap_log( ROADMAP_WARNING, "Adding button: %d. Name: %s, Label: %s, Icons: (%s,%s)",
+   roadmap_log( ROADMAP_DEBUG, "Adding button: %d. Name: %s, Label: %s, Icons: (%s,%s)",
          btn_id, SSD_WEB_VIEW_BTN_NAMES[btn_id], btn_attrs->btn_label, icons[0], icons[1] );
    if ( btn_attrs->btn_cb )
    {
+      SsdClickOffsets offsets = { ADJ_SCALE( -6 ), ADJ_SCALE( -10 ), ADJ_SCALE( 6 ), ADJ_SCALE( 10 ) };
       SsdWidget btn = ssd_button_label_custom( SSD_WEB_VIEW_BTN_NAMES[btn_id], roadmap_lang_get( btn_attrs->btn_label ),
-            ssd_flags, title_btn_cb, (const char**) icons, "#ffffff", "#ffffff" );
+            ssd_flags, title_btn_cb, (const char**) icons, 2, "#ffffff", "#ffffff",14);
       ssd_widget_set_context( btn, btn_attrs->btn_cb );
+      ssd_widget_set_click_offsets( btn, &offsets );
       ssd_widget_add( title_bar, btn );
+      return btn;
    }
+   return NULL;
 }
 
 /***********************************************************/
@@ -554,6 +576,18 @@ static int button_id( int flag ) {
    if ( flag & BROWSER_FLAG_TITLE_BTN_RIGHT1 ) return 2;
    if ( flag & BROWSER_FLAG_TITLE_BTN_RIGHT2 ) return 3;
    return -1;
+}
+
+/***********************************************************/
+/*  Name        : roadmap_browser_preload
+ *  Purpose     : Preloads a url to cache
+ *  Params      :
+ */
+void roadmap_browser_preload (const char* url, RMBrowserCallback on_load_cb, void *context){
+#ifdef IPHONE
+      roadmap_browser_iphone_preload ("", url, NULL, on_load_cb,context, BROWSER_BAR_NORMAL, BROWSER_FLAG_CACHE_ONLY);
+#endif
+
 }
 
 

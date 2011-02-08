@@ -26,21 +26,21 @@
 
 #include "roadmap_camera_defs.h"
 
-void roadmap_camera_take_alert_picture(  float image_scale, CameraImageQuality image_quality,
-									   const char* image_folder, const char* image_file );
+void roadmap_camera_take_alert_picture(  CGSize image_size, CameraImageQuality image_quality,
+                                       const char* image_folder, const char* image_file );
 
 @interface RoadMapCameraView : UIImagePickerController <UIImagePickerControllerDelegate ,UINavigationControllerDelegate> {
-	float gImageScale;
+	CGSize gImageSize;
 	CameraImageQuality gImageQuality;
 	const char* gImageFolder;
 	const char* gImageFileName;
 }
 
 
-- (void) takePictureWithScale: (float) image_scale
-				   andQuality: (CameraImageQuality) image_quality
-					andFolder: (const char*) image_folder
-				  andFileName: (const char*) image_file;
+- (void) takePictureWithSize: (CGSize) image_size
+                  andQuality: (CameraImageQuality) image_quality
+                   andFolder: (const char*) image_folder
+                 andFileName: (const char*) image_file;
 
 @end
 

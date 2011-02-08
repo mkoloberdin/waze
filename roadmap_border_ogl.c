@@ -59,6 +59,8 @@ typedef enum
 	_border_image_black = 0x0,
 	_border_image_white,
 	_border_image_black_pointer_comment,
+	_broder_image_black_position,
+	_broder_image_black_position_fixed,
 	_border_image_white_menu,
 	_border_image_count
 } OGLBorderImageType;
@@ -67,12 +69,13 @@ typedef enum
  * Points for the stretch to start from
  * derived from the resources
  */
-const RoadMapGuiPoint OGLBorderStretchPoints[] =
+static RoadMapGuiPoint OGLBorderStretchPoints[] =
 {
-	{14, 14},	// Black border
-	{6, 6},		// White border
+	{-1, -1},	// Black border
+	{-1, -1},	// White border
 	{10, 10},   // Black border pointer comment
-	{30, 5}    // White border menu
+	{10, 10},   // Black border pointer position
+	{-1, -1}    // White border menu
 };
 
 
@@ -84,6 +87,8 @@ static const char* OGLBorderImageFiles[_border_image_count] =
 		"border_black",
 		"border_white",
 		"border_black_pointer_comment",
+		"border_black_position",
+		"border_black_position_fixed",
 		"border_white_menu"
 };
 
@@ -114,11 +119,23 @@ static OGLBorderImageType get_border_type( int style, int header, int pointer_ty
 	{
 		return _border_image_black_pointer_comment;
 	}
-	if ( ( style == STYLE_WHITE ) && ( pointer_type == POINTER_MENU ) )
+
+   if ( ( style == STYLE_BLACK ) && ( pointer_type == POINTER_POSITION ) )
+   {
+      return _broder_image_black_position;
+   }
+
+   if ( ( style == STYLE_BLACK ) && ( pointer_type == POINTER_FIXED_POSITION ) )
+   {
+      return _broder_image_black_position_fixed;
+   }
+
+   if ( ( style == STYLE_WHITE ) && ( pointer_type == POINTER_MENU ) )
 	{
 		return _border_image_white_menu;
 	}
-	if ( style == STYLE_BLACK )
+
+   if ( style == STYLE_BLACK )
 	{
 		return _border_image_black;
 	}
@@ -129,7 +146,7 @@ static OGLBorderImageType get_border_type( int style, int header, int pointer_ty
 	return _border_image_none;
 }
 
-int roadmap_display_border( int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position )
+int roadmap_display_border( int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position, int position_offset_y )
 {
 	RoadMapPen fill_pen;
 	int screen_width, screen_height;
@@ -177,12 +194,22 @@ int roadmap_display_border( int style, int header, int pointer_type, RoadMapGuiP
 	 * Load the image
 	 */
 	image = roadmap_res_get( RES_BITMAP, RES_SKIN, OGLBorderImageFiles[border_type] );
+	if (OGLBorderStretchPoints[border_type].x == -1){
+	   if (image)
+	      OGLBorderStretchPoints[border_type].x = roadmap_canvas_image_width(image)/2;
+	}
+
+   if (OGLBorderStretchPoints[border_type].y == -1){
+      if (image)
+         OGLBorderStretchPoints[border_type].y = roadmap_canvas_image_height(image)/2;
+   }
+
 	roadmap_canvas_draw_image_stretch( image, &sign_top, &sign_bottom, &OGLBorderStretchPoints[border_type], 0, IMAGE_NORMAL );
 
 	/*
 	 * Draw the pointer
 	 */
-	if ( pointer_type == POINTER_POSITION )
+	if (( pointer_type == POINTER_POSITION ) || ( pointer_type == POINTER_FIXED_POSITION ))
 	{
 		int visible = roadmap_math_point_is_visible ( position );
 		if ( visible )
@@ -192,19 +219,34 @@ int roadmap_display_border( int style, int header, int pointer_type, RoadMapGuiP
 			RoadMapPen pointer_pen;
 			roadmap_math_coordinate ( position, points );
 			roadmap_math_rotate_project_coordinate ( points );
+	      points[0].y += position_offset_y;
 
 			if ( points[0].y > sign_bottom.y )
 			{
-				int pointer_draw_offset =   ( ( sign_bottom.x - sign_top.x ) * 100 ) >> 7; /* The offset for the pointer drawing - 80% of width */
+			   int pointer_draw_offset;
+			   if ( pointer_type == POINTER_FIXED_POSITION ){
+			      pointer_draw_offset = points[0].x - ADJ_SCALE(21) - sign_top.x;
+			      if (pointer_draw_offset+sign_top.x > sign_bottom.x-62)
+			         pointer_draw_offset = sign_bottom.x-ADJ_SCALE(62)-sign_top.x;
+			      if (pointer_draw_offset+sign_top.x < sign_top.x+ADJ_SCALE(20))
+			         pointer_draw_offset = ADJ_SCALE(20);
+			   }
+			   else{
+			      pointer_draw_offset =   ( ( sign_bottom.x - sign_top.x ) * 100 ) >> 7; /* The offset for the pointer drawing - 80% of width */
+			   }
+
 				points[1].x = sign_top.x + pointer_draw_offset;
-				points[1].y = sign_bottom.y - 3;
-				points[2].x = points[1].x+42;
-				points[2].y = sign_bottom.y - 3;
+				points[1].y = sign_bottom.y -3;
+				points[2].x = points[1].x+ADJ_SCALE(42);
+				points[2].y = sign_bottom.y -3;
 				pointer_pen = roadmap_canvas_create_pen( "fill_pop_up_pen" );
 				roadmap_canvas_set_foreground("#000000");
-				roadmap_canvas_set_opacity(181);
+				if (border_type == _broder_image_black_position_fixed)
+				   roadmap_canvas_set_opacity(210);
+				else
+				   roadmap_canvas_set_opacity(181);
 				count = 3;
-				roadmap_canvas_draw_multiple_polygons (1, &count, points, 1, 0);
+				roadmap_canvas_draw_multiple_polygons (1, &count, points, 1, 1);
 			}
 		}
 	}

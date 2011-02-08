@@ -47,6 +47,8 @@
 #include "roadmap_mood.h"
 #include "ssd/ssd_list.h"
 #include "ssd/ssd_entry.h"
+#include "roadmap_analytics.h"
+#include "ssd/ssd_entry_label.h"
 #include "ssd/ssd_checkbox.h"
 #include "ssd/ssd_contextmenu.h"
 #include "Realtime/Realtime.h"
@@ -62,26 +64,27 @@
    #include "roadmap_androidmsgbox.h"
 #endif
 
-// Context menu:
-typedef enum welcome_wizard_context_menu_items
-{
-   ww_skip,
-   ww_sign_in,
-   ww_cancel,
-   ww_cm__count,
-   ww_cm__invalid
 
-}  welcome_wizard_context_menu_items;
+/* Twitter dialog definitions */
+#define WELCOME_WIZ_DLG_TWITTER_NAME           "Welcome Twitter"       // Twitter dialog name
+#define WELCOME_WIZ_DLG_TWITTER_TITLE          "Welcome"               // Twitter dialog title
+#define WELCOME_WIZ_DLG_TWITTER_SET_SIGNUP     "Twitter set signup"    // Twitter dialog title
+/* Ping dialog definitions */
+#define WELCOME_WIZ_DLG_PING_NAME           "Welcome Ping"             // Ping dialog name
+#define WELCOME_WIZ_DLG_PING_TITLE          "Welcome"                  // Ping dialog title
+#define WELCOME_WIZ_DLG_PING_AGREE          "Ping Agree Checkbox"      // Ping agree checkbox name
+#define WELCOME_WIZ_DLG_PING_HOFFSET         13               // Space between the label and entry
+#define WELCOME_WIZ_DLG_PING_TEXT_WIDTH      215              // Space between the label and entry
 
-// Context menu:
-static ssd_cm_item      context_menu_items[] =
-{
-   SSD_CM_INIT_ITEM  ( "Not now",        ww_skip),
-   SSD_CM_INIT_ITEM  ( "Sign in",        ww_sign_in),
-   SSD_CM_INIT_ITEM  ( "Cancel",         ww_cancel),
-};
-static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( context_menu_items);
-static   BOOL           g_context_menu_is_active= FALSE;
+#define WELCOME_WIZ_DLG_LBL_FONT  14               // Twitter dialog title
+#define WELCOME_WIZ_DLG_LBL_COLOR "#555555"
+#define WELCOME_WIZ_DLG_LBL_CNT_WIDTH  160         // Base width of the label container
+#define WELCOME_WIZ_DLG_HOFFSET    5               // Space between the label and entry
+
+#define WELCOME_WIZ_DLG_ENTRY_HEIGHT     30        // Entry height
+
+
+
 
 //disclaimer texts ( see disclaimer.h )
 static char * DISCLAIMER_ENG[NUMBER_OF_DISCLAIMER_PARTS][NUMBER_OF_LINES_PER_PART_DISC] =
@@ -102,7 +105,9 @@ static char * INTRO_ENG[NUMBER_OF_LINES_INTRO] = {INTR_ENG_0,INTR_ENG_1,INTR_ENG
 static char * INTRO_ESP[NUMBER_OF_LINES_INTRO] = {INTR_ESP_0,INTR_ESP_1,INTR_ESP_2,INTR_ESP_3};
 
 
+#if defined(RIMAPI) || defined(ANDROID)
 static void terms_of_use_native();
+#endif
 static void add_intro_texts(SsdWidget group, int tab_flag);
 
 extern RoadMapConfigDescriptor RT_CFG_PRM_NKNM_Var;
@@ -138,11 +143,8 @@ static RoadMapConfigDescriptor WELOCME_WIZ_GUIDED_TOUR_URL_Var =
                                     WELOCME_WIZ_GUIDED_TOUR_URL_Name);
 
 
-static SsdWidget gAddressResultList = NULL;
 static RoadMapCallback gCallback;
-static RoadMapCallback gLoginCallBack = NULL;
 
-static RMNativeKBParams s_gNativeKBParams = {  _native_kb_type_default, 1, _native_kb_action_done };
 
 /////////////////////////////////////////////////////////////////////
 static BOOL is_first_time(void){
@@ -204,47 +206,6 @@ static void set_first_time_no(){
    roadmap_config_save(TRUE);
 }
 
-#ifdef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static BOOL on_keyboard_pressed( void* context, const char* utf8char, uint32_t flags)
-{
-   SsdWidget edt = (SsdWidget)context;
-
-   return edt->key_pressed( edt, utf8char, flags);
-}
-
-#endif //TOUCH_SCREEN
-
-/////////////////////////////////////////////////////////////////////
-static void add_address_to_history( int category,
-                                    const char* city,
-                                    const char* street,
-                                    const char* house,
-                                    const char* state,
-                                    const char *name,
-                                    RoadMapPosition *position)
-{
-   const char* address[ahi__count];
-   char temp[20];
-
-   address[ahi_city]          = city;
-   address[ahi_street]        = street;
-   address[ahi_house_number]  = house;
-   address[ahi_state]         = state;
-   if(name)
-      address[ahi_name]   = name;
-   else
-      address[ahi_name]   = "";
-
-   sprintf(temp, "%d", position->latitude);
-   address[ahi_latitude] = strdup(temp);
-   sprintf(temp, "%d", position->longitude);
-   address[ahi_longtitude] = strdup(temp);
-   address[ahi_synced] = "false";
-   roadmap_history_add( category, address);
-   roadmap_history_save();
-}
-
 /////////////////////////////////////////////////////////////////////
 static SsdWidget space(int height){
    SsdWidget space;
@@ -271,7 +232,7 @@ static int end_button_callback (SsdWidget widget, const char *new_value) {
 
    set_first_time_no();
    ssd_dialog_hide_all (dec_ok);
-
+   roadmap_analytics_log_event (ANALYTICS_EVENT_NEW_USER_SIGNUP, ANALYTICS_EVENT_INFO_ACTION, "End");
    roadmap_welcome_guided_tour();
    return 1;
 }
@@ -328,44 +289,90 @@ static void end_dialog(){
    ssd_dialog_activate ("Wiz_End", NULL);
 }
 
+
+
+static void ping_button_handler( void )
+{
+   const char *data = ssd_dialog_get_data( WELCOME_WIZ_DLG_PING_AGREE );
+   BOOL agree_to_be_pinged = !strcmp( data, "yes" );
+   Realtime_Set_AllowPing( agree_to_be_pinged );
+}
+
+static BOOL twitter_button_handler( void )
+{
+   const char *username = ssd_dialog_get_value( "TwitterUserName" );
+   const char *password = ssd_dialog_get_value( "TwitterPassword" );
+   const char *tweet_signup = ssd_dialog_get_data( WELCOME_WIZ_DLG_TWITTER_SET_SIGNUP );
+   BOOL is_tweet_signup = !strcmp( tweet_signup, "yes" );
+   BOOL res = FALSE;
+
+   if (!username || !*username){
+      roadmap_messagebox("Error", "Please enter a user name");
+      return FALSE;
+   }
+
+   if (!password || !*password){
+      roadmap_messagebox("Error", "Please enter password");
+      return FALSE;
+   }
+
+   roadmap_twitter_set_username( username );
+   roadmap_twitter_set_password( password );
+   roadmap_twitter_set_signup( is_tweet_signup );
+
+   roadmap_config_save(TRUE);
+   res = Realtime_TwitterConnect( username, password, roadmap_twitter_is_signup_enabled() );
+
+   if ( res )
+   {
+      roadmap_twitter_set_signup( FALSE );
+   }
+   return TRUE;
+}
+
 #ifdef TOUCH_SCREEN
+/////////////////////////////////////////////////////////////////////
+static int ping_button_callback( SsdWidget widget, const char *new_value ) {
+
+   if ( ( widget != NULL ) && !strcmp(widget->name, "Next") )
+   {
+      ping_button_handler();
+   }
+
+#ifdef ANDROID
+   end_button_callback ( NULL, NULL );
+#else
+   end_dialog();
+#endif
+
+   return 1;
+}
 /////////////////////////////////////////////////////////////////////
 static int twitter_button_callback (SsdWidget widget, const char *new_value) {
 
-   if ( ( widget != NULL ) && !strcmp(widget->name, "Skip"))
-   {
-      end_dialog();
-   }
-   else /* if (!strcmp(widget->name, "Next")) */
-   {
-     const char *username = ssd_dialog_get_value("TwitterUserName");
-     const char *password = ssd_dialog_get_value("TwitterPassword");
-     if (!username || !*username){
-        roadmap_messagebox("Error", "Please enter a user name");
-        return 0;
-     }
 
-     if (!password || !*password){
-        roadmap_messagebox("Error", "Please enter password");
-        return 0;
-     }
-
-     roadmap_twitter_set_username(username);
-     roadmap_twitter_set_password(password);
-     roadmap_config_save(TRUE);
-     Realtime_TwitterConnect(ssd_dialog_get_value("TwitterUserName"), ssd_dialog_get_value("TwitterPassword"),roadmap_twitter_is_signup_enabled());
-     end_dialog();
+   if ( ( widget != NULL ) && !strcmp(widget->name, "Next"))
+   {
+       if ( twitter_button_handler() == FALSE ) // Don't pass to the next screen
+          return 1;
    }
+
+   welcome_wizard_ping_dialog();
 
    return 1;
 }
 
 #else //TOUCH_SCREEN
 /////////////////////////////////////////////////////////////////////
-static int on_softkey_next_twitter(SsdWidget widget, const char *new_value, void *context){
-   roadmap_twitter_set_username(ssd_dialog_get_value("TwitterUserName"));
-   roadmap_twitter_set_password(ssd_dialog_get_value("TwitterPassword"));
-   roadmap_config_save(TRUE);
+static int on_softkey_next_twitter(SsdWidget widget, const char *new_value, void *context)
+{
+   if ( twitter_button_handler() )
+      welcome_wizard_ping_dialog();
+   return 0;
+}
+
+static int on_softkey_next_ping(SsdWidget widget, const char *new_value, void *context){
+   ping_button_handler();
    end_dialog();
    return 0;
 }
@@ -374,834 +381,246 @@ static int on_softkey_next_twitter(SsdWidget widget, const char *new_value, void
 #endif //else TOUCH_SCREEN
 /////////////////////////////////////////////////////////////////////
 
+
+
+
+
+/***********************************************************
+ *  Name        : get_welcome_wiz_entry_group
+ *  Purpose     : Creates the entry with label
+ *  Params      : [in]  - none
+ *              : [out] - none
+ *  Returns    :
+ *  Notes       :
+ */
+static SsdWidget get_welcome_wiz_entry_group( const char* label_text, const char* entry_name, const char* edit_box_title )
+{
+   SsdWidget entry;
+
+   entry = ssd_entry_label_new( entry_name, roadmap_lang_get ( label_text ), WELCOME_WIZ_DLG_LBL_FONT, WELCOME_WIZ_DLG_LBL_CNT_WIDTH,
+                                                WELCOME_WIZ_DLG_ENTRY_HEIGHT, SSD_END_ROW | SSD_WS_TABSTOP, "" );
+
+   ssd_entry_label_set_label_color( entry, WELCOME_WIZ_DLG_LBL_COLOR );
+   ssd_entry_label_set_label_offset( entry, WELCOME_WIZ_DLG_HOFFSET );
+   ssd_entry_label_set_kb_params( entry, roadmap_lang_get( edit_box_title ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
+   ssd_entry_label_set_editbox_title( entry, roadmap_lang_get( edit_box_title ) );
+
+   return entry;
+}
+
+/////////////////////////////////////////////////////////////////////
+// Ping
+/////////////////////////////////////////////////////////////////////
+void welcome_wizard_ping_dialog(void){
+   SsdWidget dialog;
+   SsdWidget group, box, label, label_cnt;
+   SsdWidget group_title, text;
+   SsdWidget button;
+   const char* icons[3];
+   char str[512];
+
+   dialog = ssd_dialog_new( WELCOME_WIZ_DLG_PING_NAME, roadmap_lang_get( WELCOME_WIZ_DLG_PING_TITLE ), NULL,
+                                                            SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL );
+
+   box = ssd_container_new ( "Ping Box", NULL, SSD_MAX_SIZE,
+         SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_WIDGET_SPACE );
+
+   // Space inside white container
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 1 ), 0 );
+
+   // Ping title
+   group = ssd_container_new ( "Ping title group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( WELCOME_WIZ_DLG_PING_HOFFSET ), SSD_ALIGN_VCENTER );
+
+   group_title = ssd_text_new( "Ping", roadmap_lang_get( "Ping" ), 15, SSD_TEXT_LABEL );
+   ssd_text_set_color( group_title, "#202020" );
+   ssd_widget_add( group, group_title );
+   ssd_widget_add( box, group );
+
+   // Ping explanation text
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 16 ), 0 );
+
+   snprintf( str, sizeof(str), "%s\n%s",
+             roadmap_lang_get("Allow wazers to ping you."),
+             roadmap_lang_get("It's useful, fun and you can always turn it off."));
+
+   group = ssd_container_new ( "Ping text", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW );
+
+   ssd_dialog_add_hspace( group, ADJ_SCALE( WELCOME_WIZ_DLG_PING_HOFFSET ), SSD_ALIGN_VCENTER );
+
+   label_cnt = ssd_container_new ( "Label container", NULL, WELCOME_WIZ_DLG_PING_TEXT_WIDTH, SSD_MIN_SIZE, SSD_END_ROW );
+
+   label = ssd_text_new( "Label", str, WELCOME_WIZ_DLG_LBL_FONT,
+                                                            SSD_TEXT_LABEL | SSD_TEXT_NORMAL_FONT );
+   ssd_text_set_color( label, WELCOME_WIZ_DLG_LBL_COLOR );
+
+   ssd_widget_add( label_cnt, label );
+   ssd_widget_add( group, label_cnt );
+
+   ssd_widget_add( box, group );
+
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 34 ), 0 );
+
+   // Ping checkbox
+   group = ssd_container_new ("Ping agree group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW | SSD_WS_TABSTOP );
+   ssd_widget_set_color ( group, NULL, NULL );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( WELCOME_WIZ_DLG_PING_HOFFSET ), 0 );
+   ssd_widget_add( group, ssd_checkbox_new ( WELCOME_WIZ_DLG_PING_AGREE, TRUE,  0, NULL, NULL, NULL, CHECKBOX_STYLE_DEFAULT ) );
+   label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
+   ssd_widget_set_color ( label_cnt, NULL, NULL );
+   ssd_dialog_add_hspace( label_cnt, ADJ_SCALE( 10 ), 0 );
+   label = ssd_text_new ("Label", roadmap_lang_get( "I agree to be pinged" ), WELCOME_WIZ_DLG_LBL_FONT,
+                                                               SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER );
+   ssd_text_set_color( label, WELCOME_WIZ_DLG_LBL_COLOR );
+   ssd_widget_add ( label_cnt, label );
+   ssd_widget_add ( group, label_cnt );
+   ssd_widget_add ( box, group);
+
+
+#ifdef TOUCH_SCREEN
+
+    // Next button
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
+
+    icons[0] = "welcome_btn";
+    icons[1] = "welcome_btn_h";
+    icons[2] = NULL;
+    group = ssd_container_new ( "Buttons group", NULL, ssd_container_get_width()*0.9, SSD_MIN_SIZE, SSD_ALIGN_CENTER | SSD_END_ROW );
+
+    button = ssd_button_label_custom( "Next", roadmap_lang_get ("Next"), SSD_ALIGN_RIGHT | SSD_ALIGN_VCENTER, ping_button_callback,
+          icons, 2, "#FFFFFF", "#FFFFFF",14 );
+    text = ssd_widget_get( button, "label" );
+    text->flags |= SSD_TEXT_NORMAL_FONT;
+    ssd_text_set_font_size( text, 15 );
+    ssd_widget_add ( group, button );
+
+    ssd_widget_add ( box, group );
+
+#else
+    ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Next"));
+    ssd_widget_set_left_softkey_callback   ( dialog, on_softkey_next_ping );
+#endif
+
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 12 ), 0 );
+
+    ssd_widget_add ( dialog, box );
+
+    ssd_dialog_activate( WELCOME_WIZ_DLG_PING_NAME, NULL );
+    ssd_dialog_draw();
+}
 /////////////////////////////////////////////////////////////////////
 // Twitter
 /////////////////////////////////////////////////////////////////////
 void welcome_wizard_twitter_dialog(void){
    SsdWidget dialog;
-   SsdWidget group, box, box2;
-   SsdWidget text;
-   SsdWidget bitmap;
+   SsdWidget group, box, label, label_cnt;
+   SsdWidget group_title, text;
+   SsdWidget bitmap, button;
+   const char* icons[3];
 
-   int width = roadmap_canvas_width()/2;
-   set_first_time_no();
-   dialog = ssd_dialog_new ("Twitter",
-                      roadmap_lang_get ("Enter twitter details"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
+   dialog = ssd_dialog_new( WELCOME_WIZ_DLG_TWITTER_NAME, roadmap_lang_get( WELCOME_WIZ_DLG_TWITTER_TITLE ), NULL, SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL );
 
-   box = ssd_container_new ("twitter_conatiner", NULL,
-                        SSD_MAX_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_VCENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
-   ssd_widget_set_color (box, NULL,NULL);
+   // Space before white container
+   ssd_dialog_add_vspace( dialog, ADJ_SCALE( 3 ), 0 );
 
-   ssd_widget_add (box, space(5));
+   box = ssd_container_new ( "Sign Up Box", NULL, SSD_MAX_SIZE,
+         SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_WIDGET_SPACE );
 
-   box2 = ssd_container_new ("twitter_conatiner", NULL,
-                        SSD_MAX_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW);
-   ssd_widget_set_color (box2, NULL,NULL);
-   bitmap = ssd_bitmap_new("twitter-logo","Tweeter-logo", SSD_ALIGN_VCENTER);
-   ssd_widget_add(box2, bitmap);
-   text = ssd_text_new ("Label", roadmap_lang_get("Tweet your road reports"), 18,SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
-   ssd_widget_set_color(text, "#1bbff4", "#1bbff4");
-   ssd_widget_add (box2, text);
-   ssd_widget_add (box, box2);
+   // Space inside white container
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 1 ), 0 );
 
-   ssd_widget_add (box, space(5));
+   // Twitter title
+   group = ssd_container_new ( "Twitter title group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( WELCOME_WIZ_DLG_HOFFSET ), SSD_ALIGN_VCENTER );
+   bitmap = ssd_bitmap_new( "Twitter logo","welcome_twitter", SSD_ALIGN_VCENTER);
+   ssd_widget_add( group, bitmap );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( 15 ), SSD_ALIGN_VCENTER );
+   group_title = ssd_text_new( "Twitter", roadmap_lang_get( "Twitter" ), 15, SSD_TEXT_LABEL );
+   ssd_text_set_color( group_title, "#202020" );
+   ssd_widget_add( group, group_title );
 
-   //User name
-   group = ssd_container_new ("Twitter Name group", NULL,
-                               SSD_MAX_SIZE,30,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP|SSD_WS_DEFWIDGET);
-   ssd_widget_set_color(group, NULL,NULL);
-   text = ssd_text_new ("Label", roadmap_lang_get("User name"), 18,SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
-   ssd_widget_add (group, text);
+   ssd_widget_add( box, group );
 
-   ssd_widget_add(group, ssd_entry_new("TwitterUserName", "", SSD_ALIGN_VCENTER
-         | SSD_ALIGN_RIGHT, 0, width, SSD_MIN_SIZE,
-         roadmap_lang_get("User name")));
+   // Tweeter explanation text
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 16 ), 0 );
+   group = ssd_container_new ( "Twitter text", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( 5 ), SSD_ALIGN_VCENTER );
+   label = ssd_text_new( "Label", roadmap_lang_get ( "Tweet your road reports" ), WELCOME_WIZ_DLG_LBL_FONT,
+                                                            SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_TEXT_NORMAL_FONT );
+   ssd_text_set_color( label, WELCOME_WIZ_DLG_LBL_COLOR );
+   ssd_widget_add( group, label );
 
+   ssd_widget_add( box, group );
 
-   ssd_widget_add (box, group);
-   ssd_widget_add (box, space(5));
+   // Username
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 14 ), 0 );
+   group = get_welcome_wiz_entry_group( "Username", "TwitterUserName", "Username" );
+   ssd_widget_add( box, group );
 
-   group = ssd_container_new ("Twitter password group", NULL,
-                               SSD_MAX_SIZE,30,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color(group, NULL,NULL);
-   text = ssd_text_new ("Label", roadmap_lang_get("Password"), 18,SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
-   ssd_widget_add (group, text);
+   // Password
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 10 ), 0 );
+   group = get_welcome_wiz_entry_group( "Password", "TwitterPassword", "Password" );
+   ssd_widget_add( box, group );
 
-   ssd_widget_add(group, ssd_entry_new("TwitterPassword", "", SSD_ALIGN_VCENTER
-         | SSD_ALIGN_RIGHT, SSD_TEXT_PASSWORD, width, SSD_MIN_SIZE,
-         roadmap_lang_get("Password")));
+   // Tweet checkout waze
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 4 ), 0 );
+   group = ssd_container_new ("Tweet checkout group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_END_ROW | SSD_WS_TABSTOP );
+   ssd_widget_set_color ( group, NULL, NULL );
+   ssd_dialog_add_hspace( group, ADJ_SCALE( WELCOME_WIZ_DLG_HOFFSET ), 0 );
+   ssd_widget_add( group, ssd_checkbox_new ( WELCOME_WIZ_DLG_TWITTER_SET_SIGNUP, TRUE,  0, NULL, NULL, NULL, CHECKBOX_STYLE_DEFAULT ) );
+   label_cnt = ssd_container_new ( "Label container", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER );
+   ssd_widget_set_color ( label_cnt, NULL, NULL );
+   ssd_dialog_add_hspace( label_cnt, ADJ_SCALE( 10 ), 0 );
+   label = ssd_text_new ("Label", roadmap_lang_get ( "Tweet that I'm checking-out waze"), WELCOME_WIZ_DLG_LBL_FONT,
+                                                               SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER );
+   ssd_text_set_color( label, WELCOME_WIZ_DLG_LBL_COLOR );
+   ssd_widget_add ( label_cnt, label );
+   ssd_widget_add ( group, label_cnt );
+   ssd_widget_add ( box, group);
 
-   ssd_widget_add (box, group);
+   ssd_dialog_add_vspace( box, ADJ_SCALE( 10 ), 0 );
 
 #ifdef TOUCH_SCREEN
-   ssd_widget_add (box, space(25));
-   ssd_widget_add (box,
-   ssd_button_label ("Next", roadmap_lang_get ("Next"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_START_NEW_ROW, twitter_button_callback));
 
-   ssd_widget_add (box,
-   ssd_button_label ("Skip", roadmap_lang_get ("Skip"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_END_ROW, twitter_button_callback));
-   ssd_widget_add (box, space(10));
+    icons[0] = "welcome_btn";
+    icons[1] = "welcome_btn_h";
+    icons[2] = NULL;
+    // Preload image to get dimensions
+    group = ssd_container_new ( "Buttons group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_ALIGN_CENTER | SSD_END_ROW );
+    button = ssd_button_label_custom( "Skip", roadmap_lang_get ("Skip"), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER, twitter_button_callback,
+          icons, 2, "#FFFFFF", "#FFFFFF",14 );
+    text = ssd_widget_get( button, "label" );
+    text->flags |= SSD_TEXT_NORMAL_FONT;
+    ssd_text_set_font_size( text, 15 );
+    ssd_widget_add ( group, button );
+    ssd_dialog_add_hspace( group, ADJ_SCALE( 10 ), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER );
 
-#else //TOUCH_SCREEN
+    // Skip button
 
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Next"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_softkey_next_twitter);
-#endif //TOUCH_SCREEN
+    button = ssd_button_label_custom( "Next", roadmap_lang_get ("Next"), SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER, twitter_button_callback,
+          icons, 2, "#FFFFFF", "#FFFFFF",14 );
+    text = ssd_widget_get( button, "label" );
+    text->flags |= SSD_TEXT_NORMAL_FONT;
+    ssd_text_set_font_size( text, 15 );
+    ssd_widget_add ( group, button );
 
-   ssd_widget_add (dialog, box);
-   ssd_dialog_activate ("Twitter", NULL);
-   ssd_dialog_draw();
-   ssd_dialog_set_focus(ssd_widget_get(box, "TwitterUserName_con"));
+    ssd_widget_add ( box, group );
 
-}
-
-/////////////////////////////////////////////////////////////////////
-static SsdWidget create_results_dialog(const char *name)
-{
-   SsdWidget rcnt = NULL;
-   SsdWidget list = NULL;
-
-   rcnt = ssd_container_new( "Address_reslut_container",
-                              NULL,
-                              SSD_MAX_SIZE,
-                              SSD_MAX_SIZE,
-                              0);
-
-   list = ssd_list_new(       "Address_result_list",
-                              SSD_MAX_SIZE,
-                              SSD_MAX_SIZE,
-                              inputtype_free_text,
-                              0,
-                              NULL);
-
-   ssd_list_resize( list, 0);
-
-   gAddressResultList = list;
-
-   ssd_widget_add( rcnt, list);
-
-   return rcnt;
-}
-
-/////////////////////////////////////////////////////////////////////
-static int get_selected_list_item()
-{
-   const void * value = ssd_list_selected_value(gAddressResultList);
-   if (value == NULL)
-      return 0;
-
-   return atoi((char *)value);
-}
-
-
-/////////////////////////////////////////////////////////////////////
-static int on_list_item_selected_work(SsdWidget widget, const char *new_value, const void *value)
-{
-   RoadMapPosition position;
-   BOOL success;
-
-   int               selected_list_item   = get_selected_list_item();
-   const address_candidate*
-                     selection            = generic_search_results( selected_list_item);
-
-   position.latitude =   (int)selection->latitude*1000000;
-   position.longitude =   (int)selection->longtitude*1000000;
-   roadmap_history_declare( ADDRESS_FAVORITE_CATEGORY, ahi__count);
-   add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                     selection->city,
-                     selection->street,
-                     get_house_number__str( selection->house),
-                     ADDRESS_HISTORY_STATE,
-                     roadmap_lang_get("Work"),
-                     &position);
-   success = roadmap_trip_server_create_poi(roadmap_lang_get("Work"), &position, TRUE);
-   welcome_wizard_twitter_dialog();
-   return 0;
-}
-
-
-/////////////////////////////////////////////////////////////////////
-static void on_address_resolved_work( void*                context,
-                                 address_candidate*   array,
-                                 int                  size,
-                                 roadmap_result       rc)
-{
-   static   const char* results[ADSR_MAX_RESULTS];
-   static   void*       indexes[ADSR_MAX_RESULTS];
-   SsdWidget dlg  = NULL;
-
-   SsdWidget list_cont = (SsdWidget)context;
-   SsdWidget list;
-   int       i;
-
-   assert(list_cont);
-
-   list = ssd_widget_get( list_cont, "Address_result_list");
-
-   if( succeeded != rc)
-   {
-      if( err_as_could_not_find_matches == rc)
-         roadmap_messagebox ( roadmap_lang_get( "Resolve Address"),
-                              roadmap_lang_get( "String could not be resolved\n"
-                                                "to a valid address"));
-      else
-      {
-         char msg[64];
-
-         sprintf( msg, "Search failed\nError %d", rc);
-
-         roadmap_messagebox ( roadmap_lang_get( "Resolve Address"), msg);
-      }
-
-      roadmap_log(ROADMAP_ERROR,
-                  "roadmap_welcome_wizard::on_address_resolved() - Resolve process failed with error '%s' (%d)",
-                  roadmap_result_string( rc), rc);
-      return;
-   }
-
-   if( !size)
-   {
-      roadmap_log(ROADMAP_DEBUG,
-                  "roadmap_welcome_wizard::on_address_resolved() - NO RESULTS for the address-resolve process");
-      return;
-   }
-
-   for( i=0; i<size; i++)
-   {
-      char value[20];
-      results[i] = array[i].address;
-      sprintf(value, "%d",i);
-      indexes[i] = (void*)strdup(value);
-   }
-
-   dlg = ssd_dialog_new ("Work Address",
-                      roadmap_lang_get ("Work address 3/4"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
-
-   ssd_widget_add(dlg,list_cont);
-
-   ssd_list_populate(list,
-                     size,
-                     results,
-                     (const void **)&indexes[0],
-                     NULL,
-                     0,
-                     on_list_item_selected_work,
-                     NULL,
-                     FALSE);
-#ifndef TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dlg, "");
-   ssd_widget_set_left_softkey_callback   ( dlg, on_softkey_do_nothing);
-#endif //TOUCH_SCREEN
-
-   ssd_dialog_activate ("Work Address", NULL);
-   ssd_dialog_draw ();
-}
-
-/////////////////////////////////////////////////////////////////////
-static int on_search_work(SsdWidget widget, const char *new_value)
-{
-   SsdWidget      cont = widget->parent;
-   SsdWidget      list_cont;
-   SsdWidget      edit;
-   const char*    text;
-   roadmap_result rc;
-
-   assert(cont);
-   assert(cont->parent);
-   assert(cont->parent->context);
-
-   edit     = ssd_widget_get( cont, "Work");
-   text     = ssd_text_get_text( edit);
-   list_cont= cont->parent->context;
-
-
-   rc = address_search_resolve_address( list_cont, on_address_resolved_work, text);
-   if( succeeded == rc)
-   {
-      roadmap_log(ROADMAP_DEBUG,
-                  "roadmap_welcome_wizard::on_search() - Started Web-Service transaction: Resolve address");
-   }
-   else
-   {
-      const char* err = roadmap_result_string( rc);
-
-      roadmap_log(ROADMAP_ERROR,
-                  "roadmap_welcome_wizard::on_search() - Resolve process transaction failed to start: '%s'",
-                  err);
-
-      roadmap_messagebox ( roadmap_lang_get( "Resolve Address"),
-                           roadmap_lang_get( err));
-   }
-
-   return 0;
-}
-
-#ifndef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int on_search_workaddress(SsdWidget widget, const char *new_value, void *context){
-   on_search_work(widget->children->children, NULL);
-   return 0;
-}
-
-#endif //TOUCH_SCREEN
-
-/////////////////////////////////////////////////////////////////////
-static BOOL workaddress_on_key_pressed_delegate_to_editbox(
-                     SsdWidget   this,
-                     const char* utf8char,
-                     uint32_t    flags)
-{
-   SsdWidget editbox  = NULL;
-   //   Special case:   move focus to the list
-   if( KEY_IS_ENTER)
-   {
-      on_search_work(this, NULL);
-      return TRUE;
-   }
-
-#ifndef TOUCH_SCREEN
-   {
-   SsdWidget dialog;
-   dialog = this->parent->parent;
-   if (!(KEYBOARD_VIRTUAL_KEY & flags)){
-      ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Search"));
-      ssd_widget_set_left_softkey_callback   ( dialog, on_search_workaddress);
-      ssd_dialog_refresh_current_softkeys();
-      roadmap_screen_refresh();
-   }
-   }
-#endif //TOUCH_SCREEN
-
-   editbox = this->children;
-   return editbox->key_pressed( editbox, utf8char, flags);
-}
-
-/////////////////////////////////////////////////////////////////////
-#ifdef TOUCH_SCREEN
-static int workaddress_button_callback (SsdWidget widget, const char *new_value) {
-
-   if (!strcmp(widget->name, "Skip")){
-      welcome_wizard_twitter_dialog();
-   }
-   else if (!strcmp(widget->name, "Search")){
-         on_search_work(widget, NULL);
-   }
-   return 1;
-}
-#else //TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int on_skip_workaddress(SsdWidget widget, const char *new_value, void *context){
-   welcome_wizard_twitter_dialog();
-   return 0;
-}
-
-#endif //TOUCH_SCREEN
-
-/////////////////////////////////////////////////////////////////////
-// Work address
-/////////////////////////////////////////////////////////////////////
-static void workaddress_dialog(){
-   SsdWidget dialog;
-   SsdWidget group;
-   SsdWidget text, edit_con, edit, bitmap;
-   int txt_box_height = 40;
-#ifndef TOUCH_SCREEN
-   txt_box_height = 23;
+    ssd_dialog_add_vspace( box, ADJ_SCALE( 6 ), 0 );
+#else
+    ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Next"));
+    ssd_widget_set_left_softkey_callback   ( dialog, on_softkey_next_twitter);
 #endif
 
-   dialog = ssd_dialog_new ("Work_Addresse",
-                      roadmap_lang_get ("Work address 3/4"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
+   ssd_widget_add ( dialog, box );
 
-   ssd_widget_add (dialog, space(5));
-
-   group = ssd_container_new ("work_con", NULL,
-                        SSD_MAX_SIZE,SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (group, NULL,NULL);
-
-   text = ssd_text_new ("Label", roadmap_lang_get("Enter your work address"), 18,SSD_END_ROW|SSD_TEXT_LABEL);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(10));
-
-   edit_con = ssd_container_new ("Edit_con", NULL,
-                        SSD_MAX_SIZE,txt_box_height,SSD_WS_TABSTOP|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
-   ssd_widget_set_color (edit_con, "#ffffff","#ffffff");
-
-   bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
-   ssd_widget_add(edit_con, bitmap);
-
-   edit = ssd_text_new     ( "Work","", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
-   ssd_text_set_input_type( edit, inputtype_free_text);
-   ssd_text_set_readonly  ( edit, FALSE);
-
-   edit_con->key_pressed = workaddress_on_key_pressed_delegate_to_editbox;
-   ssd_widget_add(edit_con, edit);
-   ssd_widget_add (group, edit_con);
-
-   ssd_widget_add (group, space(20));
-
-#ifdef TOUCH_SCREEN
-   ssd_widget_add (group,
-   ssd_button_label ("Search", roadmap_lang_get ("Search"),
-                        SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_START_NEW_ROW, workaddress_button_callback));
-
-   ssd_widget_add (group,
-   ssd_button_label ("Skip", roadmap_lang_get ("Skip"),
-                        SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_END_ROW, workaddress_button_callback));
-   ssd_widget_add (group, space(10));
-
-   if ( roadmap_native_keyboard_enabled() )
-   {
-	   ssd_dialog_set_ntv_keyboard_action( dialog->name, _ntv_kb_action_show );
-	   ssd_dialog_set_ntv_keyboard_params( dialog->name, &s_gNativeKBParams );
-   }
-   else
-   {
-      ssd_create_keyboard( group,
-                     on_keyboard_pressed,
-                     NULL,
-                     NULL,
-                     edit);
-   }
-
-#else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Skip"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_skip_workaddress);
-#endif //TOUCH_SCREEN
-   ssd_widget_add (dialog, group);
-   dialog->context = create_results_dialog("Work address");
-   ssd_dialog_activate ("Work_Addresse", NULL);
+   ssd_dialog_activate( WELCOME_WIZ_DLG_TWITTER_NAME, NULL );
    ssd_dialog_draw();
-   ssd_dialog_set_focus( edit_con );
-}
 
-
-/////////////////////////////////////////////////////////////////////
-static int on_list_item_selected_home(SsdWidget widget, const char *new_value, const void *value)
-{
-   RoadMapPosition position;
-   BOOL success;
-   int               selected_list_item   = get_selected_list_item();
-   const address_candidate*
-                     selection            = generic_search_results( selected_list_item);
-
-   position.latitude =   (int)(selection->latitude*1000000);
-   position.longitude =   (int)(selection->longtitude*1000000);
-   add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                            selection->city,
-                            selection->street,
-                            get_house_number__str( selection->house),
-                            ADDRESS_HISTORY_STATE,
-                            roadmap_lang_get("Home"),
-                            &position);
-   success = roadmap_trip_server_create_poi(roadmap_lang_get("Home"), &position, TRUE);
-   roadmap_history_declare( ADDRESS_FAVORITE_CATEGORY, ahi__count);
-
-   workaddress_dialog();
-   return 0;
-}
-
-
-/////////////////////////////////////////////////////////////////////
-static void on_address_resolved( void*                context,
-                                 address_candidate*   array,
-                                 int                  size,
-                                 roadmap_result       rc)
-{
-   static   const char* results[ADSR_MAX_RESULTS];
-   static   void*       indexes[ADSR_MAX_RESULTS];
-   SsdWidget dlg  = NULL;
-
-   SsdWidget list_cont = (SsdWidget)context;
-   SsdWidget list;
-   int       i;
-
-   assert(list_cont);
-
-   list = ssd_widget_get( list_cont, "Address_result_list");
-
-   if( succeeded != rc)
-   {
-      if( err_as_could_not_find_matches == rc)
-         roadmap_messagebox ( roadmap_lang_get( "Resolve Address"),
-                              roadmap_lang_get( "String could not be resolved\n"
-                                                "to a valid address"));
-      else
-      {
-         char msg[64];
-
-         sprintf( msg, "Search failed\nError %d", rc);
-
-         roadmap_messagebox ( roadmap_lang_get( "Resolve Address"), msg);
-      }
-
-      roadmap_log(ROADMAP_ERROR,
-                  "roadmap_welcome_wizard::on_address_resolved() - Resolve process failed with error '%s' (%d)",
-                  roadmap_result_string( rc), rc);
-      return;
-   }
-
-   if( !size)
-   {
-      roadmap_log(ROADMAP_DEBUG,
-                  "roadmap_welcome_wizard::on_address_resolved() - NO RESULTS for the address-resolve process");
-      return;
-   }
-
-   for( i=0; i<size; i++)
-   {
-      char value[20];
-      results[i] = array[i].address;
-      sprintf(value, "%d",i);
-      indexes[i] = (void*)strdup(value);
-   }
-
-
-   dlg = ssd_dialog_new ("Home Address",
-                      roadmap_lang_get ("Home address 2/4"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
-
-   ssd_widget_add(dlg,list_cont);
-   ssd_list_populate(list,
-                     size,
-                     results,
-                     (const void **)&indexes[0],
-                     NULL,
-                     0,
-                     on_list_item_selected_home,
-                     NULL,
-                     FALSE);
-
-#ifndef TOUCH_SCREEN
-    ssd_widget_set_left_softkey_text       ( dlg, "");
-    ssd_widget_set_left_softkey_callback   ( dlg, on_softkey_do_nothing);
-#endif //TOUCH_SCREEN
-
-   ssd_dialog_activate ("Home Address", NULL);
-   ssd_dialog_draw ();
-}
-
-/////////////////////////////////////////////////////////////////////
-static int on_search_home(SsdWidget widget, const char *new_value)
-{
-   SsdWidget      cont = widget->parent;
-   SsdWidget      list_cont;
-   SsdWidget      edit;
-   const char*    text;
-   roadmap_result rc;
-
-   assert(cont);
-   assert(cont->parent);
-   assert(cont->parent->context);
-
-   edit     = ssd_widget_get( cont, "Home");
-   text     = ssd_text_get_text( edit);
-   list_cont= cont->parent->context;
-
-   rc = address_search_resolve_address( list_cont, on_address_resolved, text);
-   if( succeeded == rc)
-   {
-      roadmap_log(ROADMAP_DEBUG,
-                  "roadmap_welcome_wizard::on_search_home() - Started Web-Service transaction: Resolve address");
-   }
-   else
-   {
-      const char* err = roadmap_result_string( rc);
-
-      roadmap_log(ROADMAP_ERROR,
-                  "roadmap_welcome_wizard::on_search_home() - Resolve process transaction failed to start: '%s'",
-                  err);
-
-      roadmap_messagebox ( roadmap_lang_get( "Resolve Address"),
-                           roadmap_lang_get( err));
-   }
-
-   return 0;
 }
 
 #ifndef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int on_search_homeaddress(SsdWidget widget, const char *new_value, void *context){
-   on_search_home(widget->children->children, NULL);
-   return 0;
-}
-#endif //TOUCH_SCREEN
 
-/////////////////////////////////////////////////////////////////////
-static BOOL homeaddress_on_key_pressed_delegate_to_editbox(
-                     SsdWidget   this,
-                     const char* utf8char,
-                     uint32_t    flags)
-{
-   SsdWidget editbox  = NULL;
-
-
-   //   Special case:   move focus to the list
-   if( KEY_IS_ENTER)
-   {
-      on_search_home(this, NULL);
-      return TRUE;
-   }
-
-#ifndef TOUCH_SCREEN
-   {
-   SsdWidget dialog;
-   dialog = this->parent->parent;
-   if (!(KEYBOARD_VIRTUAL_KEY & flags)){
-      ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Search"));
-      ssd_widget_set_left_softkey_callback   ( dialog, on_search_homeaddress);
-      ssd_dialog_refresh_current_softkeys();
-      roadmap_screen_refresh();
-   }
-   }
-#endif //TOUCH_SCREEN
-
-   editbox = this->children;
-   return editbox->key_pressed( editbox, utf8char, flags);
-}
-
-#ifdef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int homeaddress_button_callback (SsdWidget widget, const char *new_value) {
-
-   if (!strcmp(widget->name, "Skip")){
-      workaddress_dialog();
-   }
-   else if (!strcmp(widget->name, "Search")){
-         on_search_home(widget, NULL);
-   }
-   return 1;
-}
-
-#else //TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int on_skip_homeaddress(SsdWidget widget, const char *new_value, void *context){
-   workaddress_dialog();
-   return 0;
-}
-#endif //TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-// Home address
-/////////////////////////////////////////////////////////////////////
-static void homeaddress_dialog(){
-   SsdWidget dialog;
-   SsdWidget group;
-   SsdWidget text, edit_con, edit, bitmap;
-   int txt_box_height = 40;
-#ifndef TOUCH_SCREEN
-   txt_box_height = 23;
-#endif
-   dialog = ssd_dialog_new ("Home_Addresse",
-                      roadmap_lang_get ("Home address 2/4"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
-
-   ssd_widget_add (dialog, space(5));
-
-   group = ssd_container_new ("home_con", NULL,
-                        SSD_MAX_SIZE,SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (group, NULL,NULL);
-
-   text = ssd_text_new ("Label", roadmap_lang_get("Enter your home address"), 18,SSD_END_ROW|SSD_TEXT_LABEL);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(5));
-
-   text = ssd_text_new ("Label", roadmap_lang_get("We'll show you the fatest route to get there"), 14,SSD_END_ROW|SSD_TEXT_LABEL);
-   ssd_widget_set_color(text, "#5987a9",NULL);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(5));
-
-   edit_con = ssd_container_new ("Text_con", NULL,
-                        SSD_MAX_SIZE,txt_box_height,SSD_WS_TABSTOP|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
-   ssd_widget_set_color (edit_con, "#ffffff","#ffffff");
-
-   bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
-   ssd_widget_add(edit_con, bitmap);
-   edit = ssd_text_new     ( "Home","", 18, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
-   ssd_text_set_input_type( edit, inputtype_free_text);
-   ssd_text_set_readonly  ( edit, FALSE);
-
-   edit_con->key_pressed = homeaddress_on_key_pressed_delegate_to_editbox;
-   ssd_widget_add(edit_con, edit);
-   ssd_widget_add (group, edit_con);
-
-   ssd_widget_add (group, space(20));
-
-#ifdef TOUCH_SCREEN
-   ssd_widget_add (group,
-   ssd_button_label ("Search", roadmap_lang_get ("Search"),
-                        SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_START_NEW_ROW, homeaddress_button_callback));
-
-   ssd_widget_add (group,
-   ssd_button_label ("Skip", roadmap_lang_get ("Skip"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_END_ROW, homeaddress_button_callback));
-   ssd_widget_add (group, space(10));
-
-   if ( roadmap_native_keyboard_enabled() )
-   {
-	   ssd_dialog_set_ntv_keyboard_action( dialog->name, _ntv_kb_action_show );
-	   ssd_dialog_set_ntv_keyboard_params( dialog->name, &s_gNativeKBParams );
-   }
-   else
-   {
-      ssd_create_keyboard( group,
-                     on_keyboard_pressed,
-                     NULL,
-                     NULL,
-                     edit);
-   }
-
-#else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Skip"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_skip_homeaddress);
-#endif //TOUCH_SCREEN
-
-   ssd_widget_add (dialog, group);
-   dialog->context = create_results_dialog("Home address");
-   ssd_dialog_activate ("Home_Addresse", NULL);
-   ssd_dialog_draw();
-   ssd_dialog_set_focus( edit_con);
-}
-
-/////////////////////////////////////////////////////////////////////
-static int nickname_next_button_callback (SsdWidget widget, const char *new_value) {
-
-   roadmap_config_set(&RT_CFG_PRM_NKNM_Var, ssd_dialog_get_value("NickName"));
-   //homeaddress_dialog();
-   welcome_wizard_twitter_dialog();
-   return 1;
-}
-
-/////////////////////////////////////////////////////////////////////
-static BOOL nickname_on_key_pressed_delegate_to_editbox(
-                     SsdWidget   this,
-                     const char* utf8char,
-                     uint32_t    flags)
-{
-   SsdWidget editbox  = NULL;
-
-   //   Special case:   move focus to the list
-   if( KEY_IS_ENTER)
-   {
-      nickname_next_button_callback(NULL, NULL);
-      return TRUE;
-   }
-
-   editbox = this->children;
-   return editbox->key_pressed( editbox, utf8char, flags);
-}
-
-#ifndef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int on_softkey_next_nickname(SsdWidget widget, const char *new_value, void *context){
-   nickname_next_button_callback(NULL, NULL);
-   return 0;
-}
-#endif //TOUCH_SCREEN
-
-/////////////////////////////////////////////////////////////////////
-// Nickname
-/////////////////////////////////////////////////////////////////////
-static void nickname_dialog(){
-   SsdWidget dialog;
-   SsdWidget group;
-   SsdWidget text, edit_con, edit;
-   int txt_box_height = 40;
-#ifndef TOUCH_SCREEN
-   txt_box_height = 23;
-#endif
-
-   dialog = ssd_dialog_new ("Wiz_Nickname",
-                      roadmap_lang_get ("Nickname 1/2"),
-                      NULL,
-                      SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
-
-   ssd_widget_add (dialog, space(5));
-
-   group = ssd_container_new ("End_con", NULL,
-                              SSD_MAX_SIZE,SSD_MAX_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (group, NULL,NULL);
-
-   text = ssd_text_new ("Label", roadmap_lang_get("Choose a nickname"), 16,SSD_END_ROW|SSD_TEXT_LABEL);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(10));
-
-   edit_con = ssd_container_new ("Text_con", NULL,
-                                 SSD_MAX_SIZE,txt_box_height,SSD_WS_TABSTOP|SSD_END_ROW|SSD_CONTAINER_TXT_BOX);
-   ssd_widget_set_color (edit_con, "#ffffff","#ffffff");
-
-   edit = ssd_text_new     ( "NickName",roadmap_config_get( &RT_CFG_PRM_NKNM_Var), 16, SSD_ALIGN_VCENTER|SSD_TEXT_INPUT );
-   ssd_text_set_input_type( edit, inputtype_free_text);
-   ssd_text_set_readonly  ( edit, FALSE);
-
-   edit_con->key_pressed = nickname_on_key_pressed_delegate_to_editbox;
-   ssd_widget_add(edit_con, edit);
-
-   ssd_widget_add (group, edit_con);
-
-   ssd_widget_add (group, space(5));
-#ifdef TOUCH_SCREEN
-   ssd_widget_add (group,
-   ssd_button_label ("Wizard_Next", roadmap_lang_get ("Next"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_START_NEW_ROW, nickname_next_button_callback));
-   ssd_widget_add (group, space(10));
-
-   if ( roadmap_native_keyboard_enabled() )
-   {
-	   ssd_dialog_set_ntv_keyboard_action( dialog->name, _ntv_kb_action_show );
-	   ssd_dialog_set_ntv_keyboard_params( dialog->name, &s_gNativeKBParams );
-   }
-   else
-   {
-	  ssd_create_keyboard( group,
-					 on_keyboard_pressed,
-					 NULL,
-					 NULL,
-					 edit);
-   }
-#else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Next"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_softkey_next_nickname);
-#endif //TOUCH_SCREEN
-
-   ssd_widget_add (dialog, group);
-
-   ssd_dialog_activate ("Wiz_Nickname", NULL);
-   ssd_dialog_draw();
-   ssd_dialog_set_focus( edit_con);
-}
-
-
-#ifdef TOUCH_SCREEN
-/////////////////////////////////////////////////////////////////////
-static int welcome_buttons_callback (SsdWidget widget, const char *new_value) {
-
-   if (!strcmp(widget->name, "Skip")){
-         set_first_time_no();
-         ssd_dialog_hide_all(dec_close);
-         roadmap_messagebox("","You can personalize your account from Settings->profile");
-   }
-   else if (!strcmp(widget->name, "Personalize")){
-      roadmap_login_update_dlg_show();
-   }
-
-   return 1;
-}
-#else //TOUCH_SCREEN
 
 int intro_screen_left_key_callback (SsdWidget widget, const char *new_value, void *context) {
    return 1;  // do nothing if clicked left key, no back possible.
@@ -1226,77 +645,6 @@ static void on_dialog_closed( int exit_code, void* context){
    roadmap_bottom_bar_show();
 #endif
 }
-/////////////////////////////////////////////////////////////////////
-// Welcome
-/////////////////////////////////////////////////////////////////////
-static void welcome_dialog(void){
-   SsdWidget dialog;
-   SsdWidget group;
-   SsdWidget box, text, bitmap;
-
-#ifdef TOUCH_SCREEN
-  roadmap_bottom_bar_hide();
-#endif
-
-   dialog = ssd_dialog_new ("Welcome",
-                            roadmap_lang_get ("Personalize your account"),
-                            NULL,
-                            SSD_CONTAINER_TITLE|SSD_DIALOG_NO_SCROLL);
-
-   group = ssd_container_new ("Welcome_group", NULL,
-                              SSD_MAX_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
-   ssd_widget_set_color (group, NULL,NULL);
-
-   ssd_widget_add (group, space(10));
-
-   box = ssd_container_new ("spacer1", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE|SSD_END_ROW);
-   ssd_widget_set_color (box, NULL,NULL);
-
-   bitmap = ssd_bitmap_new("info", "Info", SSD_END_ROW);
-   ssd_widget_add(box, bitmap);
-
-   ssd_widget_add(group, box);
-
-   ssd_widget_add (group, space(20));
-
-   text = ssd_text_new ("Label", roadmap_lang_get("You are signed-in with a randomly generated login"), 18,SSD_ALIGN_RIGHT|SSD_END_ROW);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(20));
-
-   text = ssd_text_new ("Label", roadmap_lang_get("To easily access your web account, send road tweets and more, personalize your account now"),14,SSD_END_ROW|SSD_ALIGN_RIGHT);
-   ssd_widget_add (group, text);
-
-   ssd_widget_add (group, space(20));
-
-
-#ifdef TOUCH_SCREEN
-   ssd_widget_add (group,
-   ssd_button_label ("Skip", roadmap_lang_get ("Skip"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_START_NEW_ROW, welcome_buttons_callback));
-
-   ssd_widget_add (group,
-   ssd_button_label ("Personalize", roadmap_lang_get ("Personalize"),
-                     SSD_WS_TABSTOP|SSD_ALIGN_CENTER, welcome_buttons_callback));
-#else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Skip"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_skip_welcome);
-
-   ssd_widget_set_right_softkey_text      ( dialog, roadmap_lang_get("Personalize"));
-   ssd_widget_set_right_softkey_callback  ( dialog, on_personalize);
-#endif //TOUCH_SCREEN
-   ssd_widget_add (group, space(20));
-   ssd_widget_add (dialog, group);
-   ssd_dialog_activate ("Welcome", NULL);
-   ssd_dialog_set_callback (on_dialog_closed);
-   if (gLoginCallBack) {
-      gLoginCallBack();
-      gLoginCallBack = NULL;
-   }
-
-   roadmap_screen_refresh();
-}
-
 
 static int callGlobalCallback (SsdWidget widget, const char *new_value, void *context) {
 	ssd_dialog_hide_all(dec_close);
@@ -1355,6 +703,7 @@ static void create_intro_screen(){
 
 
 
+
 ///////////////////////////////////////////////////////////////
 // Terms of use
 //////////////////////////////////////////////////////////////
@@ -1390,6 +739,8 @@ static int term_of_use_dialog_buttons_callback (SsdWidget widget, const char *ne
 
    return 1;
 }
+
+#if defined(ANDROID)
 ///////////////////////////////////////////////////////////////
 static void on_terms_callback( int res_code, void *context )
 {
@@ -1402,7 +753,7 @@ static void on_terms_callback( int res_code, void *context )
       on_terms_declined();
    }
 }
-
+#endif
 
 //////////////////////////////////////////////////////////////
 static void on_dialog_closed_terms_of_use( int exit_code, void* context){
@@ -1528,8 +879,10 @@ static void add_disclaimer_texts(SsdWidget group, int tab_flag){
 void term_of_use_dialog(void){
    SsdWidget   dialog;
    SsdWidget   group;
+#ifdef _WIN32
    SsdWidget   age_group;
    SsdWidget   label_cnt;
+#endif
    int         width = roadmap_canvas_width() - 20;
    int         tab_flag = 0;
 
@@ -1638,24 +991,6 @@ static BOOL is_activation_time_reached(){
 
 }
 
-/////////////////////////////////////////////////////////////////////
-void roadmap_welcome_wizard(void){
-
-   if (!is_wizard_enabled())
-      return;
-
-   if (!is_first_time())
-      return;
-
-   if (!Realtime_is_random_user())
-      return;
-
-   if (!is_activation_time_reached())
-      return;
-
-   gLoginCallBack = Realtime_NotifyOnLogin (welcome_dialog);
-
-}
 
 /////////////////////////////////////////////////////////////////////
 static int personalize_buttons_callback (SsdWidget widget, const char *new_value) {
@@ -1677,62 +1012,6 @@ static int personalize_signin_callback( SsdWidget widget, const char *new_value 
 	return 1;
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////
-static void on_option_selected(  BOOL              made_selection,
-                                 ssd_cm_item_ptr   item,
-                                 void*             context)
-{
-   welcome_wizard_context_menu_items   selection;
-
-   g_context_menu_is_active = FALSE;
-
-   if( !made_selection)
-      return;
-
-   selection = (welcome_wizard_context_menu_items)item->id;
-
-   switch( selection)
-   {
-
-      case ww_skip:
-         set_first_time_no();
-         ssd_dialog_hide_current(dec_close);
-         break;
-
-      case ww_sign_in:
-         roadmap_login_details_dialog_show_un_pw();
-         break;
-
-      case ww_cancel:
-         g_context_menu_is_active = FALSE;
-         roadmap_screen_refresh ();
-         break;
-
-      default:
-         break;
-   }
-}
-
-///////////////////////////////////////////////////////////////////////////////////////////
-static int on_options(SsdWidget widget, const char *new_value, void *context)
-{
-   int menu_x;
-   if  (ssd_widget_rtl (NULL))
-      menu_x = SSD_X_SCREEN_RIGHT;
-   else
-      menu_x = SSD_X_SCREEN_LEFT;
-
-   ssd_context_menu_show(  menu_x,              // X
-                           SSD_Y_SCREEN_BOTTOM, // Y
-                           &context_menu,
-                           on_option_selected,
-                           NULL,
-                           dir_default,
-                           0,
-                           TRUE);
-
-   g_context_menu_is_active = TRUE;
-}
 
 
 void roadmap_welcome_personalize_dialog( void ){
@@ -1809,8 +1088,9 @@ void roadmap_welcome_personalize_dialog( void ){
    ssd_button_label ("Personalize", roadmap_lang_get ("Personalize"),
                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER, personalize_buttons_callback));
 #else //TOUCH_SCREEN
-   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Options"));
-   ssd_widget_set_left_softkey_callback   ( dialog, on_options);
+   ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Skip"));
+   ssd_widget_set_left_softkey_callback   ( dialog, on_skip_welcome);
+
 
    ssd_widget_set_right_softkey_text      ( dialog, roadmap_lang_get("Personalize"));
    ssd_widget_set_right_softkey_callback  ( dialog, on_personalize);
@@ -1911,7 +1191,7 @@ void roadmap_welcome_guided_tour( void )
 
    roadmap_log( ROADMAP_INFO, "Showing the guided tour from url: %s", url );
 
-   roadmap_browser_show( "Guided tour", url, NULL, BROWSER_FLAG_WINDOW_NO_TITLE_BAR|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL );
+   roadmap_browser_show( "Guided tour", url, NULL, NULL, NULL, BROWSER_FLAG_WINDOW_NO_TITLE_BAR|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL );
 }
 
 #if defined(RIMAPI) || defined(ANDROID)

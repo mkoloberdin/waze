@@ -1,4 +1,4 @@
-/* RealtimeAlertsCommentsList.m - manage the Real Time Alerts Commemnts list display (iphone)
+/* RealtimeAlertCommentsList.m - manage the Real Time Alerts Commemnts list display (iphone)
  *
  * LICENSE:
  *
@@ -70,7 +70,8 @@ enum tags {
    CONTENT_TAG,
    MOOD_TAG,
    PICTURE_TAG,
-   ALERT_TAG
+   ALERT_TAG,
+   THUMBS_TAG
 };
 
 typedef struct {
@@ -245,6 +246,14 @@ int RealtimeAlertCommentsList(int iAlertId)
    button = (UIButton *)[scrollView viewWithTag:ALERT_TAG];
    [self resizeButton:button byMe:alert->bAlertByMe showPic:alert->bShowFacebookPicture bSelected:FALSE yPos:viewPosY];
    viewPosY += button.bounds.size.height + 10;
+   
+   button = (UIButton *)[scrollView viewWithTag:THUMBS_TAG];
+   if (button) {
+      rect = CGRectMake(15, viewPosY, scrollView.bounds.size.width - 30, 30);
+      button.frame = rect;
+      [button sizeToFit];
+      viewPosY += button.bounds.size.height + 10;
+   }
   
    CommentEntry = alert->Comment;
    
@@ -438,7 +447,7 @@ int RealtimeAlertCommentsList(int iAlertId)
 - (void)createContent
 {
    UIScrollView *scrollView = (UIScrollView *) self.view;
-   int SavedZoom = -1;
+   zoom_t SavedZoom = -1;
    RoadMapPosition SavedPosition;
    UIImage *image = NULL;
    UIImage *leftImage = NULL;
@@ -543,7 +552,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    if (roadmap_navigate_get_current(&CurrentPosition, &line, &Direction) == -1)
    {
       // check the distance to the alert
-      gps_pos = roadmap_trip_get_position("GPS");
+      gps_pos = roadmap_trip_get_position("Location");
       if (gps_pos != NULL)
       {
          current_pos.latitude = gps_pos->latitude;
@@ -644,6 +653,36 @@ int RealtimeAlertCommentsList(int iAlertId)
       imageView.tag = MOOD_TAG;
       [button addSubview:imageView];
       [imageView release];
+   }
+   
+   /////////////
+   // Thumbs Up
+   if (alert->iNumThumbsUp > 0){
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "thumbs_up");
+      if (image) {
+         char thumbs_text[256];
+         if (alert->iNumThumbsUp == 1)
+            snprintf(thumbs_text, sizeof(thumbs_text), "%s %s", roadmap_lang_get("Thanks from:"), roadmap_lang_get("one user") );
+         else
+            snprintf(thumbs_text, sizeof(thumbs_text), "%s %d %s", roadmap_lang_get("Thanks from:"), alert->iNumThumbsUp, roadmap_lang_get("users"));
+         
+         button = [UIButton buttonWithType:UIButtonTypeCustom];
+         button.tag = THUMBS_TAG;
+         button.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+         button.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+         button.autoresizesSubviews = YES;
+         button.titleLabel.font = [UIFont systemFontOfSize:14];
+         button.contentEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
+         [button setImage:image forState:UIControlStateNormal];
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "border_white");
+         if (image) {
+            [button setBackgroundImage:[image stretchableImageWithLeftCapWidth:image.size.width/2 topCapHeight:image.size.width/2]
+                              forState:UIControlStateNormal];
+            [button setTitle:[NSString stringWithUTF8String:thumbs_text] forState:UIControlStateNormal];
+            [button setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+            [scrollView addSubview:button];
+         }
+      }
    }
    
    /////////////

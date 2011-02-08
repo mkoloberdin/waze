@@ -467,7 +467,7 @@ static void search_progress_message_delayed(void)
 {
 	roadmap_main_remove_periodic( search_progress_message_delayed );
 	if( s_searching )
-		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching . . . " ) );
+		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching..." ) );
 }
 
 /* Callback for the error message box */

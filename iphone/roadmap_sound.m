@@ -33,20 +33,30 @@
 #include "roadmap_path.h"
 #include "roadmap_res.h"
 #include "roadmap_main.h"
+#include "roadmap_config.h"
 #include "roadmap_prompts.h"
 #include "roadmap_media_player.h"
 
 #include <UIKit/UIKit.h>
 #include <AudioToolbox/AudioServices.h>
 #include <AVFoundation/AVAudioPlayer.h>
+#include <AVFoundation/AVAudioRecorder.h>
+#include <CoreAudio/CoreAudioTypes.h>
 
 #include "roadmap_sound.h"
 #include "roadmap_iphonesound.h"
 
-const char* SND_DEFAULT_VOLUME_LVL = "2";
+//const char* SND_DEFAULT_VOLUME_LVL = "2";
+
+static RoadMapConfigDescriptor RoadMapConfigSoundToSpeaker =
+      ROADMAP_CONFIG_ITEM( "Sound", "Redirect to Speaker" );
 
 static int              current_list  = -1;
 static int              current_index = -1;
+static BOOL             is_session_active = FALSE;
+static BOOL             is_playing = FALSE;
+static BOOL             is_recording = FALSE;
+static int              is_other_playing = -1;
 #define FREE_FLAG -2
 
 #define MAX_LISTS 2
@@ -54,30 +64,106 @@ static int              current_index = -1;
 static RoadMapSoundList sound_lists[MAX_LISTS];
 static SoundDelegate    *RoadmapSoundDelegate;
 static AVAudioPlayer    *dummyPlayer;
+static AVAudioRecorder  *audioRecorder = NULL;
 
 
 static void play_next_file (void);
+static void activate_session (BOOL activate);
 
 
-static void set_duck (int enabled) {
+static void set_playing (int playing) {
+   /*
    UInt32 overrideMixing = TRUE;
    UInt32 allowMixing = enabled;
    OSStatus propertySetError = 0;
    
-   AudioSessionSetActive(FALSE);
+   //activate_session(FALSE);
    
    if (enabled) {
-      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+      //propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
       propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
+      activate_session(TRUE);
    } else {      
-      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
-      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+      //propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowMixing), &allowMixing);
+      activate_session(FALSE);
+      //propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
    }
    
    if (propertySetError)
       roadmap_log(ROADMAP_ERROR, "set_duck() failed to set audio session properties, err: %d", propertySetError);
+
+   is_duck_enabled = enabled;
+   //activate_session(TRUE);
+    */
    
-   AudioSessionSetActive(TRUE);
+   if (is_recording)
+      return;
+   
+   if (is_other_playing)
+      activate_session(playing);
+   
+   is_playing = playing;
+}
+
+void audioRouteChangeListenerCallback (void                   *inUserData,
+                                       AudioSessionPropertyID inPropertyID,
+                                       UInt32                 inPropertyValueSize,
+                                       const void             *inPropertyValue) {
+   
+   OSStatus propertySetError = 0;
+   
+   if (inPropertyID != kAudioSessionProperty_AudioRouteChange ||
+       !roadmap_sound_is_route_to_speaker()) return;
+   
+   UInt32 overrideRoute = kAudioSessionOverrideAudioRoute_Speaker;
+   propertySetError |=  AudioSessionSetProperty(kAudioSessionProperty_OverrideAudioRoute, sizeof(overrideRoute), &overrideRoute);
+   
+   if (propertySetError)
+      roadmap_log(ROADMAP_ERROR, "Property set error: %d", propertySetError);
+}
+
+static void set_audio_session (int is_recording) {
+   OSStatus propertySetError = 0;
+   
+   if (!is_recording) {
+      if (!roadmap_sound_is_route_to_speaker()) {
+         //UInt32 sessionCategory = kAudioSessionCategory_AmbientSound;
+         UInt32 sessionCategory = kAudioSessionCategory_MediaPlayback;
+         propertySetError |= AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
+      } else {
+         UInt32 sessionCategory = kAudioSessionCategory_PlayAndRecord;
+         propertySetError |= AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
+         UInt32 overrideRoute = kAudioSessionOverrideAudioRoute_Speaker;
+         propertySetError |=  AudioSessionSetProperty(kAudioSessionProperty_OverrideAudioRoute, sizeof(overrideRoute), &overrideRoute);
+         AudioSessionAddPropertyListener (kAudioSessionProperty_AudioRouteChange, audioRouteChangeListenerCallback, NULL);
+      }
+      
+      UInt32 overrideMixing = 1;
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+      UInt32 allowDuck = 1;
+      propertySetError |= AudioSessionSetProperty(kAudioSessionProperty_OtherMixableAudioShouldDuck, sizeof(allowDuck), &allowDuck);
+      Float32 preferredBufferDuration = 0.005;
+      propertySetError |= AudioSessionSetProperty (kAudioSessionProperty_PreferredHardwareIOBufferDuration, sizeof (preferredBufferDuration), &preferredBufferDuration);
+      
+      if (propertySetError)
+         roadmap_log(ROADMAP_ERROR, "Property set error: %d", propertySetError);
+      
+   } else {
+      UInt32 sessionCategory = kAudioSessionCategory_RecordAudio;
+      propertySetError |= AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
+      if (propertySetError)
+         roadmap_log(ROADMAP_ERROR, "Property set error: %d", propertySetError);
+   }
+
+}
+
+static void set_recording (int recording) {
+   if (recording == is_recording)
+      return;
+   
+   set_audio_session (recording);
+   is_recording = recording;
+   activate_session(recording);
 }
 
 
@@ -264,7 +350,7 @@ static void play_next_file (void) {
 		if (current_list == -1) {
          //roadmap_media_player_pause(FALSE);
          //AudioSessionSetActive(FALSE);
-         set_duck(0);
+         set_playing(0);
          return;
 		}
 	} else { //same list, next index
@@ -323,15 +409,30 @@ void sound_complete (AVAudioPlayer *player){
    play_next_file();
 }
 
+static void set_route_to_speaker (int enabled) {
+   UInt32 overrideRoute;
+   if (enabled)
+      overrideRoute = kAudioSessionOverrideAudioRoute_Speaker;
+   else
+      overrideRoute = kAudioSessionOverrideAudioRoute_None;
+
+   AudioSessionSetProperty(kAudioSessionProperty_OverrideAudioRoute, sizeof(overrideRoute), &overrideRoute);
+}
 
 int roadmap_sound_play_file (const char *file_name) {
 
    int res;
    AVAudioPlayer *audioPlayer = NULL;
     
+   if (is_recording)
+      return -1;
    //roadmap_media_player_pause(TRUE);
    //AudioSessionSetActive(TRUE);
-   set_duck(1);
+   if (!is_session_active)
+      activate_session(TRUE);
+   set_playing(1);
+   
+   //set_route_to_speaker(roadmap_sound_is_route_to_speaker());
 
    res = prepare_file(file_name, &audioPlayer);
    if (res)
@@ -342,7 +443,7 @@ int roadmap_sound_play_file (const char *file_name) {
    } else {
       //roadmap_media_player_pause(FALSE); 
       //AudioSessionSetActive(FALSE);
-      set_duck(0);
+      set_playing(0);
       return -1;
    }
 }
@@ -351,12 +452,17 @@ int roadmap_sound_play_file (const char *file_name) {
 
 
 int roadmap_sound_play_list (const RoadMapSoundList list) {
+   if (is_recording)
+      return 0;
    
    if (current_list == -1) {
       /* not playing */
       //roadmap_media_player_pause(TRUE);
       //AudioSessionSetActive(TRUE);
-      set_duck(1);
+      if (!is_session_active)
+         activate_session(TRUE);
+      set_playing(1);
+      //set_route_to_speaker(roadmap_sound_is_route_to_speaker());
       sound_lists[0] = list;
       play_next_file ();
 
@@ -376,9 +482,73 @@ int roadmap_sound_play_list (const RoadMapSoundList list) {
    return 0;
 }
 
+void roadmap_sound_stop_recording (void) {
+
+   if (audioRecorder != NULL && audioRecorder.recording) {
+      [audioRecorder stop];
+      [audioRecorder release];
+      audioRecorder = NULL;
+      set_recording(FALSE);
+   }
+}
+
 
 int roadmap_sound_record (const char *file_name, int seconds) {
+   NSError *err;
+   NSURL *fileURL;
+   NSDictionary *settings;
+   
+   if (audioRecorder != NULL && audioRecorder.recording) {
+      [audioRecorder stop];
+      [audioRecorder deleteRecording];
+      [audioRecorder release];
+      audioRecorder = NULL;
+   }
+   //file_name = "test.caf";
+   fileURL = [NSURL URLWithString:[[NSString stringWithUTF8String:file_name] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding]];
+   
+   settings = [NSDictionary dictionaryWithObjectsAndKeys:
+               [NSNumber numberWithFloat: 44100.0], AVSampleRateKey,
+               [NSNumber numberWithInt: kAudioFormatAppleIMA4], AVFormatIDKey,
+               [NSNumber numberWithInt: 1], AVNumberOfChannelsKey,
+               [NSNumber numberWithInt: AVAudioQualityMedium], AVEncoderAudioQualityKey,
+               nil];
+   
+   NSMutableDictionary *recordSetting = [[NSMutableDictionary alloc] init];
+   
+   //iLBC:
+   //[recordSetting setValue :[NSNumber numberWithInt:kAudioFormatiLBC] forKey:AVFormatIDKey];
+//   [recordSetting setValue:[NSNumber numberWithFloat:8000.0] forKey:AVSampleRateKey]; 
+//   [recordSetting setValue:[NSNumber numberWithInt: 1] forKey:AVNumberOfChannelsKey];
+   
+   
+   //IMA4
+   [recordSetting setValue:[NSNumber numberWithInt:kAudioFormatAppleIMA4] forKey:AVFormatIDKey];
+   [recordSetting setValue:[NSNumber numberWithFloat:16000.0] forKey:AVSampleRateKey]; 
+   [recordSetting setValue:[NSNumber numberWithInt: 1] forKey:AVNumberOfChannelsKey];
+   
+   //AC3
+   //[recordSetting setValue:[NSNumber numberWithInt:kAudioFormatLinearPCM] forKey:AVFormatIDKey];
+//   [recordSetting setValue:[NSNumber numberWithFloat:8000.0] forKey:AVSampleRateKey]; 
+//   [recordSetting setValue:[NSNumber numberWithInt: 1] forKey:AVNumberOfChannelsKey];
 
+   if (fileURL) {
+//      UInt32 sessionCategory = kAudioSessionCategory_PlayAndRecord;
+//      AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
+//      AudioSessionSetActive(TRUE);      
+      set_recording(TRUE);
+      
+      audioRecorder = [[AVAudioRecorder alloc] initWithURL:fileURL settings:recordSetting error:&err];
+      if (err) {
+         roadmap_log(ROADMAP_ERROR, "Start record failed: '%s'", [[err description] UTF8String]);
+      } else {
+         audioRecorder.delegate = RoadmapSoundDelegate;
+         if (audioRecorder) {
+            [audioRecorder recordForDuration:seconds];
+         }
+      }
+   }
+   
    return 0;
 }
 
@@ -405,25 +575,78 @@ void stopPlayer () {
       [dummyPlayer release];
 }
 
+int roadmap_sound_is_route_to_speaker (void) {
+   if (roadmap_config_match(&RoadMapConfigSoundToSpeaker, "yes"))
+      return 1;
+   else
+      return 0;
+}
 
-void roadmap_sound_initialize (void) {
+void roadmap_sound_set_route_to_speaker (int enabled) {
+   if (enabled)
+      roadmap_config_set(&RoadMapConfigSoundToSpeaker, "yes");
+   else
+      roadmap_config_set(&RoadMapConfigSoundToSpeaker, "no");
    
-   AudioSessionInitialize (NULL, NULL, NULL, NULL);
-   //UInt32 sessionCategory = kAudioSessionCategory_AmbientSound;
-   UInt32 sessionCategory = kAudioSessionCategory_MediaPlayback;
-   AudioSessionSetProperty (kAudioSessionProperty_AudioCategory, sizeof (sessionCategory), &sessionCategory);
-   UInt32 overrideMixing = TRUE;
-   AudioSessionSetProperty(kAudioSessionProperty_OverrideCategoryMixWithOthers, sizeof(overrideMixing), &overrideMixing);
+   set_audio_session(0);
+}
+
+void interruptionListenerCallback (void    *inClientData, UInt32  inInterruptionState) {
+   if (inInterruptionState == kAudioSessionBeginInterruption) {
+      roadmap_log(ROADMAP_DEBUG, "AudioSession begin interrupt");
+      is_session_active = FALSE;
+   } else if (inInterruptionState == kAudioSessionEndInterruption) {
+      roadmap_log(ROADMAP_DEBUG, "AudioSession end interrupt");
+      activate_session(TRUE);
+   }
+
+}
+
+static void test_playback (void) {
+   roadmap_sound_play_file("TurnRight");
+}
+
+static void periodic_check_other_playing (void) {
+   UInt32 otherAudioIsPlaying;
+   UInt32 propertySize = sizeof (otherAudioIsPlaying);
+   int current_is_playing;
    
+   AudioSessionGetProperty (kAudioSessionProperty_OtherAudioIsPlaying,
+                            &propertySize,
+                            &otherAudioIsPlaying);
+
+   current_is_playing = (otherAudioIsPlaying > 0);
    
-   AudioSessionSetActive (TRUE);
+   if (is_other_playing != current_is_playing) {
+      is_other_playing = current_is_playing;
+      if (is_other_playing && is_session_active && !is_playing) {
+         activate_session(FALSE);
+      } else if (!is_other_playing && !is_session_active) {
+         activate_session(TRUE);
+      }
+   }
+}
+
+void roadmap_sound_initialize (void) {   
+   roadmap_config_declare_enumeration("user", &RoadMapConfigSoundToSpeaker, NULL, "no", "yes", NULL);
+   
+   AudioSessionInitialize (NULL, NULL, interruptionListenerCallback, NULL);
+   
+   set_audio_session (0);
+   
+   periodic_check_other_playing();
+   roadmap_main_set_periodic(10000, periodic_check_other_playing);
+   if (is_other_playing)
+      roadmap_media_player_init();
+   
+   //activate_session(TRUE);
+   
+   //roadmap_main_set_periodic(5000, test_playback);
    
    RoadmapSoundDelegate = [[SoundDelegate alloc] init];
    
    if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_30)
       startPlayer();//workaround for 3.0 OS volume control
-   
-   roadmap_media_player_init();
 }
 
 
@@ -434,9 +657,23 @@ void roadmap_sound_shutdown   (void) {
    roadmap_media_player_shutdown();
 }
 
+static void activate_session (BOOL activate) {
+   OSStatus activate_status = AudioSessionSetActive (activate);
+   
+   if (activate_status != 0) {
+      roadmap_log(ROADMAP_WARNING, "AudioSession activate error: %d", activate_status);
+   } else {
+      is_session_active = activate;
+   }
 
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////////////
 @implementation SoundDelegate
 
+//AVAudioPlayer delegate
 - (void)audioPlayerDidFinishPlaying:(AVAudioPlayer *)player successfully:(BOOL)flag
 {
    if (!flag)
@@ -462,6 +699,25 @@ void roadmap_sound_shutdown   (void) {
 - (void)audioPlayerDecodeErrorDidOccur:(AVAudioPlayer *)player error:(NSError *)error
 {
    roadmap_log (ROADMAP_ERROR, "Sound player decode error code :%d", [error code]);
+}
+
+
+//AVAudioRecorder delegate
+- (void)audioRecorderDidFinishRecording:(AVAudioRecorder *)recorder successfully:(BOOL)flag
+{
+   if (!flag)
+      roadmap_log (ROADMAP_ERROR, "Finished sound recording with error");
+   
+   set_recording (FALSE);
+}
+
+- (void)audioRecorderBeginInterruption:(AVAudioRecorder *)recorder
+{
+}
+
+- (void)audioRecorderEncodeErrorDidOccur:(AVAudioRecorder *)recorder error:(NSError *)error
+{
+   roadmap_log (ROADMAP_ERROR, "Sound recorder encode error code :%d", [error code]);
 }
 
 

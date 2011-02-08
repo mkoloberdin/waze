@@ -57,7 +57,6 @@ enum IDs {
 static const char* ANALYTICS_EVENT_NOTIF_NAME         = "NOTIFICATIONS_SETTINGS";
 static const char* ANALYTICS_EVENT_NOTIF_ON           = "ON";
 static const char* ANALYTICS_EVENT_NOTIF_OFF          = "OFF";
-static const char* ANALYTICS_EVENT_NOTIF_INFO         = "CHANGED_TO";
 static const char* ANALYTICS_EVENT_NOTIF_SCORE_NAME   = "TOGGLE_NOTIFICATIONS_SCORE";
 static const char* ANALYTICS_EVENT_NOTIF_UPDATES_NAME = "TOGGLE_NOTIFICATIONS_UPDATE";
 static const char* ANALYTICS_EVENT_NOTIF_FRIENDS_NAME = "TOGGLE_NOTIFICATIONS_FRIENDS";
@@ -278,11 +277,11 @@ void roadmap_push_notifications_settings(void) {
 	switch (tag) {
 		case ID_SCORE:
 			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_SCORE_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_SCORE_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
 
 				roadmap_config_set (&RoadMapConfigPushScore, yesno[0]);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_SCORE_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_SCORE_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
 
 				roadmap_config_set (&RoadMapConfigPushScore, yesno[1]);
 			}
@@ -291,11 +290,11 @@ void roadmap_push_notifications_settings(void) {
 			break;
       case ID_UPDATES:
 			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_UPDATES_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_UPDATES_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
             
 				roadmap_config_set (&RoadMapConfigPushUpdates, yesno[0]);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_UPDATES_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_UPDATES_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
             
 				roadmap_config_set (&RoadMapConfigPushUpdates, yesno[1]);
 			}
@@ -304,11 +303,11 @@ void roadmap_push_notifications_settings(void) {
 			break;
       case ID_FRIENDS:
 			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_FRIENDS_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_FRIENDS_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
             
 				roadmap_config_set (&RoadMapConfigPushFriends, yesno[0]);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_FRIENDS_NAME, ANALYTICS_EVENT_NOTIF_INFO, ANALYTICS_EVENT_NOTIF_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NOTIF_FRIENDS_NAME, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
             
 				roadmap_config_set (&RoadMapConfigPushFriends, yesno[1]);
 			}

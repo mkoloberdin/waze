@@ -205,6 +205,7 @@ void roadmap_canvas_get_formated_text_extents
    #ifdef _WIN32
          size = (int) (size * 0.9);
    #endif
+         size = (int) (size * 1.2);
       }
       feng->height(size);
       feng->width(size);
@@ -225,6 +226,7 @@ void roadmap_canvas_get_formated_text_extents
 #ifdef _WIN32
          size = (int) (size * 0.9);
 #endif
+         size = (int) (size * 1.2);
       }
       image_feng->height(size);
       image_feng->width(size);
@@ -392,6 +394,11 @@ void roadmap_canvas_draw_formated_string_size (RoadMapGuiPoint *position,
    case ROADMAP_CANVAS_BOTTOMLEFT:
       y = position->y - text_height;
       x = position->x;
+      break;
+
+   case ROADMAP_CANVAS_TOPMIDDLE:
+      y = position->y;
+      x = position->x - (text_width / 2);
       break;
 
    case ROADMAP_CANVAS_BOTTOMMIDDLE:
@@ -789,6 +796,7 @@ void roadmap_canvas_draw_formated_string_angle (const RoadMapGuiPoint *position,
 #ifdef _WIN32
       size = (int) (size * 0.9);
 #endif
+      size = (int) (size * 1.2);
    }
 
    if (angle == 0) {
@@ -937,7 +945,7 @@ void roadmap_canvas_agg_configure (unsigned char *buf, int width, int height, in
 		   roadmap_config_get (&RoadMapConfigFont));
 
    if ((width) && (height))
-      roadmap_screen_set_screen_type( roadmap_canvas_agg_get_screen_type( width, height ) );
+      roadmap_screen_set_screen_type( width, height );
 
    if (!RoadMapCanvasFontLoaded) {
 
@@ -1361,6 +1369,7 @@ void roadmap_canvas_draw_image_formated_text (RoadMapImage image,
 #ifdef _WIN32
       size = (int) (size * 0.9);
 #endif
+      size = (int) (size * 1.2);
    }
 
    double x  = position->x;

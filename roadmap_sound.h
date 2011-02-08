@@ -78,5 +78,11 @@ void roadmap_sound_shutdown   (void);
 void roadmap_sound_set_volume ( int volLvl );
 
 int roadmap_sound_record (const char *file_name, int seconds);
+void roadmap_sound_stop_recording (void);
+
+#ifdef IPHONE
+int roadmap_sound_is_route_to_speaker (void);
+void roadmap_sound_set_route_to_speaker (int enabled);
+#endif
 
 #endif // __ROADMAP_SOUND__H

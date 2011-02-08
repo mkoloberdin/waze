@@ -38,7 +38,7 @@ typedef struct  {
    float          advance_x;
    int            left;
    int            top;
-   char           name[20];
+   int            hash;
 } RoadMapFontImage;
 
 RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold);

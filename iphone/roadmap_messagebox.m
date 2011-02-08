@@ -373,7 +373,7 @@ static void confirm_removed (void) {
    [button setTitleEdgeInsets:UIEdgeInsetsMake(5, 5, 5, 5)];
    button.titleLabel.numberOfLines = 2;
    [button setTitleColor:[UIColor colorWithRed:1.0f green:1.0f blue:1.0f alpha:1.0f] forState:UIControlStateNormal];
-   button.titleLabel.font = [UIFont systemFontOfSize:17];
+   button.titleLabel.font = [UIFont systemFontOfSize:16];
    button.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
    button.titleLabel.textAlignment = UITextAlignmentCenter;
    

@@ -99,6 +99,9 @@ void ssd_text_set_input_type( SsdWidget this, roadmap_input_type input_type)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
 
+   if (!ctx)
+      return;
+
    ctx->input_type   = input_type;
    this->flags       &= ~SSD_TEXT_READONLY;
 }
@@ -106,6 +109,9 @@ void ssd_text_set_input_type( SsdWidget this, roadmap_input_type input_type)
 void ssd_text_set_text_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
+
+   if (!ctx)
+      return;
 
    ctx->value_max_size = size;
 
@@ -118,6 +124,9 @@ void ssd_text_set_text_size( SsdWidget this, int size)
 void ssd_text_set_font_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
+   if (!ctx)
+      return;
+
    ctx->size = size;
 }
 
@@ -179,6 +188,9 @@ static int format_text (SsdWidget widget, int draw,
       p.y = rect->miny;
    }
 
+   if (!ctx)
+      return 0;
+
    if (( widget->flags & SSD_TEXT_PASSWORD) && (widget->value[0] != 0))
       	text = "*****";
    else
@@ -218,12 +230,12 @@ static int format_text (SsdWidget widget, int draw,
             len = strlen(text);
          }
 
-         if (len > (sizeof(line) - strlen(line) - 1)) {
-            len = sizeof(line) - strlen(line) - 1;
-         }
-
          if (*line) {
             strcat (line ," ");
+         }
+         
+         if (len > (sizeof(line) - strlen(line) - 1)) {
+            len = sizeof(line) - strlen(line) - 1;
          }
 
          new_len = strlen(line) + len;
@@ -267,7 +279,7 @@ static int format_text (SsdWidget widget, int draw,
                 * Make it shorter ...
                 */
                 new_len--;
-               
+
                 if ( is_text_input )
                 {
                    display_offset++; // Truncate from left

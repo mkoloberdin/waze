@@ -130,6 +130,8 @@ void navigate_main_stop_navigation_menu(void);
 void navigate_auto_zoom_suspend(void);
 void navigate_get_waypoint (int distance, RoadMapPosition *way_point);
 int navigate_is_auto_zoom (void);
+int navigate_is_speed_auto_zoom (void);
+
 BOOL navigate_main_ETA_enabled();
 BOOL navgiate_main_voice_guidance_enabled();
 int navigate_main_near_destination(void);

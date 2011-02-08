@@ -49,7 +49,6 @@ typedef struct tag_bitmap_info
    int            num_overlays;
    int            width;
    int            height;
-
 }  bitmap_info, *bitmap_info_ptr;
 
 void bitmap_info_init( bitmap_info_ptr this)
@@ -106,7 +105,21 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 
    if ( image2draw )
    {
-	   roadmap_canvas_draw_image( image2draw, &point, 0, IMAGE_NORMAL);
+#ifdef OPENGL
+      if ( this->flags & SSD_BITMAP_MIDDLE_STRETCH )
+      {
+         RoadMapGuiPoint top_left_pos, bottom_right_pos;
+         top_left_pos.x = rect->minx;
+         top_left_pos.y = rect->miny;
+         bottom_right_pos.x = rect->maxx-1;
+         bottom_right_pos.y = rect->maxy-1;
+         roadmap_canvas_draw_image_middle_stretch( image2draw, &top_left_pos, &bottom_right_pos, 0, IMAGE_NORMAL );
+      }
+      else
+#endif //OPENGL
+      {
+         roadmap_canvas_draw_image( image2draw, &point, 0, IMAGE_NORMAL);
+      }
    }
    else
    {
@@ -286,4 +299,16 @@ void ssd_bitmap_add_overlay(SsdWidget widget, const char *bitmap){
       bi->num_overlays++;
    }
 
+}
+/*
+ * Sets current bitmap to be middle stretched
+ */
+void ssd_bitmap_set_middle_stretch( SsdWidget widget, int stretched_width, int stretched_height )
+{
+   bitmap_info_ptr   bi = (bitmap_info_ptr)widget->data;
+   widget->flags |= SSD_BITMAP_MIDDLE_STRETCH;
+   bi->width = stretched_width;
+   bi->height = stretched_height;
+   widget->size.width = stretched_width;
+   widget->size.height = stretched_height;
 }

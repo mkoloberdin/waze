@@ -48,7 +48,7 @@
    RoadMapCallback onCloseCallback;
 }
 
-- (void)show: (RoadMapCallback)onClose;
+- (void)show: (RoadMapCallback)onClose type:(int)type;
 
 @end
 

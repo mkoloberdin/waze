@@ -26,16 +26,18 @@
 #include "roadmap_iphonemain.h"
 #include "roadmap_device_events.h"
 #include "roadmap_editbox.h"
+#include "roadmap_lang.h"
+#include "roadmap_keyboard.h"
 #include "roadmap_iphoneeditbox.h"
 
 
 
 void ShowEditbox(const char* aTitleUtf8, 
-				 const char* aTextUtf8, 
-				 SsdKeyboardCallback callback, 
-				 void *context, 
-				 TEditBoxType aBoxType ) {
-
+                 const char* aTextUtf8, 
+                 SsdKeyboardCallback callback, 
+                 void *context, 
+                 TEditBoxType aBoxType ) {
+   
 	RoadMapEditBox *RoadMapEditViewCont;
 	
 	RoadMapEditViewCont = [[RoadMapEditBox alloc] initWithStyle:UITableViewStyleGrouped];
@@ -117,7 +119,8 @@ void ShowEditbox(const char* aTitleUtf8,
 	[self setTitle:[NSString stringWithUTF8String:aTitleUtf8]];
 	
 	UINavigationItem *navItem = [self navigationItem];
-	gDoneButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemDone target:self action:@selector(onDone)];
+   gDoneButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Done")]
+                                                  style:UIBarButtonItemStyleDone target:self action:@selector(onDone)];
 	[navItem setRightBarButtonItem:gDoneButton];
 	[gDoneButton release];
 	if (gBoxType == EEditBoxEmptyForbidden)

@@ -247,13 +247,21 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
       }
       else
       {
-    	 char *full_name = malloc (strlen (name) + 5);
+    	 char *full_name = malloc (strlen (name) + 8);
     	 data = NULL;
 #ifdef ANDROID
     	 /* Try BIN */
          if ( !data )
          {
             sprintf( full_name, "%s.bin", name );
+            data = load_resource (type, flags, full_name, &mem);
+         }
+#endif
+#ifdef IPHONE_NATIVE
+         /* Try @2x scale if required */
+         if ( !data && roadmap_screen_get_screen_scale() >= 200)
+         {
+            sprintf( full_name, "%s@2x.png", name );
             data = load_resource (type, flags, full_name, &mem);
          }
 #endif
@@ -273,7 +281,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
 
    if (!data) {
    	if (type != RES_SOUND)
-   		roadmap_log (ROADMAP_ERROR, "roadmap_res_get - resource %s type=%d not found.", name, type);
+   		roadmap_log (ROADMAP_DEBUG, "roadmap_res_get - resource %s type=%d not found.", name, type);
    	return NULL;
    }
 
@@ -380,7 +388,7 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 		while ( res->slots[non_locked_lru].flags & RES_LOCK )
 		{
 			non_locked_lru = cache[non_locked_lru].prev;
-		} 
+		}
 		if ( non_locked_lru == res->cache_head )
 		{
 			roadmap_log( ROADMAP_ERROR, "Cannot find non-locked resource!!! Removing the locked LRU" );

@@ -515,7 +515,7 @@ static SsdWidget create_results_container()
                               0,
                               NULL);
    //ssd_widget_set_color(list, NULL,NULL);
-   ssd_list_resize( list, 50);
+   ssd_list_resize( list, ssd_container_get_row_height());
 
    ssd_widget_add( rcnt, list);
 
@@ -592,7 +592,7 @@ static void search_progress_message_delayed(void)
 {
 	roadmap_main_remove_periodic( search_progress_message_delayed );
 	if( s_searching )
-		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching . . . " ) );
+		ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching..." ) );
 }
 
 /* Callback for the error message box */

@@ -96,7 +96,7 @@ static NavigateBarPanel *NavigatePanel = NULL;
 static RoadMapScreenSubscriber navigate_prev_after_refresh = NULL;
 
 
-const char NAVIGATE_DIR_IMG[][40] = {
+static const char NAVIGATE_DIR_IMG[][40] = {
    "nav_turn_left",
    "nav_turn_right",
    "nav_keep_left",
@@ -115,6 +115,24 @@ const char NAVIGATE_DIR_IMG[][40] = {
    "nav_approaching"
 };
 
+static const char NAVIGATE_UK_DIR_IMG[][40] = {
+   "nav_turn_left",
+   "nav_turn_right",
+   "nav_keep_left",
+   "nav_keep_right",
+   "nav_continue",
+   "nav_roundabout_UK_e",
+   "nav_roundabout_UK_e",
+   "nav_roundabout_UK_l",
+   "nav_roundabout_UK_l",
+   "nav_roundabout_UK_s",
+   "nav_roundabout_UK_s",
+   "nav_roundabout_UK_r",
+   "nav_roundabout_UK_r",
+   "nav_roundabout_UK_u",
+   "nav_roundabout_UK_u",
+   "nav_approaching"
+};
 static RoadMapImage NavigateBarStretchedAddressImage;
 static RoadMapImage NavigateBarAddressImage;
 static RoadMapImage NavigateBarEtaImage;
@@ -219,9 +237,6 @@ static int get_TallDirectionsBoxHeight(void){
    return roadmap_canvas_image_height(NavigateBarDirectionTallImage);
 }
 
-static int get_TallDirectionsBoxWidth(void){
-   return roadmap_canvas_image_width(NavigateBarDirectionTallImage);
-}
 static int get_NavBarHeight(void){
    return (get_AddressBarHeight() + get_DirectionsBoxHeight());
 }
@@ -358,10 +373,10 @@ void navigate_bar_resize(void){
    NavigatePanel->distance_value_pos.y = height - get_AddressBarHeight() -  roadmap_bar_bottom_height() - NAV_BAR_PIXELS( 5 );
 
    NavigatePanel->time_to_destination_pos.x = roadmap_canvas_width() - get_EtaBoxWidth() + 3;
-   NavigatePanel->time_to_destination_pos.y = height - get_AddressBarHeight() -  roadmap_bar_bottom_height() - NAV_BAR_PIXELS( 5 );
+   NavigatePanel->time_to_destination_pos.y = height - get_AddressBarHeight() -  roadmap_bar_bottom_height() - NAV_BAR_PIXELS( 3 );
 
    NavigatePanel->distance_to_destination_pos.x = roadmap_canvas_width() - get_EtaBoxWidth()*366/1000;
-   NavigatePanel->distance_to_destination_pos.y = height - get_AddressBarHeight() -  roadmap_bar_bottom_height() - NAV_BAR_PIXELS( 5 );
+   NavigatePanel->distance_to_destination_pos.y = height - get_AddressBarHeight() -  roadmap_bar_bottom_height() - NAV_BAR_PIXELS( 3 );
 
 #ifdef IPHONE
    NavigatePanel->time_to_destination_pos.y += 2;
@@ -525,6 +540,14 @@ void navigate_bar_set_next_instruction (enum NavigateInstr instr){
   NavigateBarNextInstr = instr;
 }
 
+const char *navigate_image(int inst){
+
+   if (navigate_main_drive_on_left())
+      return NAVIGATE_UK_DIR_IMG[(int) inst];
+   else
+      return NAVIGATE_DIR_IMG[(int) inst];
+}
+
 static void navigate_bar_draw_instruction (enum NavigateInstr instr, int offset) {
 
 
@@ -542,7 +565,7 @@ static void navigate_bar_draw_instruction (enum NavigateInstr instr, int offset)
    if (instr == LAST_DIRECTION)
       return;
 
-   direction_image =(RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, NAVIGATE_DIR_IMG[(int) instr] );
+   direction_image =(RoadMapImage) roadmap_res_get( RES_BITMAP, RES_SKIN, navigate_image((int) instr) );
 
    if ( direction_image )
    {
@@ -641,7 +664,7 @@ static void navigate_bar_draw_distance (int distance, int offset) {
          }
       }
       else{
-         snprintf (str, sizeof(str), "%d", roadmap_math_distance_to_current(distance));
+         snprintf (str, sizeof(str), "%d", (roadmap_math_distance_to_current(distance)/10)*10);
          snprintf (unit_str, sizeof(unit_str), "%s",
                   roadmap_lang_get(roadmap_math_distance_unit()));
       }
@@ -810,13 +833,27 @@ static void navigate_bar_draw_street (const char *street) {
    free(text);
 }
 
+
+
+int navigate_bar_get_height( void ) {
+   int height = 0;
+   if ( NavigateBarEnabled )
+   {
+      height = get_NavBarHeight();
+   }
+   return height;
+}
+
 void navigate_bar_set_mode (int mode) {
    if (NavigateBarEnabled == mode) return;
    NavigateBarEnabled = mode;
 }
 
 void navigate_bar_draw (void){
+
+#ifdef OPENGL
    RoadMapGuiPoint AddressBottomRightPoint;
+#endif
    RoadMapGuiPoint BarLocation;
    int arrow_offset = 0;
 

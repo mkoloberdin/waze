@@ -80,6 +80,11 @@
 extern const char *FLURRY_API_KEY;
 #endif //FLURRY
 
+#ifdef TAPJOY
+#import "TapjoyConnect.h"
+extern const char *TAPJOY_API_KEY;
+#endif //TAPJOY
+
 #import <CFNetwork/CFProxySupport.h>
 #import <MediaPlayer/MediaPlayer.h>
 #import <SystemConfiguration/SystemConfiguration.h>
@@ -570,7 +575,7 @@ void start_monitor_network(void)
 void dummy_url_request (void) {
    //dummy http request to init connection (workaround)
    NSURLRequest *request;
-   NSURLConnection *connection;
+   NSURLConnection *connection = NULL;
    
    // create the request
    request = [NSURLRequest requestWithURL:[NSURL URLWithString:@"http://www.waze.com/"]
@@ -578,7 +583,10 @@ void dummy_url_request (void) {
                                          timeoutInterval:5.0];
    // create the connection with the request
    // and start loading the data   
-   connection = [[NSURLConnection alloc] initWithRequest:request delegate:TheApp];
+   //connection = [[NSURLConnection alloc] initWithRequest:request delegate:TheApp];
+   connection = [NSURLConnection connectionWithRequest:request delegate:TheApp];
+   if (!connection)
+      roadmap_log(ROADMAP_ERROR, "Error creating NSURLConnection");
 }
 
 int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInput callback) {
@@ -678,11 +686,19 @@ void roadmap_main_flush (void) {
  */
 static void roadmap_main_browser_launcher( const RMBrowserContext* context )
 {
+   CGRect rect;
 //   CGRect rect = CGRectMake(context->right_margin, context->top_margin, context->width, context->height);
-   CGRect rect = CGRectMake(context->rect.minx, context->rect.miny,
-                            context->rect.maxx - context->rect.minx +1, context->rect.maxy - context->rect.miny +1);
+   if (roadmap_screen_get_screen_scale() < 200) {
+      rect = CGRectMake(context->rect.minx, context->rect.miny,
+                               context->rect.maxx - context->rect.minx +1, context->rect.maxy - context->rect.miny +1);
+   } else {
+      float factor = 100.0f/roadmap_screen_get_screen_scale();
+      rect = CGRectMake(context->rect.minx*factor, context->rect.miny*factor,
+                               context->rect.maxx*factor - context->rect.minx*factor +1, context->rect.maxy*factor - context->rect.miny*factor +1);
+   }
    roadmap_browser_iphone_show (rect, context->url, context->flags,
-                                context->attrs.title_attrs.title, context->attrs.on_close_cb);
+                                context->attrs.title_attrs.title, context->attrs.on_close_cb,
+                                context->attrs.on_load_cb, context->attrs.data);
 }
 
 
@@ -1446,8 +1462,11 @@ int main (int argc, char **argv) {
               CFRelease (s);
            }
            
+           roadmap_io_invalidate( &RoadMapMainIo[i].io ); 
+           /* AGA
            RoadMapMainIo[i].io.os.file = -1;
            RoadMapMainIo[i].io.subsystem = ROADMAP_IO_INVALID;
+           */
            break;
         }
     }
@@ -1648,7 +1667,21 @@ int main (int argc, char **argv) {
    for (cursor = files; *cursor != NULL; ++cursor) {
       roadmap_file_remove(directory, *cursor);
    }
-   roadmap_path_list_free (files);   
+   roadmap_path_list_free (files);
+   
+   //clean low res icons for retina
+   if (RoadMapMainOsVersion == ROADMAP_MAIN_OS_4) {
+      if ([[UIScreen mainScreen] scale] >= 2.0f){
+         directory = roadmap_path_join(roadmap_main_home_path(), "/skins/default");
+         files = roadmap_path_list (directory, ".png");
+         for (cursor = files; *cursor != NULL; ++cursor) {
+            //if (!strstr(*cursor, "@2x")) //TODO: change this in next build (uncomment)
+               roadmap_file_remove(directory, *cursor);
+         }
+         roadmap_path_list_free (files);
+         roadmap_path_free(directory);
+      }
+   }
    
    //copy default sound files
    source_directory = roadmap_path_join(roadmap_main_bundle_path(), "/sound");
@@ -1656,6 +1689,7 @@ int main (int argc, char **argv) {
    srcStr = [NSString stringWithUTF8String:source_directory];   
    destinationStr = [NSString stringWithUTF8String:directory];
    error = nil;
+#if 1 //remove old sound dir first
    //remove old sound dir
    if ([fileManager fileExistsAtPath:destinationStr]) {
       roadmap_log (ROADMAP_WARNING, "Removing existing sound dir");
@@ -1665,7 +1699,14 @@ int main (int argc, char **argv) {
    //copy new sound
    if (![fileManager copyItemAtPath:srcStr toPath:destinationStr error:&error])
       roadmap_log (ROADMAP_ERROR, "Error copying sound directory");
-   
+#else //only copy sound on new installation
+   if ([fileManager fileExistsAtPath:destinationStr]) {
+      roadmap_log(ROADMAP_WARNING, "Sound dir exists, not copying files");
+   } else {
+      if (![fileManager copyItemAtPath:srcStr toPath:destinationStr error:&error])
+         roadmap_log (ROADMAP_ERROR, "Error copying sound directory");
+   }
+#endif   
    roadmap_path_free(source_directory);
    roadmap_path_free(directory);
    
@@ -1747,9 +1788,8 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    
    NSString *model = [[UIDevice currentDevice] model];
    NSString *sysVersion = [[UIDevice currentDevice] systemVersion];
-   NSString *deviceId = [[UIDevice currentDevice] uniqueIdentifier];
    NSString *time = [[NSDate date] description];
-   NSString *logStr = [NSString stringWithFormat:@"<<< [%@] Device: %@, OS ver: %@, waze ver: %s, %@ >>>", time, model, sysVersion, roadmap_start_version(), deviceId];
+   NSString *logStr = [NSString stringWithFormat:@"<<< [%@] Device: %@, OS ver: %@, waze ver: %s >>>", time, model, sysVersion, roadmap_start_version()];
    roadmap_log (ROADMAP_WARNING, "\n%s\n", [logStr UTF8String]);
    
    start_monitor_network();
@@ -1780,9 +1820,30 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
     
 }
 
+
+- (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation
+{
+   //for iOS 4.2 and above
+   roadmap_log(ROADMAP_ERROR, "In openURL");
+   if (!roadmap_urlscheme_handle (url))
+      return NO;
+   
+   return YES;
+}
+
+- (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
+{
+   //for iOS 4.1 and below
+   roadmap_log(ROADMAP_ERROR, "In handleOpenURL");
+   if (!roadmap_urlscheme_handle (url))
+      return NO;
+   
+   return YES;
+}
+
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-   NSURL *launchURL = NULL;
+   //NSURL *launchURL = NULL;
    UIImage *image = NULL;
    NSTimer *startTimer;
    CGRect rect;
@@ -1794,12 +1855,12 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
                                                                           UIRemoteNotificationTypeAlert)];
 #endif
    
-   if (launchOptions != NULL) {
-      launchURL = (NSURL *)[launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
-      if (launchURL)
-         if (!roadmap_urlscheme_handle (launchURL))
-            return NO;
-   }
+   //if (launchOptions != NULL) {
+//      launchURL = (NSURL *)[launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
+//      if (launchURL)
+//         if (!roadmap_urlscheme_handle (launchURL))
+//            return NO;
+//   }
    
    
    //set model
@@ -1825,8 +1886,8 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
    } else {
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_4;
-      //TODO: enable this for Retina
       //roadmap_screen_set_screen_scale((int)([[UIScreen mainScreen] scale] * 100));
+      roadmap_screen_set_screen_type((int)([[UIScreen mainScreen] scale] * 320), (int)([[UIScreen mainScreen] scale] * 480));
    }
    
    
@@ -1836,9 +1897,10 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    
    image = roadmap_iphoneimage_load("welcome");
    if (!image) {
-      CGRect rect = [UIScreen mainScreen].applicationFrame;
-      if (rect.size.width > 320)
+      if (RoadMapMainPlatform == ROADMAP_MAIN_PLATFORM_IPAD)
          image = roadmap_iphoneimage_load("welcome-ipad");
+      else if (roadmap_screen_get_screen_scale() == 200)
+         image = roadmap_iphoneimage_load("welcome-iphone@2x");
       else
          image = roadmap_iphoneimage_load("welcome-iphone");
    }
@@ -1850,7 +1912,7 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
       
       rect = RoadMapMainSplashView.frame;
       
-      if (rect.size.width <= 320){
+      if (RoadMapMainPlatform != ROADMAP_MAIN_PLATFORM_IPAD){
          //rect.origin.y -= 20;
          RoadMapMainSplashView.frame = rect;
       } else {
@@ -1884,6 +1946,10 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    [FlurryAPI setSessionReportsOnCloseEnabled:NO];
    NSSetUncaughtExceptionHandler(appExceptionHandler);
 #endif //FLURRY
+   
+#ifdef TAPJOY
+   [TapjoyConnect	requestTapjoyConnectWithAppId:[NSString stringWithUTF8String:TAPJOY_API_KEY]];
+#endif //TAPJOY
    
    if (running_new_version) {
       [self newVersionCleanup];
@@ -2014,13 +2080,13 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 //NSURLConnection delegate
 - (void)connection:(NSURLConnection *)connection didReceiveResponse:(NSURLResponse *)response
 {
-   [connection release]; //we have nothing to do with this connection
+//   [connection release]; //we have nothing to do with this connection
 }
 
 - (void)connection:(NSURLConnection *)connection didFailWithError:(NSError *)error
 {
    roadmap_log(ROADMAP_WARNING, "NSURLConnection failed, error: '%s'", [[error description] UTF8String]);
-   [connection release];
+//   [connection release];
 }
 
 @end

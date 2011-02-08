@@ -60,8 +60,9 @@ static void update_button (void);
 /////////////////////////////////////////////////////////////////////
 static SsdWidget space (int height) {
    SsdWidget space;
-   if (roadmap_screen_is_hd_screen())
-      height *= 2;
+   //if (roadmap_screen_is_hd_screen())
+//      height *= 2;
+   height = ADJ_SCALE(height);
    space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, height, SSD_WIDGET_SPACE | SSD_END_ROW);
    ssd_widget_set_color (space, NULL, NULL);
    return space;
@@ -79,16 +80,16 @@ static void navigate_res_dlg_close (int exit_code, void* context) {
    if (exit_code != dec_ok){
       roadmap_trip_remove_point("Destination");
       roadmap_trip_remove_point("Departure");
-      
+
    }
    navigate_bar_set_mode(1);
-   
+
 }
 
 static void close_res_dlg(void){
    kill_timer ();
    ssd_dialog_hide (NAVIAGTE_RES_DLG_NAME, dec_ok);
-   
+
    roadmap_screen_redraw ();
 }
 
@@ -106,7 +107,7 @@ static int on_alt_routes_btn_cb(SsdWidget widget, const char *new_value){
    AltRouteTrip route;
    RealtimeAltRoutes_Clear();
    from =navigate_main_get_src_position ();
-   navigate_get_waypoint(-1, &to);   
+   navigate_get_waypoint(-1, &to);
    kill_timer();
    ssd_dialog_hide(NAVIAGTE_RES_DLG_NAME, dec_ok);
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Calculating alternative routes, please wait..." ) );
@@ -120,7 +121,7 @@ static int on_alt_routes_btn_cb(SsdWidget widget, const char *new_value){
    RealtimeAltRoutes_Add_Route(&route);
    RealtimeAltRoutes_Route_Request (-1, from, &to, MAX_ROUTES);
    return 1;
-} 
+}
 
 /////////////////////////////////////////////////////////////////////
 static void update_button (void) {
@@ -128,13 +129,13 @@ static void update_button (void) {
    char button_txt[20];
    char *dlg_name;
    g_seconds--;
-   
+
    if (g_seconds < 0){
       close_res_dlg();
       return;
    }
 
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    button = ssd_widget_get(dialog,"Drive_button" );
    if (g_seconds)
       sprintf(button_txt, "%s (%d)", roadmap_lang_get ("Drive"), g_seconds);
@@ -150,20 +151,20 @@ static void update_button (void) {
       sprintf(button_txt, "%s (%d)", roadmap_lang_get ("Drive"), g_seconds);
    else
       sprintf(button_txt, "%s", roadmap_lang_get ("Drive"));
-   
+
    dlg_name = ssd_dialog_currently_active_name();
    if (dlg_name && !strcmp(dlg_name, NAVIAGTE_RES_DLG_NAME)){
       ssd_widget_set_right_softkey_text(ssd_dialog_get_currently_active(), button_txt);
       ssd_dialog_refresh_current_softkeys();
    }
-#endif   
+#endif
    roadmap_screen_redraw ();
 }
 void navigate_res_hide_ETA_widget(SsdWidget container){
    SsdWidget ETA_widget;
    if (container == NULL)
       return;
-   
+
    ETA_widget = ssd_widget_get(container,"eta container");
    if (ETA_widget)
       ssd_widget_hide(ETA_widget);
@@ -173,7 +174,7 @@ void navigate_res_show_ETA_widget(SsdWidget container){
    SsdWidget ETA_widget;
    if (container == NULL)
       return;
-   
+
    ETA_widget = ssd_widget_get(container,"eta container");
    if (ETA_widget)
       ssd_widget_show(ETA_widget);
@@ -187,16 +188,16 @@ void navigate_res_update_ETA_widget(SsdWidget container, int iRouteDistance, int
    char str[100];
    char unit_str[20];
    char msg[250];
-   
-   curTime = navigate_main_get_current_time(); 
-   
+
+   curTime = navigate_main_get_current_time();
+
    timeToDest.hours = iRouteLenght / 3600;
    timeToDest.minutes =  (iRouteLenght % 3600) / 60;
    timeToDest.seconds = iRouteLenght % 60;
    ETA_struct = navigate_main_calculate_eta(curTime,timeToDest);
 
    navigate_main_get_distance_str(iRouteDistance, &str[0], sizeof(str), &unit_str[0], sizeof(unit_str));
-   
+
    snprintf(msg, sizeof(msg), "%d",   (int)(iRouteLenght/60.0));
    text = ssd_widget_get (container, "ETA_W_Minutes_Text");
    ssd_text_set_text(text, msg);
@@ -214,7 +215,7 @@ void navigate_res_update_ETA_widget(SsdWidget container, int iRouteDistance, int
    text = ssd_widget_get (container, "ETA_W_ETA_TIME_Text");
    ssd_text_set_text(text, msg);
 
- 
+
 
    if (showDistance){
       text = ssd_widget_get (container, "ETA_W_Distance_Text");
@@ -241,13 +242,13 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    char *icon[3];
    int inner_width;
    int font_size;
-   int alt_route_button_w = 60;
+   int alt_route_button_w = ADJ_SCALE(60);
    int width = SSD_MAX_SIZE;
-   
-   if (roadmap_screen_is_hd_screen())
-      alt_route_button_w = 90;
+
+   //if (roadmap_screen_is_hd_screen())
+//      alt_route_button_w = 90;
 #ifdef IPHONE_NATIVE
-   width = 280;
+   width = ADJ_SCALE(300);
 #else
    width = roadmap_canvas_width() - 40;
    if (roadmap_canvas_height() < roadmap_canvas_width())
@@ -256,22 +257,23 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
 
 #ifndef TOUCH_SCREEN
    alt_route_button_w = 0;
-#endif   
+#endif
+
+   if (!showAltBtn)
+      alt_route_button_w = 0;
+
    ETA_container = ssd_container_new ("eta container", NULL, width, SSD_MIN_SIZE,
                   SSD_WIDGET_SPACE | SSD_ALIGN_CENTER | SSD_END_ROW  );
    ssd_widget_set_color(ETA_container, NULL, NULL);
 
-   if (roadmap_canvas_width() > roadmap_canvas_height()){
-      inner_width = roadmap_canvas_height() - alt_route_button_w - 40;
-   }else{
-      inner_width = roadmap_canvas_width() - alt_route_button_w - 40;
-   }
+   inner_width = width - alt_route_button_w ;
+
    inner_container = ssd_container_new ("inner container", NULL, inner_width, SSD_MIN_SIZE,
                   SSD_WIDGET_SPACE | SSD_END_ROW  );
    ssd_widget_set_color(inner_container, NULL, NULL);
-   
+
    // Add Alternatives buttons
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    if (roadmap_alternative_feature_enabled() && RealTimeLoginState () && showAltBtn){
       icon[0] = "alternative_button";
       icon[1] = "alternative_button_s";
@@ -279,8 +281,8 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
       button = ssd_button_new("Alt_button", "Alt",(const char**) &icon[0], 2, SSD_ALIGN_RIGHT|SSD_WS_TABSTOP, callback);
       ssd_widget_add(ETA_container, button);
    }
-#endif   
- 
+#endif
+
 #ifdef IPHONE_NATIVE
 //   ssd_widget_add (inner_container, space (7));
 #endif
@@ -288,41 +290,41 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    text = ssd_text_new ("ETA_W_Minutes_Text", "", font_size, 0);
    ssd_text_set_color(text,"#ffffff");
    ssd_widget_add (inner_container, text);
-   ssd_dialog_add_hspace(inner_container, 3, 0);
+   ssd_dialog_add_hspace(inner_container, ADJ_SCALE(3), 0);
 
    font_size = 24;
    text = ssd_text_new ("ETA__W_Min_text", roadmap_lang_get ("min."), font_size, 0);
    ssd_text_set_color(text,"#ffffff");
-//#ifndef IPHONE_NATIVE 
-  ssd_widget_set_offset(text, 0, 6);
+//#ifndef IPHONE_NATIVE
+  ssd_widget_set_offset(text, 0, ADJ_SCALE(6));
 //#endif
    ssd_widget_add (inner_container, text);
 
    if (showDistance){
-      ssd_dialog_add_hspace(inner_container, 5, 0);
+      ssd_dialog_add_hspace(inner_container, ADJ_SCALE(5), 0);
       text = ssd_text_new ("ETA_W_Distance_Text", "", 18, SSD_TEXT_NORMAL_FONT);
       ssd_text_set_color(text,"#ffffff");
       ssd_widget_add (inner_container, text);
-      ssd_dialog_add_hspace(inner_container, 3, 0);
-//#ifndef IPHONE_NATIVE 
-  ssd_widget_set_offset(text, 0, 14);
-//#endif      
+      ssd_dialog_add_hspace(inner_container, ADJ_SCALE(3), 0);
+//#ifndef IPHONE_NATIVE
+  ssd_widget_set_offset(text, 0, ADJ_SCALE(14));
+//#endif
       text = ssd_text_new ("ETA_W_Distance_Unit_Text", "", 16, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
       ssd_text_set_color(text,"#ffffff");
       ssd_widget_add (inner_container, text);
-//#ifndef IPHONE_NATIVE 
-  ssd_widget_set_offset(text, 0,15);
-//#endif   
+//#ifndef IPHONE_NATIVE
+  ssd_widget_set_offset(text, 0, ADJ_SCALE(15));
+//#endif
   }
-   
+
    ssd_widget_add (inner_container, space (7));
-   
+
 
    text = ssd_text_new ("ETA_Text", "", 18, SSD_TEXT_NORMAL_FONT);
    ssd_text_set_color(text,"#ffffff");
    ssd_widget_add (inner_container, text);
-   ssd_dialog_add_hspace(inner_container, 3, 0);
-   
+   ssd_dialog_add_hspace(inner_container, ADJ_SCALE(3), 0);
+
    text = ssd_text_new ("ETA_W_ETA_TIME_Text", "", 18, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
    ssd_text_set_color(text,"#ffffff");
    ssd_widget_add (inner_container, text);
@@ -333,11 +335,11 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    text = ssd_text_new ("ETA_W_VIA_Text", "", 16, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
    ssd_text_set_color(text,"#ffffff");
    ssd_widget_add (inner_container, text);
-   
+
    ssd_widget_add(ETA_container, inner_container);
    navigate_res_update_ETA_widget(ETA_container, iRouteDistance, iRouteLenght, via, showDistance);
    return ETA_container;
-   
+
 }
 
 
@@ -356,7 +358,7 @@ static void navigate_res_dlg_set_softkeys(SsdWidget dlg){
 
    ssd_widget_set_right_softkey_callback(dlg, Drive_sk_cb);
    ssd_widget_set_right_softkey_text(dlg, roadmap_lang_get("Drive"));
-   
+
    if (roadmap_alternative_feature_enabled() && RealTimeLoginState()){
       ssd_widget_set_left_softkey_callback(dlg, Alternatives_sk_cb);
       ssd_widget_set_left_softkey_text(dlg, roadmap_lang_get("Alternatives"));
@@ -367,14 +369,14 @@ static void navigate_res_dlg_set_softkeys(SsdWidget dlg){
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDistance, int iRouteLenght, const char *via, int iTimeOut, BOOL show_diclaimer) {
-   
+
    SsdWidget button;
    SsdWidget text;
-   
+
    dialog = ssd_dialog_new (NAVIAGTE_RES_DLG_NAME, "", navigate_res_dlg_close, SSD_DIALOG_FLOAT
                   | SSD_ALIGN_CENTER | SSD_ROUNDED_CORNERS | SSD_ROUNDED_BLACK | SSD_ALIGN_VCENTER | SSD_CONTAINER_BORDER);
 
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    ssd_widget_add (dialog, space (5));
    if (pTitleText){
       text = ssd_text_new ("Title TXT", pTitleText, 18, SSD_ALIGN_CENTER);
@@ -382,7 +384,7 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
       ssd_widget_add (dialog, text);
    }
    ssd_widget_add (dialog, space (3));
-   
+
    ssd_widget_add(dialog, ssd_separator_new("sep", 0));
    ssd_widget_add (dialog, space (3));
 #endif
@@ -400,11 +402,11 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
       ssd_widget_add(dialog, text);
       ssd_widget_add (dialog, space (3));
    }
-   
-    
+
+
 
    ssd_widget_add(dialog, navigate_res_ETA_widget(iRouteDistance, iRouteLenght, via, TRUE, FALSE, NULL));
-    
+
    if (show_diclaimer){
       ssd_widget_add (dialog, space (3));
       text = ssd_text_new("text", roadmap_lang_get("Note: route may not be optimal, but waze learns quickly..."), 14, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_START_NEW_ROW);
@@ -413,12 +415,12 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
    }
 
    //Add buttons
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    ssd_widget_add (dialog, space (5));
-   
+
    button = ssd_button_label("Drive_button", roadmap_lang_get("Drive"), SSD_ALIGN_CENTER|SSD_WS_TABSTOP|SSD_WS_DEFWIDGET, on_drive_btn_cb);
    ssd_widget_add(dialog, button);
-   
+
    if (roadmap_alternative_feature_enabled() && RealTimeLoginState()){
       button = ssd_button_label("Alt_button", roadmap_lang_get("Alternatives"), SSD_ALIGN_CENTER|SSD_WS_TABSTOP|SSD_WS_DEFWIDGET, on_alt_routes_btn_cb);
       ssd_widget_add(dialog, button);
@@ -427,11 +429,11 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
    navigate_res_dlg_set_softkeys(dialog);
 #endif
 
-   
+
    g_seconds = iTimeOut/1000 ;
    navigate_bar_set_mode(0);
    roadmap_main_set_periodic (1000, update_button);
    ssd_dialog_activate (NAVIAGTE_RES_DLG_NAME, NULL);
    if (!roadmap_screen_refresh ())
-      roadmap_screen_redraw (); 
+      roadmap_screen_redraw ();
 }

@@ -64,7 +64,7 @@ static TripServeHandlers tripserver_handlers[] =
 
 #define MAX_REQUESTS 100
 void  *g_request_cursors[MAX_REQUESTS];
-static g_counter = 0;
+static int g_counter = 0;
 
 const char* on_suggested_trips(int NumParams,const char*  pData){
    int i;
@@ -438,7 +438,7 @@ static void roadmap_trip_server_after_login_delayed (void) {
    void *cursor;
    void *prev;
    char *argv[ahi__count];
-   static count = 0;
+   static int count = 0;
 
    roadmap_main_remove_periodic(roadmap_trip_server_after_login_delayed);
    roadmap_log( ROADMAP_DEBUG, "roadmap_trip_server_after_login" );

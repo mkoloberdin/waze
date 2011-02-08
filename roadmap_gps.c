@@ -48,6 +48,7 @@
 #include "roadmap_nmea.h"
 #include "roadmap_gpsd2.h"
 #include "roadmap_warning.h"
+#include "roadmap_analytics.h"
 #include "navigate/navigate_main.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 #include "ssd/ssd_dialog.h"
@@ -268,10 +269,17 @@ static void roadmap_gps_update_reception (void) {
       new_state = GPS_RECEPTION_GOOD;
    }
 
+
    if (RoadMapGpsReception != new_state) {
 
       int old_state = RoadMapGpsReception;
       RoadMapGpsReception = new_state;
+
+      if ((new_state >=  GPS_RECEPTION_POOR) && (old_state <= GPS_RECEPTION_NONE ))
+         roadmap_analytics_log_event(ANALYTICS_EVENT_GPS_REC,NULL, NULL);
+
+      if ((new_state <=  GPS_RECEPTION_NONE) && (old_state > GPS_RECEPTION_NONE ))
+         roadmap_analytics_log_event(ANALYTICS_EVENT_GPS_LOST,NULL, NULL);
 
       if ((old_state <= GPS_RECEPTION_NONE) ||
             (new_state <= GPS_RECEPTION_NONE)) {
@@ -452,7 +460,7 @@ static void roadmap_gps_process_position (void) {
    }
 
    if (roadmap_gps_have_reception() && (roadmap_verbosity () <= ROADMAP_MESSAGE_DEBUG) && (roadmap_gps_show_coordinats()))
-      roadmap_display_text("DEBUG_LOC","%d.%06d, %d.%06d", abs(RoadMapGpsReceivedPosition.longitude)/1000000, abs(RoadMapGpsReceivedPosition.longitude)%1000000, abs(RoadMapGpsReceivedPosition.latitude)/1000000, abs(RoadMapGpsReceivedPosition.latitude)%1000000);
+      roadmap_display_text("DEBUG_LOC","%d.%06d, %d.%06d", (RoadMapGpsReceivedPosition.longitude)/1000000, abs(RoadMapGpsReceivedPosition.longitude)%1000000, (RoadMapGpsReceivedPosition.latitude)/1000000, abs(RoadMapGpsReceivedPosition.latitude)%1000000);
 
    roadmap_gps_update_reception ();
 }
@@ -498,6 +506,8 @@ static void roadmap_gps_keep_alive (void)
 		   !RoadMapGpsCoarseLocationMode )
    {
 	   RoadMapGpsCoarseLocationMode = TRUE;
+	   roadmap_log( ROADMAP_DEBUG, "Setting focus to the coarse fix. Time: %d. Last fine fix: %d. Timeout: %d",
+	         time( NULL ), RoadMapGpsLatestFineFix, coarse_switch_timeout );
 	   roadmap_gps_set_location_focus();
    }
 

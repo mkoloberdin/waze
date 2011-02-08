@@ -98,7 +98,7 @@ struct roadmap_canvas_image {
 } roadmap_canvas_image;
 
 
-#if defined(ROADMAP_CANVAS_C) || defined(ROADMAP_CANVAS_FONT_C) || defined(ROADMAP_CANVAS_OGL_C)
+#if defined(ROADMAP_CANVAS_C) || defined(ROADMAP_CANVAS_FONT_C) || defined(ROADMAP_CANVAS_OGL_C) || defined(ROADMAP_CANVAS_TILE_C)
 #ifndef INLINE_DEC
 #define INLINE_DEC static
 #endif //INLINE_DEC

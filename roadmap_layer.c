@@ -123,7 +123,9 @@ static void roadmap_layer_reload_internal (void) {
         const char *class_name;
         const char *color[ROADMAP_LAYER_PENS];
         const char *label_color;
+#ifdef OPENGL
 		int bg_color;
+#endif
         int  thickness;
         int  other_pens_length = strlen(name) + 64;
         char *other_pens = malloc(other_pens_length);
@@ -224,12 +226,11 @@ static void roadmap_layer_reload_internal (void) {
 
            category->delta_thickness[j] =
               roadmap_config_get_integer (&descriptor);
-#ifndef ANDROID
+
            if ( roadmap_screen_is_hd_screen() )
            {
             category->delta_thickness[j] = (int)(category->delta_thickness[j] * roadmap_screen_get_screen_scale() /100);
            }
-#endif
 
            if (!is_new) free ((void *)descriptor.name);
 
@@ -367,25 +368,27 @@ void roadmap_layer_adjust (void) {
       category = RoadMapCategory + i;
 
       for (k=0; k<LAYER_PROJ_AREAS; k++) {
+         int proj = k;
 
-         if (roadmap_layer_is_visible(i, k)) {
+#ifdef VIEW_MODE_3D_OGL
+	 /* rely on opengl to shrink the lines on the horizon */
+         if (proj < 4) proj = 0;
+#endif
+
+         if (roadmap_layer_is_visible(i, proj)) {
 
             thickness =
                roadmap_math_thickness (category->thickness,
                      category->declutter,
-                     k+1,
+                     proj+1,
                      category->pen_count > 1);
 
-            if (thickness <= 0) thickness = 1;
-#ifdef VIEW_MODE_3D_OGL
-            if (roadmap_screen_get_view_mode() == VIEW_MODE_3D)
-               thickness *= 2;
-#endif
-            if (thickness > 40) thickness = 40;
+            if (thickness <= 0) thickness = ADJ_SCALE(1);
+            if (thickness > ADJ_SCALE(40)) thickness = ADJ_SCALE(40);
 
 #ifndef OPENGL
             if (roadmap_screen_fast_refresh()) {
-               if (thickness && (thickness <= 4)) thickness = 1;
+               if (thickness && (thickness <= ADJ_SCALE(4))) thickness = ADJ_SCALE(1);
 
             } else {
 #endif
@@ -408,6 +411,12 @@ void roadmap_layer_adjust (void) {
             }
 #endif
 
+#ifdef VIEW_MODE_3D_OGL
+            if (roadmap_screen_get_view_mode() == VIEW_MODE_3D) {
+               thickness *= 2;
+               if (thickness > ADJ_SCALE(50)) thickness = ADJ_SCALE(50);
+            }
+#endif //VIEW_MODE_3D_OGL
             if (k == 0) {
                roadmap_plugin_adjust_layer (i, thickness, category->pen_count);
             }
@@ -432,12 +441,6 @@ void roadmap_layer_adjust (void) {
 
                   thickness += category->delta_thickness[j];
                   
-#ifdef VIEW_MODE_3D_OGL
-                  if (roadmap_screen_get_view_mode() == VIEW_MODE_3D/* &&
-                      !roadmap_screen_fast_refresh()*/)
-                     thickness += category->delta_thickness[j]*2; //increase the delta
-#endif
-
                } else {
                   /* Don't end with a road mostly drawn with the latter
                    * pen.

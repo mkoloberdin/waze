@@ -49,6 +49,7 @@
 #include "../roadmap_tile_manager.h"
 #include "../roadmap_tile_status.h"
 #include "../roadmap_map_download.h"
+#include "../roadmap_analytics.h"
 #include "address_search.h"
 #include "../roadmap_start.h"
 #include "generic_search_dlg.h"
@@ -56,7 +57,7 @@
 #include "local_search_dlg.h"
 #include "../roadmap_bar.h"
 #include "../roadmap_device_events.h"
-#include "roadmap_editbox.h"
+#include "../roadmap_editbox.h"
 
 #if defined(TOUCH_SCREEN) && !defined(ANDROID)
    #define  USE_ONSCREEN_KEYBOARD
@@ -200,7 +201,9 @@ void on_dlg_closed( int exit_code, void* context)
       SsdWidget   edit     = ssd_widget_get( edit_cont,GSD_IC_EDITBOX_NAME);
       const char* val      = ssd_text_get_text( edit);
 
-      if( val && (*val))
+      roadmap_analytics_log_event (ANALYTICS_EVENT_ADR_SEARCH_BACK,  NULL, NULL );
+
+	  if( val && (*val))
          strcpy( search_context[s_type].c_saved_txt, val);
 
       roadmap_main_set_periodic( 50, reopen_keyboard);
@@ -271,13 +274,9 @@ SsdWidget create_input_container()
    SsdWidget btn  = NULL;
    SsdWidget bitmap = NULL;
    SsdWidget space  = NULL;
-   int txt_box_height = 40;
+   int txt_box_height = ADJ_SCALE(37);
    int edit_box_top_offset = ssd_keyboard_edit_box_top_offset();
 
-   if ( roadmap_screen_is_hd_screen() )
-   {
-      txt_box_height = 52;
-   }
 
    icnt = ssd_container_new(  GSD_INPUT_CONT_NAME,
                               NULL,
@@ -291,6 +290,7 @@ SsdWidget create_input_container()
                               SSD_MAX_SIZE,
                               txt_box_height,
                               SSD_WS_TABSTOP|SSD_CONTAINER_SEARCH_BOX|SSD_END_ROW|SSD_ALIGN_CENTER);
+   ssd_widget_set_focus_highlight( ecnt, FALSE );
 
    bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
 

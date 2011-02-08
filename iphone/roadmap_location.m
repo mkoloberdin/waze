@@ -70,7 +70,9 @@ static RoadMapGpsdSatellite RoadmapLocationSatelliteListener  = NULL;
 
 
 static void roadmap_location_start (void){
+#if !TARGET_IPHONE_SIMULATOR
    [RoadMapLocationManager startUpdatingLocation];
+#endif
 }
 
 static void roadmap_location_stop (void){
@@ -142,13 +144,23 @@ int roadmap_location_denied () {
       //set filter
       self.locationManager.distanceFilter = kCLDistanceFilterNone;
       //set accuracy
-//      if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4) //TODO: make this >= 4.0
-//         self.locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
-//      else
+      if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4) //TODO: make this >= 4.0
+         self.locationManager.desiredAccuracy = kCLLocationAccuracyBestForNavigation;
+      else
          self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
       
       RoadMapLocationManager = self.locationManager;
    }
+   
+#if TARGET_IPHONE_SIMULATOR
+   // Cupertino
+   //CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:37.33168900 longitude:-122.03073100];
+   //IL
+   CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:32.196208 longitude:34.878593];
+   [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:nil];
+   [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:simulatorLocation];
+   [simulatorLocation release];
+#endif
    
    return self;
 }
@@ -274,6 +286,10 @@ int roadmap_location_denied () {
    //latitude = 32196208;
    //longitude = -78549870;
    //latitude = -259970;
+   
+   //cupertino:
+//   latitude = 37331689;
+//   longitude = -122030731;
 #endif
     
   

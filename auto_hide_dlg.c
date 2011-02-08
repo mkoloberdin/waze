@@ -66,6 +66,7 @@ static int auto_hide_dlg_callback (SsdWidget widget, const char *new_value) {
       return 0;
    }
    else if (!strcmp(widget->name,"Cancel")){
+      ssd_widget_loose_focus(widget);
    }
    else if (!strcmp(widget->name,"Resume")){
       hide_now( -1);
@@ -99,12 +100,8 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
    SsdWidget space;
    SsdWidget container;
    SsdWidget box;
-   int height = 45;
+   int height = ssd_container_get_row_height();
 
-   if ( roadmap_screen_is_hd_screen() )
-   {
-	   height = 65;
-   }
 
    if ( !ssd_dialog_exists( AH_DIALOG_NAME ) )
    {

@@ -788,12 +788,13 @@ int   roadmap_config_match
  * session items. The reason is only that I am anal: I don't see any reason
  * for having a position in the schema or preferences.
  */
-void roadmap_config_get_position
+BOOL roadmap_config_get_position
         (RoadMapConfigDescriptor *descriptor, RoadMapPosition *position) {
 
    const char *center;
    RoadMapConfig *file;
    RoadMapConfigItem *item;
+   BOOL found = TRUE;
 
    file = roadmap_config_search_file ("session");
    if (file == NULL) {
@@ -805,6 +806,7 @@ void roadmap_config_get_position
       center = item->value;
    } else {
       center = item->default_value;
+      found = FALSE;
    }
 
    if (center != NULL && center[0] != 0) {
@@ -830,7 +832,10 @@ void roadmap_config_get_position
 
       position->longitude = 0;
       position->latitude  = 0;
+      found = FALSE;
    }
+   
+   return found;
 }
 
 void  roadmap_config_set_position

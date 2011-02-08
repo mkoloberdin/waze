@@ -53,12 +53,14 @@
 
 #include "roadmap_string.h"
 #include "roadmap_gps.h"
+#include "roadmap_gui.h"
 
 #define OBJECT_ANIMATION_POP_IN        0x1
 #define OBJECT_ANIMATION_POP_OUT       0x2
 #define OBJECT_ANIMATION_FADE_IN       0x4
 #define OBJECT_ANIMATION_FADE_OUT      0x8
 #define OBJECT_ANIMATION_WHEN_VISIBLE  0x10
+#define OBJECT_ANIMATION_DROP_IN       0x20
 
 #define OBJECT_PRIORITY_DEFAULT 0
 #define OBJECT_PRIORITY_NORMAL  1
@@ -90,6 +92,9 @@ void roadmap_object_move (RoadMapDynamicString id,
 
 void roadmap_object_remove (RoadMapDynamicString id);
 
+void roadmap_object_start_glow (RoadMapDynamicString id, int max_duraiton);
+void roadmap_object_stop_glow (RoadMapDynamicString id);
+
 void roadmap_object_cleanup (RoadMapDynamicString origin);
 
 
@@ -101,6 +106,7 @@ typedef void (*RoadMapObjectAction) (const char *name,
                                      BOOL       is_visible,
                                      int        scale,
                                      int        opacity,
+                                     int        scale_y,
                                      const char *id,
                                      const char *text);
 
@@ -129,5 +135,8 @@ void roadmap_object_enable_short_click(void);
 BOOL roadmap_object_short_ckick_enabled(void);
 void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom);
 BOOL roadmap_object_exists(RoadMapDynamicString id);
+
+void roadmap_object_set_no_overlapping (RoadMapDynamicString id);
+BOOL roadmap_object_overlapped(RoadMapDynamicString origin, RoadMapDynamicString   image, const RoadMapGpsPosition *position, const RoadMapGuiPoint    *offset);
 #endif // INCLUDE__ROADMAP_OBJECT__H
 

@@ -68,6 +68,10 @@ int roadmap_media_player_state (void) {
 void roadmap_media_player_pause (BOOL should_pause) {
    static BOOL paused = FALSE;
    
+   if (!RoadMapMusicPlayer) {
+      roadmap_media_player_init();
+   }
+   
    if (ALLOW_PAUSE) {
       if (should_pause && RoadMapMusicPlayer.playbackState == MPMusicPlaybackStatePlaying) {
          [RoadMapMusicPlayer pause];
@@ -80,6 +84,10 @@ void roadmap_media_player_pause (BOOL should_pause) {
 }
 
 void roadmap_media_player_toggle (void) {
+   if (!RoadMapMusicPlayer) {
+      roadmap_media_player_init();
+   }
+   
    if (RoadMapMusicPlayer.playbackState == MPMusicPlaybackStatePlaying) {
       [RoadMapMusicPlayer pause];
       gs_isActive = 0;
@@ -93,7 +101,8 @@ void roadmap_media_player_toggle (void) {
 
 
 void roadmap_media_player_shutdown(){
-   roadmap_media_player_pause (FALSE);
+   if (RoadMapMusicPlayer)
+      roadmap_media_player_pause (FALSE);
 }
 
 void roadmap_media_player_init() {
@@ -110,8 +119,7 @@ void roadmap_media_player_init() {
 
 void roadmap_media_player() {
    if (!RoadMapMusicPlayer) {
-      roadmap_log (ROADMAP_ERROR, "Error - music player not initialized");
-      return;
+      roadmap_media_player_init();
    }
    
    RoadMapMediaPlayerView *MediaPlayerView = [[RoadMapMediaPlayerView alloc] init];

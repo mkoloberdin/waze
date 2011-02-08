@@ -141,7 +141,7 @@ static SsdWidget create_messagebox ( const char* mb_name )
    char button_txt[20];
    dialog = ssd_dialog_new ( mb_name, "", NULL,
          SSD_CONTAINER_BORDER|SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|SSD_PERSISTENT|
-         SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK|SSD_HEADER_BLACK);
+         SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
 

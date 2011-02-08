@@ -36,18 +36,18 @@
 typedef struct tag_bitmap_info
 {
    int            percentage;
-
+   BOOL           show_wazer;
 }  progress_info, *progress_info_ptr;
 
 static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
-   RoadMapImage   left = NULL;
-   RoadMapImage   middle = NULL;
-   RoadMapImage   right = NULL;
-   RoadMapImage   filled = NULL;
-   RoadMapImage   left_fill = NULL;
-   RoadMapImage   right_fill = NULL;
-   RoadMapImage   wazzy = NULL;
+   static RoadMapImage   left = NULL;
+   static RoadMapImage   middle = NULL;
+   static RoadMapImage   right = NULL;
+   static RoadMapImage   filled = NULL;
+   static RoadMapImage   left_fill = NULL;
+   static RoadMapImage   right_fill = NULL;
+   static RoadMapImage   wazzy = NULL;
    RoadMapGuiPoint point;
    int   width_left, width_right, width_middle;
    int width_left_fill = 0, width_right_fill = 0;
@@ -80,13 +80,13 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
                                     RES_SKIN,
                                     "progress_filled");
 
-   if (!ssd_widget_rtl(NULL) && !left_fill)
+   if (!left_fill)
       left_fill =    roadmap_res_get(
                                     RES_BITMAP,
                                     RES_SKIN,
                                     "progress_left_fill");
 
-   if (ssd_widget_rtl(NULL) && !right_fill)
+   if (!right_fill)
          right_fill =    roadmap_res_get(
                                        RES_BITMAP,
                                        RES_SKIN,
@@ -136,7 +136,7 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    point.y = rect->miny;
    roadmap_canvas_draw_image (right, &point, 0, IMAGE_NORMAL);
 
-   num_filled = (int)((rect->maxx - rect->minx-62)*pi->percentage/100) - width_left_fill ;
+   num_filled = (int)((rect->maxx - rect->minx-62)*pi->percentage/100) - (ssd_widget_rtl(NULL) ? width_right_fill : width_left_fill);
    if ((ssd_widget_rtl(NULL))){
       if (right_fill){
          point.x = rect-> maxx -width_right_fill - 30;
@@ -160,12 +160,39 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    }
 
    if (pi->percentage == 0){
-      point.x = rect->minx + 30;
       point.y = rect->miny;
-
+      if ((ssd_widget_rtl(NULL))){
+         if (right){
+            point.x = rect-> maxx -width_right_fill - 30;
+            roadmap_canvas_draw_image (right, &point, 0, IMAGE_NORMAL);
+         }
+      }
+      else{
+         if (left){
+            point.x = rect-> minx + 30 ;
+            roadmap_canvas_draw_image (left, &point, 0, IMAGE_NORMAL);
+         }
+      }
    }
 
-   if (wazzy){
+   if (pi->percentage ==100){
+       point.y = rect->miny;
+       if ((!ssd_widget_rtl(NULL))){
+          if (right_fill){
+             point.x = rect-> maxx -width_right_fill - 30;
+             roadmap_canvas_draw_image (right_fill, &point, 0, IMAGE_NORMAL);
+          }
+       }
+       else{
+          if (left_fill){
+             point.x = rect-> minx + 30 ;
+             roadmap_canvas_draw_image (left_fill, &point, 0, IMAGE_NORMAL);
+          }
+       }
+    }
+
+
+   if (pi->show_wazer && wazzy){
       point.x -= roadmap_canvas_image_width(wazzy)/2;
       point.y -= roadmap_canvas_image_height(wazzy)/2;
       roadmap_canvas_draw_image(wazzy, &point, 0, IMAGE_NORMAL);
@@ -183,11 +210,12 @@ void ssd_progress_set_value (SsdWidget widget, int percentage){
 
 SsdWidget ssd_progress_new (const char *name,
                             int percentage,
+                            BOOL show_wazer,
                             int flags)
 {
    SsdWidget         w  = ssd_widget_new(name, NULL, flags);
    progress_info_ptr   pi = (progress_info_ptr)malloc(sizeof(progress_info));
-
+   pi->show_wazer = show_wazer;
    w->data        = pi;
    w->_typeid     = "Progress";
    w->draw        = draw;

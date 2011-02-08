@@ -61,13 +61,12 @@ static PFN_ONUSER gs_pfnOnAddUser   = NULL;
 static PFN_ONUSER gs_pfnOnMoveUser  = NULL;
 static PFN_ONUSER gs_pfnOnRemoveUser= NULL;
 
-static LPRTUserLocation g_user;
+static RTUserLocation g_user;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int ValueRanges [] = {0,10,50,100,200,300,400,500,1000,5000,10000,50000,100000,1000000,10000000,100000000};
 static  void prepareValueString ( int iRank, char * resultString,const char * nickName);
 #define MAX_SIZE_RANGE_STR  30
-
-static const char* ANALYTICS_EVENT_PING_NAME = "PING_A_WAZER";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static BOOL DisclaimerShown(void){
@@ -204,6 +203,11 @@ BOOL RTUsers_Update( LPRTUsers this, LPRTUserLocation pUser)
       return FALSE;
 
    pUser->bShowGroupIcon = pUI->bShowGroupIcon;
+   if (pUser->sGroupIcon[0] != 0){
+       char temp[RT_USER_GROUP_ICON_MAXSIZE];
+       snprintf(temp, RT_USER_GROUP_ICON_MAXSIZE, "wazer_%s", pUser->sGroupIcon);
+       strcpy(pUser->sGroupIcon, temp);
+   }
    (*pUI) = (*pUser);
    gs_pfnOnMoveUser( pUser);
    pUI->bWasUpdated = TRUE;
@@ -444,7 +448,7 @@ static void RTUsers_zoom(RoadMapPosition UserPosition, int iCenterAround)
    RoadMapPosition pos;
    PluginLine line;
    int Direction;
-   int scale;
+   long scale;
 
    if (iCenterAround == RT_USERS_CENTER_ON_ALERT)
    {
@@ -516,7 +520,7 @@ static BOOL post_comment_keyboard_callback(int         exit_code,
    position.longitude = user->position.longitude;
    position.steering = user->iAzimuth;
 
-   success = Realtime_PinqWazer(&position, -1, -1, user->iID, RT_ALERT_TYPE_CHIT_CHAT, value, NULL, FALSE );
+   success = Realtime_PinqWazer(&position, -1, -1, user->iID, RT_ALERT_TYPE_CHIT_CHAT, value, NULL, NULL, FALSE );
    if (success){
        ssd_dialog_hide_all(dec_ok);
    }
@@ -525,17 +529,16 @@ static BOOL post_comment_keyboard_callback(int         exit_code,
 
    return TRUE;
 }
-static LPRTUserLocation g_user;
 
 static void disclaimer_cb( int exit_code ){
-#if (defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN))
+#if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE_NATIVE) || defined(ANDROID))
     ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
-          g_user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
+          &g_user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
    ssd_show_keyboard_dialog(  roadmap_lang_get("Chit chat"),
                               NULL,
                               post_comment_keyboard_callback,
-                              g_user);
+                              &g_user);
 #endif
 }
 
@@ -549,9 +552,9 @@ static int ping (LPRTUserLocation user){
       return 0;
    }
 
+   g_user = *user;
 
    if (!DisclaimerShown()){
-      g_user = user;
       roadmap_messagebox_cb("","Be good! Your message will pop on this user's screen but is also seen publicly in chit chat.",disclaimer_cb);
       DisclaimerDisplayed();
       return 0;
@@ -559,12 +562,12 @@ static int ping (LPRTUserLocation user){
 
 #if ((defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)) || defined(IPHONE_NATIVE) || defined(ANDROID))
     ShowEditbox(roadmap_lang_get("Chit chat"), "", post_comment_keyboard_callback,
-            user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
+          &g_user, EEditBoxEmptyForbidden | EEditBoxAlphaNumeric );
 #else
    ssd_show_keyboard_dialog(  roadmap_lang_get("Chit chat"),
                               NULL,
                               post_comment_keyboard_callback,
-                              user);
+                              &g_user);
 #endif
 
    return 1;
@@ -583,9 +586,9 @@ static int on_ping (SsdWidget widget, const char *new_value){
 
 #ifndef TOUCH_SCREEN
 int  on_sk_ping(SsdWidget widget, const char *new_value, void *context){
-   if (!g_user)
-      return;
-   ping(g_user);
+   if (g_user.iID == RT_INVALID_LOGINID_VALUE)
+      return 0;
+   ping(&g_user);
    return 1;
 }
 #endif
@@ -621,14 +624,14 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    int width = roadmap_canvas_width();
    char RankRangeStr[MAX_SIZE_RANGE_STR];
    char PointRangeStr[MAX_SIZE_RANGE_STR];
-   int  image_cont_width = 70;
+   int  image_cont_width = ADJ_SCALE(70);
 
 #ifndef TOUCH_SCREEN
-   g_user = NULL;
+   RTUserLocation_Init(&g_user);
 #endif
    
 #ifdef IPHONE
-   width = 320 * roadmap_screen_get_screen_scale() / 100;
+   width = ADJ_SCALE(320);
 #else
    if (width > roadmap_canvas_height())
       width = roadmap_canvas_height();
@@ -639,9 +642,9 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
       return;
    }
 
-   if (roadmap_screen_is_hd_screen ()){
-      image_cont_width = 100;
-   }
+   //if (roadmap_screen_is_hd_screen ()){
+//      image_cont_width = 100;
+//   }
    if (ssd_dialog_is_currently_active() && (!strcmp(ssd_dialog_currently_active_name(), "UsersPopUPDlg")))
       ssd_dialog_hide_current(dec_cancel);
 
@@ -656,7 +659,38 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 
    ssd_widget_get_size(mood_icon, &size, NULL);
 
-   position_con = ssd_container_new ("position_container", "", width-size.width-image_cont_width-10, SSD_MIN_SIZE,0);
+   if (user->iAddon == 1) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_crown_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"crown");
+   }
+   else if (user->iAddon == 2) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_sword_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"sword");
+   }
+   else if (user->iAddon == 3) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_shield_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"shield");
+   }
+   else{
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
+         ssd_bitmap_add_overlay(mood_icon,"wazer_ping");
+      }
+   }
+
+   if (user->bFacebookFriend){
+      ssd_bitmap_add_overlay(mood_icon,"wazer_FB");
+   }
+
+   if (user->bShowGroupIcon){
+      ssd_bitmap_add_overlay(mood_icon,user->sGroupIcon);
+   }
+   position_con = ssd_container_new ("position_container", "", width-size.width-image_cont_width-ADJ_SCALE(10), SSD_MIN_SIZE,0);
    ssd_widget_set_color(position_con, NULL, NULL);
 
 
@@ -750,20 +784,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    ssd_widget_set_color(text,"#ffffff", NULL);
    ssd_widget_add(position_con, text);
 
-   if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW) {
-      strncpy_safe(ping, roadmap_lang_get("This wazer agrees to be pinged"), sizeof(ping));
-   } else if (user->iPingFlag == RT_USERS_PING_FLAG_OLD_VER) {
-      strncpy_safe(ping, roadmap_lang_get("This wazer's version doesn't support ping"), sizeof(ping));
-   } else {
-      strncpy_safe(ping, roadmap_lang_get("This wazer's ping feature is turned off"), sizeof(ping));
-   }
-   ssd_dialog_add_hspace(position_con, 1, SSD_END_ROW);
-
-   text = ssd_text_new("Ping Text", ping, 12, SSD_END_ROW);
-   ssd_widget_set_color(text,"#f6a201", NULL);
-   ssd_widget_add(position_con, text);
-
-   popup = ssd_popup_new("UsersPopUPDlg", "", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, &position, SSD_POINTER_LOCATION|SSD_ROUNDED_BLACK);
+   popup = ssd_popup_new("UsersPopUPDlg", "", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, &position, SSD_POINTER_LOCATION|SSD_ROUNDED_BLACK,DIALOG_ANIMATION_FROM_TOP);
 
    ssd_dialog_add_vspace(popup, 2,0);
    image_con =
@@ -772,21 +793,21 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 
    if (user->bShowFacebookPicture){
       SsdWidget fb_image_cont;
-      int f_width = 52;
-      int f_height = 52;
+      int f_width = ADJ_SCALE(52);
+      int f_height = ADJ_SCALE(52);
 
-      if (roadmap_screen_is_hd_screen()){
-         f_height = 77;
-         f_width = 77;
-      }
+      //if (roadmap_screen_is_hd_screen()){
+//         f_height = 77;
+//         f_width = 77;
+//      }
       fb_image_cont = ssd_container_new ("FB_IMAGE_container", "", f_width, f_height, SSD_ALIGN_CENTER);
       ssd_widget_set_color(fb_image_cont, "#ffffff", "#ffffff");
 
       facebook_image = ssd_bitmap_new("facebook_image", "facebook_default_image", SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
 
       ssd_widget_add(fb_image_cont, facebook_image);
-      ssd_widget_set_offset(mood_icon, -20, 12);
-      spacer = ssd_container_new( "space", "", image_cont_width, 7, 0 );
+      ssd_widget_set_offset(mood_icon, ADJ_SCALE(-20), ADJ_SCALE(12));
+      spacer = ssd_container_new( "space", "", image_cont_width, ADJ_SCALE(7), 0 );
       ssd_widget_set_color(spacer, NULL, NULL);
       ssd_widget_add(image_con, fb_image_cont);
       ssd_widget_add(image_con, spacer);
@@ -819,7 +840,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 
 
 #ifdef TOUCH_SCREEN
-   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, 5, SSD_END_ROW );
+   spacer = ssd_container_new( "space", "", SSD_MIN_SIZE, ADJ_SCALE(5), SSD_END_ROW );
    ssd_widget_set_color( spacer, NULL, NULL );
    ssd_widget_add( popup, spacer );
 
@@ -835,7 +856,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
    ssd_widget_add(popup, button);
 #else
    if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
-      g_user = user;
+      g_user = *user;
       ssd_widget_set_left_softkey_callback(popup->parent, on_sk_ping);
       ssd_widget_set_left_softkey_text(popup->parent, roadmap_lang_get("Ping"));
    }

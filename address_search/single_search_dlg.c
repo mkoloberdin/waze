@@ -19,6 +19,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <math.h>
 #include "../ssd/ssd_container.h"
 #include "../ssd/ssd_text.h"
 #include "../ssd/ssd_button.h"
@@ -44,6 +46,7 @@
 #include "../roadmap_tile_status.h"
 #include "../roadmap_map_download.h"
 #include "../roadmap_reminder.h"
+#include "../roadmap_analytics.h"
 #include "address_search.h"
 #include "local_search.h"
 #include "single_search.h"
@@ -79,6 +82,7 @@ static   BOOL                 s_menu   = FALSE;
 #define  COULDNT_FIND_ADDRESS_TEXT    "Couldn't find the address I wanted. Notify waze."
 
 static int g_is_address = TRUE;
+
 static void on_search_error_message( int exit_code );
 static void search_progress_message_delayed(void);
 static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, const void *value);
@@ -108,7 +112,7 @@ static ssd_cm_item main_menu_items[] =
 // Context menu:
 static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( main_menu_items);
 
-
+static   char              searched_text[256];
 
 static int on_options(SsdWidget widget, const char *new_value, void *context);
 
@@ -156,6 +160,43 @@ static void update_list(SsdWidget list_cont){
     roadmap_screen_refresh();
 }
 
+
+static int get_selected_list_item()
+{
+   SsdWidget list;
+   SsdWidget dlg;
+
+   if( generic_search_dlg_is_1st(single_search))
+      return -1;
+
+   dlg = generic_search_dlg_get_search_dlg(single_search);
+   if (g_is_address)
+      list = ssd_widget_get( dlg, SSD_RC_ADDRESSLIST_NAME);
+   else
+      list = ssd_widget_get( dlg, SSD_RC_LSLIST_NAME);
+   assert(list);
+
+   return (int)ssd_list_selected_value( list);
+}
+
+static int get_ls_first_index()
+{
+   SsdWidget list;
+   SsdWidget dlg;
+
+   if( generic_search_dlg_is_1st(single_search))
+      return -1;
+
+   dlg = generic_search_dlg_get_search_dlg(single_search);
+   list = ssd_widget_get( dlg, SSD_RC_LSLIST_NAME);
+   if (!list)
+      return 0;
+
+   return (int)ssd_list_row_value( list, 0);
+}
+
+
+
 static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, const void *value)
 {
    if (value == -1){
@@ -165,6 +206,7 @@ static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, c
       return 1;
    }
    g_is_address = TRUE;
+
    on_options( NULL, NULL, NULL);
    return 0;
 }
@@ -172,9 +214,11 @@ static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, c
 static int on_ls_list_item_selected(SsdWidget widget, const char *new_value, const void *value)
 {
    g_is_address = FALSE;
+
    on_options( NULL, NULL, NULL);
    return 0;
 }
+
 static void on_address_resolved( void*                context,
                                  address_candidate*   array,
                                  int                  size,
@@ -186,13 +230,15 @@ static void on_address_resolved( void*                context,
    static   const char* results_ls[ADSR_MAX_RESULTS+1];
    static   void*       indexes_ls[ADSR_MAX_RESULTS+1];
    static   const char* icons_ls[ADSR_MAX_RESULTS+1];
-   int      count_adr = 0;
-   int      count_ls = 0;
+   int count_adr = 0;
+   int count_ls = 0;
    const char* provider_icon = NULL;
    SsdWidget list_cont = (SsdWidget)context;
    SsdWidget list_address;
    SsdWidget list_ls;
    int       i;
+   int       adr_index = 0 ;
+   int       ls_index = 0;
 
    s_searching = FALSE;
 
@@ -229,6 +275,7 @@ static void on_address_resolved( void*                context,
       roadmap_log(ROADMAP_ERROR,
                   "single_search_dlg::on_address_resolved() - Resolve process failed with error '%s' (%d)",
                   roadmap_result_string( rc), rc);
+      roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCH_FAILED, ANALYTICS_EVENT_INFO_VALUE, searched_text);
       return;
    }
 
@@ -236,6 +283,7 @@ static void on_address_resolved( void*                context,
    {
       roadmap_log(ROADMAP_DEBUG,
                   "single_search_dlg::on_address_resolved() - NO RESULTS for the address-resolve process");
+      roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCH_NORES, ANALYTICS_EVENT_INFO_VALUE, searched_text);
       return;
    }
 
@@ -244,12 +292,14 @@ static void on_address_resolved( void*                context,
    for( i=0; i<size; i++)
    {
       if (array[i].type == ADDRESS_CANDIDATE_TYPE_ADRESS){
+         array[i].offset =  adr_index++;
          results_adr[count_adr] = array[i].address;
          indexes_adr[count_adr] = (void*)i;
          icons_adr[count_adr] = "search_address";
          count_adr++;
       }
       else{
+         array[i].offset =  ls_index++;
          results_ls[count_ls] = array[i].address;
          indexes_ls[count_ls] = (void*)i;
          icons_ls[count_ls] = provider_icon;
@@ -262,7 +312,7 @@ static void on_address_resolved( void*                context,
       roadmap_native_keyboard_hide();
    }
 
-   if ((count_adr > 3) && (count_ls > 0)){
+   if ((count_adr > 4) && (count_ls > 0)){
       static char label[50];
       if (ssd_widget_rtl(NULL))
          snprintf(label, sizeof(label), "%s %d...", roadmap_lang_get("more"), count_adr - 3);
@@ -320,60 +370,60 @@ static void on_search(void)
    roadmap_result rc;
    const char*    dl_prefix = roadmap_lang_get ("map:");
    SsdWidget dlg = generic_search_dlg_get_search_dlg(single_search);
+   const char*    txt ;
 
    edit = generic_search_dlg_get_search_edit_box(single_search);
+
+   txt = ssd_text_get_text( edit );
+
    if ( !strcmp( DEBUG_LEVEL_SET_PATTERN, ssd_text_get_text( edit ) ) )
    {
       roadmap_start_reset_debug_mode();
       return;
    }
 
-   if ( !strcmp( "##@coord", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@coord", txt ) )
    {
       roadmap_gps_reset_show_coordinates();
       return;
    }
 
-   if ( !strcmp( "##@il", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@il",  txt ) )
    {
       roadmap_geo_config_il(NULL);
       return;
    }
-   if ( !strcmp( "##@usa", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@usa",  txt ) )
    {
       roadmap_geo_config_usa(NULL);
       return;
    }
-   if ( !strcmp( "##@other", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@other",  txt ) )
    {
       roadmap_geo_config_other(NULL);
       return;
    }
-   if ( !strcmp( "##@stg", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@stg",  txt ) )
    {
       roadmap_geo_config_stg(NULL);
       return;
    }
 
 #ifdef __SYMBIAN32__
-   if ( !strcmp( "##@opera", ssd_text_get_text( edit ) ) )
+   if ( !strcmp( "##@opera",  txt ) )
    {
       roadmap_browser_set_show_external(NULL);
       return;
    }
 #endif
-    if ( !strcmp( "##@heb", ssd_text_get_text( edit ) ) )
-   {
-      roadmap_lang_set_system_lang("heb");
-      roadmap_messagebox("", "Language changed to Hebrew, please restart waze");
-      return;
-   }
 
-   if ( !strcmp( "##@eng", ssd_text_get_text( edit ) ) )
-   {
-      roadmap_lang_set_system_lang("eng");
-      roadmap_messagebox("","Language changed to English, please restart waze");
-      return;
+   if (strstr(txt, "##@")){
+      char *name;
+      name = txt+3;
+      if (name && name[0] != 0){
+         roadmap_geo_config_generic(name);
+         return;
+      }
    }
 
    if ( !strncmp( dl_prefix, ssd_text_get_text( edit ), strlen( dl_prefix ) ) )
@@ -387,12 +437,50 @@ static void on_search(void)
       return;
    }
 
+   // Check if lat lon
+   if ((isdigit(txt[0]) || txt[0] == '-') && strchr (txt, ',') && strchr (txt, '.')){
+      RoadMapPosition position;
+      double   longtitude;
+      double   latitude;
+      char *latitude_ascii;
+      char buffer[128];
+      char txt_buffer[128];
+      char *lon_ascii;
+
+      strcpy (txt_buffer, txt);
+      strcpy (buffer, txt);
+
+      latitude_ascii = strchr (buffer, ',');
+      if (latitude_ascii != NULL) {
+         *(latitude_ascii++) = 0;
+         lon_ascii = strtok(txt_buffer, ",");
+         if (latitude_ascii[0] == ' ')
+            latitude_ascii++;
+
+         if ((isdigit(txt_buffer[0]) || txt_buffer[0] == '-') && (isdigit(latitude_ascii[0]) || latitude_ascii[0] == '-')){
+            longtitude= atof(lon_ascii);
+            latitude= atof(latitude_ascii);
+            position.longitude = longtitude*1000000;
+            position.latitude  = latitude*1000000;
+//            if (!(position.longitude==0 && position.latitude==0)){
+               roadmap_trip_set_point ("Selection", &position);
+               roadmap_trip_set_focus ("Selection");
+               ssd_dialog_hide_all(dec_close);
+               editor_screen_selection_menu();
+               return;
+//            }
+         }
+      }
+   }
+
    s_searching = TRUE;
 
    roadmap_main_set_periodic( 100, search_progress_message_delayed );
 
    text     = ssd_text_get_text( edit );
    list_cont=  dlg->context;
+
+   strncpy_safe (searched_text, text, sizeof(searched_text));
 
    rc = single_search_resolve_address( list_cont, on_address_resolved, text );
    if( succeeded == rc)
@@ -415,23 +503,6 @@ static void on_search(void)
 }
 
 
-static int get_selected_list_item()
-{
-   SsdWidget list;
-   SsdWidget dlg;
-
-   if( generic_search_dlg_is_1st(single_search))
-      return -1;
-
-   dlg = generic_search_dlg_get_search_dlg(single_search);
-   if (g_is_address)
-      list = ssd_widget_get( dlg, SSD_RC_ADDRESSLIST_NAME);
-   else
-      list = ssd_widget_get( dlg, SSD_RC_LSLIST_NAME);
-   assert(list);
-
-   return (int)ssd_list_selected_value( list);
-}
 
 
 
@@ -584,6 +655,7 @@ static SsdWidget create_results_container()
    SsdWidget rcnt = NULL;
    SsdWidget list = NULL;
    SsdWidget text = NULL;
+   int width = ssd_container_get_width();
 
    rcnt = ssd_container_new(  SSD_RESULTS_CONT_NAME,
                               NULL,
@@ -595,35 +667,35 @@ static SsdWidget create_results_container()
 
    ssd_dialog_add_vspace(rcnt,5,0);
    ssd_dialog_add_hspace(rcnt,5,0);
-   text = ssd_text_new(SSD_RC_ADDRESSLIST_TITLE_NAME, roadmap_lang_get("New address"),16, SSD_END_ROW);
+   text = ssd_text_new(SSD_RC_ADDRESSLIST_TITLE_NAME, roadmap_lang_get("New address"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
    ssd_widget_add( rcnt, text);
-
+   ssd_dialog_add_vspace(rcnt,1,0);
 
    list = ssd_list_new(       SSD_RC_ADDRESSLIST_NAME,
-                              SSD_MAX_SIZE,
+                              width,
                               SSD_MAX_SIZE,
                               inputtype_free_text,
                               SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE,
                               NULL);
    //ssd_widget_set_color(list, NULL,NULL);
-   ssd_list_resize( list, 50);
+   ssd_list_resize( list, ssd_container_get_row_height());
 
    ssd_widget_add( rcnt, list);
 
    ssd_dialog_add_vspace(rcnt,5,0);
    ssd_dialog_add_hspace(rcnt,5,0);
-   text = ssd_text_new(SSD_RC_LSLIST_TITLE_NAME, roadmap_lang_get(local_search_get_provider_label()),16, SSD_END_ROW);
+   text = ssd_text_new(SSD_RC_LSLIST_TITLE_NAME, roadmap_lang_get(local_search_get_provider_label()), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
    ssd_widget_add( rcnt, text);
-
+   ssd_dialog_add_vspace(rcnt,1,0);
 
    list = ssd_list_new(       SSD_RC_LSLIST_NAME,
-                              SSD_MAX_SIZE,
+                              width,
                               SSD_MAX_SIZE,
                               inputtype_free_text,
                               SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE,
                               NULL);
    //ssd_widget_set_color(list, NULL,NULL);
-   ssd_list_resize( list, 50);
+   ssd_list_resize( list, 80);
 
    ssd_widget_add( rcnt, list);
    return rcnt;
@@ -663,9 +735,11 @@ BOOL single_search_auto_search( const char* address)
    SsdWidget edit    = NULL;
 
    generic_search_dlg_update_text( address, single_search );
-
+#ifdef ANDROID
+   single_search_dlg_show( on_auto_search_completed, (void*)address);
+#else
    single_search_dlg_show_auto( on_auto_search_completed, (void*)address);
-
+#endif
    edit  = generic_search_dlg_get_search_edit_box(single_search);
 
    ssd_text_set_text( edit, address);
@@ -700,7 +774,7 @@ static void search_progress_message_delayed(void)
 {
    roadmap_main_remove_periodic( search_progress_message_delayed );
    if( s_searching )
-      ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching . . . " ) );
+      ssd_progress_msg_dialog_show( roadmap_lang_get( "Searching..." ) );
 }
 
 /* Callback for the error message box */

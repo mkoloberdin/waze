@@ -27,6 +27,7 @@
 #include "RealtimeTrafficInfo.h"
 #include "RealtimeOffline.h"
 #include "RealtimeExternalPoi.h"
+#include "RealtimeTrafficDetection.h"
 #include "../editor/editor_points.h"
 #include "../editor/editor_cleanup.h"
 #include "../roadmap_geo_location_info.h"
@@ -791,7 +792,7 @@ const char* AddUser( /* IN  */   const char*       pNext,
 
       if( !pNext || !(*pNext))
       {
-         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read group.");
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read group id=%d", UL.iID);
          (*rc) = err_parser_unexpected_data;
          return NULL;
       }
@@ -854,7 +855,7 @@ const char* AddUser( /* IN  */   const char*       pNext,
 
    if( !pNext)
    {
-      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to  group relevance ");
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to  group relevance ");
       (*rc) = err_parser_unexpected_data;
       return NULL;
    }
@@ -1629,6 +1630,13 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
                    1);                  // [in]     Remove additional termination chars
 
 
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read group id=%d", alert.iID);
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
     //   group icon
     iBufferSize = RT_ALERT_GROUP_ICON_MAXSIZE;
     pNext       = ExtractNetworkString(
@@ -1637,6 +1645,12 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
                    &iBufferSize,        // [in,out] Buffer size / Size of extracted string
                    ",",                 // [in]     Array of chars to terminate the copy operation
                    1);                  // [in]     Remove additional termination chars
+   if( !pNext)
+   {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to  group icon id=%d", alert.iID);
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+   }
 
    //   Group Relevance
    pNext = ReadIntFromString(
@@ -1671,15 +1685,15 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
     }
 
     // Is this an archive alert
-    
+
     iBufferSize = sizeof(tempBuff);
     tempBuff[0] = 0;
     pNext       = ExtractNetworkString(
                     pNext,             // [in]     Source string
                     tempBuff,//   [out]   Output buffer
                     &iBufferSize,      // [in,out] Buffer size / Size of extracted string
-                    ",\r\n",          //   [in]   Array of chars to terminate the copy operation
-                    TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+                    ",",          //   [in]   Array of chars to terminate the copy operation
+                    1);   // [in]     Remove additional termination chars
 
     if( !pNext)
     {
@@ -1693,6 +1707,74 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
     } else {
        alert.bArchive = FALSE;
     }
+
+    //   Subtype
+     pNext = ReadIntFromString(
+              pNext,            //   [in]      Source string
+              ",",              //   [in,opt]   Value termination
+              NULL,             //   [in,opt]   Allowed padding
+              &alert.iSubType,  //   [out]      Put it here
+              1);               //   [in]      Remove additional termination CHARS
+
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to  subtype ");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    // Number of thums up
+    pNext = ReadIntFromString( pNext,         // [in]     Source string
+                               ",",       // [in,opt] Value termination
+                               NULL,          // [in,opt] Allowed padding
+                               &alert.iNumThumbsUp,          // [out]    Put it here
+                               1);  // [in]     Remove additional termination CHARS
+
+    if( !pNext)
+    {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read  Number of thumbs up");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+    }
+
+
+    //  Thumbs Up by Me
+    iBufferSize = sizeof(tempBuff);
+    tempBuff[0] = 0;
+    pNext       = ExtractNetworkString(
+                     pNext,             // [in]     Source string
+                     tempBuff,//   [out]   Output buffer
+                     &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                     ",",          //   [in]   Array of chars to terminate the copy operation
+                     1);   // [in]     Remove additional termination chars
+
+     if( !pNext)
+     {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read bThumbsUpByMe flag id=%d", alert.iID);
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+     }
+
+     if (tempBuff[0] == 'T')
+        alert.bThumbsUpByMe = TRUE;
+     else
+        alert.bThumbsUpByMe = FALSE;
+
+   //   Read voice ID:
+   iBufferSize = RT_ALERT_VOICEID_MAXSIZE;
+   pNext = ExtractNetworkString(
+                                pNext,            //   [in]   Source string
+                                alert.sVoiceIdStr, // [out,opt]Output buffer
+                                &iBufferSize,   //   [in]   Output buffer size
+                                ",\r\n",               // [in]     Array of chars to terminate the copy operation
+                                TRIM_ALL_CHARS);   //   [in]   Remove additional termination chars
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read Voice ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
 
    //   Add the Alert
    if( !RTAlerts_Add(&alert))
@@ -1950,7 +2032,7 @@ const char* AddAlertComment(  /* IN  */   const char*       pNext,
       return NULL;
     }
 
-    //   Read If the comment was posted by me
+    //   Read If the comment was displayed
     iBufferSize = sizeof(Displayed);
     pNext = ExtractNetworkString(
                pNext,            //   [in]   Source string
@@ -2145,7 +2227,6 @@ const char* AddRoadInfo(/* IN  */   const char*       pNext,
    //   5.   Street  - is optional
    if(',' == (*pNext))
    {
-      roadmap_log( ROADMAP_DEBUG, "RTNet::OnGeneralResponse::AddRoadInfo() - Street is empty. ");
       pNext++;   //   Jump over the comma (,)
    }
    else
@@ -2169,7 +2250,6 @@ const char* AddRoadInfo(/* IN  */   const char*       pNext,
    //   6.   City  - is optional
    if(',' == (*pNext))
    {
-      roadmap_log( ROADMAP_DEBUG, "RTNet::OnGeneralResponse::AddRoadInfo() - City is empty. ");
       pNext++;   //   Jump over the comma (,)
    }
    else
@@ -2193,7 +2273,6 @@ const char* AddRoadInfo(/* IN  */   const char*       pNext,
    //   7.   Start  - is optional
    if(',' == (*pNext))
    {
-      roadmap_log( ROADMAP_DEBUG, "RTNet::OnGeneralResponse::AddRoadInfo() - Start is emprty. ");
       pNext++;   //   Jump over the comma (,)
    }
    else
@@ -2240,8 +2319,8 @@ const char* AddRoadInfo(/* IN  */   const char*       pNext,
                     pNext,             // [in]     Source string
                     tempBuff,//   [out]   Output buffer
                     &iBufferSize,      // [in,out] Buffer size / Size of extracted string
-                    ",\r\n",          //   [in]   Array of chars to terminate the copy operation
-                    TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+                    ",",          //   [in]   Array of chars to terminate the copy operation
+                    1);   // [in]     Remove additional termination chars
 
     if( !pNext)
     {
@@ -2254,20 +2333,42 @@ const char* AddRoadInfo(/* IN  */   const char*       pNext,
        trafficInfo.bIsOnRoute = TRUE;
     else
        trafficInfo.bIsOnRoute = FALSE;
-   //   Add the RoadInfo
 
-   if( !RTTrafficInfo_Add(&trafficInfo))
-   {
+    //   Read If the jam is alertable
+    iBufferSize = sizeof(tempBuff);
+    tempBuff[0] = 0;
+    pNext       = ExtractNetworkString(
+                     pNext,             // [in]     Source string
+                     tempBuff,//   [out]   Output buffer
+                     &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                     ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                     TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+
+     if( !pNext)
+     {
+         roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddRoadInfo() - Failed to read bIsAlertable flag id=%d", trafficInfo.iID);
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+     }
+
+     if (tempBuff[0] == 'T')
+        trafficInfo.bIsAlertable = TRUE;
+     else
+        trafficInfo.bIsAlertable = FALSE;
+
+    //   Add the RoadInfo
+    if( !RTTrafficInfo_Add(&trafficInfo))
+    {
       roadmap_log(ROADMAP_ERROR,
                   "RTNet::OnGeneralResponse::AddRoadInfo() - Failed to 'Add' road_info (ID: %d);  (List Size: %d)",
                   trafficInfo.iID, RTTrafficInfo_Count());
 
       (*rc) = err_internal_error;
       return NULL;
-   }
+    }
 
 
-   return pNext;
+    return pNext;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2817,6 +2918,65 @@ const char* ReportAlertRes( /* IN  */   const char*       pNext,
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+const char* ReportTrafficRes( /* IN  */   const char*       pNext,
+                            /* IN  */   void*             pContext,
+                            /* OUT */   BOOL*             more_data_needed,
+                            /* OUT */   roadmap_result*   rc){
+
+   RealtimeTrafficDetection_Res TrafficDetecteionRes;
+   int iBufferSize;
+
+   //   1.   Read points:
+   pNext = ReadIntFromString( pNext,         // [in]     Source string
+                              ",",       // [in,opt] Value termination
+                              NULL,          // [in,opt] Allowed padding
+                              &TrafficDetecteionRes.iPoints,          // [out]    Put it here
+                              1);  // [in]     Remove additional termination CHARS
+
+   if( !pNext )
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportTrafficRes() - Failed to read  Points");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   iBufferSize = RT_ALERT_RES_TITLE_MAX_SIZE;
+   TrafficDetecteionRes.title[0] = 0;
+   pNext       = ExtractNetworkString(
+               pNext,         // [in]     Source string
+               &TrafficDetecteionRes.title[0],          // [out,opt]Output buffer
+               &iBufferSize,  // [in,out] Buffer size / Size of extracted string
+               ",",           // [in]     Array of chars to terminate the copy operation
+               1);  // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportTrafficRes() - Failed to read  tite");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   iBufferSize = RT_ALERT_RES_TEXT_MAX_SIZE;
+   TrafficDetecteionRes.msg[0] = 0;
+   pNext       = ExtractNetworkString(
+                pNext,         // [in]     Source string
+                &TrafficDetecteionRes.msg[0],          // [out,opt]Output buffer
+                &iBufferSize,  // [in,out] Buffer size / Size of extracted string
+                ",\r\n",           // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportTrafficRes() - Failed to read msg");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+   }
+
+   RealtimeTrafficDetection_OnRes(&TrafficDetecteionRes);
+
+   return pNext;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
 const char* PostAlertCommentRes( /* IN  */   const char*       pNext,
                             /* IN  */   void*             pContext,
                             /* OUT */   BOOL*             more_data_needed,
@@ -2833,7 +2993,7 @@ const char* PostAlertCommentRes( /* IN  */   const char*       pNext,
 
    if( !pNext )
    {
-      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportAlertRes() - Failed to read  Points");
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::PostAlertCommentRes() - Failed to read  Points");
       (*rc) = err_parser_unexpected_data;
       return NULL;
    }
@@ -2849,7 +3009,7 @@ const char* PostAlertCommentRes( /* IN  */   const char*       pNext,
 
    if( !pNext)
    {
-      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportAlertRes() - Failed to read  tite");
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::PostAlertCommentRes() - Failed to read  tite");
       (*rc) = err_parser_unexpected_data;
       return NULL;
    }
@@ -2865,7 +3025,7 @@ const char* PostAlertCommentRes( /* IN  */   const char*       pNext,
 
    if( !pNext)
    {
-       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ReportAlertRes() - Failed to read msg");
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::PostAlertCommentRes() - Failed to read msg");
        (*rc) = err_parser_unexpected_data;
        return NULL;
    }
@@ -2885,6 +3045,265 @@ const char* PostAlertCommentRes( /* IN  */   const char*       pNext,
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
+const char* ThumbsUpRes( /* IN  */   const char*       pNext,
+                         /* IN  */   void*             pContext,
+                         /* OUT */   BOOL*             more_data_needed,
+                         /* OUT */   roadmap_result*   rc){
+   RTAlertRes AlertRes;
+   int iBufferSize;
+
+   //   1.   Read points:
+   pNext = ReadIntFromString( pNext,         // [in]     Source string
+                              ",",       // [in,opt] Value termination
+                              NULL,          // [in,opt] Allowed padding
+                              &AlertRes.iPoints,          // [out]    Put it here
+                              1);  // [in]     Remove additional termination CHARS
+
+   if( !pNext )
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpRes() - Failed to read  Points");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   iBufferSize = RT_ALERT_RES_TITLE_MAX_SIZE;
+   AlertRes.title[0] = 0;
+   pNext       = ExtractNetworkString(
+               pNext,         // [in]     Source string
+               &AlertRes.title[0],          // [out,opt]Output buffer
+               &iBufferSize,  // [in,out] Buffer size / Size of extracted string
+               ",",           // [in]     Array of chars to terminate the copy operation
+               1);  // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpRes() - Failed to read  tite");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   iBufferSize = RT_ALERT_RES_TEXT_MAX_SIZE;
+   AlertRes.msg[0] = 0;
+   pNext       = ExtractNetworkString(
+                pNext,         // [in]     Source string
+                &AlertRes.msg[0],          // [out,opt]Output buffer
+                &iBufferSize,  // [in,out] Buffer size / Size of extracted string
+                ",\r\n",           // [in]     Array of chars to terminate the copy operation
+                TRIM_ALL_CHARS);  // [in]     Remove additional termination chars
+
+   if( !pNext)
+   {
+       roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpRes() - Failed to read msg");
+       (*rc) = err_parser_unexpected_data;
+       return NULL;
+   }
+
+   if (AlertRes.iPoints > 0){
+      editor_points_add_new_points(AlertRes.iPoints);
+      editor_points_display_new_points_timed(AlertRes.iPoints, 5, thumbs_up_event);
+   }
+
+   return pNext;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char* UpdateAlert(/* IN  */   const char*       pNext,
+                        /* IN  */   void*             pContext,
+                        /* OUT */   BOOL*             more_data_needed,
+                        /* OUT */   roadmap_result*   rc)
+{
+   int   iID;
+   int   iNumThumbsUp;
+   BOOL  bIsOnRoute;
+   BOOL  bIsArchive;
+   int   iBufferSize;
+   char  tempBuff[5];
+
+   //   Alert ID
+   pNext = ReadIntFromString( pNext,         // [in]     Source string
+                              ",",       // [in,opt] Value termination
+                              NULL,          // [in,opt] Allowed padding
+                              &iID,          // [out]    Put it here
+                              1);  // [in]     Remove additional termination CHARS
+
+   if( !pNext || (-1 == iID))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::UpdateAlert() - Failed to read  ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //   Number of Thumbs up
+   pNext = ReadIntFromString( pNext,         // [in]     Source string
+                              ",",       // [in,opt] Value termination
+                              NULL,          // [in,opt] Allowed padding
+                              &iNumThumbsUp,          // [out]    Put it here
+                              1);  // [in]     Remove additional termination CHARS
+
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::UpdateAlert() - Failed to read  Number of thumbs up");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   //    Is On route
+   iBufferSize = sizeof(tempBuff);
+   tempBuff[0] = 0;
+   pNext       = ExtractNetworkString(
+                    pNext,             // [in]     Source string
+                    tempBuff,//   [out]   Output buffer
+                    &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                    ",",          //   [in]   Array of chars to terminate the copy operation
+                    1);   // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::UpdateAlert() - Failed to read isOnRoute flag id=%d", iID);
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    if (tempBuff[0] == 'T')
+       bIsOnRoute = TRUE;
+    else
+       bIsOnRoute = FALSE;
+
+   //    Is archive
+   iBufferSize = sizeof(tempBuff);
+   tempBuff[0] = 0;
+   pNext       = ExtractNetworkString(
+                    pNext,             // [in]     Source string
+                    tempBuff,//   [out]   Output buffer
+                    &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                    ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                    TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::UpdateAlert() - Failed to read isArchive flag id=%d", iID);
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    if (tempBuff[0] == 'T')
+       bIsArchive = TRUE;
+    else
+       bIsArchive = FALSE;
+
+   //   Update the alert
+   RTAlerts_Update(iID, iNumThumbsUp, bIsOnRoute, bIsArchive);
+
+   return pNext;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+const char* ThumbsUpReceived(  /* IN  */   const char*       pNext,
+                              /* IN  */   void*             pContext,
+                              /* OUT */   BOOL*             more_data_needed,
+                              /* OUT */   roadmap_result*   rc)
+{
+   int                  iBufferSize;
+   char                 tempBuff[5];
+   ThumbsUp             thumbsUp;
+
+   RTAlerts_ThumbsUpRecordInit(&thumbsUp);
+   //   ID
+   pNext = ReadIntFromString(
+                  pNext,         //   [in]      Source string
+                  ",",           //   [in,opt]   Value termination
+                  NULL,          //   [in,opt]   Allowed padding
+                  &thumbsUp.iID,  //   [out]      Put it here
+                  1);  //   [in]      Remove additional termination CHARS
+
+   if( !pNext || (RT_INVALID_LOGINID_VALUE == thumbsUp.iID))
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpReceived() - Failed to read alert ID");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+
+   //  User ID
+   iBufferSize = RT_ALERT_USERNM_MAXSIZE;
+   pNext = ExtractNetworkString(
+                 pNext,               //   [in]   Source string
+                 thumbsUp.sUserID,  //   [out]   Output buffer
+                 &iBufferSize,
+                                       //   [in]   Output buffer size
+                 ",",                 //   [in]   Array of chars to terminate the copy operation
+                 1);                  //   [in]   Remove additional termination chars
+
+   if( !pNext)
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpReceived() - Failed to read user ID");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+
+   //  NickName
+   iBufferSize = RT_ALERT_USERNM_MAXSIZE;
+   pNext = ExtractNetworkString(
+                  pNext,               //   [in]   Source string
+                  thumbsUp.sNickName,  //   [out]   Output buffer
+                  &iBufferSize,
+                                        //   [in]   Output buffer size
+                  ",",                 //   [in]   Array of chars to terminate the copy operation
+                  1);                  //   [in]   Remove additional termination chars
+
+   if( !pNext)
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpReceived() - Failed to read user nick name");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+   //  Facebook Name
+   iBufferSize = RT_ALERT_FACEBOOK_USERNM_MAXSIZE;
+   pNext = ExtractNetworkString(
+                  pNext,               //   [in]   Source string
+                  thumbsUp.sFacebookName,  //   [out]   Output buffer
+                  &iBufferSize,
+                                        //   [in]   Output buffer size
+                  ",",                 //   [in]   Array of chars to terminate the copy operation
+                  1);                  //   [in]   Remove additional termination chars
+
+   if( !pNext)
+   {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpReceived() - Failed to read user facebook name");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+   }
+
+   //  Show Facebook Image
+   iBufferSize = sizeof(tempBuff);
+   tempBuff[0] = 0;
+   pNext       = ExtractNetworkString(
+                    pNext,             // [in]     Source string
+                    tempBuff,//   [out]   Output buffer
+                    &iBufferSize,      // [in,out] Buffer size / Size of extracted string
+                    ",\r\n",          //   [in]   Array of chars to terminate the copy operation
+                    TRIM_ALL_CHARS);   // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::ThumbsUpReceived() - Failed to read bShowFacebookPicture flag id=%d", thumbsUp.iID);
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    if (tempBuff[0] == 'T')
+       thumbsUp.bShowFacebookPicture = TRUE;
+    else
+       thumbsUp.bShowFacebookPicture = FALSE;
+
+
+    RTAlerts_ThumbsUpReceived(&thumbsUp);
+
+    return pNext;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
 const char* onGeoConfigResponse(  /* IN  */   const char*       pNext,
                               /* IN  */   void*             pContext,
                               /* OUT */   BOOL*             more_data_needed,
@@ -2902,7 +3321,12 @@ const char *AddBonus (/* IN  */   const char*       pNext,
    RTBonus  bonus;
    char     str[128];
    int      iBufferSize;
-
+   char     bonusTitle[256];
+   char     bonusTitleColor[20];
+   char     bonusTxt[256];
+   char     bonusTxtColor[20];
+   char     webExtraParams[256];
+   char     tempBuff[10];
    RealtimeBonus_Record_Init(&bonus);
    //   1.   Read ID:
    pNext = ReadIntFromString(
@@ -2972,7 +3396,7 @@ const char *AddBonus (/* IN  */   const char*       pNext,
                        &bonus.iNumPoints,    //   [out]      Put it here
                        1);  //   [in]      Remove additional termination CHARS
 
-   if( !pNext || (-1 == bonus.iNumPoints))
+   if( !pNext)
    {
            roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus() - Failed to read number of points");
            (*rc) = err_parser_unexpected_data;
@@ -2987,7 +3411,7 @@ const char *AddBonus (/* IN  */   const char*       pNext,
                         &bonus.iRadius,    //   [out]      Put it here
                         1);  //   [in]      Remove additional termination CHARS
 
-    if( !pNext || (-1 == bonus.iRadius))
+    if( !pNext)
     {
             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus() - Failed to read radius");
             (*rc) = err_parser_unexpected_data;
@@ -3010,28 +3434,337 @@ const char *AddBonus (/* IN  */   const char*       pNext,
               (*rc) = err_parser_unexpected_data;
               return NULL;
      }
-     bonus.pIconName = &str[0];
+     if (str[0])
+        bonus.pIconName = &str[0];
 
      //   8.   Type
      pNext = ReadIntFromString(
                           pNext,         //   [in]      Source string
-                          ",\r\n",           //   [in,opt]   Value termination
+                          ",",           //   [in,opt]   Value termination
                           NULL,          //   [in,opt]   Allowed padding
                           &bonus.iType,    //   [out]      Put it here
-                          TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                          1);  //   [in]      Remove additional termination CHARS
 
-     if( !pNext || (-1 == bonus.iType))
+     if( !pNext)
      {
               roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus() - Failed to read type, using type bonus points");
-              bonus.iType = BONUS_TYPE_POINTS;
      }
-     bonus.bIsCustomeBonus = FALSE;
 
-     RealtimeBonus_Add(&bonus);
+    bonusTitle[0] = 0;
+    iBufferSize = sizeof(bonusTitle);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTitle[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
 
-     return pNext;
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read bonus Title");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (bonusTitle[0])
+       bonus.pBonusTitle = &bonusTitle[0];
+
+    bonusTitleColor[0] = 0;
+    iBufferSize = sizeof(bonusTitleColor);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTitleColor[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read bonus Title color");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if(bonusTitleColor[0])
+       bonus.pBonusTitleColor = &bonusTitleColor[0];
+
+    bonusTxt[0] = 0;
+    iBufferSize = sizeof(bonusTxt);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTxt[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read bonus Text");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (bonusTxt[0])
+       bonus.pBonusText = &bonusTxt[0];
+
+    bonusTxtColor[0] = 0;
+    iBufferSize = sizeof(bonusTxtColor);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTxtColor[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read bonus Text colro");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (bonusTxtColor[0])
+       bonus.pBonusTextColor = &bonusTxtColor[0];
+
+    tempBuff[0] = 0;
+    iBufferSize = sizeof(tempBuff);
+    pNext       = ExtractNetworkString(
+                pNext,               // [in]     Source string
+                &tempBuff[0],  // [out,opt]Output buffer
+                &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                ",",                 // [in]     Array of chars to terminate the copy operation
+                1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+          roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read HasWebDlg param");
+          (*rc) = err_parser_unexpected_data;
+          return NULL;
+    }
+    if (tempBuff[0] == 'T')
+       bonus.bHasWebDlg = TRUE;
+    else
+       bonus.bHasWebDlg = FALSE;
+    //Web Extra params
+    webExtraParams[0] = 0;
+    iBufferSize = sizeof(webExtraParams);
+    pNext       = ExtractNetworkString(
+                pNext,               // [in]     Source string
+                &webExtraParams[0],  // [out,opt]Output buffer
+                &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                ",",                 // [in]     Array of chars to terminate the copy operation
+                1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+          roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read Web Extra params");
+          (*rc) = err_parser_unexpected_data;
+          return NULL;
+    }
+    if (webExtraParams[0])
+       bonus.pWebDlgExtraParams = &webExtraParams[0];
+
+    //Template ID
+    pNext = ReadIntFromString(
+                      pNext,         //   [in]      Source string
+                      ",\r\n",           //   [in,opt]   Value termination
+                      NULL,          //   [in,opt]   Allowed padding
+                      &bonus.iTemplateID,    //   [out]      Put it here
+                      TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext)
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus() - Failed to read type, using TemplateID");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    bonus.bIsCustomeBonus = FALSE;
+
+    RealtimeBonus_Add(&bonus);
+
+    return pNext;
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char *AddBonusTemplate (/* IN  */   const char*       pNext,
+               /* IN  */   void*             pContext,
+               /* OUT */   BOOL*             more_data_needed,
+               /* OUT */   roadmap_result*   rc)
+{
+   RTBonusTemplate template;
+   int      iBufferSize;
+   char     iconName[256];
+   char     bonusTitle[256];
+   char     bonusTitleColor[20];
+   char     bonusTxt[256];
+   char     bonusTxtColor[20];
+   char     webExtraParams[256];
+
+   RealtimeBonus_BonusTemplate_Init(&template);
+
+
+   // ID
+   pNext = ReadIntFromString(
+                    pNext,         //   [in]      Source string
+                    ",",           //   [in,opt]   Value termination
+                    NULL,          //   [in,opt]   Allowed padding
+                    &template.iID,    //   [out]      Put it here
+                    1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext || (-1 == template.iID))
+    {
+        roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate() - Failed to read  ID");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+    }
+
+    // Radius
+    pNext = ReadIntFromString(
+                        pNext,         //   [in]      Source string
+                        ",",           //   [in,opt]   Value termination
+                        NULL,          //   [in,opt]   Allowed padding
+                        &template.iRadius,    //   [out]      Put it here
+                        1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext)
+    {
+            roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate() - Failed to read radius");
+            (*rc) = err_parser_unexpected_data;
+            return NULL;
+    }
+
+    //   5.   Read points:
+    pNext = ReadIntFromString(
+                         pNext,         //   [in]      Source string
+                         ",",           //   [in,opt]   Value termination
+                         NULL,          //   [in,opt]   Allowed padding
+                         &template.iNumPoints,    //   [out]      Put it here
+                         1);  //   [in]      Remove additional termination CHARS
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate() - Failed to read number of points");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+
+    // Icon
+    iconName[0] = 0;
+    iBufferSize = sizeof(iconName);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &iconName[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read Icon Name");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (iconName[0])
+       template.pIconName = &iconName[0];
+
+    //Title
+    bonusTitle[0] = 0;
+    iBufferSize = sizeof(bonusTitle);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTitle[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read title");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (bonusTitle[0])
+       template.pTitle = &bonusTitle[0];
+
+    //Title Color
+    bonusTitleColor[0] = 0;
+    iBufferSize = sizeof(bonusTitleColor);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTitleColor[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read title color");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (bonusTitleColor[0])
+       template.pTitleColor = &bonusTitleColor[0];
+
+    //Text
+    bonusTxt[0] = 0;
+    iBufferSize = sizeof(bonusTxt);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &bonusTxt[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",",                 // [in]     Array of chars to terminate the copy operation
+                      1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read Txt");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+
+    if(bonusTxt[0])
+       template.pText = &bonusTxt[0];
+
+    //Text Color
+    bonusTxtColor[0] = 0;
+    iBufferSize = sizeof(bonusTxtColor);
+    pNext       = ExtractNetworkString(
+                       pNext,               // [in]     Source string
+                       &bonusTxtColor[0],  // [out,opt]Output buffer
+                       &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                       ",",                 // [in]     Array of chars to terminate the copy operation
+                       1);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+              roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read Txt color");
+              (*rc) = err_parser_unexpected_data;
+              return NULL;
+    }
+    if (bonusTxtColor[0])
+       template.pTextColor = &bonusTxtColor[0];
+
+
+    //Web Extra params
+    webExtraParams[0] = 0;
+    iBufferSize = sizeof(webExtraParams);
+    pNext       = ExtractNetworkString(
+                      pNext,               // [in]     Source string
+                      &webExtraParams[0],  // [out,opt]Output buffer
+                      &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                      ",\r\n",                 // [in]     Array of chars to terminate the copy operation
+                      TRIM_ALL_CHARS);                  // [in]     Remove additional termination chars
+
+    if( !pNext)
+    {
+             roadmap_log( ROADMAP_ERROR, "RTNet::AddBonusTemplate - Failed to read Web Extra params");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+    }
+    if (webExtraParams[0])
+       template.pWebDlgExtraParams = &webExtraParams[0];
+
+
+    RealtimeBonus_BonusTemplate_Add(&template);
+    return pNext;
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////
 const char *AddCustomBonus (/* IN  */   const char*       pNext,
                /* IN  */   void*             pContext,
@@ -3209,6 +3942,8 @@ const char *CollectBonusRes (/* IN  */   const char*       pNext,
 {
    int   iID, iPoints, iType;
    char  buff[256];
+   char  Title[256];
+   char  Msg[256];
    int   iBufferSize;
    BOOL  bHasGift, bIsBigGift;
    //   1.   Read ID:
@@ -3305,8 +4040,8 @@ const char *CollectBonusRes (/* IN  */   const char*       pNext,
                          pNext,               // [in]     Source string
                          &buff[0],  // [out,opt]Output buffer
                          &iBufferSize,        // [in,out] Buffer size / Size of extracted string
-                         ",\r\n",                 // [in]     Array of chars to terminate the copy operation
-                         TRIM_ALL_CHARS);                  // [in]     Remove additional termination chars
+                         ",",                 // [in]     Array of chars to terminate the copy operation
+                         1);                  // [in]     Remove additional termination chars
 
     if( !pNext)
     {
@@ -3315,8 +4050,42 @@ const char *CollectBonusRes (/* IN  */   const char*       pNext,
        return NULL;
     }
 
+    //  Title
+    Title[0] = 0;
+    iBufferSize = sizeof(Title);
+    pNext       = ExtractNetworkString(
+                          pNext,               // [in]     Source string
+                          &Title[0],  // [out,opt]Output buffer
+                          &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                          ",",                 // [in]     Array of chars to terminate the copy operation
+                          1);                  // [in]     Remove additional termination chars
 
-     RealtimeBonus_CollectedPointsConfirmed(iID, iType, iPoints, bHasGift, bIsBigGift, buff);
+     if( !pNext)
+     {
+        roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read Title");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+     }
+
+     //  Msg
+     Msg[0] = 0;
+      iBufferSize = sizeof(Msg);
+      pNext       = ExtractNetworkString(
+                           pNext,               // [in]     Source string
+                           &Msg[0],  // [out,opt]Output buffer
+                           &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                           ",\r\n",                 // [in]     Array of chars to terminate the copy operation
+                           TRIM_ALL_CHARS);                  // [in]     Remove additional termination chars
+
+      if( !pNext)
+      {
+         roadmap_log( ROADMAP_ERROR, "RTNet::AddBonus - Failed to read Msg");
+         (*rc) = err_parser_unexpected_data;
+         return NULL;
+      }
+
+
+      RealtimeBonus_CollectedPointsConfirmed(iID, iType, iPoints, bHasGift, bIsBigGift, buff, Title, Msg);
 
     return pNext;
 }
@@ -3338,7 +4107,6 @@ const char *UserGroups (/* IN  */   const char*       pNext,
    name[0] = 0;
    if( ',' == (*pNext))
    {
-      roadmap_log( ROADMAP_DEBUG, "RTNet::OnGeneralResponse::UserGroups() - active group name is empty...");
       pNext++;   //   Jump over the comma (,)
    }
    else
@@ -3608,7 +4376,7 @@ const char *AddExternalPoiType (/* IN  */   const char*       pNext,
                 &externalPoiType.cSmallIcon[0],         // [out,opt]Output buffer
                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
                 ",",                 // [in]     Array of chars to terminate the copy operation
-                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+                1);     // [in]     Remove additional termination chars
 
     if( !pNext || !(*pNext))
     {
@@ -3624,7 +4392,7 @@ const char *AddExternalPoiType (/* IN  */   const char*       pNext,
                 &externalPoiType.cBigIcon[0],         // [out,opt]Output buffer
                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
                 ",",                 // [in]     Array of chars to terminate the copy operation
-                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+                1);     // [in]     Remove additional termination chars
 
     if( !pNext || !(*pNext))
     {
@@ -3640,7 +4408,7 @@ const char *AddExternalPoiType (/* IN  */   const char*       pNext,
                 &externalPoiType.cOnClickUrl[0],         // [out,opt]Output buffer
                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
                 ",",                 // [in]     Array of chars to terminate the copy operation
-                TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+                1);     // [in]     Remove additional termination chars
 
     if( !pNext || !(*pNext))
     {
@@ -3698,10 +4466,10 @@ const char *AddExternalPoiType (/* IN  */   const char*       pNext,
      //  Promotion Type
      pNext = ReadIntFromString(
                         pNext,         //   [in]      Source string
-                        ",\r\n",           //   [in,opt]   Value termination
+                        ",",           //   [in,opt]   Value termination
                         NULL,          //   [in,opt]   Allowed padding
                         &externalPoiType.iPromotionType,    //   [out]      Put it here
-                        TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                        1);  //   [in]      Remove additional termination CHARS
 
      if(!pNext)
      {
@@ -3710,7 +4478,69 @@ const char *AddExternalPoiType (/* IN  */   const char*       pNext,
             return NULL;
      }
 
-     externalPoiType.iIsNavigable = TRUE;//TEMP_AVI add to protocol
+     //   Read small promotion icon:
+     iBufferSize = sizeof(externalPoiType.cSmallPromotionIcon);
+     pNext       = ExtractNetworkString(
+                 pNext,               // [in]     Source string
+                 &externalPoiType.cSmallPromotionIcon[0],         // [out,opt]Output buffer
+                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                 ",",                 // [in]     Array of chars to terminate the copy operation
+                 1);     // [in]     Remove additional termination chars
+
+     if( !pNext || !(*pNext))
+     {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read promotion small icon.");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+     }
+
+     //   Read big promotion icon:
+     iBufferSize = sizeof(externalPoiType.cBigPromotionIcon);
+     pNext       = ExtractNetworkString(
+                 pNext,               // [in]     Source string
+                 &externalPoiType.cBigPromotionIcon[0],         // [out,opt]Output buffer
+                 &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+                 ",",                 // [in]     Array of chars to terminate the copy operation
+                 1);     // [in]     Remove additional termination chars
+
+     if( !pNext || !(*pNext))
+     {
+        roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read big promotion icon.");
+        (*rc) = err_parser_unexpected_data;
+        return NULL;
+     }
+
+      //  Promotion ID
+      pNext = ReadIntFromString(
+                         pNext,         //   [in]      Source string
+                         ",\r\n",           //   [in,opt]   Value termination
+                         NULL,          //   [in,opt]   Allowed padding
+                         &externalPoiType.iPromotionID,    //   [out]      Put it here
+                         1);  //   [in]      Remove additional termination CHARS
+
+      if(!pNext)
+      {
+             roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read Promotion ID");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+      }
+
+      //  Promotion radius
+      pNext = ReadIntFromString(
+                         pNext,         //   [in]      Source string
+                         ",\r\n",           //   [in,opt]   Value termination
+                         NULL,          //   [in,opt]   Allowed padding
+                         &externalPoiType.iPromotionRadius,    //   [out]      Put it here
+                         TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+      if(!pNext)
+      {
+             roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoiType() - Failed to read Promotion radius");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+      }
+
+     externalPoiType.iIsNavigable = TRUE;
      RealtimeExternalPoi_ExternalPoiType_Add(&externalPoiType);
      return pNext;
 }
@@ -3732,7 +4562,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                ",",              //   [in,opt]   Value termination
                NULL,             //   [in,opt]   Allowed padding
                &externalPoi.iID,   //   [out]      Put it here
-               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+               1);  //   [in]      Remove additional termination CHARS
 
    if( !pNext || !(*pNext))
    {
@@ -3747,7 +4577,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                ",",              //   [in,opt]   Value termination
                NULL,             //   [in,opt]   Allowed padding
                &externalPoi.iServerID,   //   [out]      Put it here
-               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+               1);  //   [in]      Remove additional termination CHARS
 
    if( !pNext || !(*pNext))
    {
@@ -3807,7 +4637,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                ",",              //   [in,opt]   Value termination
                NULL,             //   [in,opt]   Allowed padding
                &externalPoi.iLongitude,   //   [out]      Put it here
-               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+               1);  //   [in]      Remove additional termination CHARS
 
    if( !pNext || !(*pNext))
    {
@@ -3822,7 +4652,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                ",",              //   [in,opt]   Value termination
                NULL,             //   [in,opt]   Allowed padding
                &externalPoi.iLatitude,    //   [out]      Put it here
-               TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+               1);  //   [in]      Remove additional termination CHARS
 
    if( !pNext || !(*pNext))
    {
@@ -3837,7 +4667,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                 ",",              //   [in,opt]   Value termination
                 NULL,             //   [in,opt]   Allowed padding
                 &externalPoi.iCreationTime,    //   [out]      Put it here
-                TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                1);  //   [in]      Remove additional termination CHARS
 
     if( !pNext || !(*pNext))
     {
@@ -3852,7 +4682,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                  ",",              //   [in,opt]   Value termination
                  NULL,             //   [in,opt]   Allowed padding
                  &externalPoi.iUpdateTime,    //   [out]      Put it here
-                 TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                 1);  //   [in]      Remove additional termination CHARS
 
     if( !pNext || !(*pNext))
     {
@@ -3867,7 +4697,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                   ",",              //   [in,opt]   Value termination
                   NULL,             //   [in,opt]   Allowed padding
                   &externalPoi.iPromotionType,    //   [out]      Put it here
-                  TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                  1);  //   [in]      Remove additional termination CHARS
 
     if( !pNext || !(*pNext))
     {
@@ -3882,7 +4712,7 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                    ",",              //   [in,opt]   Value termination
                    NULL,             //   [in,opt]   Allowed padding
                    &externalPoi.iIsPromotioned,    //   [out]      Put it here
-                   TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                   1);  //   [in]      Remove additional termination CHARS
 
     if( !pNext || !(*pNext))
     {
@@ -3896,8 +4726,8 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
                  pNext,               // [in]     Source string
                  &externalPoi.cResourceUrlParams[0],         // [out,opt]Output buffer
                  &iBufferSize,        // [in,out] Buffer size / Size of extracted string
-                 ",\r\n",                 // [in]     Array of chars to terminate the copy operation
-                 TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+                 ",",                 // [in]     Array of chars to terminate the copy operation
+                 1);     // [in]     Remove additional termination chars
 
      if( !pNext)
      {
@@ -3906,8 +4736,38 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
         return NULL;
      }
 
-    RealtimeExternalPoi_ExternalPoi_Add(&externalPoi);
-   return pNext;
+     //  Promotion ID
+     pNext = ReadIntFromString(
+                         pNext,         //   [in]      Source string
+                         ",",           //   [in,opt]   Value termination
+                         NULL,          //   [in,opt]   Allowed padding
+                         &externalPoi.iPromotionID,    //   [out]      Put it here
+                         1);  //   [in]      Remove additional termination CHARS
+
+     if(!pNext)
+     {
+             roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Promotion ID");
+             (*rc) = err_parser_unexpected_data;
+             return NULL;
+     }
+
+     //  Promotion radius
+     pNext = ReadIntFromString(
+                          pNext,         //   [in]      Source string
+                          ",\r\n",           //   [in,opt]   Value termination
+                          NULL,          //   [in,opt]   Allowed padding
+                          &externalPoi.iPromotionRadius,    //   [out]      Put it here
+                          TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+     if(!pNext)
+     {
+            roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to read Promotion radius");
+            (*rc) = err_parser_unexpected_data;
+            return NULL;
+     }
+
+     RealtimeExternalPoi_ExternalPoi_Add(&externalPoi);
+     return pNext;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

@@ -152,7 +152,7 @@ void ssd_confirm_dialog_close (void)
       kill_messagebox_timer();
       return;
    }
-   
+
    dialog = ssd_dialog_context();
    data = (confirm_dialog_context *) ssd_dialog_context();
    if (data){
@@ -162,7 +162,7 @@ void ssd_confirm_dialog_close (void)
       else
          exit_code = dec_no;
    }
-   
+
    kill_messagebox_timer ();
    /* Set the NULL to the current before hide
     * NUll context is critical as an indicator for the delayed callback in ssd_button
@@ -214,7 +214,7 @@ static int no_button_callback (SsdWidget widget, const char *new_value) {
     SsdWidget dialog;
     ConfirmDialogCallback callback;
 	 confirm_dialog_context *data;
-   
+
     dialog = widget->parent;
     data = (confirm_dialog_context  *)dialog->context;
 
@@ -273,7 +273,7 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
    dialog = ssd_dialog_new ("confirm_dialog", "", NULL,
          SSD_PERSISTENT|SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
-         SSD_ALIGN_CENTER|SSD_CONTAINER_TITLE|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK|SSD_POINTER_NONE|SSD_HEADER_BLACK);
+         SSD_ALIGN_CENTER|SSD_CONTAINER_TITLE|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK|SSD_POINTER_NONE);
 
    ssd_widget_set_color (dialog, "#000000", "#ff0000000");
    s_gMsgBoxDlg = dialog;
@@ -304,11 +304,11 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
 #ifdef TOUCH_SCREEN
 
-  ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
+   ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
 
     ssd_widget_add (dialog,
     ssd_button_label (roadmap_lang_get ("Yes"), textYes,
-                        SSD_ALIGN_CENTER| SSD_WS_TABSTOP,
+                        SSD_ALIGN_CENTER|SSD_WS_TABSTOP,
                         yes_button_callback));
 
    ssd_widget_add (dialog,
@@ -320,8 +320,8 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 	set_soft_keys(dialog, textYes, textNo);
 
 #endif
-   ssd_widget_add (dialog,
-      ssd_container_new ("spacer3", NULL, 0, 2, SSD_END_ROW));
+	// AGA TODO: Scaling factor
+	ssd_dialog_add_vspace( dialog, 3, SSD_START_NEW_ROW|SSD_END_ROW );
 }
 
 void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL default_yes, ConfirmDialogCallback callback, void *context,const char *textYes, const char *textNo) {

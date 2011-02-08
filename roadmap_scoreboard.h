@@ -24,6 +24,6 @@
 
 void roadmap_scoreboard(void);
 const char* roadmap_scoreboard_response(int status, roadmap_result* rc, int NumParams, const char*  pData);
-
+void roadmap_scoreboard_request_failed (roadmap_result rc);
 
 #endif //ROADMAP_SCOREBOARD_H_

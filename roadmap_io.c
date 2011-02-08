@@ -103,6 +103,32 @@ void  roadmap_io_close (RoadMapIO *io) {
       case ROADMAP_IO_NULL:
          break;
    }
+   roadmap_io_invalidate( io );
+}
+
+void  roadmap_io_invalidate (RoadMapIO *io) {
+
+   switch (io->subsystem) {
+
+      case ROADMAP_IO_FILE:
+         io->os.file = ROADMAP_INVALID_FILE;
+         break;
+
+      case ROADMAP_IO_NET:
+         io->os.socket = ROADMAP_INVALID_SOCKET;
+         break;
+
+      case ROADMAP_IO_SERIAL:
+         io->os.serial = ROADMAP_INVALID_SERIAL;
+         break;
+
+      case ROADMAP_IO_PIPE:
+         io->os.pipe = ROADMAP_SPAWN_INVALID_PIPE;
+         break;
+
+      case ROADMAP_IO_NULL:
+         break;
+   }
    io->subsystem = ROADMAP_IO_INVALID;
 }
 

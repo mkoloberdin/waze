@@ -44,7 +44,7 @@
 
 // Threshold for the pointer movement indicating the drag operation (in any coordinate)
 #if (defined(ANDROID))
-#define	DRAG_MOVEMENT_THR	0	// Android
+#define	DRAG_MOVEMENT_THR	2	// Android
 #elif (defined(__SYMBIAN32__))
 #define  DRAG_MOVEMENT_THR 8 // Sym touch
 #elif (defined(_WIN32))
@@ -55,7 +55,12 @@
 
 #define LONG_CLICK_TIMEOUT          600
 #define DOUBLE_CLICK_TIMEOUT        300
+
+#ifdef OGL_TILE
+#define DRAG_FLOW_CONTROL_TIMEOUT   5
+#else
 #define DRAG_FLOW_CONTROL_TIMEOUT   30
+#endif
 
 
 static int is_button_down = 0;

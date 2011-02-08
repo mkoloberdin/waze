@@ -94,5 +94,8 @@ void roadmap_trip_save_screenshot (void);
 
 int roadmap_trip_gps_state (void) ;
 
+
+void roadmap_trip_set_animation(const char *name, int animation_type);
+
 #endif // INCLUDE__ROADMAP_TRIP__H
 

@@ -181,6 +181,9 @@ void roadmap_ticker_display() {
       case bonus_points :
          point_text= roadmap_lang_get("Bonus points");
          break;
+      case thumbs_up_event :
+         point_text= roadmap_lang_get("Thumbs up");
+         break;
       default:
          point_text="";
          break;
@@ -214,12 +217,13 @@ void roadmap_ticker_initialize(void){
 	CGRect rect;
 	gInitialized = FALSE;
 	int posX = 10;
+   CGFloat canvas_width = roadmap_canvas_width()*100.0f/roadmap_screen_get_screen_scale();
 	
 	if (!editor_screen_gray_scale())
 		return;
 		
 	rect = CGRectZero;
-	rect.size.width = roadmap_canvas_width();
+	rect.size.width = canvas_width;
 	
 	roadmap_config_declare_enumeration ("user", &ShowTickerCfg, NULL, "yes", "no", NULL);
 	
@@ -310,7 +314,7 @@ void roadmap_ticker_initialize(void){
 		[gTickerView addSubview:imageView];
 		[imageView release];
 		imageView = [[UIImageView alloc] initWithImage:image];
-		rect.origin.x = posX + (roadmap_canvas_width() - posX) /2;
+		rect.origin.x = posX + (canvas_width - posX) /2;
 		[imageView setFrame:rect];
 		[gTickerView addSubview:imageView];
 		[imageView release];		
@@ -345,9 +349,9 @@ void roadmap_ticker_initialize(void){
 	
 	// Your rank title
 	rect = [gTickerView bounds];
-	rect.origin.x = posX + 5 + (roadmap_canvas_width() - posX) /2;
+	rect.origin.x = posX + 5 + (canvas_width - posX) /2;
 	rect.origin.y = 25;
-	rect.size.width = (roadmap_canvas_width() - posX) /2 - 10;
+	rect.size.width = (canvas_width - posX) /2 - 10;
 	rect.size.height = 20;
 	label = [[UILabel alloc] initWithFrame:rect];
 	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Rank")]];

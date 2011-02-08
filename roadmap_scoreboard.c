@@ -44,8 +44,6 @@ static RoadMapConfigDescriptor RoadMapConfigScoreboardUrl =
 
 static char gs_url[1024];
 
-//Scoreboard event
-static const char* ANALYTICS_EVENT_SCOREBOARD_NAME = "SCOREBOARD";
 
 
 ///////////////////////////////////////////////////////////////
@@ -107,9 +105,9 @@ void roadmap_scoreboard(void) {
       return;
    }
 
-   roadmap_analytics_log_event(ANALYTICS_EVENT_SCOREBOARD_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SCOREBOARD, NULL, NULL);
 
    create_url();
 
-   roadmap_browser_show( "Scoreboard", gs_url, roadmap_facebook_check_login, BROWSER_BAR_NORMAL );
+   roadmap_browser_show( "Scoreboard", gs_url, roadmap_facebook_check_login, NULL, NULL, BROWSER_BAR_NORMAL );
 }

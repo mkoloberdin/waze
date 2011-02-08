@@ -68,16 +68,20 @@ static void roadmap_speedometer_after_refresh (void){
    RoadMapPen speedometer_pen;
    char str[30];
    char unit_str[30];
-   int font_size = 22;
+   int font_size = 20;
    int font_size_units = 10;
-   int speed_offset = 5;
-   int units_offset = 3;
+   int speed_offset = 6;
+   int units_offset = 6;
    int speed;
 
 #ifdef IPHONE_NATIVE
 	font_size = 18;
 	font_size_units = 8;
+#else
+   if ( roadmap_lang_rtl() )
+      font_size_units--;     // Longer text for units
 #endif
+
 
    if (SpeedometerImage == NULL){
       return;

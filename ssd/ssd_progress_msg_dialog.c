@@ -41,9 +41,10 @@
 
 
 //======== Defines ========
-#define SSD_PROGRESS_MSG_DLG_NAME 		"SSD PROGRESS MESSAGE DIALOG"
-#define SSD_PROGRESS_MSG_TEXT_FLD 		"Message Text"
-#define SSD_PROGRESS_MSG_FONT_SIZE 		19
+#define SSD_PROGRESS_MSG_DLG_NAME 		     "SSD PROGRESS MESSAGE DIALOG"
+#define SSD_PROGRESS_MSG_TEXT_FLD 		     "Message Text"
+#define SSD_PROGRESS_MSG_FONT_SIZE 		     19
+#define SSD_PROGRESS_MSG_TXT_CNT_HEIGHT     70     /* The base height (SD resolution) of the text container */
 
 //======== Globals ========
 static SsdWidget gProgressMsgDlg = NULL;
@@ -74,7 +75,9 @@ void ssd_progress_msg_dialog_show( const char* dlg_text )
 	   if ( !( gProgressMsgDlg = ssd_progress_msg_dialog_new() ) )
 		   return;
 	}
-
+#ifdef TOUCH_SCREEN
+	ssd_widget_show(ssd_widget_get(gProgressMsgDlg, "Hide Button" ));
+#endif
 	ssd_dialog_activate( SSD_PROGRESS_MSG_DLG_NAME, NULL );
 
 	ssd_dialog_set_value( SSD_PROGRESS_MSG_TEXT_FLD, dlg_text );
@@ -129,16 +132,13 @@ static int on_button_hide (SsdWidget widget, const char *new_value){
 
 static SsdWidget ssd_progress_msg_dialog_new( void )
 {
-	SsdWidget dialog, group, text, spacer, button;
+	SsdWidget dialog, group, text;
+	SsdWidget text_cnt, spacer, button;
+	int         text_container_height = ADJ_SCALE( SSD_PROGRESS_MSG_TXT_CNT_HEIGHT );
 
-	int rtl_flag = 0x0;
-	int         text_width;
-	int         text_ascent;
-	int         text_descent;
-	int         text_height;
-
-    dialog = ssd_dialog_new( SSD_PROGRESS_MSG_DLG_NAME, "", NULL, SSD_CONTAINER_BORDER|SSD_PERSISTENT|
-								SSD_CONTAINER_TITLE|SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|
+	SsdSize     dlg_size;
+   dialog = ssd_dialog_new( SSD_PROGRESS_MSG_DLG_NAME, "", NULL, SSD_CONTAINER_BORDER|SSD_PERSISTENT|
+								SSD_DIALOG_FLOAT|SSD_ALIGN_CENTER|
 								SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
 
     if ( !dialog )
@@ -146,34 +146,34 @@ static SsdWidget ssd_progress_msg_dialog_new( void )
         roadmap_log( ROADMAP_ERROR, "Error creating progress message dialog" );
         return NULL;
     }
-    rtl_flag = ssd_widget_rtl( NULL );
-    group = ssd_container_new( "Text Container", NULL,
-                SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_END_ROW|rtl_flag );
+
+    ssd_widget_get_size( dialog, &dlg_size, NULL );
+
+    group = ssd_container_new( "Text Group", NULL,
+                SSD_MAX_SIZE, text_container_height, SSD_END_ROW|SSD_ALIGN_CENTER );
     ssd_widget_set_color ( group, NULL, NULL );
 
+    /*
+     * Container takes 85% of the dialog width. Aligned at the center vertically and horizontally. Text should fix the container
+     * as much as possible
+     */
+    text_cnt = ssd_container_new ( "Text container", NULL,  dlg_size.width * 0.85, text_container_height, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER );
+    ssd_widget_set_color ( text_cnt, NULL, NULL);
+    text = ssd_text_new( SSD_PROGRESS_MSG_TEXT_FLD, "", SSD_PROGRESS_MSG_FONT_SIZE, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER|SSD_TEXT_LABEL );
+    ssd_widget_set_color( text, "#ffffff","#ffffff" );
+    ssd_widget_add( text_cnt, text );
+    ssd_widget_add ( group, text_cnt );
 
-    roadmap_canvas_get_text_extents( "aAbB19Xx", SSD_PROGRESS_MSG_FONT_SIZE, &text_width, &text_ascent, &text_descent, NULL);
-    text_height =  (text_ascent + text_descent);
-    // Space right
-    spacer = ssd_container_new ( "spacer_right", NULL, 10, 1, SSD_END_ROW);
-    ssd_widget_set_color ( spacer, NULL, NULL);
-    ssd_widget_add ( group, spacer );
-
-    text = ssd_text_new( SSD_PROGRESS_MSG_TEXT_FLD, "", SSD_PROGRESS_MSG_FONT_SIZE, SSD_ALIGN_VCENTER|SSD_END_ROW );
-    ssd_widget_set_color(text, "#ffffff","#ffffff");
-    ssd_widget_add( group, text );
 
     ssd_widget_add ( dialog, group );
-
     // Space below
-    spacer = ssd_container_new( "spacer", NULL, SSD_MAX_SIZE, 10,
-          SSD_WIDGET_SPACE|SSD_END_ROW );
+    spacer = ssd_container_new( "spacer", NULL, SSD_MAX_SIZE, ADJ_SCALE( 3 ), SSD_END_ROW );
     ssd_widget_set_color(spacer, NULL, NULL);
     ssd_widget_add( dialog, spacer );
 
 #ifdef TOUCH_SCREEN
-    button = ssd_button_label("Hide Button", roadmap_lang_get("Hide"), SSD_ALIGN_CENTER, on_button_hide);
-    ssd_widget_add(dialog, button);
+    button = ssd_button_label( "Hide Button", roadmap_lang_get("Hide"), SSD_ALIGN_CENTER, on_button_hide );
+    ssd_widget_add( dialog, button );
 #endif
 
     return dialog;
@@ -218,4 +218,5 @@ void ssd_progress_msg_dialog_show_timed( const char* dlg_text , int seconds)
 {
 	ssd_progress_msg_dialog_show(dlg_text);
 	roadmap_main_set_periodic (seconds * 1000, hide_timer);
+   ssd_widget_hide(ssd_widget_get(gProgressMsgDlg, "Hide Button" ));
 }

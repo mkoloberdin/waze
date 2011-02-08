@@ -80,7 +80,7 @@ static RoadMapConfigDescriptor CostAvoidTrailCfg =
 
 static RoadMapConfigDescriptor CostAllowUnknownsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Allow unknown directions");
-                  
+
 static RoadMapConfigDescriptor CostAvoidPalestinianRoadsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Avoid Palestinian Roads");
 
@@ -96,8 +96,8 @@ static RoadMapConfigDescriptor UnknownRoadsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Unknown roads");
 
 
-                  
-                  
+
+
 static void cost_preferences (void);
 
 #ifndef TOUCH_SCREEN
@@ -437,7 +437,7 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
       ("user", &CostAvoidTollRoadsCfg, NULL, "no", "yes", NULL);
-   
+
    roadmap_config_declare_enumeration
       ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
 
@@ -449,16 +449,16 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
        ("preferences", &TollRoadsCfg, NULL, "no", "yes",  NULL);
-       
+
    roadmap_config_declare_enumeration
        ("preferences", &PalestinianRoadsCfg, NULL, "no", "yes",  NULL);
 
    roadmap_config_declare_enumeration
       ("user", &CostAllowUnknownsCfg, NULL, "yes", "no", NULL);
-   
+
    roadmap_config_declare_enumeration
       ("preferences", &UnknownRoadsCfg, NULL, "no", "yes",  NULL);
-      
+
    roadmap_config_declare_enumeration
       ("user", &CostAvoidPalestinianRoadsCfg, NULL, "yes", "no",  NULL);
 
@@ -486,29 +486,29 @@ int navigate_cost_type (void) {
 static void save_changes(){
    roadmap_config_set (&CostTypeCfg,
                            (const char *)ssd_dialog_get_data ("type"));
-      
+
    if (roadmap_config_match(&TollRoadsCfg, "yes")){
          roadmap_config_set (&CostAvoidTollRoadsCfg,
                      (const char *)ssd_dialog_get_data ("avoidtolls"));
    }
-      
+
    if (roadmap_config_match(&UnknownRoadsCfg, "yes")){
       roadmap_config_set (&CostPreferUnknownDirectionsCfg,
                           (const char *)ssd_dialog_get_data ("preferunknowndir"));
    }
-   
+
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
       roadmap_config_set (&CostAvoidPalestinianRoadsCfg,
-                           (const char *)ssd_dialog_get_data ("avoidPalestinianRoads")); 
+                           (const char *)ssd_dialog_get_data ("avoidPalestinianRoads"));
    }
-   
+
    roadmap_config_set (&CostAvoidPrimaryCfg,
                            (const char *)ssd_dialog_get_data ("avoidprime"));
    roadmap_config_set (&PreferSameStreetCfg,
                            (const char *)ssd_dialog_get_data ("samestreet"));
    roadmap_config_set (&CostAvoidTrailCfg,
                            (const char *)ssd_dialog_get_data ("avoidtrails"));
-	                            
+
 }
 
 int navigate_cost_isPalestinianOptionEnabled(){
@@ -532,29 +532,21 @@ static const char *type_value[2];
 static const char *trails_label[3];
 static const char *trails_value[3];
 
-/////////////////////////////////////////////////////////////////////
-static SsdWidget space(int height){
-	SsdWidget space;
-	space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, height, SSD_WIDGET_SPACE|SSD_END_ROW);
-	ssd_widget_set_color (space, NULL,NULL);
-	return space;
-}
 
 static void create_ssd_dialog (void) {
 
    SsdWidget box, box2;
    SsdWidget container;
-#ifdef TOUCH_SCREEN
 	int tab_flag = SSD_WS_TABSTOP;
-#else
-   	int tab_flag = SSD_WS_TABSTOP;
-#endif
+	int width = ssd_container_get_width();
+	int row_height = ssd_container_get_row_height();
+
    SsdWidget dialog = ssd_dialog_new ("route_prefs",
                       roadmap_lang_get ("Routing preferences"),
                       on_close_dialog,
                       SSD_CONTAINER_TITLE);
 #ifdef TOUCH_SCREEN
-   ssd_widget_add(dialog, space(5));
+   ssd_dialog_add_vspace (dialog, 5, 0);
 #endif
 
    if (!yesno[0]) {
@@ -574,10 +566,12 @@ static void create_ssd_dialog (void) {
       trails_label[2] = roadmap_lang_get (trails_value[2]);
    }
 
-   container = ssd_container_new ("conatiner", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+   //First group
+   container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
-   box = ssd_container_new ("type group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   //route preferences
+   box = ssd_container_new ("type group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
 
    ssd_widget_set_color (box, "#000000", "#ffffff");
@@ -585,7 +579,7 @@ static void create_ssd_dialog (void) {
    ssd_widget_add (box,
       ssd_text_new ("type_label",
                      roadmap_lang_get ("Route preference"),
-                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
 
     ssd_widget_add (box,
          ssd_choice_new ("type", roadmap_lang_get ("Route preference"), 2,
@@ -593,22 +587,22 @@ static void create_ssd_dialog (void) {
                          (const void **)type_value,
                          SSD_ALIGN_RIGHT, NULL));
 
-   ssd_widget_add(box, space(1));
-   ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_add (container, box);
+   ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
 
-   box = ssd_container_new ("avoidtrails group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   //dirt roads
+   box = ssd_container_new ("avoidtrails group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
    ssd_widget_set_color (box, "#000000", "#ffffff");
 
    box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                              SSD_ALIGN_VCENTER);
    ssd_widget_set_color (box2, NULL, NULL);
-   
+
    ssd_widget_add (box2,
       ssd_text_new ("avoidtrails_label",
                      roadmap_lang_get ("Dirt roads"),
-                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
    ssd_widget_add(box, box2);
 
    ssd_widget_add (box,
@@ -618,104 +612,55 @@ static void create_ssd_dialog (void) {
                          SSD_ALIGN_RIGHT, NULL));
    ssd_widget_add (container, box);
    ssd_widget_add (dialog, container);
-   
-   container = ssd_container_new ("conatiner", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
-   box = ssd_container_new ("samestreet group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                            SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   //Second group
+   container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
-   ssd_widget_add (box,
-      ssd_text_new ("samestreet_label",
-                     roadmap_lang_get ("Minimize turns"),
-                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   //Minimize turns
+   box = ssd_checkbox_row_new("samestreet", roadmap_lang_get ("Minimize turns"),
+         FALSE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
 
-    ssd_widget_add (box,
-         ssd_checkbox_new ("samestreet",FALSE, SSD_ALIGN_RIGHT, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
+   ssd_widget_add (container, box);
+   ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
 
-   ssd_widget_add(box, space(1));
-   ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
+   //Avoid hw
+   box = ssd_checkbox_row_new("avoidprime", roadmap_lang_get ("Avoid highways"),
+         TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
+
    ssd_widget_add (container, box);
 
-   box = ssd_container_new ("avoidprime group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                            SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-   ssd_widget_set_color (box, "#000000", "#ffffff");
-
-   box2 = ssd_container_new ("avoid prime group", NULL, roadmap_canvas_width()/2, SSD_MIN_SIZE,
-                            SSD_ALIGN_VCENTER);
-   ssd_widget_set_color (box2, NULL, NULL);
-
-   ssd_widget_add (box2,
-      ssd_text_new ("avoidprime_label",
-                     roadmap_lang_get ("Avoid highways"),
-                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-   ssd_widget_add(box, box2);
-   ssd_widget_add (box,
-         ssd_checkbox_new ("avoidprime", TRUE,   SSD_ALIGN_RIGHT, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
-
-   ssd_widget_add(box, space(1));
-   ssd_widget_add (container, box);
-
-
+   //Avoid toll roads
    if (roadmap_config_match(&TollRoadsCfg, "yes")){
-   	  ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
-      box = ssd_container_new ("avoidtolls group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                                SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
+      ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
 
-      ssd_widget_add (box,
-               ssd_text_new ("avoidtolls_label",
-                        roadmap_lang_get ("Avoid toll roads"),
-                        -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-
-      ssd_widget_add (box,
-         ssd_checkbox_new ("avoidtolls", TRUE,   SSD_ALIGN_RIGHT, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
+      box = ssd_checkbox_row_new("avoidtolls", roadmap_lang_get ("Avoid toll roads"),
+            TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
 
       ssd_widget_add (container, box);
    }
-   
+
+   //Avoid Palestinian
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
-   	  ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
-      box = ssd_container_new ("palestinianroads group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                                SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
-	
-	  box2 = ssd_container_new ("palestinianroads text group", NULL, roadmap_canvas_width()/2, SSD_MIN_SIZE,
-                            SSD_ALIGN_VCENTER);
-      ssd_widget_set_color (box2, NULL, NULL);
+      ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
 
-      ssd_widget_add (box2,
-       ssd_text_new ("palestinianroadstext_label",
-                     roadmap_lang_get ("Avoid areas under Palestinian authority supervision"),
-                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-      ssd_widget_add(box, box2);
- 	
-      ssd_widget_add (box,
-         ssd_checkbox_new ("avoidPalestinianRoads", TRUE,   SSD_ALIGN_RIGHT, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
-	
+      box = ssd_checkbox_row_new("avoidPalestinianRoads", roadmap_lang_get ("Avoid areas under Palestinian authority supervision"),
+            TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
+
       ssd_widget_add (container, box);
    }
-   
-   
+
+   //Prefer munching
    if (roadmap_config_match(&UnknownRoadsCfg, "yes")){
-   	  ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
-      box = ssd_container_new ("preferunknowndir group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
-      
-      ssd_widget_add (box,
-                      ssd_text_new ("preferunknowndir_label",
-                                    roadmap_lang_get ("Prefer cookie munching"),
-                                    -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-      
-      ssd_widget_add (box,
-                      ssd_checkbox_new ("preferunknowndir", TRUE,   SSD_ALIGN_RIGHT, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF));
-      
+      ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
+
+      box = ssd_checkbox_row_new("preferunknowndir", roadmap_lang_get ("Prefer cookie munching"),
+            TRUE, NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);
+
       ssd_widget_add (container, box);
    }
 
-   
+
    ssd_widget_add (dialog, container);
 #ifndef TOUCH_SCREEN
 	set_softkeys(dialog);
@@ -747,7 +692,7 @@ void cost_preferences (void) {
    if (navigate_cost_avoid_toll_roads()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("avoidtolls", (void *) value);
-   
+
    if (navigate_cost_prefer_unknown_directions()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("preferunknowndir", (void *) value);
@@ -755,7 +700,7 @@ void cost_preferences (void) {
    if (navigate_cost_prefer_same_street ()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("samestreet", (void *) value);
-  
+
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
 	   if (navigate_cost_avoid_palestinian_roads()) value = yesno[0];
 	   else value = yesno[1];

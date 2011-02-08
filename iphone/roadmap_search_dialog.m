@@ -32,6 +32,7 @@
 #include "roadmap_res.h"
 #include "roadmap_list_menu.h"
 #include "local_search.h"
+#include "roadmap_analytics.h"
 #include "roadmap_iphonesearch_dialog.h"
 #include "roadmap_search.h"
 
@@ -53,7 +54,6 @@ enum IDs {
 
 static const char *id_actions[MAX_IDS];
 
-
 void single_search_resolved_dlg_show (const char** results, void** indexes,
                                       int count_adr, int count_ls, int count_ab,
                                       PFN_ON_ITEM_SELECTED on_item_selected, 
@@ -71,6 +71,8 @@ void single_search_resolved_dlg_show (const char** results, void** indexes,
 }
 
 void roadmap_search_menu (void) {
+   roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHMENU, NULL, NULL);
+   
    SearchDialog *dialog = [[SearchDialog alloc] init];
    [dialog show];
 }

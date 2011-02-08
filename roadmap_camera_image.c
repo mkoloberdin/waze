@@ -110,7 +110,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
 static void download_done_callback( void *context_cb,char *last_modified );
 
 
-static BOOL roadmap_camera_image_uploader( RoadMapDownloadCallbacks *callbacks, const char *image_folder, const char *image_file, char* image_id,CameraImageUploadCallback cb, void * context);
+static BOOL roadmap_camera_image_uploader( const char *image_folder, const char *image_file, char* image_id,CameraImageUploadCallback cb, void * context);
 static char* get_download_url( const char* image_id );
 
 static void download_cache_add( const char* file_path );
@@ -466,8 +466,7 @@ BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_fi
 {
 	BOOL res;
 
-	res = roadmap_camera_image_uploader( &gUploadCallbackFunctions,
-											image_folder, image_file, image_id,cb,context  );
+	res = roadmap_camera_image_uploader( image_folder, image_file, image_id,cb,context  );
 
 	return res;
 }
@@ -485,8 +484,8 @@ BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_fi
  *						the input buffer must be of size ROADMAP_IMAGE_ID_BUF_LEN
  *              : (out) message - parsed response from the server
  */
-static BOOL roadmap_camera_image_uploader( RoadMapDownloadCallbacks *callbacks,
-		const char *image_folder, const char *image_file, char* image_id, CameraImageUploadCallback cb, void * context)
+static BOOL roadmap_camera_image_uploader( const char *image_folder, const char *image_file, 
+                                          char* image_id, CameraImageUploadCallback cb, void * context)
 {
     BOOL res = FALSE;
     char* full_path;
@@ -817,8 +816,7 @@ BOOL roadmap_camera_image_upload_ssd( const char *image_folder, const char *imag
 {
 	BOOL res;
 
-	res = roadmap_camera_image_uploader( &gUploadCallbackFunctionsSSD,
-											image_folder, image_file, image_id, message );
+	res = roadmap_camera_image_uploader( image_folder, image_file, image_id, message );
 
 	return res;
 }

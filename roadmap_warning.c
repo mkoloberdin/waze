@@ -117,7 +117,7 @@ void roadmap_warning_monitor(void)
 			{
 				roadmap_message_set( 'w', warning_str );
 				// If another warning has to be shown - refresh is necessary
-//				refresh_needed = refresh_needed || ( gsCurrentWarning != next_idx  );
+				refresh_needed = refresh_needed || ( gsCurrentWarning != next_idx  );
 				gsCurrentWarning = next_idx;
 				break;
 			}

@@ -112,60 +112,62 @@ static void create_ssd_dialog (void) {
    SsdWidget box, box2;
    SsdWidget container;
    SsdWidget dialog;
+   int height = ssd_container_get_row_height();
 
    dialog = ssd_dialog_new (GROUP_SETTING_DLG_NAME,
                             roadmap_lang_get (GROUP_SETTING_DLG_TITLE),
                             on_close_dialog,
                             SSD_CONTAINER_TITLE);
 
-   container = ssd_container_new (GROUP_SETTING_CONTAINER_NAME, NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+   ssd_dialog_add_vspace (dialog, 5, 0);
+
+   container = ssd_container_new (GROUP_SETTING_CONTAINER_NAME, NULL, ssd_container_get_width(), SSD_MIN_SIZE,
+                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE|SSD_ALIGN_CENTER);
 
    // PopUp settings
-   box = ssd_container_new ("popup group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   box = ssd_container_new ("popup group", NULL, SSD_MAX_SIZE, height,
                              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP);
    ssd_widget_set_color (box, NULL, NULL);
 
-   box2 = ssd_container_new ("box2", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                             SSD_END_ROW);
-   ssd_widget_set_color (box2, NULL, NULL);
+   //box2 = ssd_container_new ("box2", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+   //      SSD_ALIGN_VCENTER);
+   //ssd_widget_set_color (box2, NULL, NULL);
 
-   ssd_widget_add (box2,
+   ssd_widget_add (box,
        ssd_text_new ("popup_label",
                       roadmap_lang_get ("Pop-up reports"),
-                     -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
-   ssd_widget_add(box, box2);
+                      SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   //ssd_widget_add(box, box2);
 
    ssd_widget_add (box,
           ssd_choice_new (GROUP_SETTING_POPUP_CHOICE, roadmap_lang_get ("Pop-up reports"), 3,
                           (const char **)popup_labels,
                           (const void **)popup_values,
-                          SSD_ALIGN_RIGHT, NULL));
+                          SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL));
 
-    ssd_dialog_add_vspace(box, 1, 0);
-    ssd_widget_add(box, ssd_separator_new("separator", SSD_ALIGN_BOTTOM));
     ssd_widget_add (container, box);
+    ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
 
     // Wazer settings
-    box = ssd_container_new ("wazer group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+    box = ssd_container_new ("wazer group", NULL, SSD_MAX_SIZE, height,
                              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP);
     ssd_widget_set_color (box, NULL, NULL);
 
-    box2 = ssd_container_new ("box2", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                              SSD_END_ROW);
+    box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/2, SSD_MIN_SIZE,
+          SSD_ALIGN_VCENTER);
     ssd_widget_set_color (box2, NULL, NULL);
 
     ssd_widget_add (box2,
        ssd_text_new ("wazer_label",
                       roadmap_lang_get ("Wazers group icons"),
-                     -1, SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+                      SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
     ssd_widget_add(box, box2);
 
     ssd_widget_add (box,
           ssd_choice_new (GROUP_SETTING_WAZER_CHOICE, roadmap_lang_get ("Wazers group icons"),3,
                           (const char **)wazer_labels,
                           (const void **)wazer_values,
-                          SSD_ALIGN_RIGHT, NULL));
+                          SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL));
     ssd_widget_add (container, box);
 
     ssd_widget_add(dialog, container);

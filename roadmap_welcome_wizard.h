@@ -61,6 +61,7 @@ void roadmap_welcome_wizard(void);
 BOOL roadmap_welcome_on_preferences( void );
 #ifndef IPHONE
 void welcome_wizard_twitter_dialog(void);
+void welcome_wizard_ping_dialog(void);
 #endif //!IPHONE
 void roadmap_welcome_personalize_dialog();
 void roadmap_term_of_use(RoadMapCallback callback);

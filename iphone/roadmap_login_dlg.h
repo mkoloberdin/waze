@@ -54,6 +54,7 @@
 
 @interface LoginUpdateDialog : UIViewController <UIScrollViewDelegate, UITextFieldDelegate, UISearchBarDelegate> {
    BOOL  kbIsOn;
+   int      gReferrer;
 }
 
 - (void) showUpdateLogin;

@@ -24,6 +24,9 @@
 #ifndef __IPHONEREALTIMEALERTADD__H
 #define __IPHONEREALTIMEALERTADD__H
 
+#include "widgets/iphoneSelect.h"
+#include "widgets/iphoneLabel.h"
+
 @interface AlertScrollView : UIScrollView {
 	
 }
@@ -36,39 +39,52 @@
 	int            initialized;
 	int            alertType;
 	int            alertDirection;
+   int            alertSubType;
 	int            isTakingImage;
    int            isHidden;
    int            isRestoreFocuse;
-	UIView         *buttonDirectionView;
+   iphoneSelect   *subtypeControl;
+   iphoneSelect   *directionControl;
 	UITextField    *commentEditbox;
 	UIView         *collapsedView;
 	UIImage        *iconImage;
 	UIImage        *minimizedImage;
 	UIButton       *imageButton;
+   UIButton       *recordButton;
+   iphoneLabel    *groupNote;
 	UIButton       *groupButton;
-	UIButton       *hideButton;
-   UIButton       *cancelButton;
+   UIButton       *sendButton;
 	UIImageView    *animatedImageView;
    UIImageView    *bgFrame;
    UIButton       *bgFrameButton;
+   iphoneLabel    *categoryLabel;
+   iphoneLabel    *cameraText1;
+   iphoneLabel    *cameraText2;
 }
 
+@property (nonatomic, retain) iphoneSelect   *subtypeControl;
+@property (nonatomic, retain) iphoneSelect   *directionControl;
 @property (nonatomic, retain) UITextField    *commentEditbox;
 @property (nonatomic, retain) UIView         *collapsedView;
 @property (nonatomic, retain) UIImage        *iconImage;
 @property (nonatomic, retain) UIImage        *minimizedImage;
 @property (nonatomic, retain) UIButton       *imageButton;
+@property (nonatomic, retain) iphoneLabel    *groupNote;
 @property (nonatomic, retain) UIButton       *groupButton;
-@property (nonatomic, retain) UIButton       *hideButton;
-@property (nonatomic, retain) UIButton       *cancelButton;
+@property (nonatomic, retain) UIButton       *sendButton;
 @property (nonatomic, retain) UIImageView    *animatedImageView;
 @property (nonatomic, retain) UIImageView    *bgFrame;
 @property (nonatomic, retain) UIButton       *bgFrameButton;
+@property (nonatomic, retain) iphoneLabel    *categoryLabel;
+@property (nonatomic, retain) iphoneLabel    *cameraText1;
+@property (nonatomic, retain) iphoneLabel    *cameraText2;
 
 - (void) onCancelHide;
+- (void) onRecorderClosed;
 - (void) periodicHide;
 - (void) onHide;
 - (void) showWithType: (int)alert_type;
+- (void) showCameraDialog;
 
 
 @end

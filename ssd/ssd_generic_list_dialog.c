@@ -91,13 +91,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    SsdWidget list;
    int flags = 0;
 
-#if defined (OPENGL)
-
-   /*
-    * Borders are fast in OPENGL
-    */
    flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
-#endif // OPENGL
 
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
@@ -108,7 +102,8 @@ void ssd_generic_list_dialog_show(const char*            title,
    {
       GenericList = ssd_dialog_new ( SSD_GEN_LIST_DLG_NAME, "", on_dialog_closed,
                                     SSD_CONTAINER_TITLE);
-      list = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, flags, NULL);
+      ssd_dialog_add_vspace (GenericList, 5, 0);
+      list = ssd_list_new ("list", ssd_container_get_width(), SSD_MAX_SIZE, inputtype_none, flags, NULL);
 
       ssd_widget_add (GenericList, list);
    }
@@ -150,15 +145,11 @@ void ssd_generic_icon_list_dialog_show(
 
    SsdWidget list;
    int list_flags = 0;
-
-#if defined (OPENGL)
-
    /*
     * Borders are fast in OPENGL
+
     */
    list_flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
-#endif // OPENGL
-
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
    list_context.context         = context;
@@ -166,11 +157,11 @@ void ssd_generic_icon_list_dialog_show(
    if ( !ssd_dialog_exists( SSD_GEN_LIST_DLG_NAME ) )
    {
       GenericList   = ssd_dialog_new ( SSD_GEN_LIST_DLG_NAME, "", on_dialog_closed, SSD_CONTAINER_TITLE|dialog_flags);
-      list          = ssd_list_new ("list", SSD_MAX_SIZE, SSD_MAX_SIZE, inputtype_none, 0, NULL);
+      ssd_dialog_add_vspace (GenericList, 5, 0);
+      list          = ssd_list_new ("list", ssd_container_get_width(), SSD_MAX_SIZE, inputtype_none, list_flags, NULL);
       ssd_widget_add (GenericList, list);
    }
    else{
-     GenericList->flags &= ~SSD_HEADER_BLACK;
      GenericList->flags |= dialog_flags;
    }
    ssd_widget_set_offset(GenericList,0,0);

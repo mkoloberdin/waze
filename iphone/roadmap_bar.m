@@ -998,21 +998,20 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 	int xPos = X_POS_START;
    RoadMapGuiPoint TextLocation;
 	CGRect rect;
-	static int first_time = 1;
+   static time_t last_draw_time = 0;
+   
+   if (time(NULL) - last_draw_time < 1)
+      return;
    
    if (!topBarView)
       return;
-   /*
-	if (!first_time) {
-		[UIView beginAnimations:NULL context:NULL];
-		[UIView setAnimationDuration:0.3f];
-		[UIView setAnimationCurve:UIViewAnimationCurveEaseOut];
-	}
-	*/
+  
 	for (i=0; i < table->count; i++) {
     	RoadMapGuiPoint ObjectLocation; 
     	if (table->object[i] == NULL)
     		continue;
+      
+      roadmap_bar_pos(table->object[i], &ObjectLocation);
       
 		if (table->object[i]->button) {
 			if (table->object[i]->condition_fn){
@@ -1025,7 +1024,6 @@ void draw_top_bar_objects(BarObjectTable_s *table){
             }
 			}
 			
-			roadmap_bar_pos(table->object[i], &ObjectLocation);
 			rect = [table->object[i]->button frame];
 			if ((ObjectLocation.x >= 0) && (ObjectLocation.y >= 0)) {
 				rect.origin.x = ObjectLocation.x;
@@ -1110,6 +1108,9 @@ void draw_top_bar_objects(BarObjectTable_s *table){
             
             strncpy_safe(table->object[i]->last_image_fn_icon, image_name, sizeof(table->object[i]->last_image_fn_icon));
          }
+         
+         UIImageView *imageView = (UIImageView *)[topBarView viewWithTag:i];
+         [topBarView bringSubviewToFront:imageView];
 		}
 		
 		
@@ -1138,21 +1139,20 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 				xPos += rect.size.width + 5;
 				rect.origin.y = [topBarView bounds].size.height - Y_POS - rect.size.height;
 			}
+         
+         if (rect.size.width < 50.0f)
+            rect.size.width = 50.0f;
+         if (rect.size.height < 20.0f)
+            rect.size.height = 20.0f;
+         
 			[table->object[i]->label setFrame:rect];
 
     	}           		    	                
     }
 	
-   /*
-	if (first_time) {
-		//first_time = 0;
-	} else {
-		[UIView commitAnimations];
-	}
-   */
-   if (first_time)
+   if (last_draw_time == 0)
       roadmap_top_bar_set_ui (&TopBarObjectTable);
-   first_time = 0;
+   last_draw_time = time(NULL);
 }
 
 void roadmap_bar_draw_top_bar (BOOL draw_bg) {
@@ -1172,7 +1172,10 @@ void draw_bottom_bar_objects(BarObjectTable_s *table){
    int condition;
    BOOL is_changed = FALSE;
    BOOL is_hidden;
-   static BOOL is_first_time = TRUE;
+   static time_t last_draw_time = 0;
+   
+   //if (time(NULL) - last_draw_time < 1)
+//      return;
 	
 	for (i=0; i < table->count; i++) {
     	if (table->object[i] == NULL)
@@ -1218,9 +1221,10 @@ void draw_bottom_bar_objects(BarObjectTable_s *table){
 
    strncpy_safe (gLastLang, roadmap_lang_get_system_lang(), sizeof(gLastLang));
    
-   if (is_changed || is_first_time)
+   if (is_changed || last_draw_time == 0)
       roadmap_bottom_bar_set_ui(&BottomBarObjectTable);
-   is_first_time = FALSE;
+
+   last_draw_time = time(NULL);
 }
 
 void roadmap_bar_draw_bottom_bar (BOOL draw_bg) {
@@ -1348,7 +1352,7 @@ int roadmap_bar_top_height(){
    if (roadmap_map_settings_isShowTopBarOnTap() && roadmap_top_bar_shown() && roadmap_main_is_root())
       topBarHeight = topBarView.bounds.size.height;
    
-   return topBarHeight;
+   return ADJ_SCALE(topBarHeight);
 }
 
 int roadmap_bar_bottom_height(){

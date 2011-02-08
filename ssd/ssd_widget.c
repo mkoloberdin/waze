@@ -37,6 +37,7 @@
 #include "roadmap_bar.h"
 #include "roadmap_pointer.h"
 #include "roadmap_softkeys.h"
+#include "roadmap_screen.h"
 
 #ifdef _WIN32
    #ifdef   TOUCH_SCREEN
@@ -244,7 +245,7 @@ static void ssd_widget_draw_one (SsdWidget w, int x, int y, int height) {
 
 #if 0
       if (!w->parent) printf("****** start draw ******\n");
-      printf("draw - %s:%s x=%d-%d y=%d-%d\n", w->_typeid, w->name, rect.minx, rect.maxx, rect.miny, rect.maxy);
+      printf("draw - %s:%s x=%d-%d y=%d-%d ofset_x=%d ofset_y=%d \n", w->_typeid, w->name, rect.minx, rect.maxx, rect.miny, rect.maxy, w->offset_x, w->offset_y);
 #endif
       if (!RecalculateWidgets && ssd_widget_rect_in_screen(&rect))
            w->draw(w, &rect, 0);
@@ -482,6 +483,8 @@ static void ssd_widget_draw_grid (SsdWidget w, const RoadMapGuiRect *rect) {
    avg_width = avg_width / count + 1;
 
    rows = height / max_height;
+
+   if (rows == 0) rows = 1;
 
    while ((rows > 1) && ((count * avg_width / rows) < (width * 3 / 5))) rows--;
 
@@ -985,21 +988,6 @@ void ssd_widget_add (SsdWidget parent, SsdWidget child) {
    ssd_widget_sort_children(parent->children);
 }
 
-static BOOL focus_belong_to_widget( SsdWidget w)
-{
-   SsdWidget p = w;
-
-   while( p)
-   {
-      if( p->in_focus || focus_belong_to_widget( p->children))
-         return TRUE;
-
-      p = p->next;
-   }
-
-   return FALSE;
-}
-
 extern void ssd_dialog_invalidate_tab_order ();
 
 SsdWidget ssd_widget_remove(SsdWidget parent, SsdWidget child)
@@ -1140,7 +1128,7 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    }
    /* Comment by AGA. THere is no assignment for this flag
    if (size->height == SSD_MAX_SIZE) {
-      /* Check if other siblings exists and should be placed below this one *
+      // Check if other siblings exists and should be placed below this one
       SsdWidget below_w = w->next;
 
 
@@ -1163,13 +1151,13 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
          if (roadmap_canvas_width() > roadmap_canvas_height())
             size->width = roadmap_canvas_height();
          else
-            size->width = roadmap_canvas_width()-20;
+            size->width = roadmap_canvas_width()- ADJ_SCALE(20);
 #ifdef IPHONE
-         size->width = 320 * roadmap_screen_get_screen_scale() / 100;
+         size->width = ADJ_SCALE(320);
 #endif
-         
+
       }else
-         if (size->width == SSD_MAX_SIZE) size->width = max->width -20;
+         if (size->width == SSD_MAX_SIZE) size->width = max->width -ADJ_SCALE(20);
       if (size->height== SSD_MAX_SIZE) size->height= max->height - total_height_below;
 
    } else {
@@ -1179,8 +1167,8 @@ void ssd_widget_get_size (SsdWidget w, SsdSize *size, const SsdSize *max) {
    }
 
 #ifdef IPHONE_NATIVE
-   if (size->width > 320 * roadmap_screen_get_screen_scale() / 100)
-      size->width = 320 * roadmap_screen_get_screen_scale() / 100;
+   if (size->width > ADJ_SCALE(320))
+      size->width = ADJ_SCALE(320);
 #endif //IPHONE
 
    if ((size->height >= 0) && (size->width >= 0)) {
@@ -1316,11 +1304,17 @@ void ssd_widget_reset_position (SsdWidget w) {
    }
 }
 void ssd_widget_hide (SsdWidget w) {
+   if (!w)
+      return;
+
    w->flags |= SSD_WIDGET_HIDE;
 }
 
 
 void ssd_widget_show (SsdWidget w) {
+   if (!w)
+      return;
+
    w->flags &= ~SSD_WIDGET_HIDE;
 }
 int ssd_widget_get_flags ( SsdWidget w )
@@ -1632,7 +1626,7 @@ void ssd_widget_free( SsdWidget widget, BOOL force, BOOL update_parent )
 /*
  * If true the next draw recalculates sizes only
  */
-SsdWidget ssd_widget_set_recalculate( BOOL value )
+void ssd_widget_set_recalculate( BOOL value )
 {
 	RecalculateWidgets = value;
 }

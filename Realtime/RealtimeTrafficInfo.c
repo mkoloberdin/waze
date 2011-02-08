@@ -46,6 +46,7 @@
 #include "../roadmap_navigate.h"
 #include "../editor/editor_points.h"
 #include "../roadmap_ticker.h"
+#include "../navigate/navigate_main.h"
 
 #include "roadmap_tile.h"
 #include "roadmap_tile_manager.h"
@@ -96,6 +97,8 @@ void RTTrafficInfo_InitRecord(RTTrafficInfo *pTrafficInfo)
 	pTrafficInfo->boundingBox.west = 0;
 	pTrafficInfo->boundingBox.south = 0;
 	pTrafficInfo->bIsOnRoute = FALSE;
+	pTrafficInfo->bIsAlertable = FALSE;
+	pTrafficInfo->bUpdated = FALSE;
 
 }
 
@@ -233,6 +236,19 @@ BOOL  RTTrafficInfo_Exists  (int    iInfoID)
    return TRUE;
 }
 
+static int get_alert_subtype(int traffic_type){
+   switch (traffic_type){
+      case LIGHT_TRAFFIC:
+         return JAM_TYPE_LIGHT_TRAFFIC;
+      case MODERATE_TRAFFIC:
+         return JAM_TYPE_MODERATE_TRAFFIC;
+      case HEAVY_TRAFFIC:
+         return JAM_TYPE_HEAVY_TRAFFIC;
+      case STAND_STILL_TRAFFIC:
+         return JAM_TYPE_STAND_STILL_TRAFFIC;
+   }
+}
+
 /**
  * Generate an Alert from TrafficInfo
   * @param pTrafficInfo - pointer to the TrafficInfo
@@ -242,7 +258,6 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 {
 	RTAlert alert;
 	int speed;
-	int index;
 
 	if (pTrafficInfo->iNumGeometryPoints < 1)
 		return FALSE;
@@ -252,9 +267,10 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 	alert.iID = pTrafficInfo->iID +  ALERT_ID_OFFSET;
 
 	alert.iType = RT_ALERT_TYPE_TRAFFIC_INFO;
-	alert.iSubType = pTrafficInfo->iType;
+	alert.iSubType = get_alert_subtype(pTrafficInfo->iType);
 	alert.iSpeed = pTrafficInfo->iSpeed;
 	alert.bAlertIsOnRoute = pTrafficInfo->bIsOnRoute;
+	alert.bIsAlertable = pTrafficInfo->bIsAlertable;
 
 	strncpy_safe(alert.sLocationStr, pTrafficInfo->sDescription,RT_ALERT_LOCATION_MAX_SIZE);
 
@@ -263,12 +279,12 @@ static BOOL RTTrafficInfo_GenerateAlert(RTTrafficInfo *pTrafficInfo)
 	alert.iDirection = RT_ALERT_MY_DIRECTION;
 	alert.iReportTime = (int)time(NULL);
 
-	index = pTrafficInfo->iNumGeometryPoints / 2;
 	alert.bAlertByMe = FALSE;
-	alert.iLatitude = pTrafficInfo->geometry[index].latitude;
-	alert.iLongitude = pTrafficInfo->geometry[index].longitude;
-   alert.bArchive = FALSE;
+   alert.iLatitude = pTrafficInfo->geometry[0].latitude;
+   alert.iLongitude = pTrafficInfo->geometry[0].longitude;
 
+   alert.bArchive = FALSE;
+   alert.bAlertHandled = FALSE;
 	return RTAlerts_Add(&alert);
 
 }
@@ -344,6 +360,38 @@ BOOL RTTrafficInfo_AddSegments( int iTrafficInfoID, int iSquare, int iVersion, i
 		pLine->iSpeed = pTrafficInfo->iSpeed;
 		pLine->iTrafficInfoId = iTrafficInfoID;
 		pLine->pTrafficInfo = pTrafficInfo;
+
+		if (pTrafficInfo->bIsOnRoute && !pTrafficInfo->bUpdated &&
+          roadmap_square_set_current (pLine->iSquare)){
+         int from;
+         int to;
+         BOOL is_on_route;
+
+         roadmap_line_points (pLine->iLine, &from, &to);
+         if (pLine->iDirection == ROUTE_DIRECTION_WITH_LINE)
+            is_on_route = navigate_is_line_on_route (pLine->iSquare, pLine->iLine, from, to);
+         else
+            is_on_route = navigate_is_line_on_route (pLine->iSquare, pLine->iLine, to, from);
+
+		   if (is_on_route){
+		      RTAlert *pAlert = RTAlerts_Get_By_ID(pTrafficInfo->iID +  ALERT_ID_OFFSET);
+		      if (pAlert){
+		         RoadMapPosition position;
+		         if (pLine->iDirection == ROUTE_DIRECTION_WITH_LINE)
+		            roadmap_point_position (from, &position);
+		         else
+		            roadmap_point_position (to, &position);
+		         pAlert->iLatitude = position.latitude;
+		         pAlert->iLongitude = position.longitude;
+		         pAlert->location_info.line_id = pLine->iLine ;
+		         pAlert->location_info.square_id = pLine->iSquare;
+		         pAlert->location_info.time_stamp = pLine->iVersion;
+
+		         pTrafficInfo->bUpdated = TRUE;
+		      }
+		   }
+		}
+
 		if (!RTTrafficInfo_InstrumentSegment (index))
 			needTile = TRUE;
 		added = TRUE;
@@ -407,7 +455,6 @@ void TrafficConfirmedCallback(int exit_code, void *context){
       editor_points_display_new_points_timed(iUserContribution, 5,confirm_event);
    }
    else if (exit_code == dec_no){
-      Realtime_TrafficAlertFeedback(iTrafficInfoId, 0);
       editor_points_add_new_points(iUserContribution);
       editor_points_display_new_points_timed(iUserContribution, 5,confirm_event);
       RTTrafficInfo_Remove(iTrafficInfoId);
@@ -420,9 +467,14 @@ static void OnUserContribution(int iUserContribution, int iTrafficInfoId){
    traffic_info_context *context;
    RoadMapGpsPosition pos;
    static BOOL ask_once = FALSE;
+   int speed;
 
    roadmap_navigate_get_current(&pos, NULL, NULL);
-   if (pos.speed > 20)
+   speed = roadmap_math_to_speed_unit(pos.speed);
+   if (!roadmap_math_is_metric())
+      speed *= 1.60934;
+
+   if (speed > 20)
        return;
 
    if (ask_once)
@@ -434,7 +486,7 @@ static void OnUserContribution(int iUserContribution, int iTrafficInfoId){
    context->iTrafficInfoId = iTrafficInfoId;
    context->iUserContribution = iUserContribution;
 
-   ssd_confirm_dialog_timeout("Traffic detected","Are you experiencing traffic?",TRUE, TrafficConfirmedCallback, context ,10);
+   ssd_confirm_dialog_timeout("Traffic detected","Are you experiencing traffic?",FALSE, TrafficConfirmedCallback, context ,10);
    ask_once = TRUE;
 }
 
@@ -470,6 +522,7 @@ BOOL RTTrafficInfo_Add(RTTrafficInfo *pTrafficInfo)
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->iID = pTrafficInfo->iID;
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->fSpeedMpS = pTrafficInfo->fSpeedMpS;
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->bIsOnRoute = pTrafficInfo->bIsOnRoute;
+	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->bIsAlertable = pTrafficInfo->bIsAlertable;
 
 	gTrafficInfoTable.pTrafficInfo[gTrafficInfoTable.iCount]->iSpeed = (int)(roadmap_math_meters_p_second_to_speed_unit( (float)pTrafficInfo->fSpeedMpS)+0.5F);
 	switch (pTrafficInfo->iType){

@@ -184,6 +184,10 @@ static void on_address_resolved( void*                context,
 
    if( succeeded != rc)
    {
+      static char *param_name[2] ={ANALYTICS_EVENT_INFO_ERROR, };
+      static char *param_val[2];
+      param_val[0] = roadmap_result_string(rc);
+      param_val[1] = searched_text;
       if( is_network_error( rc))
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                                 roadmap_lang_get( "Search requires internet connection.\r\nPlease make sure you are connected."), on_search_error_message );
@@ -205,7 +209,6 @@ static void on_address_resolved( void*                context,
       roadmap_log(ROADMAP_ERROR,
                   "address_search_dlg::on_address_resolved() - Resolve process failed with error '%s' (%d)",
                   roadmap_result_string( rc), rc);
-
       roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRFAIL_NAME, ANALYTICS_EVENT_ADDRFAIL_INFO, searched_text);
       return;
    }

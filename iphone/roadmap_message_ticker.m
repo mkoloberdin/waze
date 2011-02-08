@@ -144,9 +144,10 @@ void roadmap_message_ticker_initialize(void){
 	UIImageView *imageView = NULL;
 	CGRect rect;
 	gInitialized = FALSE;
+   CGFloat canvas_width = roadmap_canvas_width()*100.0f/roadmap_screen_get_screen_scale();
 		
 	rect = CGRectZero;
-	rect.size.width = roadmap_canvas_width();
+	rect.size.width = canvas_width;
 	
 	//Opened ticker view
 	//Set background

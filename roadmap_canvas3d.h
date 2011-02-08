@@ -9,6 +9,7 @@
 #define ROADMAP_CANVAS3D_H_
 
 #include "roadmap_gui.h" // RoadMapGuiPoint
+#include "roadmap_math.h" //zoom_t
 
 #ifdef __cplusplus
 extern "C" {
@@ -20,7 +21,7 @@ void roadmap_canvas3_ogl_prepare();
 // increase/decrease camera viewing angle
 double roadmap_canvas_ogl_rotateMe(float ang_diff);
 // update camera viewing angle according zoom
-void roadmap_canvas3_ogl_updateScale(int zoom);
+void roadmap_canvas3_ogl_updateScale(zoom_t zoom);
 // set 3D mode
 void roadmap_canvas3_set3DMode(int is3D);
 // project 3D model to 2D screen

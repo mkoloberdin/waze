@@ -32,7 +32,7 @@
 #include "roadmap_iphonemain.h"
 #include "roadmap_iphonecamera.h"
 
-void roadmap_camera_take_alert_picture(  float image_scale, CameraImageQuality image_quality,
+void roadmap_camera_take_alert_picture(  CGSize image_size, CameraImageQuality image_quality,
 								 const char* image_folder, const char* image_file )
 {
    if (![RoadMapCameraView isSourceTypeAvailable:UIImagePickerControllerSourceTypeCamera])
@@ -44,22 +44,22 @@ void roadmap_camera_take_alert_picture(  float image_scale, CameraImageQuality i
 	RoadMapCameraView *imagePicker = [[RoadMapCameraView alloc] init];
 	
 	[imagePicker setSourceType:UIImagePickerControllerSourceTypeCamera];
-	[imagePicker takePictureWithScale: image_scale
-						   andQuality: image_quality
-							andFolder: image_folder
-						  andFileName: image_file];
+	[imagePicker takePictureWithSize: image_size
+                         andQuality: image_quality
+                          andFolder: image_folder
+                        andFileName: image_file];
 	
 	[imagePicker release];
 }
 
 @implementation RoadMapCameraView
 
-- (void) takePictureWithScale: (float) image_scale
+- (void) takePictureWithSize: (CGSize) image_size
 					   andQuality: (CameraImageQuality) image_quality
-						andFolder: (const char*) image_folder
+                   andFolder: (const char*) image_folder
 					  andFileName: (const char*) image_file
 {
-	gImageScale = image_scale;
+	gImageSize = image_size;
 	gImageQuality = image_quality;
 	gImageFolder = image_folder;
 	gImageFileName = image_file;
@@ -72,11 +72,17 @@ void roadmap_camera_take_alert_picture(  float image_scale, CameraImageQuality i
 
 //UIImagePickerController delegate
 - (void)imagePickerController:(UIImagePickerController *)picker didFinishPickingImage:(UIImage *)image editingInfo:(NSDictionary *)editingInfo
-{	
+{
+   CGSize newSize;
+   
 	//Scale image
-	CGSize newSize = [image size];
-	newSize.width *= gImageScale;
-	newSize.height *= gImageScale;
+   if (image.size.width < image.size.height) {
+      newSize = gImageSize;
+   } else {
+      newSize.width = gImageSize.height;
+      newSize.height = gImageSize.width;
+   }
+
 	
 	UIGraphicsBeginImageContext( newSize );
 	[image drawInRect:CGRectMake(0,0,newSize.width,newSize.height)];

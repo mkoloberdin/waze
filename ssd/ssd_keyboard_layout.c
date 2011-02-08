@@ -30,6 +30,7 @@
 #include "roadmap_sound.h"
 #include "roadmap_main.h"
 #include "roadmap_pointer.h"
+#include "roadmap_screen.h"
 #include "ssd_dialog.h"
 
 #include "ssd_keyboard_layout.h"
@@ -768,8 +769,6 @@ static int pointer_down( SsdWidget this, const RoadMapGuiPoint *point)
 
 static int pointer_up( SsdWidget this, const RoadMapGuiPoint *point)
 {
-   static
-   RoadMapSoundList     list  = NULL;
    kbl_ctx*             ctx   = (kbl_ctx*)this->context;
    buttons_layout_info* layout= ctx->layouts[ ctx->current_layout];
    int event_handled = 0;
@@ -796,6 +795,7 @@ static int pointer_up( SsdWidget this, const RoadMapGuiPoint *point)
 	   {
 		   event_handled = 1;
 #ifdef PLAY_CLICK
+		   static   RoadMapSoundList     list  = NULL;
 		   if (!list) {
 			  list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
 			  roadmap_sound_list_add (list, "click");
@@ -997,6 +997,7 @@ SsdWidget ssd_keyboard_layout_create(
    w->pointer_down      = pointer_down;
    w->pointer_up        = pointer_up;
    w->long_click     = on_long_click;
+   w->short_click     = on_long_click; //Avi
    w->fg_color          = background_color;
    w->bg_color          = font_color;
    w->context           = ctx;

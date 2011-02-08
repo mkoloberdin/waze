@@ -908,9 +908,10 @@ static void populate_list(){
    int i, j;
    int num_sections = 1;
    RoadMapPosition context_save_pos;
-   int context_save_zoom;
+   zoom_t context_save_zoom;
    time_t now;
    int timeDiff;
+   const char *title;
    
    //UIView *cellView = NULL;
    
@@ -991,49 +992,9 @@ static void populate_list(){
          position.latitude = alert->iLatitude;
          
          roadmap_math_set_context((RoadMapPosition *)&position, 20);
-         
-         if (alert->iType == RT_ALERT_TYPE_ACCIDENT)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Accident"));
-         else if (alert->iType == RT_ALERT_TYPE_POLICE)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Police"));
-         else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_JAM)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Traffic jam"));
-         else if (alert->iType == RT_ALERT_TYPE_TRAFFIC_INFO){
-            if (alert->iSubType == LIGHT_TRAFFIC)
-               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                        - strlen(AlertStr), "%s", roadmap_lang_get("Light traffic"));
-            else if (alert->iSubType == MODERATE_TRAFFIC)
-               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                        - strlen(AlertStr), "%s", roadmap_lang_get("Moderate traffic"));
-            else if (alert->iSubType == HEAVY_TRAFFIC)
-               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                        - strlen(AlertStr), "%s", roadmap_lang_get("Heavy traffic"));
-            else if (alert->iSubType == STAND_STILL_TRAFFIC)
-               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                        - strlen(AlertStr), "%s", roadmap_lang_get("Complete standstill"));
-            else
-               snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                        - strlen(AlertStr), "%s", roadmap_lang_get("Traffic"));
-         }
-         else if (alert->iType == RT_ALERT_TYPE_HAZARD)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Hazard"));        
-         else if (alert->iType == RT_ALERT_TYPE_OTHER)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Other"));        
-         else if (alert->iType == RT_ALERT_TYPE_CONSTRUCTION)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Road construction"));        
-         else if (alert->iType == RT_ALERT_TYPE_PARKING)
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s", roadmap_lang_get("Parking"));        
-         else
-            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                     - strlen(AlertStr), "%s",
-                     roadmap_lang_get("Chit chat"));
+         title = RTAlerts_get_title(alert, alert->iType, alert->iSubType);
+         if (title)
+            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr) - strlen(AlertStr), "%s", title);
          
          
          if (roadmap_navigate_get_current(&CurrentPosition, &line, &Direction)
@@ -1079,6 +1040,7 @@ static void populate_list(){
             }
          }
          
+         RTAlerts_update_location_str(alert);
          snprintf(location_str, sizeof(location_str), "%s", alert->sLocationStr);
          
          
@@ -1137,7 +1099,7 @@ static void populate_list(){
          else if (alert->sGroup && alert->sGroup[0])
             gAlertListTable.group_icon[iCount] = strdup("groups_default_icons");
          gAlertListTable.group_name[iCount] = strdup(alert->sGroup);
-         if (RTAlerts_Has_Image(alert->iID))
+         if (RTAlerts_Has_Image(alert->iID) || RTAlerts_Has_Voice(alert->iID))
             gAlertListTable.attachment[iCount] = strdup ("attachment");
          gAlertListTable.type[iCount] = alert->iType;
          gAlertListTable.iDistnace[iCount] = distance;

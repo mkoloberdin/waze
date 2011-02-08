@@ -6,6 +6,7 @@
 #define USE_FRIBIDI
 #define OPENGL
 #define VIEW_MODE_3D_OGL
+#define OGL_TILE
 //#define OPENGL_DEBUG
 //#define DEBUG_TIME
 

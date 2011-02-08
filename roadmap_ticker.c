@@ -203,6 +203,9 @@ void roadmap_ticker_display() {
     case bonus_points :
       point_text= roadmap_lang_get("Bonus points");
       break;
+    case thumbs_up_event :
+       point_text= roadmap_lang_get("Thumbs up");
+       break;
 	}
 
 

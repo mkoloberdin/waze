@@ -130,9 +130,9 @@ static int get_root_index (const char *hint, int start_index, int min_filter, in
          roots[i] = create_new_root(hint, min_filter, mag_filter);
          return i;
       }
-      
-      if (!strcmp(roots[i].hint, hint))
-         return i;
+
+         if (!strcmp(roots[i].hint, hint))
+            return i;
    }
    
    return -1;
@@ -225,6 +225,11 @@ BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image, int min
    glTexSubImage2D(GL_TEXTURE_2D, 0, node->rect.minx, node->rect.miny, img->width, img->height,
                    GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
    check_gl_error();
+
+#ifdef ANDROID
+   if ( roadmap_main_get_build_sdk_version() >= ANDROID_OS_VER_FROYO )
+      glFinish();
+#endif
    
    img->offset.x = node->rect.minx;
    img->offset.y = node->rect.miny;

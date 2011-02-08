@@ -38,6 +38,7 @@
 #include "roadmap_device.h"
 #include "roadmap_skin.h"
 #include "roadmap_device_events.h"
+#include "roadmap_sound.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "ssd/ssd_progress_msg_dialog.h"
 #include "Realtime.h"
@@ -57,6 +58,8 @@ static RoadMapConfigDescriptor RoadMapConfigShowTicker =
 		ROADMAP_CONFIG_ITEM("User", "Show points ticker");
 static RoadMapConfigDescriptor RoadMapConfigGeneralUnit =
       ROADMAP_CONFIG_ITEM("General", "Unit");
+static RoadMapConfigDescriptor RoadMapConfigGeneralUserUnit =
+                        ROADMAP_CONFIG_ITEM("General", "Unit");
 
 RoadMapConfigDescriptor RoadMapConfigUseNativeKeyboard =
       ROADMAP_CONFIG_ITEM("Keyboard", "Use native");
@@ -80,6 +83,7 @@ enum IDs {
    ID_PROMPTS,
    ID_CLOCK_FORMAT,
    ID_SUGGEST_ROUTES,
+   ID_REDIRECT_SPEAKER,
    ID_NOTIFICATIONS,
    ID_EVENTS_RADIUS
 };
@@ -90,6 +94,9 @@ static RoadMapCallback id_callbacks[MAX_IDS];
 static RoadMapCallback lang_loaded_callback = NULL;
 static const char *distance_labels[6];
 static const char *distance_values[6];
+static const char *zoom_labels[3];
+static const char *zoom_values[3];
+
 
 int roadmap_general_settings_events_radius(void){
    return roadmap_config_get_integer(&RoadMapConfigEventsRadius);
@@ -232,6 +239,58 @@ static void show_prompts() {
    
 }
 
+static void zoom_callback (int value, int group) {
+   
+   if (!(roadmap_config_match(&NavigateConfigAutoZoom, zoom_values[value]))){ // descriptor changed
+      roadmap_config_set (&NavigateConfigAutoZoom,zoom_values[value]);
+   }
+   
+   roadmap_main_pop_view(YES);
+}
+
+static void show_zoom() {
+   static BOOL initialized = FALSE;
+   int i;
+   
+   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+	NSMutableArray *groupArray = NULL;
+   NSMutableDictionary *dict = NULL;
+   NSString *text;
+   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+   RoadMapChecklist *zoomView;
+   
+   if (!initialized) {
+      zoom_values[0] = "speed";
+      zoom_values[1] = "yes";
+      zoom_values[2] = "no";
+      zoom_labels[0] = roadmap_lang_get("According to speed");
+      zoom_labels[1] = roadmap_lang_get("According to distance");
+      zoom_labels[2] = roadmap_lang_get("No");
+      
+      initialized = TRUE;
+   }
+   
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   for (i = 0; i < 3; ++i) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:zoom_labels[i]];
+      [dict setValue:text forKey:@"text"];
+      if (roadmap_config_match(&NavigateConfigAutoZoom, zoom_values[i])) {
+         [dict setObject:accessoryType forKey:@"accessory"];
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+   }
+   [dataArray addObject:groupArray];
+   
+   text = [NSString stringWithUTF8String:roadmap_lang_get ("Auto zoom")];
+	zoomView = [[RoadMapChecklist alloc] 
+                  activateWithTitle:text andData:dataArray andHeaders:NULL
+                  andCallback:zoom_callback andHeight:60 andFlags:0];
+   
+}
+
 static void events_callback (int value, int group) {
    if (!(roadmap_config_match(&RoadMapConfigEventsRadius, distance_values[value]))){ // descriptor changed
       roadmap_config_set (&RoadMapConfigEventsRadius,distance_values[value]);
@@ -326,7 +385,10 @@ void roadmap_general_settings_init(void){
       ("user", &RoadMapConfigBackLight, "yes", NULL);
    
    roadmap_config_declare_enumeration
-      ("preferences", &RoadMapConfigGeneralUnit, NULL, "metric", "imperial", NULL);
+      ("preferences", &RoadMapConfigGeneralUnit, NULL, "imperial", "metric", NULL);
+
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigGeneralUserUnit, NULL, "default", "imperial", "metric", NULL);
    
    roadmap_config_declare_enumeration
       ("user", &RoadMapConfigShowTicker, NULL, "yes", "no", NULL);
@@ -449,10 +511,19 @@ void roadmap_general_settings_show (void) {
                                              [NSString stringWithUTF8String:roadmap_lang_get("Miles")],
                                              NULL];
    [selCell setItems:segmentsArray];
-   if (roadmap_config_match(&RoadMapConfigGeneralUnit, "metric"))
-      [selCell setSelectedSegment:0];
-   else
-      [selCell setSelectedSegment:1];
+   
+   if (roadmap_config_match(&RoadMapConfigGeneralUserUnit, "default")){
+   	 if (roadmap_config_match(&RoadMapConfigGeneralUnit, "metric"))
+      	[selCell setSelectedSegment:0];
+   	 else
+        [selCell setSelectedSegment:1];
+   }
+   else{
+   	 if (roadmap_config_match(&RoadMapConfigGeneralUserUnit, "metric"))
+      	[selCell setSelectedSegment:0];
+   	 else
+        [selCell setSelectedSegment:1];
+   }
    [selCell setTag:ID_UNIT];
    [selCell setDelegate:self];
    [groupArray addObject:selCell];
@@ -473,13 +544,15 @@ void roadmap_general_settings_show (void) {
    groupArray = [NSMutableArray arrayWithCapacity:1];
    
    //Auto zoom
-	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-	[swCell setTag:ID_AUTO_ZOOM];
-	[swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
-                     ("Auto zoom")]];
-	[swCell setDelegate:self];
-	[swCell setState: roadmap_config_match (&NavigateConfigAutoZoom, "yes")];
-	[groupArray addObject:swCell];
+   callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+   [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+   [callbackCell setTag:ID_AUTO_ZOOM];
+   id_callbacks[ID_AUTO_ZOOM] = show_zoom;
+   callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Auto zoom")];
+   //TODO: add right label for auto zoom
+   //callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+//                                   (roadmap_prompts_get_label(roadmap_prompts_get_name()))];
+   [groupArray addObject:callbackCell];
    
    //Show ticker
 	swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
@@ -507,6 +580,17 @@ void roadmap_general_settings_show (void) {
                         ("Auto-learn routes to your frequent destination")]];
       [swCell setDelegate:self];
       [swCell setState: roadmap_alternative_routes_suggest_routes()];
+      [groupArray addObject:swCell];
+   }
+   
+   //Redirect sound to speaker
+   if (roadmap_alternative_feature_enabled()){
+      swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
+      [swCell setTag:ID_REDIRECT_SPEAKER];
+      [swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get 
+                        ("Always play sound to speaker")]];
+      [swCell setDelegate:self];
+      [swCell setState: roadmap_sound_is_route_to_speaker()];
       [groupArray addObject:swCell];
    }
    
@@ -606,12 +690,6 @@ void roadmap_general_settings_show (void) {
       case ID_BACKLIGHT:
          roadmap_device_set_backlight([(iphoneCellSwitch *) view getState]);
 			break;
-		case ID_AUTO_ZOOM:
-			if ([(iphoneCellSwitch *) view getState])
-				roadmap_config_set (&NavigateConfigAutoZoom, yesno[0]);
-			else
-				roadmap_config_set (&NavigateConfigAutoZoom, yesno[1]);
-			break;
 		case ID_TICKER:
 			if ([(iphoneCellSwitch *) view getState])
 				roadmap_config_set (&RoadMapConfigShowTicker, yesno[0]);
@@ -630,6 +708,12 @@ void roadmap_general_settings_show (void) {
 			else
 				roadmap_alternative_routes_set_suggest_routes(FALSE);
 			break;
+      case ID_REDIRECT_SPEAKER:
+			if ([(iphoneCellSwitch *) view getState])
+            roadmap_sound_set_route_to_speaker(TRUE);
+			else
+				roadmap_sound_set_route_to_speaker(FALSE);
+			break;
       default:
 			break;
 	}
@@ -644,11 +728,11 @@ void roadmap_general_settings_show (void) {
 	switch (tag) {
 		case ID_UNIT:
 			if ([view getItem] == 0) {
-				roadmap_config_set (&RoadMapConfigGeneralUnit,"metric");
+				roadmap_config_set (&RoadMapConfigGeneralUserUnit,"metric");
 				roadmap_math_use_metric();
 			}
 			else{
-				roadmap_config_set (&RoadMapConfigGeneralUnit,"imperial");
+				roadmap_config_set (&RoadMapConfigGeneralUserUnit,"imperial");
 				roadmap_math_use_imperial();
 			}
 			roadmap_config_save(TRUE);

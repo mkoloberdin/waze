@@ -42,7 +42,11 @@
 #ifdef IPHONE
    #define  CONTEXT_MENU_FONT_SIZE              (18)
 #else
+#ifdef TOUCH_SCREEN
    #define  CONTEXT_MENU_FONT_SIZE              (20)
+#else
+   #define  CONTEXT_MENU_FONT_SIZE              (16)
+#endif
 #endif
 
 #define  CONTEXT_MENU_SIMPLE_LIST_FONT_SIZE     (18)
@@ -930,8 +934,8 @@ static void initialize_rows(  SsdWidget            menu_cnt,
    int         text_width;
    int         text_ascent;
    int         text_descent;
-   int         container_width;
-   int         container_height;
+   int         container_width, row_width;
+   int         container_height, row_height;
    int         font_size = CONTEXT_MENU_FONT_SIZE;
    const char*   small_row_bitmap[2] = {0};
 
@@ -972,6 +976,32 @@ static void initialize_rows(  SsdWidget            menu_cnt,
    // a. Set each row size(width,height)
    // b. Set row label
    // c. Hide un-used rows
+#ifdef TOUCH_SCREEN
+   if( SSD_CONTEXTMENU_SIMPLE_LIST & flags)
+   {
+      row_width = text_width;
+      row_height = s_text_height;
+   }
+   else
+   {
+      // AGA TODO:: Replace by the dynamic scaling factor
+      const double hd_factor = 1.5;
+      int width_margin = 4;
+      row_height = 45;
+
+      if ( roadmap_screen_is_hd_screen() )
+      {
+         row_height *= hd_factor;
+         width_margin *= hd_factor;
+      }
+
+      row_width = text_width + width_margin;
+   }
+#else
+   row_width = text_width;
+   row_height = s_text_height;
+#endif
+
    for( i=0; i<menu->item_count; i++)
    {
       ssd_cm_item_ptr   item = menu->item + i;
@@ -979,24 +1009,8 @@ static void initialize_rows(  SsdWidget            menu_cnt,
       if( !(CONTEXT_MENU_FLAG_HIDDEN & menu->item[i].flags))
       {
          SsdWidget button;
-#ifdef TOUCH_SCREEN
-         if( SSD_CONTEXTMENU_SIMPLE_LIST & flags)
-            ssd_widget_set_size  ( item->row, text_width, s_text_height);
-         else
-         {
-            if ( roadmap_screen_is_hd_screen() )
-            {
-               ssd_widget_set_size  ( item->row, text_width+60, 70);
-            }
-            else
-            {
-               ssd_widget_set_size  ( item->row, text_width+10, 40);
-            }
-         }
+         ssd_widget_set_size  ( item->row, row_width, row_height);
 
-#else
-         ssd_widget_set_size  ( item->row, text_width , s_text_height);
-#endif
          ssd_widget_set_value ( item->row, "label", item->label);
          small_row_bitmap[0] = item->icon;
          button = ssd_widget_get( item->row, "row_bitmap" );
@@ -1027,17 +1041,15 @@ static void initialize_rows(  SsdWidget            menu_cnt,
    }
    else
    {
-#ifdef TOUCH_SCREEN
-      container_width   = 220;
+      // AGA TODO:: Replace by the dynamic scaling factor
+      const double hd_factor = 1.5;
+      int width_margin = 2;
       if ( roadmap_screen_is_hd_screen() )
-      {
-         container_width   = 320;
-         container_height  = (used_rows_count) * 72;
-      }
-      else
-      {
-         container_height  = (used_rows_count) * 42;
-      }
+         width_margin *= hd_factor;
+
+#ifdef TOUCH_SCREEN
+      container_width   = row_width + width_margin;
+      container_height  = (used_rows_count) * ( row_height + 2 );
 #else
       container_width   = 8 + text_width;
       if (menu_cnt->flags & SSD_POINTER_MENU)
@@ -1194,6 +1206,7 @@ void ssd_context_menu_show(int                  x,
                            BOOL 				close_on_selection)
 {
    int style;
+   SsdSize s;
 
 #ifdef TOUCH_SCREEN
    style = SSD_ROUNDED_BLACK;
@@ -1258,7 +1271,9 @@ void ssd_context_menu_show(int                  x,
    if( !s_dialog)
    {
       int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL|SSD_PERSISTENT;
-
+#ifdef TOUCH_SCREEN
+      popup_flg |= SSD_SHADOW_BG;
+#endif
       if( !(SSD_CONTEXTMENU_SIMPLE_LIST & flags)){
          popup_flg |= (SSD_ROUNDED_CORNERS|style);
          if (!is_screen_wide())
@@ -1295,5 +1310,9 @@ void ssd_context_menu_show(int                  x,
       s_registered = TRUE;
    }
    close_all_popup_menus(menu); // when we show a menu, we never want to start showing it with popups - D.F.
+
+   ssd_dialog_recalculate( s_dialog_name );
+   ssd_widget_get_size( s_dialog, &s, NULL );
+   roadmap_log( ROADMAP_WARNING, "Context menu size: (%d,%d)", s.width, s.height );
    ssd_dialog_draw ();
 }

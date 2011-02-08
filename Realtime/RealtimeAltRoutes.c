@@ -37,6 +37,9 @@
 #include "../roadmap_trip.h"
 #include "../roadmap_navigate.h"
 #include "../roadmap_line_route.h"
+#include "roadmap_analytics.h"
+
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct {
@@ -83,7 +86,7 @@ AltRouteTrip *RealtimeAltRoutes_Get_Record(int index) {
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-static BOOL RealtimeAltRoutes_Route_Exist(int iTripId) {
+BOOL RealtimeAltRoutes_Route_Exist(int iTripId) {
    int i;
    for (i = 0; i < altRoutesTrips.iCount; i++) {
       if (altRoutesTrips.altRoutTrip[i].iTripId == iTripId)
@@ -182,7 +185,7 @@ void RealtimeAltRoutes_OnRouteSegments (NavigateRouteRC rc, const NavigateRouteR
       roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments - Navigation cancelled");
       return;
    }
-   
+
    navigate_main_on_route (res->flags, res->total_length, res->total_time, segments->segments,
                              segments->num_segments, segments->num_instrumented,
                              res->geometry.points, res->geometry.num_points, res->description, FALSE);
@@ -206,7 +209,7 @@ void RealtimeAltRoutes_Route_CancelRequest(void){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static BOOL RealtimeAltRoutes_GetOrigin(RoadMapGpsPosition *pos, PluginLine *line, int *fromPoint){
    int direction;
-   
+
    if ((roadmap_navigate_get_current (pos, line, &direction) != -1) &&
        (roadmap_plugin_get_id(line) == ROADMAP_PLUGIN_ID)){
       int from;
@@ -252,6 +255,8 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
       fromLine.line_id = -1;
       fromPoint = -1;
    }
+
+   roadmap_analytics_log_event(ANALYTICS_EVENT_ALT_ROUTES, NULL, NULL);
 
    navigate_main_prepare_for_request();
    navigate_route_request (&fromLine,
@@ -299,7 +304,7 @@ BOOL RealtimeAltRoutes_TripRoute_Request(int iTripId, const RoadMapPosition *fro
    RoadMapGpsPosition position;
    PluginLine fromLine;
    int fromPoint;
-   
+
    if (RealtimeAltRoutes_GetOrigin (&position, &fromLine, &fromPoint)){
       from_pos = (RoadMapPosition*)&position;
    }else{

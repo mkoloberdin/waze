@@ -232,7 +232,9 @@ static char* get_download_url(int id_type, int id, int id2, int size)
 
     switch (size){
        case SOCIAL_IMAGE_SIZE_SQUARE:
-          if (roadmap_screen_is_hd_screen())
+          if (roadmap_screen_get_screen_scale() == 200)
+             strcpy (type, "square100");
+          else if (roadmap_screen_is_hd_screen())
              strcpy(type, "square75");
           else
              strcpy(type, "square");

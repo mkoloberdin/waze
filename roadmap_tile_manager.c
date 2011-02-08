@@ -302,7 +302,8 @@ static void http_cb_done (void *context,char *last_modified) {
    	TileCallback (tile_index);
    }
 
-   if (roadmap_square_at_current_scale(tile_index)) {
+   if (roadmap_square_at_current_scale(tile_index))
+   {
       RoadMapArea screen_edges;
       RoadMapArea tile_edges;
 
@@ -311,6 +312,9 @@ static void http_cb_done (void *context,char *last_modified) {
       roadmap_tile_edges (tile_index, &tile_edges.west, &tile_edges.east,
                           &tile_edges.south, &tile_edges.north);
 
+#ifdef OGL_TILE
+      roadmap_canvas_tile_reset_all(0, 1); //TODO: we don't need to refresh all for every tile dl - check area
+#endif
       if (roadmap_math_area_contains(&screen_edges, &tile_edges)) {
          roadmap_screen_redraw();
       }
@@ -336,12 +340,12 @@ static void get_url (ConnectionContext *context) {
 
 	snprintf (context->url,
 				 sizeof (context->url),
-				 "%s/%05d_%02x/%05d_%04x/%05d_%06x/%05d_%08x%s",
+				 "%s/%05d_%02x/%05d_%04x/%05d_%06x/%05d_%08x%s?sessionid=%d",
 				 get_url_prefix (),
 				 fips, tile_id >> 24,
 				 fips, tile_id >> 16,
 				 fips, tile_id >> 8,
-				 fips, tile_id, ROADMAP_DATA_TYPE);
+				 fips, tile_id, ROADMAP_DATA_TYPE,Realtime_GetServerId());
 }
 
 

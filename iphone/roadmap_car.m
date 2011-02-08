@@ -57,14 +57,10 @@ static char *car_value[MAX_CAR_ENTRIES];
 RoadMapConfigDescriptor CarCfg =
 			ROADMAP_CONFIG_ITEM("Trip", "Car");
 
-//Car set event
-static const char* ANALYTICS_EVENT_CARSET_NAME = "TOGGLE_CAR_AVATAR";
-static const char* ANALYTICS_EVENT_CARSET_INFO = "CHANGED_TO";
-
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_car_call_back (int value, int group) {
-   roadmap_analytics_log_event(ANALYTICS_EVENT_CARSET_NAME, ANALYTICS_EVENT_CARSET_INFO, car_value[value]);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_CAR, ANALYTICS_EVENT_INFO_CHANGED_TO, car_value[value]);
    
 	roadmap_config_set (&CarCfg, car_value[value]);
 	roadmap_config_save(TRUE);
@@ -99,12 +95,14 @@ void roadmap_car_dialog (RoadMapCallback callback) {
         cursor = roadmap_path_next ("skin", cursor)) {
       
       directory = roadmap_path_join (cursor, "cars");
-    	
     	files = roadmap_path_list (directory, ".png");
 		
 		roadmap_path_free(directory);
       
       for (cursor2 = files; *cursor2 != NULL; ++cursor2) {
+         if (strstr(*cursor2, "@2x") ||
+             strstr(*cursor2, "_3D"))
+            continue;
 			//set text
 			dict = [NSMutableDictionary dictionaryWithCapacity:1];
 			text = [NSString stringWithUTF8String:roadmap_lang_get(*cursor2)];

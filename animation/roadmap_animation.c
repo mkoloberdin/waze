@@ -34,12 +34,13 @@
 #include "roadmap_time.h"
 #include "roadmap_animation.h"
 
-#define MAX_ANIMATIONS  300
+#define MAX_ANIMATIONS  500
 #define FRAME_RATE_MSEC 35
 
 static RoadMapAnimation gs_animations[MAX_ANIMATIONS];
 static BOOL             gs_is_active = FALSE;
 static uint32_t         gs_last_refresh_time;
+static int              gs_bezier_io[101], gs_bezier_i[101], gs_bezier_o[101];
 
 enum animation_status {
    ANIMATION_STATUS_NEW,
@@ -48,10 +49,14 @@ enum animation_status {
    ANIMATION_STATUS_FREE
 };
 
+static void roadmap_animation_run (int priority);
+
+
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 static void roadmap_animation_periodic (void) {
    roadmap_main_remove_periodic(roadmap_animation_periodic);
+   roadmap_animation_run (ANIMATION_PRIORITY_GPS);
    roadmap_screen_redraw();
 }
 
@@ -90,6 +95,7 @@ RoadMapAnimation *roadmap_animation_create (void) {
       animation->delay = 0;
       animation->callbacks = NULL;
       animation->timing = ANIMATION_TIMING_LINEAR;
+      animation->priority = ANIMATION_PRIORITY_SCREEN;
    }
    
    return animation;
@@ -99,13 +105,19 @@ RoadMapAnimation *roadmap_animation_create (void) {
 static void merge_animations (RoadMapAnimation *old, RoadMapAnimation *new) {
    int old_c, new_c;
    uint32_t now = roadmap_time_get_millis();
-   BOOL refresh_timing = FALSE;
+   uint32_t actual_start_time;
+   int time_passed;
    
    for (new_c = 0; new_c < new->properties_count; new_c++) {
       for (old_c = 0; old_c < old->properties_count; old_c++) {
          if (old->properties[old_c].type == new->properties[new_c].type) {
             if (old->properties[old_c].to != new->properties[new_c].to){
-               //printf("updating property %d of old_to: %d new_to: %d\n", old_c, old->properties[old_c].to, new->properties[new_c].to);
+               if (old->properties[old_c].type == ANIMATION_PROPERTY_ROTATION &&
+                   (old->properties[old_c].to + 360 == new->properties[new_c].to ||
+                    old->properties[old_c].to - 360 == new->properties[new_c].to)) {
+                      break;
+               }
+               
                old->properties[old_c].to = new->properties[new_c].to;
                
                if (old->properties[old_c].type == ANIMATION_PROPERTY_ROTATION) {
@@ -117,10 +129,31 @@ static void merge_animations (RoadMapAnimation *old, RoadMapAnimation *new) {
                         old->properties[old_c].to -= 360;
                      //printf ("changed to -  from: %d to: %d\n", old->properties[old_c].current, old->properties[old_c].to);
                   }
+                  //printf ("%s changed to: %d -> %d\n", old->object_id, old->properties[old_c].current, old->properties[old_c].to);
                }
-               //old->properties[old_c].from = old->properties[old_c].current;
                
-               //refresh_timing = TRUE;
+               actual_start_time = old->properties[old_c].start_time + old->delay;
+               time_passed = now - actual_start_time;
+               
+               if (old->timing & ANIMATION_TIMING_EASY_IN)
+                  old->timing &= !ANIMATION_TIMING_EASY_IN;
+               
+               old->timing = 0;
+               
+               if (0 && 1.0*time_passed/old->properties[old_c].duration < 0.95) {
+                  //old->properties[old_c].duration = (new->duration + old->properties[old_c].duration - time_passed)/2;
+                  old->properties[old_c].duration = new->duration;
+                  old->properties[old_c].from = old->properties[old_c].current;
+               } else {
+                  old->properties[old_c].from = old->properties[old_c].current;
+                  //old->properties[old_c].duration = new->duration;
+                  old->properties[old_c].start_time = now;
+                  //old->properties[old_c].duration = new->duration + old->properties[old_c].duration - time_passed;
+                  if (old->properties[old_c].duration - time_passed < new->duration/2)
+                     old->properties[old_c].duration = new->duration/2;
+                  else
+                     old->properties[old_c].duration -= time_passed;
+               }            
             }
             break;
          }
@@ -129,31 +162,38 @@ static void merge_animations (RoadMapAnimation *old, RoadMapAnimation *new) {
          old->properties_count++;
          old->properties[old_c] = new->properties[new_c];
          old->properties[old_c].current = old->properties[old_c].from;
+         
+         old->properties[old_c].duration = new->duration;
+         old->properties[old_c].start_time = now;
+         
+         //num_updated++;
          //printf("\nadding property %d of old_to: %d new_to: %d\n", old_c, old->properties[old_c].to, new->properties[new_c].to);
       }
    }
-   
-   if (refresh_timing) {
+
+#if 0
+   if (num_updated) {
       for (old_c = 0; old_c < old->properties_count; old_c++) {
          old->properties[old_c].from = old->properties[old_c].current;
       }
       
-      if ((old->timing & ANIMATION_TIMING_EASY_IN) &&
-          (1.0*now-old->start_time)/old->duration < 0.2)
-         old->timing &= !ANIMATION_TIMING_EASY_IN;
-      //else
-         //printf("--->>> passed %f   timing: %d\n",(1.0*now-old->start_time)/old->duration, old->timing);
-      //printf("changing duration from: %d to %d\n", old->duration);
-      old->duration = new->duration;
-      old->start_time = now;
+      if (num_updated == old->properties_count) {
+         if ((old->timing & ANIMATION_TIMING_EASY_IN) &&
+             (1.0*now-old->start_time)/old->duration < 0.2)
+            old->timing &= !ANIMATION_TIMING_EASY_IN;
+         
+         old->duration = new->duration;
+         old->start_time = now;
+      }
    }
+#endif
+   
    new->status = ANIMATION_STATUS_FREE;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_animation_register(RoadMapAnimation *animation) {
    int i;
-
    if (animation == NULL ||
        animation->status != ANIMATION_STATUS_NEW)
       return;
@@ -166,73 +206,185 @@ void roadmap_animation_register(RoadMapAnimation *animation) {
          return;
       }
    }
+//   printf("\n\n\n=================== new animation ===================\n\n");
+//   printf("Property 0 is from: %d  to: %d\n\n", animation->properties[0].from, animation->properties[0].to);
    
    animation->status = ANIMATION_STATUS_STARTED;
-   animation->start_time = roadmap_time_get_millis();
-   for (i = 0; i < animation->properties_count; i++)
+   //animation->start_time = roadmap_time_get_millis();
+   for (i = 0; i < animation->properties_count; i++) {
       animation->properties[i].current = animation->properties[i].from;
+      animation->properties[i].start_time = roadmap_time_get_millis();
+      animation->properties[i].duration = animation->duration;
+   }
 
    roadmap_animation_start();
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
+void roadmap_animation_cancel(RoadMapAnimation *animation) {
+   int i;
+   
+   if (animation == NULL)
+      return;
+   
+   animation->status = ANIMATION_STATUS_FREE;
+   
+   for (i = 0; i < MAX_ANIMATIONS; i++) {
+      if ((gs_animations[i].status == ANIMATION_STATUS_STARTED) &&
+          (!strcmp(animation->object_id, gs_animations[i].object_id))) {
+         gs_animations[i].status = ANIMATION_STATUS_FREE;
+         return;
+      }
+   }
+}
+
+/*
+ Four control point Bezier interpolation
+ t ranges from 0 to 1, start to end of curve
+ */
+static void create_bezier(RoadMapGuiPoint *p1, RoadMapGuiPoint *p2, RoadMapGuiPoint *p3, RoadMapGuiPoint *p4, int *bezier)
+{
+   int x_index = 0;
+   
+   int i;
+   
+   for (i = 0; i < 100; i++) {
+      double tm1,tm13,tm3;
+      float t = 0.01*i;
+      int x, y;
+      
+      tm1 = 1 - t;
+      tm13 = tm1 * tm1 * tm1;
+      tm3 = t * t * t;
+      
+      x = floorf(tm13*p1->x + 3*t*tm1*tm1*p2->x + 3*t*t*tm1*p3->x + tm3*p4->x);
+      y = floorf(tm13*p1->y + 3*t*tm1*tm1*p2->y + 3*t*t*tm1*p3->y + tm3*p4->y);
+      
+      for (; x_index <= x; x_index++) {
+         bezier[x_index] = y;
+         //printf("%d,%d\n", x_index, y);
+      }
+      
+      
+   }
+   
+   for (; x_index <= 100; x_index++) {
+      bezier[x_index] = 100;
+      //printf("%d,%d\n", x_index, 100);
+   }
+}
+
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_animation_initialize (void) {
    int i;
+   RoadMapGuiPoint p1, p2, p3, p4;
    
    for (i = 0; i < MAX_ANIMATIONS; i++) {
       gs_animations[i].status = ANIMATION_STATUS_FREE;
    }
-}
-
-static inline float cubic_bezier(float t, float a, float b, float c, float d) {
-   return pow((1 - t), 3)*a +3*pow((1 - t),2)*t*b + 3*(1 - t)*pow(t, 2)*c + pow(t, 3)*d;
+   
+   //Create bezier curves
+   p1.x = 0;   p1.y = 0;   //start
+   p2.x = 50;  p2.y = 0;   //control 1
+   p3.x = 50;  p3.y = 100; //control 2
+   p4.x = 100; p4.y = 100; //end
+   create_bezier (&p1, &p2, &p3, &p4, gs_bezier_io);
+   p1.x = 0;   p1.y = 0;   //start
+   p2.x = 50;  p2.y = 0;   //control 1
+   p3.x = 70;  p3.y = 70; //control 2
+   p4.x = 100; p4.y = 100; //end
+   create_bezier (&p1, &p2, &p3, &p4, gs_bezier_i);
+   p1.x = 0;   p1.y = 0;   //start
+   p2.x = 30;  p2.y = 30;  //control 1
+   p3.x = 50;  p3.y = 100; //control 2
+   p4.x = 100; p4.y = 100; //end
+   create_bezier (&p1, &p2, &p3, &p4, gs_bezier_o);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 void roadmap_animation_start_repaint (void) {
+   roadmap_animation_run (ANIMATION_PRIORITY_SCREEN);
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+static void roadmap_animation_run (int priority) {
    RoadMapAnimation *animation;
    int i, j;
    uint32_t now = roadmap_time_get_millis();
    uint32_t actual_start_time;
    int time_passed;
    BOOL last_cycle;
+   float current_pos;
    
    if (!gs_is_active)
       return;
    
    for (i = 0; i < MAX_ANIMATIONS; i++) {
-      if (gs_animations[i].status == ANIMATION_STATUS_STARTED) {
+      if (gs_animations[i].status == ANIMATION_STATUS_STARTED &&
+          gs_animations[i].priority == priority) {
          animation = &gs_animations[i];
-         actual_start_time = animation->start_time + animation->delay;
-         time_passed = now - actual_start_time;
-         last_cycle = FALSE;
          
-         if (time_passed < 0) {
-            continue;
-         }
-         
-         if (time_passed + FRAME_RATE_MSEC >= animation->duration) {
-            last_cycle = TRUE;
-         }
          for (j = 0; j < animation->properties_count; j++) {
-            float current_pos = 1.0f * (time_passed + FRAME_RATE_MSEC) / animation->duration;
+            actual_start_time = animation->properties[j].start_time + animation->delay;
+            time_passed = now - actual_start_time;
+            last_cycle = FALSE;
+            
+#ifdef DEBUG
+            if (time_passed < -100000) { //TODO: debug code - remove
+               printf("nagative time !\n");
+            }
+#endif //DEBUG
+            if (time_passed < 0) {
+               continue;
+            }
+            
+            if (time_passed + FRAME_RATE_MSEC >= animation->properties[j].duration) {
+               last_cycle = TRUE;
+            }
+            
+            current_pos = 1.0f * (time_passed + FRAME_RATE_MSEC) / animation->properties[j].duration;
             if (last_cycle || current_pos >= 1.0f) {
+               animation->properties[j].current = animation->properties[j].to;
+            } else if (animation->properties[j].from == animation->properties[j].to) {
                animation->properties[j].current = animation->properties[j].to;
             } else {
                int delta = animation->properties[j].to - animation->properties[j].from +1;
+               int iPos = floorf(100 * current_pos);
+               //if (animation->properties[j].type == ANIMATION_PROPERTY_ROTATION)
+//                  printf("%s set from: %d", animation->object_id, animation->properties[j].current);
                if ((animation->timing & ANIMATION_TIMING_EASY_IN) &&
-                   current_pos < 0.5) {
-                  animation->properties[j].current = (1- (2 * (0.8-current_pos) - pow(0.8-current_pos, 2))) * delta + animation->properties[j].from;
-               } else if ((animation->timing & ANIMATION_TIMING_EASY_OUT) &&
-                          current_pos >= 0.5) {
-                  animation->properties[j].current = ((2 * (current_pos -0.2) - pow(current_pos -0.2, 2))) * delta + animation->properties[j].from;
+                   (animation->timing & ANIMATION_TIMING_EASY_OUT)) {
+                  animation->properties[j].current = gs_bezier_io[iPos]*0.01 * delta + animation->properties[j].from;
+               } else if (animation->timing & ANIMATION_TIMING_EASY_IN) {
+                  //animation->properties[j].current = (1- (2 * (0.8-current_pos) - pow(0.8-current_pos, 2))) * delta + animation->properties[j].from;
+                  //animation->properties[j].current = (sin(-3.1415926/2+current_pos*3.1415926)*0.5 + 0.5) * delta + animation->properties[j].from;
+                  animation->properties[j].current = gs_bezier_i[iPos]*0.01 * delta + animation->properties[j].from;
+               } else if (animation->timing & ANIMATION_TIMING_EASY_OUT) {
+                  //animation->properties[j].current = ((2 * (current_pos -0.2) - pow(current_pos -0.2, 2))) * delta + animation->properties[j].from;
+                  //animation->properties[j].current = (sin(-3.1415926/2+current_pos*3.1415926)*0.5 + 0.5) * delta + animation->properties[j].from;
+                  animation->properties[j].current = gs_bezier_o[iPos]*0.01 * delta + animation->properties[j].from;
                } else {
                   animation->properties[j].current = current_pos * delta + animation->properties[j].from;
+                  //animation->properties[j].current = (sin(-3.1415926/2+current_pos*3.1415926)*0.5 + 0.5) * delta + animation->properties[j].from;
+                  //animation->properties[j].current = gs_bezier_y[iPos]*0.01 * delta + animation->properties[j].from;
                }
+               
+               //if (animation->properties[j].current == animation->properties[j].from &&
+//                   animation->properties[j].from != animation->properties[j].to) {
+//                  if (animation->properties[j].from < animation->properties[j].to)
+//                     animation->properties[j].current++;
+//                  else
+//                     animation->properties[j].current--;
+//               }
             }
+            //printf(" # %d, to value: %d   ;   ", j, animation->properties[j].current);
+            //if (animation->properties[j].type == ANIMATION_PROPERTY_ROTATION)
+//               printf(" to: %d\n", animation->properties[j].current);
          }
          if (animation->callbacks && animation->callbacks->set)
             animation->callbacks->set((void *)animation);
+         //printf("\n");
       }
    }
    
@@ -264,9 +416,17 @@ void roadmap_animation_end_repaint (void) {
             }
          }
          if (ended) {
-            animation->status = ANIMATION_STATUS_FREE;
-            if (animation->callbacks && animation->callbacks->ended)
-               animation->callbacks->ended((void *)animation);
+            if (animation->loops > 1) {
+               animation->loops--;
+               for (j = 0; j < animation->properties_count; j++) {
+                  animation->properties[j].current = animation->properties[j].from;
+                  animation->properties[j].start_time = now;
+               }
+            } else {
+               animation->status = ANIMATION_STATUS_FREE;
+               if (animation->callbacks && animation->callbacks->ended)
+                  animation->callbacks->ended((void *)animation);
+            }
          }
       }
    }

@@ -48,7 +48,8 @@
 static void RealtimeTrafficInfoScreenRepaint (int max_pen);
 static void RealtimeTrafficInfoPaintGeoms (void);
 
-#define TRAFFIC_PEN_WIDTH 4
+#define TRAFFIC_PEN_WIDTH_BASE 4
+#define TRAFFIC_PEN_WIDTH ( ADJ_SCALE( (TRAFFIC_PEN_WIDTH_BASE) ) )
 #define MAX_SEGEMENTS 2500
 
 static int plugId;
@@ -249,7 +250,7 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
    	 return;
 	if (RTTrafficInfo_IsEmpty()) return;
 
-	if (roadmap_square_current_scale_factor() > 1/*roadmap_math_get_zoom () >= 100*/) {
+	if (roadmap_square_current_scale_factor() > 4/*roadmap_math_get_zoom () >= 100*/) {
 		RealtimeTrafficInfoPaintGeoms();
 		return;
 	}

@@ -231,6 +231,8 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_map_download.c \
           roadmap_reminder.c \
           roadmap_scoreboard.c \
+          roadmap_recorder.c \
+          roadmap_recorder_dlg.c \
           roadmap_analytics.c
 
 #TILE STORAGE DEPENDENT SOURCES
@@ -281,6 +283,7 @@ RMGUISRCS=roadmap_sprite.c \
           roadmap_login.c \
           auto_hide_dlg.c \
           roadmap_welcome_wizard.c \
+          roadmap_recommend_ssd.c \
 	  roadmap_geo_location_info.c \
           roadmap_start.c \
 	  roadmap_geo_config.c \
@@ -391,6 +394,9 @@ RTSRCS=Realtime/Realtime.c \
        Realtime/RealtimeExternalPoi.c \
        Realtime/RealtimeExternalPoiDlg.c \
        Realtime/RealtimeExternalPoiNotifier.c \
+       Realtime/RealtimeTrafficDetection.c \
+       Realtime/RealtimePopUp.c \
+       
        
 
 
@@ -414,6 +420,7 @@ SSD_WIDGETS_SRCS=ssd/ssd_dialog.c \
                  ssd/ssd_container.c \
                  ssd/ssd_text.c \
                  ssd/ssd_entry.c \
+                 ssd/ssd_entry_label.c \
                  ssd/ssd_button.c \
                  ssd/ssd_list.c \
                  ssd/ssd_generic_list_dialog.c \
@@ -435,6 +442,7 @@ SSD_WIDGETS_SRCS=ssd/ssd_dialog.c \
                  ssd/ssd_icon.c \
                  ssd/ssd_widget_tab_order.c \
                  ssd/ssd_progress_msg_dialog.c \
+                 ssd/ssd_segmented_control.c \
                  roadmap_strings.c 
                  
 

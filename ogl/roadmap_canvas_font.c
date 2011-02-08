@@ -88,25 +88,29 @@ static void roadmap_canvas_font_allocate (void) {
 #define INLINE_DEC
 #endif
 
-INLINE_DEC void create_name (char *name, int name_len ,wchar_t ch, int size, int bold) {
-   snprintf(name, name_len , "%ld_%d_%d", ch, size, bold);
-}
+//INLINE_DEC void create_name (char *name, int name_len ,wchar_t ch, int size, int bold) {
+//   snprintf(name, name_len , "%ld_%d_%d", ch, size, bold);
+//}
+
+
+#define MAKE_HASH(_ch_,_size_,_bold_)(_ch_*100 + _size_ + _bold_)
 
 static RoadMapFontImage *roadmap_canvas_font_get_item (wchar_t ch, int size, int bold) {
    int hash;
    int i;
-   char name[20];
+   //char name[20];
 
 
-   create_name (name, sizeof(name), ch, size, bold);
-
-   hash = roadmap_hash_string (name);
+   //create_name (name, sizeof(name), ch, size, bold);
+   //hash = roadmap_hash_string (name);
+   
+   hash = MAKE_HASH(ch, size, bold);
 
    for (i = roadmap_hash_get_first (RoadMapFontHash, hash);
         i >= 0;
         i = roadmap_hash_get_next (RoadMapFontHash, i)) {
 
-      if (!strcmp(name, RoadMapFontItems[i]->name)) {
+      if (hash == RoadMapFontItems[i]->hash) {
 
          return RoadMapFontItems[i];
       }
@@ -192,7 +196,6 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
    FT_Bitmap bitmap;
    FT_Stroker stroker;
    int error;
-   int hash;
 
    if (!initialized) {
       init();
@@ -286,7 +289,7 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
    
    FT_Stroker_New(library, &stroker);
    FT_Stroker_Set(stroker,
-                  (int)(2 * 64),
+                  (int)(ADJ_SCALE(2) * 64),
                   FT_STROKER_LINECAP_ROUND,
                   FT_STROKER_LINEJOIN_ROUND,
                   0);
@@ -346,10 +349,11 @@ RoadMapFontImage *roadmap_canvas_font_tex (wchar_t ch, int size, int bold) {
       roadmap_canvas_font_allocate();
    }
 
-   create_name (fontImage->name, sizeof(fontImage->name) ,ch, size, bold);
-
-   hash = roadmap_hash_string (fontImage->name);
-   roadmap_hash_add (RoadMapFontHash, hash, RoadMapFontCount);
+   //create_name (fontImage->name, sizeof(fontImage->name) ,ch, size, bold);
+   //hash = roadmap_hash_string (fontImage->name);
+   fontImage->hash = MAKE_HASH(ch, size, bold);
+   
+   roadmap_hash_add (RoadMapFontHash, fontImage->hash, RoadMapFontCount);
    RoadMapFontItems[RoadMapFontCount] = fontImage;
 
    RoadMapFontCount++;

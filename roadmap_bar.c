@@ -699,9 +699,7 @@ const char *get_dist_to_destination(void){
 
 static void drawBarBGImage( const char* res, const RoadMapGuiPoint* pos ) {
 
-   RoadMapImage image;
    int width = roadmap_canvas_width ();
-   int height = roadmap_canvas_height();
    int num_images;
    int image_width, image_height;
    int i;
@@ -1064,8 +1062,9 @@ int roadmap_bar_obj_released (RoadMapGuiPoint *point)
 
 	   if ( SelectedBarObject->action )
 	   {
+#ifdef PLAY_CLICK
 	      static RoadMapSoundList list;
-
+#endif
 	      SelectedBarObject->image_state = IMAGE_STATE_SELECTED;
 	      roadmap_screen_redraw();
 
@@ -1239,7 +1238,7 @@ void roadmap_bar_initialize(void){
    TopBarSelectedBg = ( RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN|RES_NOCACHE, TOP_BAR_SELECTED_BG_IMAGE );
 #endif
 
-#if ! (defined(OPENGL))   // Draw directly 
+#if ! (defined(OPENGL))   // Draw directly
    TopBarFullBg = createBGImage( topBarBgImg );
 
    BottomBarFullBg = createBGImage( bottomBarBgImg );

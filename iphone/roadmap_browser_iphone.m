@@ -52,19 +52,24 @@ void roadmap_browser_unload (void) {
 }
 
 /////////////////////////////////////////////////////
-static void roadmap_browser_preload_custom (const char* title, const char* url, RoadMapCallback callback, int bar_type, int flags,
-                                            CGRect rect){
+static void roadmap_browser_preload_custom (const char* title, const char* url, RoadMapCallback on_close_cb, RMBrowserCallback on_load_cb,
+                                            void *context, int bar_type, int flags, CGRect rect){
+   BrowserViewController *browser = NULL;
    if (!(flags & BROWSER_FLAG_WINDOW_TYPE_EMBEDDED))
       ssd_dialog_hide_all(dec_close);
    
-   RoadMapBrowser = [[BrowserViewController alloc] init];
-   [RoadMapBrowser preload:title url:url callback:callback bar:bar_type flags:flags rect:rect];
+   browser = [[BrowserViewController alloc] init];
+   [browser preload:title url:url onClose:on_close_cb onLoad: on_load_cb context:context bar:bar_type flags:flags rect:rect];
    isPreloading = TRUE;
+   
+   if (!(flags & BROWSER_FLAG_CACHE_ONLY))
+      RoadMapBrowser = browser;
 }
 
 /////////////////////////////////////////////////////
-void roadmap_browser_preload (const char* title, const char* url, RoadMapCallback callback, int bar_type){
-   roadmap_browser_preload_custom(title, url, callback, bar_type, FALSE, CGRectZero);
+void roadmap_browser_iphone_preload (const char* title, const char* url, RoadMapCallback on_close_cb,
+                              RMBrowserCallback on_load_cb, void *context, int bar_type, int flags){
+   roadmap_browser_preload_custom(title, url, on_close_cb, on_load_cb, context, bar_type, flags, CGRectZero);
 }
 
 /////////////////////////////////////////////////////
@@ -89,7 +94,8 @@ void roadmap_browser_iphone_close (void) {
 }
 
 /////////////////////////////////////////////////////
-void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, const char* title, RoadMapCallback on_close_cb) {
+void roadmap_browser_iphone_show (CGRect rect, const char *url, int flags, const char* title,
+                                  RoadMapCallback on_close_cb, RMBrowserCallback on_load_cb, void *context) {
    int bar_type;
    
    if ((flags & BROWSER_FLAG_TITLE_BTN_LEFT1) &&
@@ -99,7 +105,7 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
    else
       bar_type = BROWSER_BAR_NORMAL;
    
-   roadmap_browser_preload_custom (title, url, on_close_cb, bar_type, flags, rect);
+   roadmap_browser_preload_custom (title, url, on_close_cb, on_load_cb, context, bar_type, flags, rect);
    roadmap_browser_show_preloaded();
 }
 
@@ -194,9 +200,11 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
 
 - (void) preload: (const char *) title
              url: (const char *) url
-        callback: (RoadMapCallback) callback
+         onClose: (RoadMapCallback) on_close_cb
+          onLoad: (RMBrowserCallback) on_load_cb
+         context: (void *) context
              bar: (int) bar_type
-           flags: (BOOL) flags
+           flags: (int) flags
             rect: (CGRect) rect
 {
    NSString *str;
@@ -206,9 +214,15 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
    
    str = [[NSString stringWithUTF8String:url] stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
    [gBrowserView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:str]]];
+   //[gBrowserView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:str]
+//                                              cachePolicy:NSURLRequestReturnCacheDataElseLoad
+//                                          timeoutInterval:30]];
    
-   gCallback = callback;
+   gOnCloseCb = on_close_cb;
+   gOnLoadCb = on_load_cb;
+   gContext = context;
    gIsEmbedded = flags & BROWSER_FLAG_WINDOW_TYPE_EMBEDDED;
+   gIsCacheOnly = flags & BROWSER_FLAG_CACHE_ONLY;
    if (flags & BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT) {
       gBrowserView.opaque = NO;
       gBrowserView.backgroundColor = [UIColor clearColor];
@@ -296,8 +310,8 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
       [gBrowserView release];
    }
    
-   if (gCallback)
-      gCallback();
+   if (gOnCloseCb)
+      gOnCloseCb();
    
 	[super dealloc];
 }
@@ -330,6 +344,12 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
 {
    if (gIsShown)
       roadmap_main_set_cursor(ROADMAP_CURSOR_NORMAL);
+   
+   if (gOnLoadCb)
+      gOnLoadCb(1, gContext);
+   
+   if (gIsCacheOnly)
+      [self release];
 }
 
 - (void)webView:(UIWebView *)webView didFailLoadWithError:(NSError *)error
@@ -339,6 +359,11 @@ void roadmap_browser_iphone_show ( CGRect rect, const char *url, int flags, cons
    roadmap_log (ROADMAP_ERROR, "roadmap_browser - failed loading page, with error: %d ; page: %s", [error code],
                 [[[webView.request URL] absoluteString] UTF8String]);
    //roadmap_messagebox("Error", "Could not download data");
+   if (gOnLoadCb)
+      gOnLoadCb(0, gContext);
+   
+   if (gIsCacheOnly)
+      [self release];
 }
 
 @end

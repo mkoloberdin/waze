@@ -27,9 +27,9 @@
 #include <string.h>
 
 #include "roadmap.h"
-#include "roadmap_res.h" 
+#include "roadmap_res.h"
 #include "roadmap_canvas.h"
-#include "roadmap_config.h" 
+#include "roadmap_config.h"
 #include "roadmap_lang.h"
 #include "roadmap_geo_location_info.h"
 
@@ -45,14 +45,14 @@
 #include "roadmap_messagebox.h"
 #endif //IPHONE
 
-static RoadMapConfigDescriptor GEO_LOCATION_DISPLAYED_Var = 
-                           ROADMAP_CONFIG_ITEM( 
-                                    GEO_LOCATION_TAB, 
+static RoadMapConfigDescriptor GEO_LOCATION_DISPLAYED_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    GEO_LOCATION_TAB,
                                     GEO_LOCATION_DISPLAYED_Name);
 
-static RoadMapConfigDescriptor GEO_LOCATION_ENABLED_Var = 
-                           ROADMAP_CONFIG_ITEM( 
-                                    GEO_LOCATION_TAB, 
+static RoadMapConfigDescriptor GEO_LOCATION_ENABLED_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    GEO_LOCATION_TAB,
                                     GEO_LOCATION_ENABLED_Name);
 
 
@@ -76,26 +76,26 @@ static int initialized = 0;
 
 /////////////////////////////////////////////////////////////////////
 static BOOL is_geo_location_enabled(void){
-   roadmap_config_declare_enumeration( GEO_LOCATION_ENABLE_CONFIG_TYPE, 
-                                       &GEO_LOCATION_ENABLED_Var, 
-                                       NULL, 
-                                       GEO_LOCATION_No, 
-                                       GEO_LOCATION_Yes, 
+   roadmap_config_declare_enumeration( GEO_LOCATION_ENABLE_CONFIG_TYPE,
+                                       &GEO_LOCATION_ENABLED_Var,
+                                       NULL,
+                                       GEO_LOCATION_No,
+                                       GEO_LOCATION_Yes,
                                        NULL);
    if( 0 == strcmp( roadmap_config_get( &GEO_LOCATION_ENABLED_Var), GEO_LOCATION_Yes))
       return TRUE;
    return FALSE;
-   
+
 }
 
 
 /////////////////////////////////////////////////////////////////////
 static BOOL geo_location_displayed(void){
-   roadmap_config_declare_enumeration( GEO_LOCATION_CONFIG_TYPE, 
-                                       &GEO_LOCATION_DISPLAYED_Var, 
-                                       NULL, 
-                                       GEO_LOCATION_No, 
-                                       GEO_LOCATION_Yes, 
+   roadmap_config_declare_enumeration( GEO_LOCATION_CONFIG_TYPE,
+                                       &GEO_LOCATION_DISPLAYED_Var,
+                                       NULL,
+                                       GEO_LOCATION_No,
+                                       GEO_LOCATION_Yes,
                                        NULL);
    if( 0 == strcmp( roadmap_config_get( &GEO_LOCATION_DISPLAYED_Var), GEO_LOCATION_Yes))
       return TRUE;
@@ -193,13 +193,13 @@ static void roadmap_geo_location_dialog(void){
    SsdWidget text;
    SsdWidget container;
    SsdWidget title;
-   
+
    int width = roadmap_canvas_width() - 20;
    dialog = ssd_dialog_new ("geo_location_info",
                             roadmap_lang_get ("waze status in your area"),
                             NULL,
                             SSD_CONTAINER_TITLE|SSD_DIALOG_NO_BACK);
-   
+
    group = ssd_container_new ("geo_location_group", NULL,
             width, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER);
    ssd_widget_set_color (group, NULL,NULL);
@@ -213,7 +213,7 @@ static void roadmap_geo_location_dialog(void){
    title = ssd_container_new ("title_gr", NULL,
             SSD_MIN_SIZE, SSD_MIN_SIZE,SSD_ALIGN_CENTER|SSD_END_ROW);
    ssd_widget_set_color(title, NULL, NULL);
-   
+
    text = ssd_text_new ("Label_status", roadmap_lang_get("Status:   "), 20, 0);
    ssd_widget_add (title, text);
    text = ssd_text_new ("Status", g_geo_info.state, 20,SSD_END_ROW);
@@ -224,7 +224,7 @@ static void roadmap_geo_location_dialog(void){
 
    text = ssd_text_new ("What you get label", roadmap_lang_get("What you get:"), 18,SSD_ALIGN_CENTER|SSD_END_ROW);
    ssd_widget_add (group, text);
-   
+
    ssd_widget_add (group, space(5));
    text = ssd_text_new ("Map_label", roadmap_lang_get("Navigable map:   "), 14,0);
    ssd_widget_add (group, text);
@@ -232,37 +232,37 @@ static void roadmap_geo_location_dialog(void){
    ssd_widget_set_color(text, "#4886b7", "#4886b7");
    ssd_widget_add (group, text);
 
-   
+
    ssd_widget_add (group, space(5));
-   
+
    text = ssd_text_new ("Traffic_label", roadmap_lang_get("Real-Time traffic:  "), 14, 0);
    ssd_widget_add (group, text);
    text = ssd_text_new ("Traffic_label_value", g_geo_info.traffic_score, 14,SSD_END_ROW);
    ssd_widget_set_color(text, "#4886b7", "#4886b7");
    ssd_widget_add (group, text);
    ssd_widget_add (group, space(5));
-   
+
    text = ssd_text_new ("Usage_label", roadmap_lang_get("Community alerts:   "), 14,0);
    ssd_widget_add (group, text);
    text = ssd_text_new ("Usage_label", g_geo_info.usage_score, 14,SSD_END_ROW);
    ssd_widget_set_color(text, "#4886b7", "#4886b7");
    ssd_widget_add (group, text);
    ssd_widget_add (group, space(5));
-   
+
    ssd_widget_add (group, space(20));
-   progress = ssd_progress_new("progress",SSD_MAX_SIZE, 0);
+   progress = ssd_progress_new("progress",TRUE, SSD_MAX_SIZE, 0);
    ssd_progress_set_value(progress, g_geo_info.overall_score);
    ssd_widget_add(group, progress);
-   
-   
+
+
    //ssd_widget_add (group, space(5));
-   
+
    container = ssd_container_new ("text_cont", NULL,
             80, SSD_MIN_SIZE,SSD_WIDGET_SPACE);
    text = ssd_text_new ("Early building", roadmap_lang_get("Early Building"), -1, SSD_ALIGN_CENTER);
    ssd_widget_add (container, text);
    ssd_widget_add (group, container);
-   
+
    container = ssd_container_new ("text_cont", NULL,
             80, SSD_MIN_SIZE,SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
    text = ssd_text_new ("Partial Value", roadmap_lang_get("Partial Value"), -1, SSD_ALIGN_CENTER);
@@ -275,7 +275,7 @@ static void roadmap_geo_location_dialog(void){
    ssd_widget_add (container, text);
    ssd_widget_add (group, container);
 
-#ifdef TOUCH_SCREEN   
+#ifdef TOUCH_SCREEN
    ssd_widget_add (group, space(15));
    ssd_widget_add (group,
                    ssd_button_label ("Let me in", roadmap_lang_get ("Let me in"),
@@ -312,10 +312,10 @@ void roadmap_geo_location_info(void){
 #ifndef IPHONE
 	if (!is_geo_location_enabled())
        return;
-    
+
   if (geo_location_displayed())
       return;
-	
+
   roadmap_geo_location_dialog();
 #else
    initialized = 1;

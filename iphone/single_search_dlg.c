@@ -121,19 +121,9 @@ static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( main_menu_items);
 
 #define MAX_MENU_ITEMS 20
 
-//Address events
-static const char* ANALYTICS_EVENT_SSEARCHFAIL_NAME    = "SINGLE_SEARCH_FAILED";
-static const char* ANALYTICS_EVENT_SSEARCHFAIL_INFO    = "SINGLE_SEARCH_STRING";
-static const char* ANALYTICS_EVENT_SSEARCHNORES_NAME   = "SINGLE_SEARCH_NO_RESULTS";
-static const char* ANALYTICS_EVENT_SSEARCHNORES_INFO   = "SINGLE_SEARCH_STRING";
-static const char* ANALYTICS_EVENT_SSEARCHSUCCESS_NAME = "SINGLE_SEARCH_SUCCESS";
-
-
 static int on_options(SsdWidget widget, const char *new_value, void *context);
 static int send_error_report(){
    roadmap_result rc;
-
-   //roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRREPORT_NAME, ANALYTICS_EVENT_ADDRREPORT_INFO, searched_text);
 
 	rc= address_search_report_wrong_address(searched_text);
    if( succeeded == rc)
@@ -190,7 +180,9 @@ static void on_address_resolved( void*                context,
    int      count_ab = 0;
    int      total_count = 0;
    int       i;
-   
+   int       adr_index = 0 ;
+   int       ls_index = 0;
+
    /* Close the progress message */
    ssd_progress_msg_dialog_hide();
 
@@ -199,64 +191,65 @@ static void on_address_resolved( void*                context,
       if( is_network_error( rc))
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                                 roadmap_lang_get( "Search requires internet connection.\r\nPlease make sure you are connected."), on_search_error_message );
-      
-      
-      
+
+
+
       else if( err_as_could_not_find_matches == rc)
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"),
                                 roadmap_lang_get( "Sorry, no results were found for this search"), on_search_error_message );
       else
       {
          char msg[128];
-         
+
          snprintf( msg, sizeof(msg), "%s\n%s",roadmap_lang_get("Sorry we were unable to complete the search"), roadmap_lang_get("Please try again later"));
-         
+
          roadmap_messagebox_cb ( roadmap_lang_get( "Oops"), msg, on_search_error_message );
       }
-      
+
       roadmap_log(ROADMAP_ERROR,
                   "single_search_dlg::on_address_resolved() - Resolve process failed with error '%s' (%d)",
                   roadmap_result_string( rc), rc);
-      roadmap_analytics_log_event(ANALYTICS_EVENT_SSEARCHFAIL_NAME, ANALYTICS_EVENT_SSEARCHFAIL_INFO, searched_text);
+      roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCH_FAILED, ANALYTICS_EVENT_INFO_VALUE, searched_text);
       return;
    }
-   
+
    if( !size)
    {
       roadmap_log(ROADMAP_DEBUG,
                   "single_search_dlg::on_address_resolved() - NO RESULTS for the address-resolve process");
-      roadmap_analytics_log_event(ANALYTICS_EVENT_SSEARCHNORES_NAME, ANALYTICS_EVENT_SSEARCHNORES_INFO, searched_text);
+      roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCH_NORES, ANALYTICS_EVENT_INFO_VALUE, searched_text);
       return;
    }
-   
-   roadmap_analytics_log_event(ANALYTICS_EVENT_SSEARCHSUCCESS_NAME, NULL, NULL);
-   
+
+
    assert( size <= ADSR_MAX_RESULTS);
-   
+
    //addresses
    icon_adr = "search_address";
    for( i=0; i<size; i++)
    {
       if (array[i].type == ADDRESS_CANDIDATE_TYPE_ADRESS){
+         array[i].offset =  adr_index++;
          results[total_count] = array[i].address;
          indexes[total_count++] = (void*)i;
          count_adr++;
       }
    }
-   
+
    //local search
    icon_ls = local_search_get_icon_name();
    for( i=0; i<size; i++)
    {
       if (array[i].type != ADDRESS_CANDIDATE_TYPE_ADRESS){
+         array[i].offset =  ls_index++;
          results[total_count] = array[i].address;
          indexes[total_count++] = (void*)i;
          count_ls++;
       }
    }
-   
+
    //address book
-   
+
    single_search_resolved_dlg_show(results, indexes,
                                    count_adr,
                                    count_ls,
@@ -273,16 +266,16 @@ static void on_address_resolved( void*                context,
       results_adr[count_adr-1] = label;
       indexes_adr[count_adr-1] = (void*)(-1);
       icons_adr[count_adr-1] = "search_address";
-      
+
    }
-   
+
    if (count_adr == 0){
       ssd_widget_hide(ssd_widget_get(list_cont,SSD_RC_ADDRESSLIST_TITLE_NAME));
    }
    else{
       ssd_widget_show(ssd_widget_get(list_cont,SSD_RC_ADDRESSLIST_TITLE_NAME));
    }
-   
+
    ssd_list_populate(list_address,
                      count_adr,
                      results_adr,
@@ -292,14 +285,14 @@ static void on_address_resolved( void*                context,
                      on_addr_list_item_selected,
                      NULL,
                      FALSE);
-   
+
    if (count_ls == 0){
       ssd_widget_hide(ssd_widget_get(list_cont,SSD_RC_LSLIST_TITLE_NAME));
    }
    else{
       ssd_widget_show(ssd_widget_get(list_cont,SSD_RC_LSLIST_TITLE_NAME));
    }
-   
+
    ssd_list_populate(list_ls,
                      count_ls,
                      results_ls,
@@ -309,12 +302,12 @@ static void on_address_resolved( void*                context,
                      on_ls_list_item_selected,
                      NULL,
                      FALSE);
-   
-   
-   
+
+
+
    */
-   
-   
+
+
 }
 
 
@@ -359,19 +352,49 @@ static int on_search(const char *text, void *list_cont)
       return 0;
    }
 
-   if ( !strcmp( "##@heb", text ) )
-   {
-      roadmap_lang_set_system_lang("heb");
-      roadmap_messagebox("", "Language changed to Hebrew, please restart waze");
-      return 0;
-   }
-   if ( !strcmp( "##@eng", text ) )
-   {
-      roadmap_messagebox("","Language changed to English, please restart waze");
-      roadmap_lang_set_system_lang("eng");
-      return 0;
+   if (strstr(text, "##@")){
+      char *name;
+      name = text+3;
+      if (name && name[0] != 0){
+         roadmap_geo_config_generic(name);
+         return;
+      }
    }
 
+   // Check if lat lon
+   if ((isdigit(text[0]) || text[0] == '-') && strchr (text, ',') && strchr (text, '.')){
+      RoadMapPosition position;
+      double   longtitude;
+      double   latitude;
+      char *latitude_ascii;
+      char buffer[128];
+      char txt_buffer[128];
+      char *lon_ascii;
+
+      strcpy (txt_buffer, text);
+      strcpy (buffer, text);
+
+      latitude_ascii = strchr (buffer, ',');
+      if (latitude_ascii != NULL) {
+         *(latitude_ascii++) = 0;
+         lon_ascii = strtok(txt_buffer, ",");
+         if (latitude_ascii[0] == ' ')
+            latitude_ascii++;
+         if ((isdigit(txt_buffer[0]) || txt_buffer[0] == '-') && (isdigit(latitude_ascii[0]) || latitude_ascii[0] == '-')){
+            longtitude= atof(lon_ascii);
+            latitude= atof(latitude_ascii);
+            position.longitude = longtitude*1000000;
+            position.latitude  = latitude*1000000;
+            //if (!(position.longitude==0 && position.latitude==0)){
+               roadmap_trip_set_point ("Selection", &position);
+               roadmap_trip_set_focus ("Selection");
+               roadmap_main_show_root(0);
+               editor_screen_selection_menu();
+               return 0 ;
+            //}
+         }
+      }
+   }
 
    strncpy_safe (searched_text, text, sizeof(searched_text));
 
@@ -614,7 +637,7 @@ static int on_option_selected (SsdWidget widget, const char* sel ,const void *va
          sprintf(url, "tel:%s", selection->phone);
          roadmap_main_open_url(url);
          break;
-         
+
       case cm_url:
          roadmap_main_open_url(selection->url);
          break;
@@ -645,7 +668,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
          values[i] = (void *)&context_menu.item[i];
       }
       count = context_menu.item_count;
-      
+
       if (selection->phone[0] != 0) {
          snprintf(phone, sizeof(phone), "%s: %s",roadmap_lang_get("Phone number"), selection->phone);
          labels[count] = phone;

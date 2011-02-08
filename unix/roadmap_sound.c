@@ -106,13 +106,13 @@ int roadmap_sound_play_list (const RoadMapSoundList list) {
 
 	int i;
 	char announce[2000];
-	
+
 	announce[0] = '\0';
 	for (i = 0; i < list->count; i++) {
 		strcat (announce, list->list[i]);
 		strcat (announce, " ");
 	}
-	if (*announce) roadmap_log (ROADMAP_DEBUG, "Voice announce: %s\n", announce);			
+	if (*announce) roadmap_log (ROADMAP_DEBUG, "Voice announce: %s\n", announce);
 
    if (!(list->flags & SOUND_LIST_NO_FREE)) {
       roadmap_sound_list_free  (list);
@@ -126,8 +126,12 @@ int roadmap_sound_record (const char *file_name, int seconds) {
    return 0;
 }
 
+void roadmap_sound_stop_recording (void){
 
-void roadmap_sound_initialize (void) 
+}
+
+
+void roadmap_sound_initialize (void)
 {
 	// Initialize the volume labels for GUI
 	SND_VOLUME_LVLS_LABELS[0] = roadmap_lang_get( "Silent" );
@@ -139,9 +143,9 @@ void roadmap_sound_shutdown   (void) {}
 
 /***********************************************************
  *      Name    : roadmap_sound_set_volume
- *      Purpose : Sets the user volume setting to the native sound object 
- *                with configuration update			 
+ *      Purpose : Sets the user volume setting to the native sound object
+ *                with configuration update
  */
-void roadmap_sound_set_volume ( int volLvl ) 
+void roadmap_sound_set_volume ( int volLvl )
 {
 }

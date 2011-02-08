@@ -1013,16 +1013,26 @@ static void track_rec_locate(time_t gps_time,
 
    const RoadMapGpsPosition *filtered_gps_point;
    RoadMapPosition context_save_pos;
-   int context_save_zoom;
+   zoom_t context_save_zoom;
    int point_id;
    int res;
+   zoom_t zoom = 20;
 
    LastGpsUpdate = gps_time;
 
    track_filter_init ();
 
    roadmap_math_get_context (&context_save_pos, &context_save_zoom);
-   roadmap_math_set_context ((RoadMapPosition *)gps_position, 20);
+
+   if ( roadmap_screen_is_hd_screen() )
+#ifndef IPHONE_NATIVE
+      zoom *= 2;
+#else
+      zoom = 33; //TODO: check this logic
+#endif //IPHONE_NATIVE
+   
+   roadmap_math_set_context ((RoadMapPosition *)gps_position, zoom );
+
    editor_track_util_set_focus ((RoadMapPosition *)gps_position);
 
    res = editor_track_filter_add (TrackFilter, gps_time, dilution, gps_position);

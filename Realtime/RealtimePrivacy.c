@@ -32,6 +32,7 @@
 #include "../roadmap_screen.h"
 #include "../roadmap_config.h"
 #include "../roadmap_messagebox.h"
+#include "../roadmap_social.h"
 
 #include "Realtime.h"
 #include "RealtimeDefs.h"
@@ -215,22 +216,15 @@ static void on_close_dialog (int exit_code, void* context) {
 }
 static void create_dialog (void) {
    SsdWidget dialog;
-   SsdWidget box, driving, report, space;
+   SsdWidget box, driving, space;
    char *icon[2];
    int i = 0;
    BOOL checked = FALSE;
    int container_height = 24;
-#ifdef TOUCH_SCREEN
    int tab_flag = SSD_WS_TABSTOP;
-#else
-   int tab_flag = SSD_WS_TABSTOP;
-#endif
 
 #ifdef TOUCH_SCREEN
-   if (roadmap_screen_is_hd_screen())
-      container_height = 60;
-   else
-      container_height = 40;
+  container_height = ssd_container_get_row_height();
 #endif
 
 
@@ -248,8 +242,8 @@ static void create_dialog (void) {
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
    ssd_widget_add (box, ssd_text_new ("privacy_heading_label",
-            roadmap_lang_get ("Display my location on waze mobile and web maps as follows:"), 14,
-            SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE|tab_flag));
+            roadmap_lang_get ("Display my location on waze mobile and web maps as follows:"), SSD_HEADER_TEXT_SIZE,
+            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
    ssd_widget_set_color (box, NULL, NULL);
 
 
@@ -258,16 +252,16 @@ static void create_dialog (void) {
    //////////////////////////////////////////////////
    // * Driving
    //////////////////////////////////////////////////
-   driving = ssd_container_new ("Report privacy", NULL, SSD_MIN_SIZE,
+   driving = ssd_container_new ("Report privacy", NULL, ssd_container_get_width(),
             SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_ROUNDED_CORNERS
                      | SSD_ROUNDED_WHITE | SSD_POINTER_NONE
-                     | SSD_CONTAINER_BORDER);
+                     | SSD_CONTAINER_BORDER | SSD_ALIGN_CENTER);
    ssd_widget_add (driving, box);
-   box = ssd_container_new ("Driving Heading group", NULL, SSD_MIN_SIZE, 22,
+   box = ssd_container_new ("Driving Heading group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
    ssd_widget_add (box, ssd_text_new ("driving_heading_label",
-            roadmap_lang_get ("When driving"), 14, SSD_TEXT_LABEL
+            roadmap_lang_get ("When driving"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL
                      | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW));
 
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
@@ -277,7 +271,7 @@ static void create_dialog (void) {
    //////////////////////////////////////////////////
    // * Nickname
    //////////////////////////////////////////////////
-   box = ssd_container_new ("Nickname group", NULL, SSD_MIN_SIZE,
+   box = ssd_container_new ("Nickname group", NULL, SSD_MAX_SIZE,
                   container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
 
    if (gState == VisGrp_NickName)
@@ -286,8 +280,8 @@ static void create_dialog (void) {
       checked = FALSE;
 
    CheckboxDriving[i] = ssd_checkbox_new (RT_CFG_PRM_VISGRP_Nickname, checked,
-            SSD_ALIGN_VCENTER, checkbox_callback, NULL, NULL,
-            CHECKBOX_STYLE_ROUNDED);
+            SSD_ALIGN_VCENTER | SSD_ALIGN_RIGHT, checkbox_callback, NULL, NULL,
+            CHECKBOX_STYLE_V);
    ssd_widget_add (box, CheckboxDriving[i]);
    i++;
 
@@ -297,19 +291,20 @@ static void create_dialog (void) {
    ssd_widget_add (box, ssd_button_new ("privacy_nickname", "privacy_nickname",
             (const char **) &icon[0], 1, SSD_ALIGN_VCENTER, NULL));
    ssd_widget_set_color (box, NULL, NULL);
-   ssd_widget_add (driving, box);
 
    ssd_widget_add (box, ssd_text_new ("Nickname", roadmap_lang_get (
-            "Nickname"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+            "Nickname"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
 
    ssd_widget_add (box, ssd_bitmap_new ("On_map_nickname", "On_map_nickname",
             SSD_ALIGN_VCENTER));
 
-   ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
+   ssd_widget_add (driving, box);
+   ssd_widget_add (driving, ssd_separator_new ("separator", SSD_END_ROW));
+
    //////////////////////////////////////////////////
    // * Anonymous
    //////////////////////////////////////////////////
-   box = ssd_container_new ("Anonymous group", NULL, SSD_MIN_SIZE,
+   box = ssd_container_new ("Anonymous group", NULL, SSD_MAX_SIZE,
                   container_height, SSD_WIDGET_SPACE | SSD_END_ROW | tab_flag);
 
    if (gState == VisGrp_Anonymous)
@@ -318,8 +313,8 @@ static void create_dialog (void) {
       checked = FALSE;
 
    CheckboxDriving[i] = ssd_checkbox_new (RT_CFG_PRM_VISGRP_Anonymous, checked,
-            SSD_ALIGN_VCENTER, checkbox_callback, NULL, NULL,
-            CHECKBOX_STYLE_ROUNDED);
+            SSD_ALIGN_VCENTER | SSD_ALIGN_RIGHT, checkbox_callback, NULL, NULL,
+            CHECKBOX_STYLE_V);
    ssd_widget_add (box, CheckboxDriving[i]);
    i++;
    icon[0] = "privacy_anonymous";
@@ -330,11 +325,10 @@ static void create_dialog (void) {
             SSD_ALIGN_VCENTER, NULL));
 
    ssd_widget_add (box, ssd_text_new ("Anonymous text", roadmap_lang_get (
-            "Anonymous"), 14, SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+            "Anonymous"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
    ssd_widget_add (box, ssd_bitmap_new ("On_map_anonymous", "On_map_anonymous",
             SSD_ALIGN_VCENTER));
 
-   ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
    ssd_widget_add (driving, box);
    /*

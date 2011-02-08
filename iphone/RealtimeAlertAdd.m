@@ -46,45 +46,72 @@
 #include "roadmap_iphonecanvas.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_device_events.h"
+#include "editor/static/add_alert.h"
 #include "widgets/iphoneLabel.h"
+#include "widgets/iphoneSelect.h"
+#include "widgets/iphoneTablePicker.h"
 #include "roadmap_checklist.h"
+#include "roadmap_recorder.h"
+#include "roadmap_analytics.h"
 
 
-static CGRect gRectNote = {65.0f, 15.0f, 210.0f, 20.0f};
-static CGRect gRectIcon = {15.0f, 15.0f, 50.0f, 40.0f};
-static CGRect gRectEditbox = {25.0f, 60.0f, 270.0f, 40.0f};
-static CGRect gRectDirection = {25.0f, 110.0f, 270.0f, 35.0f};
-static CGRect gRectGroupNote = {25.0f, 155.0f, 270.0f, 20.0f};
-static CGRect gRectGroupSelect = {25.0f, 185.0f, 270.0f, 35.0f};
-static CGRect gRectImage = {80.0f, 235.0f, 150.0f, 120.0f};
-static CGRect gRectImageLs = {305.0f, 50.0f, 150.0f, 120.0f};
-static CGRect gRectCancel = {39.0f, 365.0f, 100.0f, 28.0f};
-static CGRect gRectCancelLs = {39.0f, 230.0f, 100.0f, 28.0f};
-static CGRect gRectHide = {178.0f, 365.0f, 100.0f, 28.0f};
-static CGRect gRectHideLs = {178.0f, 230.0f, 100.0f, 28.0f};
+static CGRect gRectCategory = {25.0f, 110.0f, 270.0f, 20.0f};
+static CGRect gRectEditbox = {25.0f, 135.0f, 215.0f, 40.0f};
+static CGRect gRectEditboxNoSelect = {25.0f, 25.0f, 215.0f, 145.0f};
+static CGRect gRectImage = {15.0f, 245.0f, 290.0f, 40.0f};
+static CGRect gRectImageLs = {320.0f, 20.0f, 145.0f, 40.0f};
+static CGRect gRectGroupNote = {15.0f, 295.0f, 290.0f, 20.0f};
+static CGRect gRectGroupNoteLs = {320.0f, 100.0f, 145.0f, 30.0f};
+static CGRect gRectGroupSelect = {15.0f, 310.0f, 290.0f, 40.0f};
+static CGRect gRectGroupSelectLs = {320.0f, 125.0f, 145.0f, 40.0f};
+static CGRect gRectSend = {63.0f, 365.0f, 193.0f, 41.0f};
+static CGRect gRectSendLs = {63.0f, 220.0f, 193.0f, 41.0f};
+static CGRect gRectCameraText1 = {15.0f, 190.0f, 290.0f, 60.0f};
+static CGRect gRectCameraText2 = {15.0f, 270.0f, 290.0f, 60.0f};
+//static CGRect gRectCameraText1Ls = {300.0f, 10.0f, 160.0f, 135.0f};
+//static CGRect gRectCameraText2Ls = {300.0f, 150.0f, 160.0f, 135.0f};
 
-enum directions {
-	MY_DIRECTION = 100,
-	OPPOSITE_DIRECTION
-};
+static float   gDirectionControlY = 180;
+static float   gDirectionControlCameraY = 130;
 
-#define ALERT_IMAGE_SCALE 0.3 //360 x 481
+#define ALERT_IMAGE_WIDTH     360
+#define ALERT_IMAGE_HEIGHT    480
 
 #define IMAGE_FILENAME "alert_capture.jpg"
+#define VOICE_FILENAME "voice_capture.caf"
 #define HIDE_TIMEOUT 10
+
+#define SEPARATOR_TAG         1
+#define SEPARATOR_LS_TAG      2
+#define ALERT_TYPE_CAMERA  -1
+
+enum camera_types {
+   CAMERA_TYPE_SPEED = 0,
+   CAMERA_TYPE_REDLIGHT,
+   CAMERA_TYPE_DUMMY
+};
 
 static AlertAddView *alertView;
 static int viewIsShown = 0;
 static int g_timeout;
 static char gCurrentImageId[ROADMAP_IMAGE_ID_BUF_LEN] = "";
+static char gCurrentVoiceId[ROADMAP_VOICE_ID_BUF_LEN] = "";
 static const char gEmptyStr[1] = "";
 
 typedef struct tag_upload_context{
 	int iType;
 	char* desc;
 	int iDirection;
+   int iSubType;
    char *group;
 }upload_Image_context;
+
+//Voice record event
+static const char* ANALYTICS_EVENT_VOICE_ALERT_NAME = "ALERT_WITH_VOICE";
+//Took image event
+static const char* ANALYTICS_EVENT_IMAGE_ALERT_NAME = "ALERT_WITH_IMAGE";
+
+
 
 
 
@@ -189,13 +216,19 @@ static void show_groups() {
 }
 
 
+static void on_recorder_closed( int exit_code , void *context ) {
+   if (viewIsShown) {
+		[alertView onRecorderClosed];
+	}
+}
 
-static void continue_report_after_image_upload(void * context){
+
+static void continue_report_after_audio_upload(void * context){
 	int success;
 	upload_Image_context * uploadContext = (upload_Image_context *)context;
    
-	success = Realtime_Report_Alert(uploadContext->iType, uploadContext->desc,
-                                   uploadContext->iDirection, gCurrentImageId,
+	success = Realtime_Report_Alert(uploadContext->iType, uploadContext->iSubType, uploadContext->desc,
+                                   uploadContext->iDirection, gCurrentImageId, gCurrentVoiceId,
                                    roadmap_twitter_is_sending_enabled() && roadmap_twitter_logged_in(),
                                    roadmap_facebook_is_sending_enabled() && roadmap_facebook_logged_in(),
                                    uploadContext->group);
@@ -206,6 +239,24 @@ static void continue_report_after_image_upload(void * context){
    
 	free(uploadContext->desc);
 	free(uploadContext);
+}
+
+static void continue_report_after_image_upload(void * context){
+   const char *path = roadmap_path_first ("config");
+	const char *file_name = VOICE_FILENAME;
+   
+	//Upload voice file
+   gCurrentVoiceId[0] = 0;
+   if (roadmap_file_exists(path, file_name)) {
+      roadmap_analytics_log_event(ANALYTICS_EVENT_VOICE_ALERT, NULL, NULL);
+      if (!roadmap_recorder_voice_upload( path, file_name,
+                                       gCurrentVoiceId, continue_report_after_audio_upload, context )){
+         roadmap_log(ROADMAP_ERROR,"Error in uploading voice alert");
+         continue_report_after_audio_upload( ( context)); // error in image upload, continue
+      }
+   } else {
+      continue_report_after_audio_upload( ( context));
+   }
 }
 
 void periodic_hide ()
@@ -336,10 +387,20 @@ void add_real_time_chit_chat()
 	viewIsShown = 1;
 }
 
+void add_cam_dlg(void){
+   if (!add_alert_request_valid()) {
+		return;
+	}
+	
+	alertView = [[AlertAddView alloc] init];
+	[alertView showCameraDialog];
+	viewIsShown = 1;
+}
 
 
 
-
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
 @implementation AlertScrollView
 
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
@@ -354,19 +415,25 @@ void add_real_time_chit_chat()
 
 
 
-
+///////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
 @implementation AlertAddView
+@synthesize subtypeControl;
+@synthesize directionControl;
 @synthesize commentEditbox;
 @synthesize collapsedView;
 @synthesize iconImage;
 @synthesize minimizedImage;
 @synthesize imageButton;
+@synthesize groupNote;
 @synthesize groupButton;
-@synthesize hideButton;
-@synthesize cancelButton;
+@synthesize sendButton;
 @synthesize animatedImageView;
 @synthesize bgFrame;
 @synthesize bgFrameButton;
+@synthesize categoryLabel;
+@synthesize cameraText1;
+@synthesize cameraText2;
 
 - (UIImage *)loadJpgImage: (const char *)name {
 	const char *cursor;
@@ -384,63 +451,6 @@ void add_real_time_chit_chat()
 	return (img);
 }
 
-- (void) setDirection
-{
-	UIImage *image;
-	UIButton *newButtonDirection = [UIButton buttonWithType:UIButtonTypeRoundedRect];
-	[newButtonDirection setFrame:[buttonDirectionView bounds]];
-	[newButtonDirection addTarget:self action:@selector(onDirection) forControlEvents:UIControlEventTouchUpInside];
-   newButtonDirection.titleLabel.lineBreakMode = UILineBreakModeCharacterWrap;
-   newButtonDirection.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
-	
-	
-	if (alertDirection == MY_DIRECTION) {
-		[newButtonDirection setTitle:[NSString stringWithUTF8String:roadmap_lang_get ("My direction")] forState:UIControlStateNormal];
-		image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "mydirection");
-	} else {
-		[newButtonDirection setTitle:[NSString stringWithUTF8String:roadmap_lang_get ("Opposite direction")] forState:UIControlStateNormal];
-		image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "oppositedirection");
-	}
-	
-	if (image) {
-		[newButtonDirection setImage:image forState:UIControlStateNormal];
-		[newButtonDirection setImageEdgeInsets:UIEdgeInsetsMake(5, 0, 5, 10)];
-	}
-	
-	
-	if ([[buttonDirectionView subviews] count] > 0) {
-		[UIView beginAnimations:NULL context:NULL];
-		[UIView setAnimationDuration:0.5f];
-		[UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
-		
-		if (alertDirection == MY_DIRECTION)
-			[UIView setAnimationTransition: UIViewAnimationTransitionFlipFromRight forView:buttonDirectionView cache:YES];
-		else
-			[UIView setAnimationTransition: UIViewAnimationTransitionFlipFromLeft forView:buttonDirectionView cache:YES];
-		
-		[[[buttonDirectionView subviews] objectAtIndex:0] removeFromSuperview];
-		
-		[buttonDirectionView addSubview:newButtonDirection];
-		
-		[UIView commitAnimations];
-	} else
-		[buttonDirectionView addSubview:newButtonDirection];
-}
-
-- (void) onDirection {
-	[self onCancelHide];
-	
-	//TODO: use the global directions RT_ALERT_MY_DIRECTION RT_ALERT_OPPSOITE_DIRECTION;
-	if (alertDirection == OPPOSITE_DIRECTION) {
-		alertDirection = MY_DIRECTION;
-	} else {
-		alertDirection = OPPOSITE_DIRECTION;
-	}
-	
-	[self setDirection];
-
-}
-
 - (void) setGroup {
 	[self onCancelHide];
 	show_groups();
@@ -452,31 +462,18 @@ void add_real_time_chit_chat()
 	const char *path = roadmap_path_first ("config");
 	const char *file_name = IMAGE_FILENAME;
 	roadmap_file_remove(path, file_name);
-	
-	//Clear the old image
-	UIImage *image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "add_image_box");
-	if (image) {
-		[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-	}
-	[imageButton setTitle:@"Add image" forState:UIControlStateNormal];
-   if (!roadmap_horizontal_screen_orientation())
-      [imageButton setFrame:gRectImage];
-   else
-      [imageButton setFrame:gRectImageLs];
-	
-	if (animatedImageView) {
-		[animatedImageView removeFromSuperview];
-		animatedImageView = NULL;
-	}
-	
+		
 	isTakingImage = 1;
 	
+   CGSize imageSize = CGSizeMake(ALERT_IMAGE_WIDTH, ALERT_IMAGE_HEIGHT);
 	if (path != NULL)
-		roadmap_camera_take_alert_picture(ALERT_IMAGE_SCALE, CFG_CAMERA_IMG_QUALITY_DEFAULT, path, file_name);
+		roadmap_camera_take_alert_picture(imageSize, CFG_CAMERA_IMG_QUALITY_DEFAULT, path, file_name);
 }
 
-- (void) sendAlert {
-	//NSLog(@"sendAlert");
+- (void) onSendAlert {
+   //do not allow another send click
+   [sendButton removeTarget:self action:@selector(onSendAlert) forControlEvents:UIControlEventTouchUpInside];
+   
 	[self onCancelHide];
    
    isRestoreFocuse = TRUE;
@@ -490,26 +487,21 @@ void add_real_time_chit_chat()
    if (!description)
       description = "";
 	
-	int alert_type = alertType;
-	int alert_direction;
 	const char *path = roadmap_path_first ("config");
 	const char *file_name = IMAGE_FILENAME;
-	
-	if (alertDirection == MY_DIRECTION)
-		alert_direction = RT_ALERT_MY_DIRECTION;
-	else
-		alert_direction = RT_ALERT_OPPSOITE_DIRECTION;
    
    RTAlerts_ShowProgressDlg();
    upload_Image_context * uploadContext = (upload_Image_context *)malloc(sizeof(upload_Image_context));
    uploadContext->desc = strdup(description);
    uploadContext->group = strdup(alert_group);
-   uploadContext->iDirection = alert_direction;
-   uploadContext->iType = alert_type;
+   uploadContext->iDirection = alertDirection;
+   uploadContext->iSubType = alertSubType;
+   uploadContext->iType = alertType;
 	
 	//Upload image
    gCurrentImageId[0] = 0;
    if (roadmap_file_exists(path, file_name)) {
+      roadmap_analytics_log_event(ANALYTICS_EVENT_IMAGE_ALERT, NULL, NULL);
       if (!roadmap_camera_image_upload( path, file_name,
                                        gCurrentImageId, continue_report_after_image_upload, (void *)uploadContext )){
          roadmap_log(ROADMAP_ERROR,"Error in uploading image alert");
@@ -518,7 +510,40 @@ void add_real_time_chit_chat()
    } else {
       continue_report_after_image_upload( ( (void *)uploadContext));
    }
-      	
+}
+
+- (void) onSendCamera {
+   //do not allow another send click
+   [sendButton removeTarget:self action:@selector(onSendCamera) forControlEvents:UIControlEventTouchUpInside];
+   
+   isRestoreFocuse = TRUE;
+   
+   switch (alertSubType) {
+      case CAMERA_TYPE_SPEED:
+         if (alertDirection == RT_ALERT_MY_DIRECTION)
+            add_speed_cam_my_direction();
+         else
+            add_speed_cam_opposite_direction();
+         break;
+      case CAMERA_TYPE_REDLIGHT:
+         if (alertDirection == RT_ALERT_MY_DIRECTION)
+            add_red_light_cam_my_direction();
+         else
+            add_red_light_cam_opposite_direction();
+         break;
+      case CAMERA_TYPE_DUMMY:
+         if (alertDirection == RT_ALERT_MY_DIRECTION)
+            add_dummy_cam_my_direction();
+         else
+            add_dummy_cam_opposite_direction();
+         break;
+      default:
+         return;
+         break;
+   }
+   
+   
+   roadmap_main_show_root(NO);
 }
 
 - (void) onCancel {
@@ -536,10 +561,32 @@ void add_real_time_chit_chat()
 	roadmap_main_push_view(self);
 }
 
+- (void) refreshRecordButton {
+   // Set voice record status
+   if (recordButton) {
+      const char *path = roadmap_path_first ("config");
+      const char *file_name = VOICE_FILENAME;
+      UIImage *image;
+      if (roadmap_file_exists(path, file_name)) {
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_record_taken");
+      } else {
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_record");
+      }
+      [recordButton setImage:image forState:UIControlStateNormal];
+   }
+}
+
+- (void) onRecorderClosed {
+   [self refreshRecordButton];
+}
+
 - (void) onCancelHide {
 	//TODO: do this only once
 	roadmap_main_remove_periodic(periodic_hide);
-	[hideButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Hide")] forState:UIControlStateNormal];
+   UINavigationItem *navItem = [self navigationItem];
+   UIBarButtonItem *button = [navItem rightBarButtonItem];
+   button.title = [NSString stringWithUTF8String:roadmap_lang_get("Hide")];
+//	[hideButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Hide")] forState:UIControlStateNormal];
 }
 
 - (void) periodicHide {
@@ -551,7 +598,10 @@ void add_real_time_chit_chat()
 	}
 	else {
 		sprintf(hide_str, "%s (%d)", roadmap_lang_get("Hide"), g_timeout);
-		[hideButton setTitle:[NSString stringWithUTF8String:hide_str] forState:UIControlStateNormal];
+      UINavigationItem *navItem = [self navigationItem];
+      UIBarButtonItem *button = [navItem rightBarButtonItem];
+      button.title = [NSString stringWithUTF8String:hide_str];
+		//[hideButton setTitle:[NSString stringWithUTF8String:hide_str] forState:UIControlStateNormal];
 	}
 	
 }
@@ -570,8 +620,8 @@ void add_real_time_chit_chat()
 	
 	[button addTarget:self action:@selector(onShow) forControlEvents:UIControlEventTouchUpInside];
 	[collapsedView addSubview:button];
-	rect.origin.x = roadmap_canvas_width();
-	rect.origin.y = roadmap_canvas_height() - 110;
+	rect.origin.x = roadmap_canvas_width()*100/roadmap_screen_get_screen_scale();
+	rect.origin.y = roadmap_canvas_height()*100/roadmap_screen_get_screen_scale() - 150;
 	rect.size = button.frame.size;
 	[collapsedView setFrame:rect];
 	
@@ -585,18 +635,19 @@ void add_real_time_chit_chat()
 	roadmap_main_show_root(1);
 	
 	//Animate into screen
+   //TODO: this animation does not work since we have another animation after.
 	rect = [collapsedView frame];
 	[UIView beginAnimations:NULL context:NULL];
-	rect.origin.x = roadmap_canvas_width() - button.frame.size.width;
+	rect.origin.x = roadmap_canvas_width()*100/roadmap_screen_get_screen_scale() - (button.frame.size.width);
 	[UIView setAnimationDelay:0.3f];
 	[UIView setAnimationDuration:0.3f];
 	[UIView setAnimationCurve:UIViewAnimationCurveEaseOut];
 	[collapsedView setFrame:rect];
 	[UIView commitAnimations];
 	
-
+   
 	//Add a small repeating animation
-	rect.origin.x = roadmap_canvas_width() - button.frame.size.width + 5;
+	rect.origin.x = roadmap_canvas_width()*100/roadmap_screen_get_screen_scale() - (button.frame.size.width - 5);
 	[UIView beginAnimations:NULL context:NULL];
 	[UIView setAnimationDelay:1.0f];
 	[UIView setAnimationDuration:1.0f];
@@ -609,76 +660,77 @@ void add_real_time_chit_chat()
 	[collapsedView release];
 }
 
-- (void)getLocation:(char *)sLocationStr direction:(int)iDirection
-{
-	const char *street;
-	const char *city;
-	int iLineId;
-	int	iSquare;
-	int alert_direction;
-	RoadMapPosition AlertPosition;
-	const RoadMapGpsPosition   *TripLocation;
-	
-	if (iDirection == MY_DIRECTION)
-		alert_direction = RT_ALERT_MY_DIRECTION;
-	else
-		alert_direction = RT_ALERT_OPPSOITE_DIRECTION;
-	
-	sLocationStr[0] = 0;
-	
-	TripLocation = roadmap_trip_get_gps_position("AlertSelection");
-	if (!TripLocation)
-		return;
-	
-	AlertPosition.latitude = TripLocation->latitude;
-	AlertPosition.longitude = TripLocation->longitude;
-	
-	RTAlerts_Get_City_Street(AlertPosition, &city, &street, &iSquare, &iLineId, alert_direction);
-	if (!((city == NULL) && (street == NULL)))
-    {
-		if ((city != NULL) && (strlen(city) == 0))
-         	sprintf( sLocationStr,"%s", street);
-		else if ((street != NULL) && (strlen(street) == 0))
-            sprintf(sLocationStr,"%s", city);
-		else
-            sprintf(sLocationStr,"%s, %s", street, city);
-    }
-}
-
 - (void) resizeViews
 {
    UIScrollView *contentView = (UIScrollView *) self.view;
    CGRect bounds = contentView.bounds;
    CGRect rect;
+   UIView *view;
+   int i;
    
    // image, cancel, hide buttons
    if (!roadmap_horizontal_screen_orientation()) {
-      //image
-      rect = imageButton.frame;
-      rect.origin.x = gRectImage.origin.x + (gRectImage.size.width - imageButton.frame.size.width)/2;
-      rect.origin.y = gRectImage.origin.y + (gRectImage.size.height - imageButton.frame.size.height)/2;
-      imageButton.frame = rect;
-      animatedImageView.frame = rect;
+      if (alertType != ALERT_TYPE_CAMERA) {
+         //image
+         imageButton.frame = gRectImage;
+         
+         //group
+         groupNote.frame = gRectGroupNote;
+         groupButton.frame = gRectGroupSelect;
+      } else {
+         cameraText1.hidden = NO;
+         cameraText2.hidden = NO;
+         cameraText1.frame = gRectCameraText1;
+         cameraText2.frame = gRectCameraText2;
+      }
+      
+
       //buttons
-      cancelButton.frame = gRectCancel;
-      hideButton.frame = gRectHide;
+      sendButton.frame = gRectSend;
+      
+      for (i = 0; i < [contentView.subviews count]; i++) {
+         view = (UIView *)[contentView.subviews objectAtIndex:i];
+         if (view.tag == SEPARATOR_TAG)
+            view.hidden = NO;
+         else if (view.tag == SEPARATOR_LS_TAG)
+            view.hidden = YES;
+      }
    } else {
-      //image
-      rect = imageButton.frame;
-      rect.origin.x = gRectImageLs.origin.x + (gRectImageLs.size.width - imageButton.frame.size.width)/2;
-      rect.origin.y = gRectImageLs.origin.y + (gRectImageLs.size.height - imageButton.frame.size.height)/2;
-      imageButton.frame = rect;
-      animatedImageView.frame = rect;
+      if (alertType != ALERT_TYPE_CAMERA) {
+         //image
+         imageButton.frame = gRectImageLs;
+         
+         //group
+         groupNote.frame = gRectGroupNoteLs;
+         groupButton.frame = gRectGroupSelectLs;
+      } else {
+         cameraText1.hidden = YES;
+         cameraText2.hidden = YES;
+//         cameraText1.frame = gRectCameraText1Ls;
+//         cameraText2.frame = gRectCameraText2Ls;
+      }
+      
+      
       //buttons
-      cancelButton.frame = gRectCancelLs;
-      hideButton.frame = gRectHideLs;
+      sendButton.frame = gRectSendLs;
+      
+      for (i = 0; i < [contentView.subviews count]; i++) {
+         view = (UIView *)[contentView.subviews objectAtIndex:i];
+         for (i = 0; i < [contentView.subviews count]; i++) {
+            view = (UIView *)[contentView.subviews objectAtIndex:i];
+            if (view.tag == SEPARATOR_TAG)
+               view.hidden = YES;
+            else if (view.tag == SEPARATOR_LS_TAG)
+               view.hidden = NO;
+         }
+      }
    }
    
    
    
    // frame background
    rect.origin = CGPointMake (5, 3);
-   rect.size = CGSizeMake (bounds.size.width - 5, hideButton.frame.origin.y + hideButton.frame.size.height + 5);
+   rect.size = CGSizeMake (bounds.size.width - 10, sendButton.frame.origin.y + sendButton.frame.size.height + 5);
    bgFrame.frame = rect;
    rect = bgFrameButton.frame;
    rect.origin.x = bounds.size.width - rect.size.width;
@@ -689,6 +741,111 @@ void add_real_time_chit_chat()
    contentView.contentSize = CGSizeMake (bounds.size.width, bgFrame.bounds.size.height + 10);
 }
 
+- (void) onTablePickerChange: (id)object
+{
+   iphoneTablePicker *tablePicker = (iphoneTablePicker *)object;
+   int index;
+   
+   index = [tablePicker getSelectedIndex];
+   if (index < RTAlerts_get_num_categories(alertType, alertSubType)) {   
+      alertSubType = RTAlerts_get_categories_subtype(alertType,alertSubType,index);
+      //self.title = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get(RTAlerts_get_title(NULL, alertType, alertSubType)))];
+      categoryLabel.text = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get(RTAlerts_get_title(NULL, alertType, alertSubType)))]; 
+   }
+
+   [tablePicker removeFromSuperview];
+}
+
+- (void) onSegmentChange: (id)object
+{
+   NSMutableArray *tableArray;
+   NSMutableDictionary *dict;
+   UIImage *image;
+   iphoneTablePicker *tablePicker;
+   iphoneSelect *selectControl = (iphoneSelect *)object;
+   int num_categories, i;
+   int new_subtype;
+   
+   [self onCancelHide];
+   
+   categoryLabel.text = NULL; 
+   
+   if (selectControl == directionControl) { //Direction changed
+      if ([selectControl getSelectedSegment] == 0)
+         alertDirection = RT_ALERT_MY_DIRECTION;
+      else
+         alertDirection = RT_ALERT_OPPSOITE_DIRECTION;
+   } else if (selectControl == subtypeControl) { //Subtype changed
+      new_subtype = [selectControl getSelectedSegment];
+      if (alertType != ALERT_TYPE_CAMERA && new_subtype == alertSubType) {
+         [selectControl setSelectedSegment:-1];
+         alertSubType = RTAlerts_get_default_subtype(alertType);
+      } else {
+         alertSubType = new_subtype;
+      }
+      if (alertType != ALERT_TYPE_CAMERA) {
+         self.title = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get(roadmap_lang_get(RTAlerts_get_title(NULL, alertType, alertSubType))))];
+         
+         num_categories = RTAlerts_get_num_categories(alertType, alertSubType);
+         if (num_categories > 0) {
+            //show categiries table
+            tableArray = [NSMutableArray arrayWithCapacity:3];
+            for (i = 0; i < num_categories; i++) {
+               dict = [NSMutableDictionary dictionaryWithCapacity:2];
+               [dict setObject:[NSString 
+                                stringWithUTF8String:roadmap_lang_get(RTAlerts_get_subtype_label(alertType, RTAlerts_get_categories_subtype(alertType,alertSubType,i)))]
+                        forKey:@"text"];
+               [tableArray addObject:dict];
+            }
+            
+            //Add close option
+            dict = [NSMutableDictionary dictionaryWithCapacity:2];
+            [dict setObject:[NSString stringWithUTF8String:roadmap_lang_get("Cancel")]
+                     forKey:@"text"];
+            //image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "cancel");
+//            if (image)
+//               [dict setObject:image forKey:@"image"];
+            [tableArray addObject:dict];
+            
+            CGRect rect;
+            rect.size = ((UIScrollView *)self.view).contentSize;
+            rect.origin = CGPointMake(0, 0);
+            tablePicker = [[iphoneTablePicker alloc] initWithFrame:rect];
+            [tablePicker populateWithData:tableArray andCallback:NULL andHeight:60 andWidth:240 andDelegate:self];
+            [self.view addSubview:tablePicker];
+            [tablePicker release];
+         }
+      } else {
+         switch (alertSubType) {
+            case CAMERA_TYPE_SPEED:
+               self.title = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get("Speed cam"))];
+               break;
+            case CAMERA_TYPE_REDLIGHT:
+               self.title = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get("Red light cam"))];
+               break;
+            case CAMERA_TYPE_DUMMY:
+               self.title = [NSString stringWithUTF8String:roadmap_lang_get(roadmap_lang_get("Fake"))];
+               break;
+            default:
+               break;
+         }
+         sendButton.enabled = YES;
+      }
+   }
+}
+
+- (void) onStartRecorder
+{
+   [self onCancelHide];
+   
+   const char *path = roadmap_path_first ("config");
+	const char *file_name = VOICE_FILENAME;
+	roadmap_file_remove(path, file_name);
+   
+	if (path != NULL)
+		roadmap_recorder("", 10, on_recorder_closed, 1, path, file_name, NULL);
+}
+
 - (void) setupView
 {
 	UIScrollView *scrollView = (UIScrollView *) self.view;
@@ -696,41 +853,21 @@ void add_real_time_chit_chat()
 	UIImage *image = NULL;
 	UIImageView *imageView = NULL;
 	NSString *text;
-	iphoneLabel *label;
 	CGRect rect;
 	char report_icon[100];
 	char minimized_icon[100];
+   NSMutableArray *segmentsArray;
+   NSMutableDictionary *dict;
+   int num_sub_types;
 	
 	//background frame
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "report_frame");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "border_white");
 	if (image) {
-		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:60];
+		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:image.size.width/2 topCapHeight:image.size.height/2];
 		bgFrame = [[UIImageView alloc] initWithImage:strechedImage];
 		[scrollView addSubview:bgFrame];
 		[bgFrame release];
 	}
-	
-	//frame arrow (button)
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "report_frame_arrow");
-	if (image) {
-		bgFrameButton = [UIButton buttonWithType:UIButtonTypeCustom];
-		[bgFrameButton setBackgroundImage:image forState:UIControlStateNormal];
-		rect = CGRectZero;
-		rect.size = image.size;
-		[bgFrameButton setFrame:rect];
-		[bgFrameButton addTarget:self action:@selector(onHide) forControlEvents:UIControlEventTouchUpInside];
-		[scrollView addSubview:bgFrameButton];
-	}
-	
-	
-	//note message
-	text = [NSString stringWithUTF8String:roadmap_lang_get("Note: Location and time saved")];
-	label = [[iphoneLabel alloc] initWithFrame:gRectNote];
-	[label setText:text];
-	[label setTextColor:[UIColor  colorWithRed:0.0f green:0.412f blue:0.584f alpha:1.0f]];
-   [label setAdjustsFontSizeToFitWidth:YES];
-	[scrollView addSubview:label];
-	[label release];
 	
 	//Alert type icon
 	if (alertType != RT_ALERT_TYPE_CHIT_CHAT) {
@@ -758,27 +895,53 @@ void add_real_time_chit_chat()
 		strcpy(report_icon, "reportincident");
 		strcpy(minimized_icon, "minimized_chitchat");
 	}
-		
-	//icon
-	iconImage = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, report_icon);
-	if (iconImage) {
-		imageView = [[UIImageView alloc] initWithImage:iconImage];
-		rect = gRectIcon;
-		rect.size = imageView.frame.size;
-		CGPoint center = CGPointMake (gRectIcon.origin.x + gRectIcon.size.width/2, gRectIcon.origin.y + gRectIcon.size.height/2);
-		[imageView setFrame:rect];
-		[imageView setCenter:center];
-		[scrollView addSubview:imageView];
-		[imageView release];
-	}
-	
+   
+   //Sub types
+   num_sub_types = RTAlerts_get_number_of_sub_types(alertType);
+   alertSubType = RTAlerts_get_default_subtype(alertType);
+   if (num_sub_types > 0) {
+      int i;
+      segmentsArray = [NSMutableArray arrayWithCapacity:num_sub_types];
+      for (i = 0; i < num_sub_types; i++){
+         dict = [NSMutableDictionary dictionaryWithCapacity:3];
+         text = [NSString stringWithUTF8String:RTAlerts_get_subtype_label(alertType,  i)];
+         [dict setObject:text forKey:@"text"];
+         text = [NSString stringWithUTF8String:RTAlerts_get_subtype_icon(alertType,  i)];
+         [dict setObject:text forKey:@"icon"];
+         [dict setObject:text forKey:@"icon_sel"];
+         [segmentsArray addObject:dict];
+      }
+      
+      subtypeControl = [[iphoneSelect alloc] initWithFrame:CGRectZero];
+      [subtypeControl createWithItems:segmentsArray selectedSegment:alertSubType delegate:self type:IPHONE_SELECT_TYPE_TEXT_IMAGE];
+      rect = subtypeControl.bounds;
+      rect.origin.y = 20;
+      rect.origin.x = (320 - rect.size.width)/2;
+      subtypeControl.frame = rect;
+      [scrollView addSubview:subtypeControl];
+      [subtypeControl release];
+   } else {
+      subtypeControl = NULL;
+   }
+   
+   //Category
+   categoryLabel = [[iphoneLabel alloc] initWithFrame:gRectCategory];
+   categoryLabel.font = [UIFont systemFontOfSize:15];
+   categoryLabel.textColor = [UIColor colorWithRed:.26 green:.52 blue:.72 alpha:1.0];
+   [scrollView addSubview:categoryLabel];
+   [categoryLabel release];
+   
 	//minimized icon
 	if (minimizedImage)
 		[minimizedImage release];
 	minimizedImage = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, minimized_icon);
 	
 	//comment editbox
-	commentEditbox = [[UITextField alloc] initWithFrame:gRectEditbox];
+   if (subtypeControl)
+      rect = gRectEditbox;
+   else
+      rect = gRectEditboxNoSelect;
+	commentEditbox = [[UITextField alloc] initWithFrame:rect];
 	[commentEditbox setBorderStyle:UITextBorderStyleRoundedRect];
 	[commentEditbox setClearButtonMode:UITextFieldViewModeWhileEditing];
 	[commentEditbox setReturnKeyType:UIReturnKeyDone];
@@ -786,81 +949,333 @@ void add_real_time_chit_chat()
 	[commentEditbox setPlaceholder:[NSString stringWithUTF8String:roadmap_lang_get("<Add description>")]];
 	[scrollView addSubview:commentEditbox];
 	[commentEditbox release];
-	
-	//direction button
-	buttonDirectionView = [[UIView alloc] initWithFrame:gRectDirection];
-	[scrollView addSubview:buttonDirectionView];
-	[buttonDirectionView release];
-	[self setDirection];
+   
+   //record button
+   recordButton = [UIButton buttonWithType:UIButtonTypeCustom];
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_record");
+   [recordButton setBackgroundImage:image forState:UIControlStateNormal];
+   [recordButton addTarget:self action:@selector(onStartRecorder) forControlEvents:UIControlEventTouchUpInside];
+   rect = CGRectMake(commentEditbox.frame.origin.x + commentEditbox.frame.size.width + 10,
+                     commentEditbox.frame.origin.y -1,
+                     image.size.width, image.size.height);
+   recordButton.frame = rect;
+   [scrollView addSubview:recordButton];
+   
+   //direction button
+   segmentsArray = [NSMutableArray arrayWithCapacity:num_sub_types];
+   dict = [NSMutableDictionary dictionaryWithCapacity:1];
+   text = [NSString stringWithUTF8String:roadmap_lang_get("My lane")];
+   [dict setObject:text forKey:@"text"];
+   [segmentsArray addObject:dict];
+   dict = [NSMutableDictionary dictionaryWithCapacity:1];
+   text = [NSString stringWithUTF8String:roadmap_lang_get("Other lane")];
+   [dict setObject:text forKey:@"text"];
+   [segmentsArray addObject:dict];
+   
+   directionControl = [[iphoneSelect alloc] initWithFrame:CGRectZero];
+   [directionControl createWithItems:segmentsArray selectedSegment:0 delegate:self type:IPHONE_SELECT_TYPE_TEXT];
+   rect = directionControl.bounds;
+   rect.origin.y = gDirectionControlY;
+   rect.origin.x = (320 - rect.size.width)/2;
+   directionControl.frame = rect;
+   [scrollView addSubview:directionControl];
+   [directionControl release];
 
+   //add separator
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "horizontal_separator");
+   UIImage *separator = [image stretchableImageWithLeftCapWidth:1 topCapHeight:0];
+   imageView = [[UIImageView alloc] initWithImage:separator];
+   rect = imageView.bounds;
+   rect.origin.x = 10;
+   rect.origin.y = 235;
+   rect.size.width = 300;
+   imageView.frame = rect;
+   imageView.tag = SEPARATOR_TAG;
+   [scrollView addSubview:imageView];
+   [imageView release];
+   //landscape
+   imageView = [[UIImageView alloc] initWithImage:separator];
+   rect = imageView.bounds;
+   rect.origin.x = 305;
+   rect.origin.y = 78;
+   rect.size.width = 165;
+   imageView.frame = rect;
+   imageView.tag = SEPARATOR_LS_TAG;
+   [scrollView addSubview:imageView];
+   [imageView release];
+   
+	//image button
+	imageButton = [UIButton buttonWithType:UIButtonTypeCustom];
+	
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "camera");
+	if (image) {
+      [imageButton setBackgroundImage:NULL forState:UIControlStateNormal];
+		[imageButton setImage:image forState:UIControlStateNormal];
+	}
+	[imageButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Take a picture")] forState:UIControlStateNormal];
+	[imageButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+	[imageButton setTitleEdgeInsets:UIEdgeInsetsMake(0, 10, 0, 10)];
+//   [imageButton setImageEdgeInsets:UIEdgeInsetsMake(0, 15, 0, 0)];
+   imageButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+	[imageButton setFrame:gRectImage];
+	[imageButton addTarget:self action:@selector(setImage) forControlEvents:UIControlEventTouchUpInside];
+   imageButton.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_arrow");
+   if (image) {
+      imageView = [[UIImageView alloc] initWithImage:image];
+      rect = imageView.bounds;
+      rect.origin.x = imageButton.bounds.size.width - imageView.bounds.size.width - 10;
+      rect.origin.y = (imageButton.bounds.size.height - imageView.bounds.size.height)/2;
+      imageView.frame = rect;
+      [imageButton addSubview:imageView];
+      [imageView release];
+   }
+	[scrollView addSubview:imageButton];
+   
+   //add separator
+   imageView = [[UIImageView alloc] initWithImage:separator];
+   rect = imageView.bounds;
+   rect.origin.x = 10;
+   rect.origin.y = 290;
+   rect.size.width = 300;
+   imageView.frame = rect;
+   imageView.tag = SEPARATOR_TAG;
+   [scrollView addSubview:imageView];
+   [imageView release];
+   //landscape
+   imageView = [[UIImageView alloc] initWithImage:separator];
+   rect = imageView.bounds;
+   rect.origin.x = 305;
+   rect.origin.y = 185;
+   rect.size.width = 165;
+   imageView.frame = rect;
+   imageView.tag = SEPARATOR_LS_TAG;
+   [scrollView addSubview:imageView];
+   [imageView release];
+   
    //group message
    if (roadmap_groups_get_num_following() > 0) {   
-      text = [NSString stringWithUTF8String:roadmap_lang_get("Report will also be sent to group:")];
-      label = [[iphoneLabel alloc] initWithFrame:gRectGroupNote];
-      [label setText:text];
-      label.lineBreakMode = UILineBreakModeWordWrap;
-      [scrollView addSubview:label];
-      [label release];
+      text = [NSString stringWithUTF8String:roadmap_lang_get("Also send this report to:")];
+      groupNote = [[iphoneLabel alloc] initWithFrame:gRectGroupNote];
+      [groupNote setText:text];
+      groupNote.lineBreakMode = UILineBreakModeWordWrap;
+      groupNote.numberOfLines = 2;
+      groupNote.font = [UIFont systemFontOfSize:13];
+      groupNote.textColor = [UIColor grayColor];
+      [scrollView addSubview:groupNote];
+      [groupNote release];
       
       //group button
-      groupButton = [UIButton buttonWithType:UIButtonTypeRoundedRect];
+      groupButton = [UIButton buttonWithType:UIButtonTypeCustom];
       [groupButton setFrame:gRectGroupSelect];
+      [groupButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
       [groupButton addTarget:self action:@selector(setGroup) forControlEvents:UIControlEventTouchUpInside];
-      groupButton.titleLabel.font = [UIFont boldSystemFontOfSize:16.0f];
+      [groupButton setTitleEdgeInsets:UIEdgeInsetsMake(0, 10, 0, 10)];
+//      [groupButton setImageEdgeInsets:UIEdgeInsetsMake(0, 150, 0, 0)];
+      groupButton.contentHorizontalAlignment = UIControlContentHorizontalAlignmentLeft;
+      groupButton.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
+      groupButton.titleLabel.numberOfLines = 2;
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_arrow");
+      if (image) {
+         imageView = [[UIImageView alloc] initWithImage:image];
+         rect = imageView.bounds;
+         rect.origin.x = imageButton.bounds.size.width - imageView.bounds.size.width - 10;
+         rect.origin.y = (imageButton.bounds.size.height - imageView.bounds.size.height)/2;
+         imageView.frame = rect;
+         [groupButton addSubview:imageView];
+         [imageView release];
+      }
       [scrollView addSubview:groupButton];
       
       roadmap_groups_set_selected_group_name(roadmap_groups_get_active_group_name());
       roadmap_groups_set_selected_group_icon (roadmap_groups_get_active_group_icon());
+      
+      //add separator
+      imageView = [[UIImageView alloc] initWithImage:separator];
+      rect = imageView.bounds;
+      rect.origin.x = 10;
+      rect.origin.y = 350;
+      rect.size.width = 300;
+      imageView.frame = rect;
+      imageView.tag = SEPARATOR_TAG;
+      [scrollView addSubview:imageView];
+      [imageView release];
    } else {
       groupButton = NULL;
       roadmap_groups_set_selected_group_name("");
       roadmap_groups_set_selected_group_icon ("");
    }
-	
-	//image button
-	imageButton = [UIButton buttonWithType:UIButtonTypeCustom];
-	
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "add_image_box");
-	if (image) {
-		[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-	}
-	[imageButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Add image")] forState:UIControlStateNormal];
-	[imageButton setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
-	[imageButton setTitleEdgeInsets:UIEdgeInsetsMake(20, 0, -20, 0)];
-	[imageButton setFrame:gRectImage];
-	[imageButton addTarget:self action:@selector(setImage) forControlEvents:UIControlEventTouchUpInside];
-   imageButton.titleLabel.lineBreakMode = UILineBreakModeWordWrap;
-	[scrollView addSubview:imageButton];
    
-   //cancel button
-	cancelButton = [UIButton buttonWithType:UIButtonTypeCustom];
-	[cancelButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Cancel")] forState:UIControlStateNormal];
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
+   //send button
+	sendButton = [UIButton buttonWithType:UIButtonTypeCustom];
+   sendButton.titleLabel.font = [UIFont boldSystemFontOfSize:20];
+	[sendButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Send")] forState:UIControlStateNormal];
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "send_button");
 	if (image) {
-		[cancelButton setBackgroundImage:image forState:UIControlStateNormal];
+		[sendButton setBackgroundImage:image forState:UIControlStateNormal];
 	}
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "send_button_s");
 	if (image) {
-		[cancelButton setBackgroundImage:image forState:UIControlStateHighlighted];
+		[sendButton setBackgroundImage:image forState:UIControlStateHighlighted];
 	}
-	[cancelButton setFrame:gRectCancel];
-	[cancelButton addTarget:self action:@selector(onCancel) forControlEvents:UIControlEventTouchUpInside];
-	[scrollView addSubview:cancelButton];
+	[sendButton setFrame:gRectSend];
+	[sendButton addTarget:self action:@selector(onSendAlert) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:sendButton];
+}
+
+- (void) setupCameraView
+{
+	UIScrollView *scrollView = (UIScrollView *) self.view;
+   
+	UIImage *image = NULL;
+	UIImageView *imageView = NULL;
+	NSString *text;
+	CGRect rect;
+   NSMutableArray *segmentsArray;
+   NSMutableDictionary *dict;
+   int num_sub_types;
 	
-	//hide button
-	hideButton = [UIButton buttonWithType:UIButtonTypeCustom];
-	[hideButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Hide")] forState:UIControlStateNormal];
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
+	//background frame
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "border_white");
 	if (image) {
-		[hideButton setBackgroundImage:image forState:UIControlStateNormal];
+		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:image.size.width/2 topCapHeight:image.size.height/2];
+		bgFrame = [[UIImageView alloc] initWithImage:strechedImage];
+		[scrollView addSubview:bgFrame];
+		[bgFrame release];
 	}
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
+   
+   //Sub types
+   num_sub_types = 3;
+   alertSubType = -1;
+   if (num_sub_types > 0) {
+      int i;
+      segmentsArray = [NSMutableArray arrayWithCapacity:num_sub_types];
+      for (i = 0; i < num_sub_types; i++){
+         switch (i) {
+            case CAMERA_TYPE_SPEED:
+               dict = [NSMutableDictionary dictionaryWithCapacity:3];
+               text = [NSString stringWithUTF8String:roadmap_lang_get("Speed")];
+               [dict setObject:text forKey:@"text"];
+               text = [NSString stringWithUTF8String:"speedcam"];
+               [dict setObject:text forKey:@"icon"];
+               [dict setObject:text forKey:@"icon_sel"];
+               [segmentsArray addObject:dict];
+               break;
+            case CAMERA_TYPE_REDLIGHT:
+               dict = [NSMutableDictionary dictionaryWithCapacity:3];
+               text = [NSString stringWithUTF8String:roadmap_lang_get("Red light")];
+               [dict setObject:text forKey:@"text"];
+               text = [NSString stringWithUTF8String:"redlightcam"];
+               [dict setObject:text forKey:@"icon"];
+               [dict setObject:text forKey:@"icon_sel"];
+               [segmentsArray addObject:dict];
+               break;
+            case CAMERA_TYPE_DUMMY:
+               dict = [NSMutableDictionary dictionaryWithCapacity:3];
+               text = [NSString stringWithUTF8String:roadmap_lang_get("Fake")];
+               [dict setObject:text forKey:@"text"];
+               text = [NSString stringWithUTF8String:"dummy_cam"];
+               [dict setObject:text forKey:@"icon"];
+               [dict setObject:text forKey:@"icon_sel"];
+               [segmentsArray addObject:dict];
+               break;
+            default:
+               break;
+         }
+      }      
+      
+      subtypeControl = [[iphoneSelect alloc] initWithFrame:CGRectZero];
+      [subtypeControl createWithItems:segmentsArray selectedSegment:alertSubType delegate:self type:IPHONE_SELECT_TYPE_TEXT_IMAGE];
+      rect = subtypeControl.bounds;
+      rect.origin.y = 20;
+      rect.origin.x = (320 - rect.size.width)/2;
+      subtypeControl.frame = rect;
+      [scrollView addSubview:subtypeControl];
+      [subtypeControl release];
+   } else {
+      subtypeControl = NULL;
+   }
+   
+   //direction button
+   segmentsArray = [NSMutableArray arrayWithCapacity:num_sub_types];
+   dict = [NSMutableDictionary dictionaryWithCapacity:1];
+   text = [NSString stringWithUTF8String:roadmap_lang_get("My lane")];
+   [dict setObject:text forKey:@"text"];
+   [segmentsArray addObject:dict];
+   dict = [NSMutableDictionary dictionaryWithCapacity:1];
+   text = [NSString stringWithUTF8String:roadmap_lang_get("Other lane")];
+   [dict setObject:text forKey:@"text"];
+   [segmentsArray addObject:dict];
+   
+   directionControl = [[iphoneSelect alloc] initWithFrame:CGRectZero];
+   [directionControl createWithItems:segmentsArray selectedSegment:0 delegate:self type:IPHONE_SELECT_TYPE_TEXT];
+   rect = directionControl.bounds;
+   rect.origin.y = gDirectionControlCameraY;
+   rect.origin.x = (320 - rect.size.width)/2;
+   directionControl.frame = rect;
+   [scrollView addSubview:directionControl];
+   [directionControl release];
+   
+   
+   //Add text 1
+   cameraText1 = [[iphoneLabel alloc] initWithFrame:gRectCameraText1];
+   cameraText1.text = [NSString stringWithUTF8String:roadmap_lang_get("Wazers are notified of speed cams only when approaching at an excessive speed.")];
+   cameraText1.numberOfLines = 0;
+   cameraText1.textColor = [UIColor colorWithRed:0.55 green:0.55 blue:0.55 alpha:1.0];
+   [scrollView addSubview:cameraText1];
+   [cameraText1 release];
+   
+   //add separator
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "horizontal_separator");
+   UIImage *separator = [image stretchableImageWithLeftCapWidth:1 topCapHeight:0];
+   imageView = [[UIImageView alloc] initWithImage:separator];
+   rect = imageView.bounds;
+   rect.origin.x = 10;
+   rect.origin.y = 180;
+   rect.size.width = 300;
+   imageView.frame = rect;
+   imageView.tag = SEPARATOR_TAG;
+   [scrollView addSubview:imageView];
+   [imageView release];
+   
+
+   //Add text 2
+   cameraText2 = [[iphoneLabel alloc] initWithFrame:gRectCameraText2];
+   cameraText2.text = [NSString stringWithUTF8String:roadmap_lang_get("Note: New speed cams need to be validated by community map editors. You can do it, too: www.waze.com")];
+   cameraText2.numberOfLines = 0;
+   cameraText2.textColor = [UIColor colorWithRed:0.55 green:0.55 blue:0.55 alpha:1.0];
+   [scrollView addSubview:cameraText2];
+   [cameraText2 release];
+   
+   //add separator
+   //imageView = [[UIImageView alloc] initWithImage:separator];
+//   rect = imageView.bounds;
+//   rect.origin.x = 10;
+//   rect.origin.y = 290;
+//   rect.size.width = 300;
+//   imageView.frame = rect;
+//   imageView.tag = SEPARATOR_TAG;
+//   [scrollView addSubview:imageView];
+//   [imageView release];
+   
+   
+   
+   //send button
+	sendButton = [UIButton buttonWithType:UIButtonTypeCustom];
+   sendButton.titleLabel.font = [UIFont boldSystemFontOfSize:20];
+	[sendButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Send")] forState:UIControlStateNormal];
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "send_button");
 	if (image) {
-		[hideButton setBackgroundImage:image forState:UIControlStateHighlighted];
+		[sendButton setBackgroundImage:image forState:UIControlStateNormal];
 	}
-	[hideButton setFrame:gRectHide];
-	[hideButton addTarget:self action:@selector(onHide) forControlEvents:UIControlEventTouchUpInside];
-	[scrollView addSubview:hideButton];
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "send_button_s");
+	if (image) {
+		[sendButton setBackgroundImage:image forState:UIControlStateHighlighted];
+	}
+	[sendButton setFrame:gRectSend];
+	[sendButton addTarget:self action:@selector(onSendCamera) forControlEvents:UIControlEventTouchUpInside];
+   sendButton.enabled = NO;
+	[scrollView addSubview:sendButton];
 }
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
@@ -877,69 +1292,44 @@ void add_real_time_chit_chat()
 
 - (void)viewWillAppear:(BOOL)animated
 {
-	UIScrollView *scrollView = (UIScrollView *) self.view;
 	UIImage *image;
-	CGRect rect;
-	CGRect finalRect;
 	char hide_str[20];
-
 	
 	if (!initialized) {
-		[self setupView];
+      if (alertType != ALERT_TYPE_CAMERA) {
+         [self setupView];
+         
+         g_timeout = HIDE_TIMEOUT;
+         roadmap_main_set_periodic (1000, periodic_hide);
+         sprintf(hide_str, "%s (%d)", roadmap_lang_get("Hide"), g_timeout);
+         UINavigationItem *navItem = [self navigationItem];
+         UIBarButtonItem *button = [navItem rightBarButtonItem];
+         button.title = [NSString stringWithUTF8String:hide_str];
+      } else {
+         [self setupCameraView];
+      }
+      
 		isTakingImage = 0;
 		animatedImageView = NULL;
 		initialized = TRUE;
-		
-		g_timeout = HIDE_TIMEOUT;
-		roadmap_main_set_periodic (1000, periodic_hide);
-		sprintf(hide_str, "%s (%d)", roadmap_lang_get("Hide"), g_timeout);
-		[hideButton setTitle:[NSString stringWithUTF8String:hide_str] forState:UIControlStateNormal];
 	}
 	
-	// Set image if was taken
-	image = [self loadJpgImage:IMAGE_FILENAME];
-	if (image) {
-      if (!roadmap_horizontal_screen_orientation())
-         finalRect = gRectImage;
-      else
-         finalRect = gRectImageLs;
-      
-		if (image.size.width > image.size.height) {
-			finalRect.size.height = (gRectImage.size.width / image.size.width) * image.size.height;
-			finalRect.origin.y = gRectImage.origin.y + gRectImage.size.height/2 - finalRect.size.height/2;
-		} else {
-			finalRect.size.width = (gRectImage.size.height / image.size.height) * image.size.width;
-			finalRect.origin.x = gRectImage.origin.x + gRectImage.size.width/2 - finalRect.size.width/2;
-		}
-		[imageButton setFrame:finalRect];
-		[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-		[image release];
-		
-		[imageButton setTitle:@"" forState:UIControlStateNormal];
-		
-		if (isTakingImage) {
-			rect = scrollView.bounds;
-			if (image.size.width > image.size.height) {
-				rect.size.height = (scrollView.bounds.size.width * image.size.height / image.size.width)  ;
-				rect.origin.y = scrollView.bounds.origin.y + scrollView.bounds.size.height/2 - rect.size.height/2;
-			}
-			
-			animatedImageView = [[UIImageView alloc] initWithFrame:rect];
-			animatedImageView.image = image;
-			[scrollView addSubview:animatedImageView];
-			[animatedImageView release];
-			
-			[UIView beginAnimations:NULL context:NULL];
-			[UIView setAnimationDuration:0.5f];
-			[UIView setAnimationDelay:2.0f];
-			[UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
-			animatedImageView.frame = finalRect;
-			[UIView commitAnimations];
-			isTakingImage = 0;
-		} else {
-			[imageButton setBackgroundImage:image forState:UIControlStateNormal];
-		}
-	}	
+	// Set image status
+   if (imageButton) {
+      const char *path = roadmap_path_first ("config");
+      const char *file_name = IMAGE_FILENAME;
+      if (roadmap_file_exists(path, file_name)) {
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "picture_added");
+         [imageButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Picture added")] forState:UIControlStateNormal];
+      } else {
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "camera");
+         [imageButton setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Take a picture")] forState:UIControlStateNormal];
+      }
+      [imageButton setImage:image forState:UIControlStateNormal];
+   }
+   
+   
+   [self refreshRecordButton];
 	
 	// Set group image and text
    if (groupButton) {
@@ -981,9 +1371,11 @@ void add_real_time_chit_chat()
    isHidden = FALSE;
    isRestoreFocuse = FALSE;
 	
-	//Clean old image if exists
+	//Clean old image and voice if exist
 	const char *path = roadmap_path_first ("config");
 	const char *file_name = IMAGE_FILENAME;
+	roadmap_file_remove(path, file_name);
+   file_name = VOICE_FILENAME;
 	roadmap_file_remove(path, file_name);
 	
 	
@@ -994,17 +1386,37 @@ void add_real_time_chit_chat()
 	[scrollView setDelegate:self];
 	[self setTitle:[NSString stringWithUTF8String:RTAlerts_get_title(NULL, alert_type, -1)]];
 	UINavigationItem *navItem = [self navigationItem];
-	UIBarButtonItem *button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Send")]
-															   style:UIBarButtonItemStyleDone target:self action:@selector(sendAlert)];
+	UIBarButtonItem *button = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Hide")]
+															   style:UIBarButtonItemStylePlain target:self action:@selector(onHide)];
 
 	[navItem setRightBarButtonItem:button];
 	[button release];
 	
 	alertType = alert_type;
-	alertDirection = MY_DIRECTION;
+	alertDirection = RT_ALERT_MY_DIRECTION;
 	
 	roadmap_main_push_view(self);
 
+}
+
+- (void) showCameraDialog
+{
+   initialized = FALSE;
+   isHidden = FALSE;
+   isRestoreFocuse = FALSE;
+   alertType = ALERT_TYPE_CAMERA;
+	
+	AlertScrollView *scrollView = [[AlertScrollView alloc] initWithFrame:CGRectZero];
+   scrollView.alwaysBounceVertical = YES;
+	self.view = scrollView;
+	[scrollView release]; // decrement retain count
+	[scrollView setDelegate:self];
+	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Speed cam")]];
+	
+	alertDirection = RT_ALERT_MY_DIRECTION;
+	
+	roadmap_main_push_view(self);
+   
 }
 
 
@@ -1014,6 +1426,8 @@ void add_real_time_chit_chat()
 	
 	const char *path = roadmap_path_first ("config");
 	const char *file_name = IMAGE_FILENAME;
+	roadmap_file_remove(path, file_name);
+   file_name = VOICE_FILENAME;
 	roadmap_file_remove(path, file_name);
    
    if (isHidden)
@@ -1056,5 +1470,3 @@ void add_real_time_chit_chat()
 
 
 @end
-
-

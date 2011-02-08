@@ -87,24 +87,11 @@ static char *AlertString[MAX_ALERTS];
 static int  alertsUserCanToggle[MAX_ALERTS];
 static int  countAlertsUserCanToggle;
 
-//Map settings events
-static const char* ANALYTICS_EVENT_MAPSETTINGS_NAME       = "MAP_SETTINGS";
-static const char* ANALYTICS_EVENT_MAPSCHEME_NAME         = "TOGGLE_MAP_SCHEME";
-static const char* ANALYTICS_EVENT_MAPSCHEME_INFO         = "CHANGED_TO";
-static const char* ANALYTICS_EVENT_NIGHTMODESET_NAME      = "TOGGLE_NIGHT_MODE";
-static const char* ANALYTICS_EVENT_NIGHTMODESET_INFO      = "CHANGED_TO";
-static const char* ANALYTICS_EVENT_NIGHTMODESET_ON        = "ON";
-static const char* ANALYTICS_EVENT_NIGHTMODESET_OFF       = "OFF";
-static const char* ANALYTICS_EVENT_MAPCONTROLSSET_NAME    = "TOGGLE_MAP_CONTROLS_ON_TAP";
-static const char* ANALYTICS_EVENT_MAPCONTROLSSET_INFO    = "CHANGED_TO";
-static const char* ANALYTICS_EVENT_MAPCONTROLSSET_ON      = "ON";
-static const char* ANALYTICS_EVENT_MAPCONTROLSSET_OFF     = "OFF";
-
 
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void map_scheme_callback (int value, int group)  {
-   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSCHEME_NAME, ANALYTICS_EVENT_MAPSCHEME_INFO, scheme_labels[value]);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSCHEME, ANALYTICS_EVENT_INFO_CHANGED_TO, scheme_labels[value]);
    
    roadmap_skin_set_scheme(scheme_values[value]);
    roadmap_main_pop_view(YES);
@@ -149,7 +136,7 @@ static void show_map_scheme_dialog () {
 void roadmap_map_settings_dialog_show(void){
    MapSettingsDialog *dialog;
    
-   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSETTINGS_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSETTINGS, NULL, NULL);
    
 	dialog = [[MapSettingsDialog alloc] initWithStyle:UITableViewStyleGrouped];
 	[dialog show];
@@ -478,12 +465,12 @@ void roadmap_map_settings_dialog_show(void){
 	switch (tag) {
 		case ID_AUTO_NIGHT_MODE:
 			if ([(iphoneCellSwitch *) view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET_NAME, ANALYTICS_EVENT_NIGHTMODESET_INFO, ANALYTICS_EVENT_NIGHTMODESET_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
 
 				roadmap_config_set (&RoadMapConfigAutoNightMode, yesno[0]);
 				roadmap_skin_auto_night_mode();
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET_NAME, ANALYTICS_EVENT_NIGHTMODESET_INFO, ANALYTICS_EVENT_NIGHTMODESET_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
 
 				roadmap_config_set (&RoadMapConfigAutoNightMode, yesno[1]);
 				roadmap_skin_auto_night_mode_kill_timer();
@@ -491,11 +478,11 @@ void roadmap_map_settings_dialog_show(void){
 			break;
       case ID_SHOW_ICONS:
 			if ([(iphoneCellSwitch *) view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET_NAME, ANALYTICS_EVENT_MAPCONTROLSSET_INFO, ANALYTICS_EVENT_MAPCONTROLSSET_ON);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
 
 				roadmap_config_set (&RoadMapConfigShowScreenIconsOnTap, yesno[0]);
 			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET_NAME, ANALYTICS_EVENT_MAPCONTROLSSET_INFO, ANALYTICS_EVENT_MAPCONTROLSSET_OFF);
+            roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
 
 				roadmap_config_set (&RoadMapConfigShowScreenIconsOnTap, yesno[1]);
          }

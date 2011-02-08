@@ -109,7 +109,6 @@ static void on_option_selected(  BOOL              made_selection,
                                  void*             context)
 {
    real_time_list_context_menu_items   selection;
-   int                                 exit_code = dec_ok;
 
    g_context_menu_is_active = FALSE;
 
@@ -140,6 +139,7 @@ static void on_option_selected(  BOOL              made_selection,
    }
 }
 
+#ifndef TOUCH_SCREEN
 ///////////////////////////////////////////////////////////////////////////////////////////
 static int on_options_comments(SsdWidget widget, const char *new_value, void *context)
 {
@@ -192,7 +192,7 @@ static int on_options_comments(SsdWidget widget, const char *new_value, void *co
 
    return 0;
 }
-
+#endif //TOUCH_SCREEN
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void on_option_add_comment(){
@@ -237,8 +237,8 @@ static int PostCommentSelected( SsdWidget this, const char *new_value)
     return 1;
 }
 
-
-///////////////////////////////////////////////////////////////////////////////////////////
+#ifndef TOUCH_SCREEN
+//////////////////////////////////////////////////////////////////////////////////////////
 static int on_report_abuse (SsdWidget widget, const char *new_value){
    RTAlertComment *comment = (RTAlertComment *)widget->context;
    g_Comment_id = comment->iID;
@@ -246,7 +246,7 @@ static int on_report_abuse (SsdWidget widget, const char *new_value){
    report_abuse();
    return 0;
 }
-
+#endif //TOUCH_SCREEN
 static void draw_comment_image (SsdWidget widget, RoadMapGuiRect *rect, int flags){
    RoadMapImage top = NULL;
    RoadMapImage mid = NULL;
@@ -312,7 +312,7 @@ static int get_width(){
       top = roadmap_res_get ( RES_BITMAP, RES_SKIN, "response_bubble1_top" );
 
    if (top)
-      return roadmap_canvas_image_width(top);
+      return roadmap_canvas_image_width(top)-25;
 
    return 0;
 }
@@ -369,7 +369,6 @@ int RealtimeAlertCommentsList(int iAlertId)
    int SavedZoom = -1;
    RoadMapPosition SavedPosition;
    SsdWidget dialog;
-   SsdWidget button;
    int timeDiff;
    time_t now;
    SsdWidget group, container, image_con, text_con;
@@ -396,14 +395,13 @@ int RealtimeAlertCommentsList(int iAlertId)
    char DistanceStr[250];
    const char *myUserName;
    const char *moodStr;
-   char *icon[3];
    int i, num_addOns;
    int height = 90;
    int width  = 52;
    int mood_size = 40;
    int title_height = 25;
    int container_width = roadmap_canvas_width();
-   SsdWidget mood_con, mood;
+   SsdWidget mood;
 
    static RoadMapRealTimeAlertListCommentsDialog context =
    { "Real Time Alert Comments", -1 };
@@ -458,7 +456,7 @@ int RealtimeAlertCommentsList(int iAlertId)
    if (roadmap_navigate_get_current(&CurrentPosition, &line, &Direction) == -1)
    {
        // check the distance to the alert
-       gps_pos = roadmap_trip_get_position("GPS");
+       gps_pos = roadmap_trip_get_position("Location");
        if (gps_pos != NULL)
        {
            current_pos.latitude = gps_pos->latitude;
@@ -605,6 +603,23 @@ int RealtimeAlertCommentsList(int iAlertId)
 
    iCount++;
 
+   // Thumbs Up
+   if (alert->iNumThumbsUp > 0){
+      group = ssd_container_new ("alert_comments.thumbs up container", NULL,
+                                 SSD_MAX_SIZE,SSD_MIN_SIZE,SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_WIDGET_SPACE|SSD_CONTAINER_BORDER);
+      bitmap = ssd_bitmap_new("alert_comments.thumbs up icon", "thumbs_up", SSD_ALIGN_VCENTER);
+      ssd_widget_add(group, bitmap);
+      ssd_dialog_add_hspace(group, 5,0);
+      AlertStr[0] = 0;
+      if (alert->iNumThumbsUp == 1)
+         snprintf(AlertStr, sizeof(AlertStr), "%s %s", roadmap_lang_get("Thanks from:"), roadmap_lang_get("one user") );
+      else
+         snprintf(AlertStr, sizeof(AlertStr), "%s %d %s", roadmap_lang_get("Thanks from:"), alert->iNumThumbsUp, roadmap_lang_get("users"));
+      text = ssd_text_new("alert_comments.thumbs up text", AlertStr, -1, SSD_ALIGN_VCENTER);
+      ssd_widget_add(group, text);
+      ssd_widget_add(dialog, group);
+   }
+
    myUserName = RealTime_GetUserName();
 
    while (iCount < MAX_COMMENTS_ENTRIES && (CommentEntry != NULL))
@@ -615,7 +630,6 @@ int RealtimeAlertCommentsList(int iAlertId)
        SsdWidget text_container;
        SsdWidget title_container;
        int title_height = 25;
-       SsdSize size, max;
 
        if ( roadmap_screen_is_hd_screen() )
           title_height = 40;
@@ -640,7 +654,7 @@ int RealtimeAlertCommentsList(int iAlertId)
 
 	   }else{
 	      if ( roadmap_screen_is_hd_screen() )
-	         text_container = ssd_container_new("text_con", NULL, 320, SSD_MIN_SIZE, 0 );
+	         text_container = ssd_container_new("text_con", NULL, 260, SSD_MIN_SIZE, 0 );
 	      else
 	         text_container = ssd_container_new("text_con", NULL, 205, SSD_MIN_SIZE, 0 );
 	   }

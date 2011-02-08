@@ -30,6 +30,7 @@
 #ifdef CHOMP
 #include "chomp-connect-iphoneos/ChompDialog.h"
 #endif //CHOMP
+#include "roadmap_social.h"
 #include "roadmap_recommend.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "roadmap_res.h"
@@ -46,11 +47,6 @@ extern RoadMapAction          RoadMapStartActions[];
 extern const char *CHOMP_API_KEY;
 #endif
 
-// Recommend events
-static const char* ANALYTICS_EVENT_RECOMMEND_NAME         = "RECOMMEND";
-static const char* ANALYTICS_EVENT_RECOMMENDAPPSTORE_NAME = "RECOMMEND_APPSTORE";
-static const char* ANALYTICS_EVENT_RECOMMENDCHOMP_NAME    = "RECOMMEND_CHOMP";
-static const char* ANALYTICS_EVENT_RECOMMENDEMAIL_NAME    = "RECOMMEND_EMAIL";
 
 
 enum Tags {
@@ -60,6 +56,14 @@ enum Tags {
    ID_TAG_BUTTON
 };
 
+#define RECOMMEND_DLG_TXT_LINE_1          "Can we assume that the feeling's mutual? If you've been enjoyning our app, we'd really appreciate it if you could leave us a nice review in the %s."
+#define RECOMMEND_DLG_TXT_LINE_2          "It'll really help us grow :)"
+#define RECOMMEND_DLG_TXT_NEW_VER_LINE_1  "If you like this version and wanna help get more users on-board - rate this version, too."
+#define RECOMMEND_DLG_TXT_NEW_VER_LINE_2  "Every rating helps!"
+#define RECOMMEND_DLG_TXT_FB_SHARE_LINE_1 "It only takes a handful of wazers driving in your area to significantly improve the real-time traffic & road info you need for a better commute."
+#define RECOMMEND_DLG_TXT_FB_SHARE_LINE_2 "So tell your friends and help build the waze driving community in your 'hood'!"
+
+#define RECOMMEND_DLG_APP_STORE_NAME     "Appstore"
 
 void roadmap_recommend_email() {
    char str[1024];
@@ -68,7 +72,7 @@ void roadmap_recommend_email() {
       return;
    }
 
-   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDEMAIL_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDEMAIL, NULL, NULL);
    
    NSString *body_message;
    RoadMapEmailView *emailView = [[RoadMapEmailView alloc] init];
@@ -92,7 +96,7 @@ void roadmap_recommend_email() {
 
 void roadmap_recommend_chomp () {
 #ifdef CHOMP
-   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDCHOMP_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDCHOMP, NULL, NULL);
    
    // Open the Chomp Connect dialog
    
@@ -116,7 +120,7 @@ static void recommend_appstore_cb(int exit_code, void *data){
    if( dec_yes != exit_code)
       return;
    
-   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDAPPSTORE_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMENDAPPSTORE, NULL, NULL);
    
    roadmap_main_open_url("http://itunes.apple.com/us/app/id323229106?mt=8&uo=6");
 }   
@@ -126,15 +130,15 @@ void roadmap_recommend_appstore () {
    ssd_confirm_dialog("Exit Application", "Waze will now close and you'll be redirected to the Appstore", TRUE, recommend_appstore_cb, NULL);
 }
 
-void roadmap_recommend_rate_us(RoadMapCallback on_close) {
+void roadmap_recommend_rate_us(RoadMapCallback on_close, int type) {
    RoadMapRateUsView *dialog;
    
    dialog = [[RoadMapRateUsView alloc] init];
-   [dialog show:on_close];
+   [dialog show:on_close type:type];
 }
 
 void roadmap_recommend() {
-   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMEND_NAME, NULL, NULL);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_RECOMMEND, NULL, NULL);
    
    roadmap_list_menu_simple ("Spread the word", "recommend", NULL, NULL, 
                              NULL, NULL, NULL,
@@ -195,7 +199,7 @@ void roadmap_recommend() {
 
 - (void) resizeViews
 {
-   int viewPosY = 10;
+   int viewPosY = 0;
    CGRect rect;
    UIImageView *imageView;
    UILabel *label;
@@ -210,7 +214,7 @@ void roadmap_recommend() {
    rect.origin.x = (scrollView.bounds.size.width - imageView.bounds.size.width) /2;
    rect.origin.y = viewPosY;
    imageView.frame = rect;
-   viewPosY += 70;
+   viewPosY += imageView.frame.size.height;
    
    //Set title size/pos
    label = (UILabel *)[scrollView viewWithTag:ID_TAG_TITLE];
@@ -218,12 +222,19 @@ void roadmap_recommend() {
       return;
    [label sizeToFit];
    rect = label.frame;
+   if (rect.size.width > 300) {
+      rect.size.width = 300;
+      label.frame = rect;
+      label.autoresizingMask = UIViewAutoresizingFlexibleHeight;
+      [label sizeToFit];
+      rect = label.frame;
+   }
    rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
    rect.origin.y = viewPosY;
    label.frame = rect;
    viewPosY += label.bounds.size.height + 5;
    
-   //Set title size/pos
+   //Set text size/pos
    label = (UILabel *)[scrollView viewWithTag:ID_TAG_TEXT];
    if (!label)
       return;
@@ -231,7 +242,6 @@ void roadmap_recommend() {
    rect.size.width = scrollView.bounds.size.width - 40;
    label.frame = rect;
    [label sizeToFit];
-   rect = label.frame;
    rect = label.frame;
    rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
    rect.origin.y = viewPosY;
@@ -242,16 +252,11 @@ void roadmap_recommend() {
    button = (UIButton *)[scrollView  viewWithTag:ID_TAG_BUTTON];
    if (!button)
       return;
-   rect = label.frame;
-   rect.size.width = scrollView.bounds.size.width - 40;
-   label.frame = rect;
-   [label sizeToFit];
-   rect = label.frame;
    rect.size = button.bounds.size;
    rect.origin.x = (scrollView.bounds.size.width - button.bounds.size.width) / 2;
    rect.origin.y = viewPosY;
 	[button setFrame:rect];
-   viewPosY += button.bounds.size.height + 20;
+   viewPosY += button.bounds.size.height + 10;
    
    [scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
 }
@@ -268,10 +273,22 @@ void roadmap_recommend() {
    [self resizeViews];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+   [self resizeViews];
+}
+
 - (void) onRate
 {
    roadmap_main_pop_view(NO);
    recommend_appstore_cb(dec_yes, NULL);
+   if (onCloseCallback)
+      onCloseCallback();
+}
+
+- (void) onFBShare
+{
+   roadmap_main_pop_view(NO);
+   roadmap_facebook_share();
    if (onCloseCallback)
       onCloseCallback();
 }
@@ -283,7 +300,7 @@ void roadmap_recommend() {
       onCloseCallback();
 }
 
-- (void)show: (RoadMapCallback)onClose
+- (void)show: (RoadMapCallback)onClose type:(int)type
 {
 	CGRect rect;
 	UIImage *image;
@@ -299,6 +316,8 @@ void roadmap_recommend() {
 	self.view = scrollView;
 	[scrollView release]; // decrement retain count
 	[scrollView setDelegate:self];
+   
+   roadmap_log( ROADMAP_WARNING, "roadmap_recommend_rate_us is shown" );
 	
 	[self setTitle:[NSString stringWithUTF8String: roadmap_lang_get ("Rate us")]];
    onCloseCallback = onClose;
@@ -313,8 +332,21 @@ void roadmap_recommend() {
 	
 	//set UI elements
 	
-	//background frame
-	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_bg");
+	//top image
+   switch (type) {
+      case RATE_SCREEN_TYPE_FIRST_TIME:
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_bg");
+         break;
+      case RATE_SCREEN_TYPE_NEW_VER:
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_new_ver_bg");
+         break;
+      case RATE_SCREEN_TYPE_FB_SHARE:
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_fb_share_bg");
+         break;
+      default:
+         image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "rate_us_bg");
+         break;
+   }
 	if (image) {
 		imageView = [[UIImageView alloc] initWithImage:image];
       imageView.tag = ID_TAG_IMAGE;
@@ -323,11 +355,25 @@ void roadmap_recommend() {
 	}
 	
 	//title
-   text = [NSString stringWithUTF8String:"we love you!"];
+   switch (type) {
+      case RATE_SCREEN_TYPE_FIRST_TIME:
+         text = [NSString stringWithUTF8String:roadmap_lang_get("we love you!")];
+         break;
+      case RATE_SCREEN_TYPE_NEW_VER:
+         text = [NSString stringWithUTF8String:roadmap_lang_get("Appstore ratings start from scratch with every new version.")];
+         break;
+      case RATE_SCREEN_TYPE_FB_SHARE:
+         text = [NSString stringWithUTF8String:roadmap_lang_get("Share with friends & colleagues!")];
+         break;
+      default:
+         text = [NSString stringWithUTF8String:roadmap_lang_get("we love you!")];
+         break;
+   }
    label = [[UILabel alloc] initWithFrame:CGRectZero];
 	[label setText:text];
+   [label setNumberOfLines:0];
 	[label setTextAlignment:UITextAlignmentCenter];
-	[label setFont:[UIFont boldSystemFontOfSize:24]];
+	[label setFont:[UIFont boldSystemFontOfSize:18]];
    [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
    [label setBackgroundColor:[UIColor clearColor]];
    [label setTextColor:[UIColor whiteColor]];
@@ -336,13 +382,33 @@ void roadmap_recommend() {
 	[label release];
 
    //Message
-   text = [NSString stringWithUTF8String:"Can we assume that the feeling's mutual? If you've been enjoyning our app, we'd really appreciate it if you could leave us a nice review in the Appstore.\nIt'll really help us grow :)\n "];
+   char text_str[512];
+   // Format text string
+   switch (type) {
+      case RATE_SCREEN_TYPE_FIRST_TIME:
+         snprintf( text_str, 512, roadmap_lang_get( RECOMMEND_DLG_TXT_LINE_1 ), roadmap_lang_get( RECOMMEND_DLG_APP_STORE_NAME ) );
+         snprintf( text_str + strlen( text_str ), 512 - strlen( text_str ), "\n%s", roadmap_lang_get( RECOMMEND_DLG_TXT_LINE_2 ) );
+         break;
+      case RATE_SCREEN_TYPE_NEW_VER:
+         strncpy_safe( text_str, roadmap_lang_get( RECOMMEND_DLG_TXT_NEW_VER_LINE_1 ), 512);
+         snprintf( text_str + strlen( text_str ), 512 - strlen( text_str ), "\n%s", roadmap_lang_get( RECOMMEND_DLG_TXT_NEW_VER_LINE_2 ) );
+         break;
+      case RATE_SCREEN_TYPE_FB_SHARE:
+         strncpy_safe( text_str, roadmap_lang_get( RECOMMEND_DLG_TXT_FB_SHARE_LINE_1 ), 512);
+         snprintf( text_str + strlen( text_str ), 512 - strlen( text_str ), "\n%s", roadmap_lang_get( RECOMMEND_DLG_TXT_FB_SHARE_LINE_2 ) );
+         break;
+      default:
+         text = [NSString stringWithUTF8String:roadmap_lang_get("we love you!")];
+         break;
+   }
+   
+   text = [NSString stringWithUTF8String:text_str];
    label = [[UILabel alloc] initWithFrame:CGRectZero];
 	[label setText:text];
 	[label setNumberOfLines:0];
    [label setLineBreakMode:UILineBreakModeWordWrap];
 	[label setTextAlignment:UITextAlignmentCenter];
-	[label setFont:[UIFont boldSystemFontOfSize:17]];
+	[label setFont:[UIFont systemFontOfSize:18]];
    [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
    [label setBackgroundColor:[UIColor clearColor]];
    [label setTextColor:[UIColor whiteColor]];
@@ -352,7 +418,14 @@ void roadmap_recommend() {
    
 	//Rate button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];
-	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Rate")] forState:UIControlStateNormal];
+   if (type != RATE_SCREEN_TYPE_FB_SHARE) {
+      [button addTarget:self action:@selector(onRate) forControlEvents:UIControlEventTouchUpInside];
+      [button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Rate")] forState:UIControlStateNormal];
+   } else {
+      [button addTarget:self action:@selector(onFBShare) forControlEvents:UIControlEventTouchUpInside];
+      [button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Share on Facebook")] forState:UIControlStateNormal];
+   }
+
 	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "welcome_btn");
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateNormal];
@@ -361,9 +434,10 @@ void roadmap_recommend() {
 	if (image) {
 		[button setBackgroundImage:image forState:UIControlStateHighlighted];
 	}
+   button.titleLabel.adjustsFontSizeToFitWidth = YES;
+   button.titleEdgeInsets = UIEdgeInsetsMake(0, 10, 0, 10);
    [button sizeToFit];
    button.tag = ID_TAG_BUTTON;
-	[button addTarget:self action:@selector(onRate) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
 
    [self resizeViews];

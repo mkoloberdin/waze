@@ -28,6 +28,7 @@
 #include <time.h>
 #include "roadmap_types.h"
 #include "roadmap_dbread.h"
+#include "roadmap_gui.h"
 
 #define ROADMAP_SQUARE_GLOBAL -1
 #define ROADMAP_SQUARE_OTHER  -2
@@ -88,7 +89,7 @@ void  roadmap_square_edges  (int square, RoadMapArea *edges);
 int   roadmap_square_cross_pos (RoadMapPosition *position);
 
 void 	roadmap_square_force_next_update (void);
-int   roadmap_square_view (int *square, int size);
+int roadmap_square_view (int *square, RoadMapGuiRect *rect, int size);
 int   roadmap_square_first_point  (int square);
 int   roadmap_square_points_count (int square);
 int   roadmap_square_has_shapes   (int square);

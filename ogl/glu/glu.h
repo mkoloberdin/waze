@@ -40,6 +40,8 @@
 #include <GL/gl.h>
 #elif defined(_WIN32)
 #include <GLES/gl.h>
+#elif defined(GTK2_OGL)
+#include <GL/gl.h>
 #else
 #error "Platform not recognized"
 #endif

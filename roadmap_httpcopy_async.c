@@ -190,19 +190,29 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
          	context->header_buffer[0] = '\0';
          }
          res = roadmap_http_async_decode_header(context, buffer, res + leftover_size);
-         if ((res == 0) && context->is_parsing_headers) {
-            /* Need more header data */
-            if (strlen(buffer) && (strlen(buffer) < sizeof(context->header_buffer))) strcpy(context->header_buffer, buffer);
-            return;
-         } else if (!context->is_parsing_headers) {
-            /* we just finished parsing the headers */
+         if ( context->is_parsing_headers ) {
+            if ( res == 0 ) { /* Need more header data - keep listening.
+                               * Other res values are handled further (actually can't be positive in this state ... */
+               if (strlen(buffer) && (strlen(buffer) < sizeof(context->header_buffer)))
+                              strcpy(context->header_buffer, buffer);
+               return;
+            }
+         } else {
+            /* we just finished parsing the headers - check size callback for the received content length */
             if (!callbacks->size(context->cb_context, context->content_length)) {
-            	res = -1;
+               res = -1;
+            }
+            if ( res == 0 ) { /* Size is Ok and there is no download data to process after checking the headers - keep listening
+                               * Other res values will be handled further */
+               return;
             }
          }
       } else if (res < 0) {
-         roadmap_log (ROADMAP_ERROR, "roadmap_http_async_has_data_cb(): error receiving http header (%d)", leftover_size);
-		}
+         roadmap_log (ROADMAP_DEBUG, "roadmap_http_async_has_data_cb(): error receiving http header (%d)", leftover_size);//AviR: lower log level until we remove false alerts
+		} else  /* res == 0 */ {
+         roadmap_log (ROADMAP_DEBUG, "roadmap_http_async_has_data_cb(): error receiving http header. Read zero bytes. (%d)", leftover_size );//AviR: lower log level until we remove false alerts
+         res = -1;
+      }
    }
 
    if (res > 0) {
@@ -210,20 +220,24 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
       callbacks->progress (context->cb_context, buffer, res);
    }
 
-   if ((res < 0) || (context->download_size_current >= context->content_length)) {
+   if ((res <= 0) || (context->download_size_current >= context->content_length)) {
       roadmap_main_remove_input(io);
       roadmap_io_close(&context->io);
 
-      if (res < 0) {
-         callbacks->error (context->cb_context, 0,
-               "roadmap_http_async_has_data_cb() failed");
-      } else if (context->content_length > 0 && context->download_size_current >= context->content_length) {
-      	if (context->download_size_current > context->content_length) {
-      		roadmap_log (ROADMAP_ERROR, "Too many bytes for http download (%d/%d)", context->download_size_current, context->content_length);
-      	}
+      if ( ( res >= 0 ) && ( context->content_length > 0 ) && ( context->download_size_current == context->content_length ) ) {
          callbacks->done(context->cb_context, context->last_modified_buffer);
       }
-
+      else {
+         roadmap_log (ROADMAP_DEBUG, "Http download error. Res: %d. Content length: %d. Downloaded: %d",
+                                             res, context->content_length, context->download_size_current ); //AviR: Reduced log level
+         if ( context->content_length > 0 && context->download_size_current > context->content_length ) {
+            roadmap_log (ROADMAP_ERROR, "Too many bytes for http download (%d/%d)", context->download_size_current, context->content_length);
+         }
+         callbacks->error (context->cb_context, 0, "roadmap_http_async_has_data_cb() failed" );
+      }
+      /*
+       * Context deallocation. Be aware to NULL references in "error" and "done" callbacks
+       */
       free (context);
    }
 }
