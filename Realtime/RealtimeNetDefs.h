@@ -35,7 +35,7 @@
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (142)
+#define  RTNET_PROTOCOL_VERSION                 (144)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -55,6 +55,7 @@
 #define  RTNET_SYSTEMMESSAGE_ICON_MAXSIZE       (20)
 #define  RTNET_SYSTEMMESSAGE_TEXT_COLOR_MAXSIZE (16)
 
+#define  MAX_SERVER_VERSION                     (15)
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -234,6 +235,8 @@ typedef struct tagRTConnectionInfo
 /*17*/   int                  iPointsTimeStamp;
 /*18*/   int                  iExclusiveMoods;
 /*19*/   BOOL                 bIsNewbie;
+/*20*/   int                  iServerMaxProtocol;
+/*21*/   char                 serverVersion[MAX_SERVER_VERSION];
 }  RTConnectionInfo, *LPRTConnectionInfo;
 
 void RTConnectionInfo_Init             ( LPRTConnectionInfo this, PFN_ONUSER pfnOnAddUser, PFN_ONUSER pfnOnMoveUser, PFN_ONUSER pfnOnRemoveUser);

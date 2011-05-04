@@ -182,8 +182,9 @@ static RoadMapPen NavigateAltPens[3][2];
 static RoadMapPen NavigatePenEst[2];
 static BOOL NavigationResumed =  FALSE;
 static BOOL NavigateShowedMessage = FALSE;
+static BOOL NavigatePlayedPrompt = FALSE;
 
-static void navigate_update (RoadMapPosition *position, PluginLine *current);
+static void navigate_update (RoadMapPosition *position, PluginLine *current, int speed, BOOL announce_prompt);
 static void navigate_get_next_line
           (PluginLine *current, int direction, PluginLine *next);
 
@@ -210,6 +211,7 @@ static time_t NavigateOfftrackTime = 0;
 static time_t NavigateRerouteTime = 0;
 static int NavigateLength;
 static int NavigateTrackTime;
+static const char *BackToRouteMessage = "Proceed to highlighted route";
 
 RoadMapNavigateRouteCB NavigateCallbacks = {
    &navigate_update,
@@ -245,6 +247,7 @@ static char NavigateDestCity[256] = {0};
 static char NavigateDestState[256] = {0};
 static RoadMapPosition NavigateSrcPos;
 static int NavigateNextAnnounce;
+static int NavigateLastAnnounceState = -1;
 static int NavigateIsByServer = 0;
 static int NavigatePendingSegment = -1;
 static int NavigateIsAlternativeRoute = 0;
@@ -305,14 +308,33 @@ BOOL navgiate_main_voice_guidance_enabled(){
 static void navigate_play_sound (void) {
 
    static RoadMapSoundList list = NULL;
+   
+   if (navgiate_main_voice_guidance_enabled() && roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")) {
+      if (!list) {
+         list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
+         roadmap_sound_list_add (list, "TickerPoints");
+         roadmap_res_get (RES_SOUND, 0, "TickerPoints");
+      }
+      
+      roadmap_sound_play_list (list);
+   }
+}
 
-    if (!list) {
-       list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
-       roadmap_sound_list_add (list, "TickerPoints");
-       roadmap_res_get (RES_SOUND, 0, "TickerPoints");
-    }
+static void navigate_play_start (void) {   
+   if (NavigatePlayedPrompt || NavigationResumed) {
+      return; //Only played once in a session
+   }
+   
+   if (navgiate_main_voice_guidance_enabled() && roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")) {
+      RoadMapSoundList list = roadmap_sound_list_create (0);
+      roadmap_sound_list_add (list, "StartDrive");
+      roadmap_sound_play_list (list);
+      NavigatePlayedPrompt = TRUE;
+   }
+}
 
-   roadmap_sound_play_list (list);
+void navigate_main_start_navigating (void) {
+   navigate_play_start();
 }
 
 static int navigate_find_track_points (PluginLine *from_line, int *from_point,
@@ -331,7 +353,7 @@ static int navigate_find_track_points (PluginLine *from_line, int *from_point,
    RoadMapPosition context_save_pos;
 	zoom_t context_save_zoom;
    zoom_t zoom = 20;
-   
+
    if ( roadmap_screen_is_hd_screen() )
 #ifndef IPHONE_NATIVE
       zoom *= 2;
@@ -509,7 +531,7 @@ static int navigate_find_track_points (PluginLine *from_line, int *from_point,
       roadmap_math_set_context (&context_save_pos, context_save_zoom);
       return 0;
    }
-   
+
    roadmap_math_set_context (&context_save_pos, context_save_zoom);
 
 #ifndef J2ME
@@ -692,7 +714,8 @@ static void navigate_display_street (int isegment) {
 
 	if (isegment >= num_segments) return;
 
-   if (segment->is_instrumented) {
+   if (segment->is_instrumented ||
+       segment->dest_name != NULL) {
       if (segment->instruction == APPROACHING_DESTINATION){
          char title[256];
          title[0] = 0;
@@ -719,12 +742,15 @@ static void navigate_display_street (int isegment) {
          else
             navigate_bar_set_street (properties.street);
       }
+      else if (segment->dest_name != NULL) {
+         navigate_bar_set_street (segment->dest_name);
+      }
       else{
          navigate_bar_set_street (properties.street);
       }
       NavigatePendingSegment = -1;
    } else if (NavigatePendingSegment != isegment && isegment < num_segments) {
-   	navigate_bar_set_street ("");
+   	navigate_bar_set_street (roadmap_lang_get(BackToRouteMessage));
    	NavigatePendingSegment = isegment;
    	roadmap_tile_request (segment->square, ROADMAP_TILE_STATUS_PRIORITY_NEXT_TURN, 1, NULL);
    }
@@ -856,15 +882,15 @@ BOOL navigate_main_drive_on_left(void){
 static void navigate_show_message (void) {
    char title[256];
    if ((NavigateDestName[0] != 0))
-      snprintf (title, sizeof(title), "%s: %s", roadmap_lang_get("To"), NavigateDestName);
+      snprintf (title, sizeof(title), "%s", NavigateDestName);
    else if ((NavigateDestStreet[0] != 0) && (NavigateDestCity[0] != 0))
-      snprintf (title, sizeof(title), "%s: %s, %s", roadmap_lang_get("To"), NavigateDestStreet, NavigateDestCity);
+      snprintf (title, sizeof(title), "%s, %s", NavigateDestStreet, NavigateDestCity);
    else if (NavigateDestCity[0] != 0)
-      snprintf (title, sizeof(title), "%s: %s", roadmap_lang_get("To"), NavigateDestCity);
+      snprintf (title, sizeof(title), "%s", NavigateDestCity);
    else
       snprintf (title, sizeof(title), "%s", roadmap_lang_get("Route found"));
 
-   navigate_res_dlg(NavigateFlags,title,NavigateLength,NavigateTrackTime, NavigateDescription, 10000 ,(navigate_cost_allow_unknowns () && show_disclaimer()));
+   navigate_res_dlg(NavigateFlags,title,NavigateLength,NavigateTrackTime, NavigateDescription, 12000 ,(navigate_cost_allow_unknowns () && show_disclaimer()));
    focus_on_me();
 }
 
@@ -922,13 +948,14 @@ void navigate_main_on_route (int flags, int length, int track_time,
    NavigateTrackEnabled = 1;
    NavigateDisplayALtRoute = 0;
    navigate_bar_set_mode (NavigateTrackEnabled);
+   navigate_bar_set_street (roadmap_lang_get(BackToRouteMessage));
 
    if (NavigateIsAlternativeRoute)
       ssd_progress_msg_dialog_hide();
 
 	if (roadmap_navigate_get_current (&position, &from_line, &from_direction) == 0) {
 		navigate_get_next_line (&from_line, from_direction, &next_line);
-		navigate_update ((RoadMapPosition *)&position, &from_line);
+		navigate_update ((RoadMapPosition *)&position, &from_line,  position.speed, FALSE);
 	}
    /*[SRUL]Deleted: don't force update when current segment is unknow
    else if (navigate_find_track_points_in_scale (&from_line, &from_point, NULL, NULL, &from_direction, 0, 0) == 0) {
@@ -967,6 +994,8 @@ void navigate_main_on_route (int flags, int length, int track_time,
       navigate_show_message ();
       NavigateShowedMessage = TRUE;
    }
+   
+   //navigate_play_start();
 }
 
 
@@ -1439,6 +1468,14 @@ void get_inst(NavSmallValue instruction, NavSmallValue exit_no, const char **ins
          *inst_text = "Keep right";
          *inst_voice = "KeepRight";
          break;
+      case EXIT_RIGHT:
+         *inst_text = "Exit right";
+         *inst_voice = "ExitRight";
+         break;
+      case EXIT_LEFT:
+         *inst_text = "Exit left";
+         *inst_voice = "ExitLeft";
+         break;
       case APPROACHING_DESTINATION:
          *inst_text = "Approaching destination";
          break;
@@ -1464,7 +1501,7 @@ void get_inst(NavSmallValue instruction, NavSmallValue exit_no, const char **ins
    }
 }
 
-void navigate_update (RoadMapPosition *position, PluginLine *current) {
+void navigate_update (RoadMapPosition *position, PluginLine *current, int speed, BOOL announce_prompt){
 
    int announce = 0;
    int num_segments;
@@ -1474,15 +1511,24 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
    int i;
    int group_id;
    const char *inst_text = "";
-   const char *inst_voice = NULL;
+   char *inst_voice = NULL;
    const char *inst_roundabout = NULL;
    int roundabout_exit = 0;
    RoadMapSoundList sound_list;
-   const int ANNOUNCES[] = { 800, 200, 40 };
+   typedef struct announce_st{
+      int            unit_type;
+      int            distance;
+      int            min_speed;
+      int            max_speed;
+      int            state;
+   }announce_value;
+
+   announce_value ANNOUNCES[]          = { {ROADMAP_BASE_IMPERIAL, 1500,70,999, 2}, {ROADMAP_BASE_METRIC, 1000,70,999, 2}, {-1, 800,0,999,2}, {-1, 400,0,70,2}, {-1, 400,70,999,1}, {-1, 200,0,999,1}, {-1, 40,0,999,0} };
+
 #ifdef __SYMBIAN32__
-   const int ANNOUNCE_PREPARE_FACTORS[] = { 400, 400, 150 };
+   const int ANNOUNCE_PREPARE_FACTORS[] = {400, 400,400,400,400, 400,150 };
 #else
-   const int ANNOUNCE_PREPARE_FACTORS[] = { 200, 200, 100 };
+   const int ANNOUNCE_PREPARE_FACTORS[] = {200, 200,200,200,200, 200,100 };
 #endif
    int announce_distance = 0;
    int distance_to_prev;
@@ -1497,6 +1543,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 #define NAVIGATE_COMPENSATE 10
 #endif
 
+   speed = roadmap_math_to_kph(speed);
 
 #ifdef TEST_ROUTE_CALC
    static int test_counter;
@@ -1593,6 +1640,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
       roadmap_sound_list_add (sound_list, "Arrive");
       if (navgiate_main_voice_guidance_enabled() && roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")) {
       	roadmap_sound_play_list (sound_list);
+         NavigatePlayedPrompt = TRUE;
       }
 
       if (roadmap_config_match(&NavigateConfigAutoZoom, "yes")) {
@@ -1611,7 +1659,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 
    roadmap_message_set ('I', inst_text);
 
-   if ((NavigateDistanceToTurn < 800) && (NavigateNextInstr != LAST_DIRECTION))
+   if ((NavigateDistanceToTurn < 500) && (NavigateNextInstr != LAST_DIRECTION))
       navigate_bar_set_next_instruction(NavigateNextInstr);
    else
       navigate_bar_set_next_instruction(LAST_DIRECTION);
@@ -1622,7 +1670,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 
       for (i=0; i<sizeof(ANNOUNCES)/sizeof(ANNOUNCES[0]) - 1; i++) {
 
-         if (NavigateDistanceToTurn > ANNOUNCES[i]) {
+         if (NavigateDistanceToTurn > ANNOUNCES[i].distance) {
             NavigateNextAnnounce = i + 1;
             break;
          }
@@ -1635,26 +1683,41 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 
    if (NavigateNextAnnounce > 0 &&
       (NavigateDistanceToTurn <=
-        (ANNOUNCES[NavigateNextAnnounce - 1] + pos.speed * ANNOUNCE_PREPARE_FACTORS[NavigateNextAnnounce - 1] / 100))) {
+        (ANNOUNCES[NavigateNextAnnounce - 1].distance + speed * ANNOUNCE_PREPARE_FACTORS[NavigateNextAnnounce - 1] / 100))) {
       unsigned int i;
+      announce_distance = ANNOUNCES[NavigateNextAnnounce - 1].distance;
 
-      announce_distance = ANNOUNCES[NavigateNextAnnounce - 1];
-      NavigateNextAnnounce = 0;
 
-      if (inst_voice) {
-         announce = 1;
+      if (( speed >= ANNOUNCES[NavigateNextAnnounce - 1].min_speed ) && ( speed < ANNOUNCES[NavigateNextAnnounce - 1].max_speed )){
+         if (inst_voice) {
+               announce = 1;
+         }
       }
 
-      for (i=0; i<sizeof(ANNOUNCES)/sizeof(ANNOUNCES[0]); i++) {
-         if ((ANNOUNCES[i] < announce_distance) &&
-             (NavigateDistanceToTurn > ANNOUNCES[i])) {
+      if ((ANNOUNCES[NavigateNextAnnounce - 1].unit_type != -1) && (ANNOUNCES[NavigateNextAnnounce - 1].unit_type == ROADMAP_BASE_IMPERIAL &&  roadmap_math_is_metric())){
+         announce = 0;
+      }
+
+      if ((NavigateLastAnnounceState != -1) && (NavigateLastAnnounceState == ANNOUNCES[NavigateNextAnnounce - 1].state)){
+            announce = 0;
+      }else{
+         if (announce) {
+            NavigateLastAnnounceState = ANNOUNCES[NavigateNextAnnounce - 1].state;
+         }
+      }
+
+      NavigateNextAnnounce = 0;
+
+      for (i=NavigateNextAnnounce; i<sizeof(ANNOUNCES)/sizeof(ANNOUNCES[0]); i++) {
+         if (((ANNOUNCES[i].distance < announce_distance) || ((ANNOUNCES[i].distance <= announce_distance) && ANNOUNCES[i].state < NavigateLastAnnounceState )) &&
+             (NavigateDistanceToTurn > ANNOUNCES[i].distance)) {
             NavigateNextAnnounce = i + 1;
             break;
          }
       }
    }
 
-   if (announce) {
+   if (announce && announce_prompt) {
       PluginStreetProperties properties;
       PluginLine segment_line;
 
@@ -1676,9 +1739,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
          	int distance_far =
             	roadmap_math_to_trip_distance(announce_distance);
 
-         	roadmap_sound_list_add (sound_list, "within");
-
-	         if (distance_far > 0) {
+	         if (0) {
     	        	roadmap_message_set ('t', "%d %s",
         	          distance_far, roadmap_math_trip_unit());
 
@@ -1701,8 +1762,24 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 	            {
 		            strcat(distance_str, "meters");
 	            }
-	            roadmap_sound_list_add (sound_list, distance_str);
-		        roadmap_sound_list_add (sound_list, roadmap_math_distance_unit());
+
+	            if (roadmap_prompts_file_exist_and_not_empty(distance_str)){
+	               roadmap_sound_list_add (sound_list, "within");
+	               roadmap_sound_list_add (sound_list, distance_str);
+	               if (distance_far == 0)
+	                  roadmap_sound_list_add (sound_list, roadmap_math_distance_unit());
+        	      }
+	            else{
+	               if (NavigateLastAnnounceState != 0){
+	                     roadmap_log (ROADMAP_DEBUG, "Prompt file not found %s", distance_str);
+	                     NavigateLastAnnounceState = -1;
+	                     inst_roundabout =  NULL;
+	                     inst_voice = NULL;
+	                     inst_text = "";
+	                     roundabout_exit = 0;
+	                     NavigateNextInstr = LAST_DIRECTION;
+	               }
+	            }
 
     	     };
       	}
@@ -1710,7 +1787,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
 			if (inst_roundabout) {
       		roadmap_sound_list_add (sound_list, inst_roundabout);
 			}
-			if ( inst_voice[0] ){
+			if ( inst_voice && inst_voice[0] ){
 				roadmap_sound_list_add (sound_list, inst_voice);
 			}
       	if (inst_roundabout) {
@@ -1723,7 +1800,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
       	//roadmap_voice_announce ("Driving Instruction");
 
       	// Add and_then prompts if needed
-      	if (NavigateNextInstr != LAST_DIRECTION){
+      	if ((NavigateNextInstr != LAST_DIRECTION) && (NavigateDistanceToTurn < 500)){
       	   if (roadmap_prompts_file_exist("AndThen")){
       	      inst_text = "";
       	      inst_voice = NULL;
@@ -1757,6 +1834,7 @@ void navigate_update (RoadMapPosition *position, PluginLine *current) {
       	}
 
       	roadmap_sound_play_list (sound_list);
+         NavigatePlayedPrompt = TRUE;
       }
    }
 
@@ -1827,6 +1905,7 @@ void navigate_get_next_line
    NavigateSegment *next_segment;
    int num_segments;
    int i;
+   static int last_group_id = -1;
 
 	roadmap_log (ROADMAP_DEBUG, "navigate_get_next_line(): current is %d/%d", current->square, current->line_id);
 
@@ -1931,6 +2010,11 @@ void navigate_get_next_line
       			(int)(segment - NavigateSegments));
 
       navigate_bar_set_instruction (segment->instruction);
+      if (last_group_id != segment->group_id){
+         NavigateLastAnnounceState = -1;
+      }
+      last_group_id = segment->group_id;
+
       navigate_update_next();
 
       if (segment->instruction == ROUNDABOUT_ENTER ||
@@ -1955,7 +2039,6 @@ void navigate_get_next_line
      	navigate_display_street (i - 1);
 
       NavigateNextAnnounce = -1;
-
       NavigateDistanceToDest = 0;
       NavigateETA = 0;
       NavigateETADiff = 0;
@@ -2524,6 +2607,11 @@ void navigate_main_prepare_for_request (void) {
 
 }
 
+void navigate_main_recalculate_route(void){
+   if (navigate_main_state() == 0)
+     navigate_main_calc_route ();
+}
+
 int navigate_main_calc_route (void) {
 
    int track_time;
@@ -3022,7 +3110,7 @@ static char const *PopupMenuItemsOff[] = {
    "navigation_guidance_off",
    "stop_navigate",
    "navigation_list",
-
+   "recalc_route",
    NULL,
 };
 
@@ -3030,18 +3118,31 @@ static char const *PopupMenuItemsOn[] = {
    "navigation_guidance_on",
    "stop_navigate",
    "navigation_list",
-
+   "recalc_route",
    NULL,
 };
 void navigate_menu(void){
 
-
    if (navigation_guidance_state()){
-      roadmap_start_popup_menu ("Naviagte Menu off", PopupMenuItemsOff,
+      if (is_screen_wide()){
+         PopupMenuItemsOff[3] = NULL;
+         roadmap_start_popup_menu ("Naviagte Menu off Wide", PopupMenuItemsOff,
                                    NULL, NULL, DIALOG_ANIMATION_FROM_BOTTOM);
+      }else{
+         roadmap_start_popup_menu ("Naviagte Menu off", PopupMenuItemsOff,
+                                NULL, NULL, DIALOG_ANIMATION_FROM_BOTTOM);
+      }
+
    }else{
-      roadmap_start_popup_menu ("Naviagte Menu on", PopupMenuItemsOn,
+     if (is_screen_wide()){
+           PopupMenuItemsOn[3] = NULL;
+           roadmap_start_popup_menu ("Naviagte Menu on Wide", PopupMenuItemsOn,
                                    NULL, NULL,DIALOG_ANIMATION_FROM_BOTTOM);
+     }
+     else{
+           roadmap_start_popup_menu ("Naviagte Menu on", PopupMenuItemsOn,
+                                      NULL, NULL,DIALOG_ANIMATION_FROM_BOTTOM);
+     }
    }
 }
 
@@ -3060,6 +3161,7 @@ typedef struct navigate_list_value_st{
 	int 			inst_num;
 	RoadMapPosition position;
 }navigate_list_value;
+
 
 static char *navigate_list_labels[MAX_NAV_LIST_ENTRIES] ;
 static navigate_list_value *navigate_list_values[MAX_NAV_LIST_ENTRIES] ;
@@ -3367,6 +3469,12 @@ void navigate_main_list(void){
 		      case APPROACHING_DESTINATION:
 		         inst_text = "Approaching destination";
 		         break;
+            case EXIT_RIGHT:
+               inst_text = "Exit right";
+               break;
+            case EXIT_LEFT:
+               inst_text = "Exit left";
+               break;
 		      case CONTINUE:
 		         inst_text = "continue straight";
 		         break;
@@ -3437,7 +3545,9 @@ void navigate_main_list(void){
 		   				sprintf(str, " (%d/%d) %s %s %s",count+1, total_instructions+1, dist_str, unit_str, roadmap_lang_get(inst_text));
 
 		   			else
-		   				if (properties.street[0] != 0)
+                     if (segment->dest_name != NULL)
+                        sprintf(str, " (%d/%d) %s %s %s %s%s",count+1, total_instructions+1, dist_str, unit_str, roadmap_lang_get(inst_text), roadmap_lang_get("to "), segment->dest_name);
+		   				else if (properties.street[0] != 0)
 		   					sprintf(str, " (%d/%d) %s %s %s %s%s",count+1, total_instructions+1, dist_str, unit_str, roadmap_lang_get(inst_text), roadmap_lang_get("to "), properties.street);
 		   				else
 		   					sprintf(str, " (%d/%d) %s %s %s",count+1, total_instructions+1, dist_str, unit_str, roadmap_lang_get(inst_text));

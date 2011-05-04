@@ -56,7 +56,7 @@ typedef unsigned short      uint16_t;
 #endif
 
 #define  CLIENT_VERSION_MAJOR       (2)
-#define  CLIENT_VERSION_MINOR       (1)
+#define  CLIENT_VERSION_MINOR       (2)
 #define  CLIENT_VERSION_SUB         (0)
 #define  CLIENT_VERSION_CFG         (0)	/* Build number for internal use only */
 

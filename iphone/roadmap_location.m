@@ -54,6 +54,7 @@ static int RoadMapLoactionActive                   = 0;
 static int RoadMapLocationServiceDenied            = 0;
 static int RoadMapLocationSpeed                    = 0;
 static int RoadMapLocationSteering                 = 0;
+static time_t RoadmapLocationLatestTime            = 0;
 
 #define MAX_HOR_ACCURACY   1000 //was 80
 #define MAX_VER_ACCURACY   1000 //was 120
@@ -127,6 +128,14 @@ int roadmap_location_denied () {
    return RoadMapLocationServiceDenied;
 }
 
+time_t roadmap_location_get_latest_time () {
+   if (RoadmapLocationLatestTime > 0) {
+      return RoadmapLocationLatestTime;
+   } else {
+      return time(NULL);
+   }
+
+}
 
 
 
@@ -152,11 +161,11 @@ int roadmap_location_denied () {
       RoadMapLocationManager = self.locationManager;
    }
    
-#if TARGET_IPHONE_SIMULATOR
+#if TARGET_IPHONE_SIMULATORxxx
    // Cupertino
-   //CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:37.33168900 longitude:-122.03073100];
+   CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:37.33168900 longitude:-122.03073100];
    //IL
-   CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:32.196208 longitude:34.878593];
+   //CLLocation *simulatorLocation = [[CLLocation alloc] initWithLatitude:32.196208 longitude:34.878593];
    [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:nil];
    [self locationManager:locationManager didUpdateToLocation:simulatorLocation fromLocation:simulatorLocation];
    [simulatorLocation release];
@@ -192,6 +201,7 @@ int roadmap_location_denied () {
    int latitude;
    int longitude;
 
+   RoadmapLocationLatestTime = [newLocation.timestamp timeIntervalSince1970];
       
    
    interval = [newLocation.timestamp timeIntervalSinceNow];
@@ -213,6 +223,8 @@ int roadmap_location_denied () {
       first_time = FALSE;
    }
 #endif //FLURRY
+   
+   gmt_time = [newLocation.timestamp timeIntervalSince1970];
    
    //GPS handling
    if (RoadMapLocationNavigating) {
@@ -245,9 +257,7 @@ int roadmap_location_denied () {
          }
          RoadmapLocationSatelliteListener (0, 0, 0, 0, 0, 0);
          
-         //Navigation data
-         gmt_time = [newLocation.timestamp timeIntervalSince1970];
-         
+         //Navigation data         
          position.latitude = floor (newLocation.coordinate.latitude* 1000000);
          position.longitude = floor (newLocation.coordinate.longitude* 1000000);
          
@@ -293,7 +303,7 @@ int roadmap_location_denied () {
 #endif
     
   
-   roadmap_gps_coarse_fix(latitude, longitude);
+   roadmap_gps_coarse_fix(latitude, longitude, newLocation.horizontalAccuracy, gmt_time);
 }
 
 - (void)locationManager:(CLLocationManager *)manager

@@ -34,7 +34,7 @@
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_NETWORK_ERRORS                  (1000)
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_NETWORK_ERRORS_SUCCESSIVE       (100)
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_SECONDS_FROM_LAST_SESSION       (20*60)
-#define  RT_THRESHOLD_TO_ENTER_SILENT_MODE__MAX_NETWORK_ERRORS_SUCCESSIVE     (3)
+#define  RT_THRESHOLD_TO_ENTER_SILENT_MODE__MAX_NETWORK_ERRORS_SUCCESSIVE     (5)
 
 // Warning initialization timeout in milli-seconds
 #define  RT_WARNING_INIT_TO			(30000)
@@ -62,6 +62,12 @@
 #define  RT_CFG_PRM_NKNM_Var           RTPrm_Nickname
 #define  RT_CFG_PRM_NKNM_Name          ("Nickname")
 #define  RT_CFG_PRM_NKNM_Default       ("")
+
+//   Small Wazers scale factor
+#define  RT_CFG_PRM_WAZERS_SCALE_Var      RTPrm_WazersScaleFactor
+#define  RT_CFG_PRM_WAZERS_SCALE_Name     ("Wazers scale factor")
+#define  RT_CFG_PRM_WAZERS_SCALE_Default  ("80")
+
 
 //   Enable / Disable:
 #define  RT_CFG_PRM_STATUS_Var         RTPrm_Status
@@ -117,9 +123,23 @@
 #define  RT_CFG_PRM_REFRAT_iWD         	(15.F)   //   Watchdog
 
 //   Remote web-service address
-#define  RT_CFG_PRM_WEBSRV_Var         RTPrm_WebServiceAddress
-#define  RT_CFG_PRM_WEBSRV_Name        ("Web-Service Address")
-#define  RT_CFG_PRM_WEBSRV_Default     ("")
+#define  RT_CFG_PRM_WEBSRV_Var            RTPrm_WebServiceAddress
+#define  RT_CFG_PRM_WEBSRV_Name           ("Web-Service Address")
+#define  RT_CFG_PRM_WEBSRV_Default        ("")
+#define  RT_CFG_PRM_WEBSRVSSL_Var         RTPrm_WebServiceSecuredAddress
+#define  RT_CFG_PRM_WEBSRVSSL_Name        ("Web-Service Secured Address")
+#define  RT_CFG_PRM_WEBSRVSSL_Default     ("")
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Var      RTPrm_WebServiceSecuredCommands
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Name     ("Web-Service Secured Commands")
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Default  ("Login-BridgeTo")
+#define  RT_CFG_PRM_WEBSRVSSLEnabled_Var  RTPrm_WebServiceSecureEnabled
+#define  RT_CFG_PRM_WEBSRVSSLEnabled_Name ("Web-Service Secure Enabled")
+#define  RT_CFG_PRM_WEBSRVV2SFX_Var       RTPrm_WebServiceV2Suffix
+#define  RT_CFG_PRM_WEBSRVV2SFX_Name      ("Web-Service V2 Suffix")
+#define  RT_CFG_PRM_WEBSRVV2SFX_Default   ("_v2")
+#define  RT_CFG_PRM_WEBSRVV2CMD_Var       RTPrm_WebServiceV2Commands
+#define  RT_CFG_PRM_WEBSRVV2CMD_Name      ("Web-Service V2 Commands")
+#define  RT_CFG_PRM_WEBSRVV2CMD_Default   ("RoutingRequest")
 
 const char*  RT_CFG_GetWebServiceAddress();
 

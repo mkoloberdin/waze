@@ -69,6 +69,9 @@ typedef struct {
    int                  new_is_3d;
    
    RoadMapCanvasTileCb  callback;
+   
+   //int                  rows;
+   //int                  columns;
    int                  tile_w;
    int                  tile_h;
    RoadMapGuiPoint      top_left;
@@ -146,7 +149,9 @@ static void init_layer (int i) {
    gs_layers[i].new_is_3d = -1;
    gs_layers[i].prev_is_3d = -1;
    
-   if (roadmap_screen_is_hd_screen()) {
+   if (roadmap_screen_is_hd_screen()/* ||
+       roadmap_canvas_width() > 600 ||
+       roadmap_canvas_height() > 600*/) {
       gs_layers[i].tile_h = DEFAULT_SIZE_HD;
       gs_layers[i].tile_w = DEFAULT_SIZE_HD;
    } else {
@@ -244,6 +249,7 @@ void roadmap_canvas_tile_set_target_zoom (int layer_id, zoom_t zoom) {
    
    if (layer->target_zoom != zoom) {
       layer->target_zoom = zoom;
+      //refresh_zoom_step(layer_id);
    }
 }
 
@@ -299,12 +305,27 @@ static void roadmap_canvas_tile_resize_internal (int layer_id) {
       layer->bottom_left.y = roadmap_canvas_height() -1;
       layer->bottom_right.y = roadmap_canvas_height() -1;
    }
+      
+   //after next_pot we may have too many rows / columns
+   //layer->rows = ceilf (1.0* (layer->bottom_left.y - layer->top_left.y +1) / layer->tile_h) + 1;
+   //layer->columns = ceilf (1.0* (layer->top_right.x - layer->top_left.x +1) / layer->tile_w) + 1;
+   
+   //printf("w,h: %d,%d  ; c,r: %d,%d  ; tl: %d,%d ;  tr: %d,%d ;  bl: %d,%d ;  br: %d,%d\n",
+   //             layer->tile_w, layer->tile_h,
+   //             layer->columns, layer->rows,
+   //             layer->top_left.x, layer->top_left.y,
+   //             layer->top_right.x, layer->top_right.y,
+   //             layer->bottom_left.x, layer->bottom_left.y,
+   //             layer->bottom_right.x, layer->bottom_right.y);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////
 static void update_tiles_pos (int layer_id, float zoom_factor, float dx, float dy) {
    int i;
 
+   //if (zoom_factor == 1.0f)
+//      printf("---will not flag dirty now\n");
+   
    for (i = 0; i < MAX_TILES; i++) {
       if (gs_tiles[i].layer_id == layer_id) {
          gs_tiles[i].top_left_point.x = gs_tiles[i].top_left_point.x*zoom_factor + dx;
@@ -355,10 +376,14 @@ void roadmap_canvas_tile_set (int layer_id, zoom_t zoom, RoadMapGuiPointF *new_d
          init_layer(layer_id);
          layer->active = TRUE;
       new_delta = NULL;
+      
+      //TODO: check if layet.point is too large
    }
          
    if (zoom > 0) {
       layer->draw_zoom = zoom;
+      //layer->new_zoom = next_pot((int)zoom);// /2;
+      //layer->new_zoom = zoom;
       
       refresh_zoom_step(layer_id);
       
@@ -375,6 +400,7 @@ void roadmap_canvas_tile_set (int layer_id, zoom_t zoom, RoadMapGuiPointF *new_d
       layer->new_is_3d = is_3d;
    
    if (new_delta != NULL) {
+      //TODO: handle prev_zoom==-1
       float dx, dy;
       float prev_new_factor = 1.0f * layer->prev_zoom / layer->new_zoom;
       float draw_new_factor = 1.0f * layer->draw_zoom / layer->new_zoom;
@@ -386,8 +412,11 @@ void roadmap_canvas_tile_set (int layer_id, zoom_t zoom, RoadMapGuiPointF *new_d
       
       
       //Update layer
-      layer->point.x = layer->point.x * prev_new_factor + dx;
-      layer->point.y = layer->point.y * prev_new_factor + dy;
+      layer->point.x = layer->point.x * prev_new_factor + dx;// + new_delta->x * draw_new_factor;
+      layer->point.y = layer->point.y * prev_new_factor + dy;// + new_delta->x * draw_new_factor;
+      
+      //layer->delta.x += new_delta->x * layer->new_zoom / layer->draw_zoom;
+      //layer->delta.y += new_delta->y * layer->new_zoom / layer->draw_zoom;
    }
    
    
@@ -443,6 +472,8 @@ static canvas_tile *get_free_tile(int layer_id) {
    
    if (index_x == -1)
       return NULL;
+   
+     // printf("abs x: %d ; abs y: %d", abs(gs_tiles[index_x].top_left_point.x - gs_layers[layer_id].point.x), abs(gs_tiles[index_y].top_left_point.y - gs_layers[layer_id].point.y));
 
    if ((index_x != index_y) &&
        abs(gs_tiles[index_y].top_left_point.y - gs_layers[layer_id].point.y) > abs(gs_tiles[index_x].top_left_point.x - gs_layers[layer_id].point.x)) {
@@ -452,6 +483,29 @@ static canvas_tile *get_free_tile(int layer_id) {
       delete_tile (&gs_tiles[index_x]);
       return &gs_tiles[index_x];
    }
+      
+#if 0
+   int count_old_zoom = 0, count_new_zoom = 0;
+   printf("\n");
+   for (i = 0; i < MAX_TILES; i++) {
+      if (gs_tiles[i].zoom != gs_layers[layer_id].new_zoom)
+         count_old_zoom++;
+      else
+         count_new_zoom++;
+      printf("%d, ", gs_tiles[i].zoom);
+   }
+   printf("\nTotal tiles: %d, old_zoom: %d, new_zoom: %d (%d)\n", MAX_TILES, count_old_zoom, count_new_zoom, gs_layers[layer_id].new_zoom);
+   
+   for (i = 0; i < MAX_TILES; i++) {
+      if (gs_tiles[i].layer_id == layer_id &&
+          gs_tiles[i].zoom != gs_layers[layer_id].new_zoom) {
+         delete_tile (&gs_tiles[i]);
+         return &gs_tiles[i];
+      }
+   }
+   
+   return NULL;
+#endif
 }
 
 #if DRAW_TILE_EDGES
@@ -617,7 +671,7 @@ static int tile_is_visible (canvas_tile *tile, canvas_layer *layer) {
       int deltax = layer->bottom_left.x - layer->top_left.x;
       int deltay = layer->bottom_right.y - layer->top_right.y;
       float factor = 1.0*deltax / deltay;
-      if (miny < layer->top_left.y)
+      if (miny < layer->top_left.y) //TODO: rearrange this code with all declarations
          miny = layer->top_left.y;//maxy;
       if (maxy > layer->bottom_left.y)
          maxy = layer->bottom_left.y;//miny;
@@ -648,6 +702,13 @@ static void prioritize_matrix (canvas_tile_matrix *matrix, canvas_layer *layer, 
    float x_offset, y_offset;
    int is_visible;
    int distance;
+   
+  // x_offset = layer->point.x - ((int)(layer->point.x / layer->tile_w)) * layer->tile_w;
+//   if (x_offset < 0)
+//      x_offset += layer->tile_w;
+//   y_offset = layer->point.y - ((int)(layer->point.y / layer->tile_h)) * layer->tile_h;
+//   if (y_offset < 0)
+//      y_offset += layer->tile_h;
   
    x_offset = get_offset(layer->point.x - layer->top_left.x, layer->tile_w, layer->new_zoom, layer->new_zoom);
    y_offset = get_offset(layer->point.y - layer->top_left.y, layer->tile_h, layer->new_zoom, layer->new_zoom);
@@ -691,6 +752,7 @@ static void prioritize_matrix (canvas_tile_matrix *matrix, canvas_layer *layer, 
                break;
             case DRAW_MODE:
                if (m->tile != NULL &&
+                   //m->tile->opacity == 255 &&
                    is_visible != 0) {
                   m->priority = 0;
                } else if (m->tile != NULL &&
@@ -720,7 +782,29 @@ static void prioritize_matrix (canvas_tile_matrix *matrix, canvas_layer *layer, 
             m->scale = 1;
          }
       }
-   }      
+   }
+   
+
+      //for (i = 0; i < MATRIX_SIZE; i++) { //rows
+      //      for (j = 0; j < MATRIX_SIZE; j++) { //columns
+      //         canvas_tile_matrix *m = &matrix[i*MATRIX_SIZE + j];
+      //         if (m->priority != -1) {
+      //            if (m->tile != NULL) {
+      //               ptile = m->tile;
+      //            } else {
+      //               ptile = &temp_tile;
+      //               ptile->top_left_point.x = layer->top_left.x + (j - MATRIX_OFFSET -1) * layer->tile_w + x_offset;
+      //               ptile->top_left_point.y = layer->top_left.y + (i - MATRIX_OFFSET -1) * layer->tile_h + y_offset;
+      //            }
+      //            
+      //            if (tile_distance(ptile, layer) == TILE_DISTANCE_FAR)
+      //               m->scale = 0;
+      //            else
+      //               m->scale = 1;
+      //         }
+      //      }
+      //   }
+      
 
    if (mode == GENERATE_MODE) {
       
@@ -804,17 +888,48 @@ static void prioritize_matrix (canvas_tile_matrix *matrix, canvas_layer *layer, 
          }
       }
    }
+      
+      //for (i = 0; i < MATRIX_SIZE - 1; i++) { //rows
+//         for (j = 0; j < MATRIX_SIZE - 1; j++) { //columns
+//            if (matrix[i*MATRIX_SIZE + j].priority != -1 &&
+//                matrix[(i+1)*MATRIX_SIZE + j].priority != -1 &&
+//                matrix[(i+1)*MATRIX_SIZE + (j+1)].priority != -1 &&
+//                matrix[i*MATRIX_SIZE + (j+1)].priority != -1 &&
+//                matrix[i*MATRIX_SIZE + j].scale == 2 &&
+//                matrix[(i+1)*MATRIX_SIZE + j].scale == 2 &&
+//                matrix[(i+1)*MATRIX_SIZE + (j+1)].scale == 2 &&
+//                matrix[i*MATRIX_SIZE + (j+1)].scale == 2) {
+//               
+//               //matrix[i*MATRIX_SIZE + j].scale = 2;
+//               matrix[(i+1)*MATRIX_SIZE + j].priority = -1;
+//               matrix[(i+1)*MATRIX_SIZE + (j+1)].priority = -1;
+//               matrix[i*MATRIX_SIZE + (j+1)].priority = -1;
+//            }
+//         }
+//      }
+      
+//      for (i = 0; i < MATRIX_SIZE; i++) { //rows
+//         for (j = 0; j < MATRIX_SIZE; j++) { //columns
+//            if (matrix[i*MATRIX_SIZE + j].priority != -1 &&
+//                matrix[i*MATRIX_SIZE + j].scale == 0)
+//               matrix[i*MATRIX_SIZE + j].scale = 1;
+//         }
+//      }     
+//   }
          
 
    //Add padding (priority 2)
-   if (mode != DRAW_MODE) {
+   if (mode != DRAW_MODE) {//TODO: make this efficient
       int pad;
       switch (mode) {
          case UPDATE_MODE:
             pad = TILE_PAD + 1;
+            //pad = TILE_PAD;
+            //printf("+++ UPDATE +++\n");
             break;
          case GENERATE_MODE:
             pad = TILE_PAD;
+            //printf("<<< GENERATE >>>\n");
             break;
          default:
             break;
@@ -856,8 +971,20 @@ static void prioritize_matrix (canvas_tile_matrix *matrix, canvas_layer *layer, 
             }
          }
       }
-   }      
-}
+   }// else {
+//      printf("<<< DRAW >>>\n");
+//   }
+//
+//   
+//   for (i = 0; i < MATRIX_SIZE; i++) { //rows
+//      for (j = 0; j < MATRIX_SIZE; j++) { //columns
+//         canvas_tile_matrix *m = &matrix[i*MATRIX_SIZE + j];
+//         printf("%02d(%s) ", m->priority, (m->tile?"V":" "));
+//      }
+//      printf("\n");
+//   }
+
+      }
      
 
 static void dump_obsolete_tiles (int layer_id) {
@@ -943,14 +1070,24 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
       zoom_changed = TRUE;
    }
    
+   //zoom_changed = FALSE; //TODO: avir - test
+   
    if (zoom_changed && start_time - last_refrsh > 1500 &&
        layer->prev_zoom == layer->new_zoom) {
       last_refrsh = start_time;
       zoom_changed = FALSE;
    }
    
-   if (layer->prev_zoom <= 0 ||
-       layer->new_is_3d != layer->prev_is_3d) {      
+   if (//layer->new_zoom != layer->prev_zoom ||
+       //layer->new_orientation != layer->prev_orientation ||
+       //layer->new_is_3d && gs_horizon != last_horizon ||
+       layer->prev_zoom <= 0 ||
+       layer->new_is_3d != layer->prev_is_3d) {
+      
+      //printf("=============================================================\n\n");
+      
+      //last_horizon = gs_horizon;
+      
       //Dump all tiles
       roadmap_canvas_tile_reset_all(layer_id, 0);
       
@@ -967,13 +1104,27 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
       roadmap_canvas_tile_resize_internal(layer_id);
    }
    
+   //layer->point.x += layer->delta.x;
+//   layer->point.y += layer->delta.y;
+
+   
    if (layer->new_zoom != layer->prev_zoom) {
+      //printf("delta: %d, %d\n", layer->delta.x, layer->delta.y);
       dump_obsolete_tiles (layer_id);
    }
    
+   //printf("prev_zoom: %d  new_zoom: %d\n", layer->prev_zoom, layer->new_zoom);
+   
    height = layer->tile_h;
    width = layer->tile_w;
-
+   
+   //align tiles to grid
+   //x_offset = layer->point.x - ((int)(layer->point.x / layer->tile_w)) * layer->tile_w;
+//   if (x_offset < 0)
+//      x_offset += layer->tile_w;
+//   y_offset = layer->point.y - ((int)(layer->point.y / layer->tile_h)) * layer->tile_h;
+//   if (y_offset < 0)
+//      y_offset += layer->tile_h;
    x_offset = get_offset(layer->point.x - layer->top_left.x, layer->tile_w, layer->new_zoom, layer->new_zoom);
    y_offset = get_offset(layer->point.y - layer->top_left.y, layer->tile_h, layer->new_zoom, layer->new_zoom);
    
@@ -981,6 +1132,19 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
    for (i = 0; i < MATRIX_SIZE*MATRIX_SIZE; i++) {
       tile_matrix[i].tile = NULL;
    }
+   
+   //free_tiles = 0;
+//   no_zoom_tiles = 0;
+//   for (i = 0; i < MAX_TILES; i++) {
+//      if (gs_tiles[i].layer_id == -1 || gs_tiles[i].age >= 1)
+//         free_tiles++;
+//      if (gs_tiles[i].layer_id == layer_id && gs_tiles[i].zoom != layer->new_zoom) {
+//         //printf("z %d a%d... ", gs_tiles[i].zoom, gs_tiles[i].age);
+//         no_zoom_tiles++;
+//      }
+//   }
+//   printf("\nold zoom: %d new: %d delta: %d, %d   free tiles: %d  out of zoom: %d\n",
+//          layer->prev_zoom, layer->new_zoom, layer->delta.x, layer->delta.y, free_tiles, no_zoom_tiles);
    
    prioritize_matrix(&tile_matrix[0], layer, UPDATE_MODE);
    //update tiles status
@@ -999,19 +1163,38 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
             
             if (row + MATRIX_OFFSET < 0 || row + MATRIX_OFFSET >= MATRIX_SIZE || column + MATRIX_OFFSET < 0 || column + MATRIX_OFFSET >= MATRIX_SIZE ||
                 tile_matrix[(row + MATRIX_OFFSET)*MATRIX_SIZE + (column + MATRIX_OFFSET)].priority == -1) {
+               //printf("dumping out of screen tile:   point(%f, %f)\n", gs_tiles[i].top_left_point.x, gs_tiles[i].top_left_point.y);
+               //delete_tile (&gs_tiles[i]);
+               //gs_tiles[i].age++;
             } else {
                //tile is in screen
                canvas_tile_matrix *m = &tile_matrix[(row + MATRIX_OFFSET)*MATRIX_SIZE + (column + MATRIX_OFFSET)];
                if (m->tile != NULL) {
+                  //printf("SAME TILE !!! %d, %d\n", i, j);//TODO: this should not happen
+                  //roadmap_log(ROADMAP_ERROR, "SAME TILE !!! %d\n", i);
                   gs_tiles[i].age++;
                } else if (gs_tiles[i].zoom / m->scale == layer->new_zoom ){
                   m->tile = &gs_tiles[i];
+                  //if (m->scale == 2) {
+//                     if (tile_matrix[(row+1 + MATRIX_OFFSET)*MATRIX_SIZE + (column + MATRIX_OFFSET)].scale == 2)
+//                        tile_matrix[(row+1 + MATRIX_OFFSET)*MATRIX_SIZE + (column + MATRIX_OFFSET)].priority = -1;
+//                     if (tile_matrix[(row + MATRIX_OFFSET)*MATRIX_SIZE + (column+1 + MATRIX_OFFSET)].scale == 2)
+//                        tile_matrix[(row + MATRIX_OFFSET)*MATRIX_SIZE + (column+1 + MATRIX_OFFSET)].priority = -1;
+//                     if (tile_matrix[(row+1 + MATRIX_OFFSET)*MATRIX_SIZE + (column+1 + MATRIX_OFFSET)].scale == 2)
+//                        tile_matrix[(row+1 + MATRIX_OFFSET)*MATRIX_SIZE + (column+1 + MATRIX_OFFSET)].priority = -1;
+//                  }
                   count_mapped_tiles++;
+               } else {
+                  //delete_tile (&gs_tiles[i]);
+                 // gs_tiles[i].age++;
                }
+
+               //printf("setting matrix [%d, %d]   point(%f, %f)\n", column + MATRIX_OFFSET, row + MATRIX_OFFSET, gs_tiles[i].top_left_point.x, gs_tiles[i].top_left_point.y);
             }
          }
       }
    }
+   //printf("mapped tiles: %d\n", count_mapped_tiles);
    
    //Generate missing tiles
    stop = FALSE;
@@ -1039,6 +1222,8 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
                            }
                            
                            if (!tile) {
+                              //if (!new_tile_image_drawn)
+//                                 roadmap_log(ROADMAP_DEBUG, "No free tiles !");
                               stop = TRUE;
                               break;
                            }
@@ -1066,6 +1251,7 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
                         if (tile->dirty) {
                            delete_tile(tile);
                            tile->dirty = 0;
+                           //printf("replacing dirty, tile zoom: %d\n", tile->zoom);
                         } else {
                            tile->opacity = 0;
                         }
@@ -1078,6 +1264,13 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
                         
                         tile->top_left_point.x = layer->top_left.x + (j - MATRIX_OFFSET -1) * width + x_offset;
                         tile->top_left_point.y = layer->top_left.y + (i - MATRIX_OFFSET -1) * height + y_offset;
+                        
+                        //printf("adding tile [%d, %d]    point(%f, %f)   ; offset(%f, %f)\n", 
+                        //                                              j, i, 
+                        //                                              tile->top_left_point.x, tile->top_left_point.y,
+                        //                                              x_offset, y_offset);
+                        
+                        
                         
                         minx = tile->top_left_point.x / scale + roadmap_canvas_width()*0.5 - (roadmap_canvas_width()*0.5) / scale;
                         miny = tile->top_left_point.y / scale + roadmap_canvas_height()*0.5 - (roadmap_canvas_height()*0.5) / scale;
@@ -1098,6 +1291,7 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
 #if DRAW_TILE_EDGES
                         draw_edges (&rect, p, scale);
 #endif
+                        //glTranslatef(tile->top_left_point.x, tile->top_left_point.y, 0);
                         
                         new_tile_image_drawn = TRUE;
                         
@@ -1144,7 +1338,7 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
    glTranslatef(roadmap_canvas_width()/2, roadmap_canvas_height()/2, 0);
    glRotatef(layer->new_orientation, 0, 0, 1);
    glTranslatef(-roadmap_canvas_width()/2, -roadmap_canvas_height()/2, 0);
-
+   //int num = 0;
    prioritize_matrix(&tile_matrix[0], layer, DRAW_MODE);
    
    int drawn = 0;
@@ -1176,6 +1370,10 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
                   top_left.y = ROUND(top_left_f.y);
                   bottom_right.x = ROUND(top_left_f.x + 1.0* width * tile->zoom / layer->draw_zoom);
                   bottom_right.y = ROUND(top_left_f.y + 1.0* height * tile->zoom / layer->draw_zoom);
+                  //top_left.x = ROUND(tile->top_left_point.x * tile->zoom / layer->draw_zoom);
+//                  top_left.y = ROUND(tile->top_left_point.y * tile->zoom / layer->draw_zoom);
+//                  bottom_right.x = ROUND(1.0 * tile->top_left_point.x * tile->zoom / layer->draw_zoom + 1.0* width * tile->zoom / layer->new_zoom);
+//                  bottom_right.y = ROUND(1.0 * tile->top_left_point.y * tile->zoom / layer->draw_zoom + 1.0* height * tile->zoom / layer->new_zoom);
                   
                   mat_top_left.x = layer->top_left.x + (j - MATRIX_OFFSET -1) * width + x_offset;
                   mat_top_left.y = layer->top_left.y + (i - MATRIX_OFFSET -1) * height + y_offset;
@@ -1188,6 +1386,8 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
                      tile->opacity = 255;
                      image_mode = IMAGE_NOBLEND;
                      roadmap_canvas_draw_image_scaled(tile->image, &top_left, &bottom_right, tile->opacity, image_mode);
+                     //                     printf("drawing different zoom: %d instead of %d (%d, %d)\n", gs_tiles[n].zoom, layer->new_zoom,
+                     //                            tile->top_left_point.x ,tile->top_left_point.y);
                      gs_tiles[n].drawn = 1;
                      drawn++;
                   }
@@ -1197,6 +1397,7 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
          }
       }
    }
+   //printf("drawn %d out of zoom tiles...\n", drawn);
    
    
    //Draw the tiles
@@ -1208,17 +1409,34 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
             canvas_tile_matrix *m = &tile_matrix[i*MATRIX_SIZE + j];
             canvas_tile *tile = m->tile;
             
+            if (m->priority == -1 && tile != NULL) {
+               //printf("we don't need this !!\n");
+               //delete_tile (&gs_tiles[i]);
+               //tile->age++;
+            }
+            
             if (m->priority != p)
                continue;
+            
+            if (tile == NULL) {
+               printf("NULL ??\n");
+            }
 
             
             RoadMapGuiPoint pos;
             pos.x = ROUND(tile->top_left_point.x);
             pos.y = ROUND(tile->top_left_point.y);
+            //printf("%d, %d (%f, %f)\n", pos.x, pos.y, tile->top_left_point.x, tile->top_left_point.y);
             
             is_visible = tile_is_visible(tile, layer);
             if (tile->opacity < 255) {
+               //if (is_visible != 1) {//If not fully visible, do not fade in
+               //   tile->opacity = 255;
+               //} else {
+               //tile->opacity += 64;
+               //if (tile->opacity > 255)
                   tile->opacity = 255;
+               // }
             }
             
             if (tile->opacity < 255) {
@@ -1233,6 +1451,8 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
             RoadMapGuiPointF top_left_f;
             top_left_f.x = tile->top_left_point.x * layer->new_zoom / layer->draw_zoom + roadmap_canvas_width()*0.5 - (roadmap_canvas_width()*0.5) * layer->new_zoom / layer->draw_zoom;
             top_left_f.y = tile->top_left_point.y * layer->new_zoom / layer->draw_zoom + roadmap_canvas_height()*0.5 - (roadmap_canvas_height()*0.5) * layer->new_zoom / layer->draw_zoom;
+//            top_left_f.x = tile->top_left_point.x * tile->zoom / layer->draw_zoom + roadmap_canvas_width()*0.5 - (roadmap_canvas_width()*0.5) * tile->zoom / layer->draw_zoom;
+//            top_left_f.y = tile->top_left_point.y * tile->zoom / layer->draw_zoom + roadmap_canvas_height()*0.5 - (roadmap_canvas_height()*0.5) * tile->zoom / layer->draw_zoom;
             top_left.x = ROUND(top_left_f.x);
             top_left.y = ROUND(top_left_f.y);
             bottom_right.x = ROUND(top_left_f.x + 1.0* width * tile->zoom / layer->draw_zoom);
@@ -1245,12 +1465,14 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
             tile->drawn = 1;
             tile->age = 0;
             drawn++;
+            //num++;
          }
       }
    }
    glTranslatef(roadmap_canvas_width()/2, roadmap_canvas_height()/2, 0);
    glRotatef(-layer->new_orientation, 0, 0, 1);
    glTranslatef(-roadmap_canvas_width()/2, -roadmap_canvas_height()/2, 0);
+   //printf("drawn %d tiles...\n", drawn);
    
    for (i = 0; i < MAX_TILES; i++) {
       canvas_tile *tile = &gs_tiles[i];
@@ -1259,10 +1481,11 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
             if (tile->zoom != layer->new_zoom &&
                 tile->zoom != layer->new_zoom * 2&&
                 !tile->drawn)
+               //delete_tile (&gs_tiles[i]);
                tile->age++;
-         } else if ( tile->drawn) {
+         } else if ( tile->drawn) {// && tile->age > 0) {
             tile->age = 0;
-         } else {
+         } else {//if (!tile->drawn && tile->zoom != layer->new_zoom) {
             tile->age++;                           
          }
          
@@ -1279,6 +1502,21 @@ int roadmap_canvas_tile_draw (int layer_id, int fast_refresh) {
    layer->prev_orientation = layer->new_orientation;
    layer->prev_is_3d = layer->new_is_3d;
    
+
+   //free_tiles = 0;
+//   no_zoom_tiles = 0;
+//   for (i = 0; i < MAX_TILES; i++) {
+//      if (gs_tiles[i].layer_id == -1 || gs_tiles[i].age >= 1)
+//         free_tiles++;
+//      if (gs_tiles[i].layer_id == layer_id && gs_tiles[i].zoom != layer->new_zoom)
+//         no_zoom_tiles++;
+//   }
+//   printf("END - free tiles: %d  out of zoom: %d\n", free_tiles, no_zoom_tiles);
+   
+   //if (!full_draw)
+//      printf("not full draw ...\n");
+   //printf("--------------------------------------\n");
+
    return full_draw;
 }
 

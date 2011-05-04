@@ -71,7 +71,12 @@ static SsdWidget GenericList = NULL;
 
 static void on_dialog_closed( int type, void *context)
 {
+   SsdWidget button;
 	ssd_widget_set_left_softkey_callback(GenericList,NULL);
+   button = ssd_dialog_right_title_button();
+   if (button)
+      ssd_widget_hide(button);
+
 }
 
 

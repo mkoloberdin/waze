@@ -44,7 +44,7 @@
 #define SSD_PROGRESS_MSG_DLG_NAME 		     "SSD PROGRESS MESSAGE DIALOG"
 #define SSD_PROGRESS_MSG_TEXT_FLD 		     "Message Text"
 #define SSD_PROGRESS_MSG_FONT_SIZE 		     19
-#define SSD_PROGRESS_MSG_TXT_CNT_HEIGHT     70     /* The base height (SD resolution) of the text container */
+#define SSD_PROGRESS_MSG_TXT_CNT_HEIGHT     80     /* The base height (SD resolution) of the text container */
 
 //======== Globals ========
 static SsdWidget gProgressMsgDlg = NULL;

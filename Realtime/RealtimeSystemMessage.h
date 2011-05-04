@@ -26,6 +26,9 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #define  RTSYSTEMMESSAGE_QUEUE_MAXSIZE          (20)
 
+#define  URL_SYSTEM_MESSAGE_POPUP       10
+#define  URL_SYSTEM_MESSAGE_FULL_SCREEN 11
+
 typedef struct tagRTSystemMessage
 {
    int   iId;

@@ -63,8 +63,8 @@ typedef struct {
 
    struct {
       int                        num_retries;
-      const char                 *protocol;
-      const char                 *name;
+      char                       *protocol;
+      char                       *name;
       time_t                     update_time;
       int                        default_port;
       int                        flags;

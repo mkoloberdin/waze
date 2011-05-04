@@ -384,6 +384,8 @@ void roadmap_canvas_should_accept_layout (int bAcceptLayout) {
    [self resize];
    
    roadmap_canvas3_ogl_prepare();
+   
+   roadmap_device_event_notification( device_event_window_orientation_changed);
 }
 
 - (void)setupView {

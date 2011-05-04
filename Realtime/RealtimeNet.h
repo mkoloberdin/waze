@@ -36,7 +36,6 @@
 BOOL  RTNet_Init();
 void  RTNet_Term();
 
-BOOL  RTNet_LoadParams ();
 int   RTNet_Send       ( RoadMapSocket socket, const char* szText);
 BOOL  RTNet_TransactionQueue_ProcessSingleItem( BOOL* pTransactionStarted);
 void  RTNet_TransactionQueue_Clear();

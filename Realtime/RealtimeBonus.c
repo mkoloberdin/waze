@@ -337,6 +337,29 @@ static int on_button_close (SsdWidget widget, const char *new_value){
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
+static int on_button_navigate (SsdWidget widget, const char *new_value){
+   RTBonus *pbonus = (RTBonus *)widget->context;
+   RoadMapPosition pos;
+   address_info ai;
+
+   ssd_dialog_hide("BonusBrowserDlg", dec_close);
+   ai.name = "";
+   ai.city = "";
+   ai.country = "";
+   ai.house = "";
+   ai.state = "";
+   ai.street = "";
+
+
+   pos.latitude = pbonus->position.latitude;
+   pos.longitude = pbonus->position.longitude;
+
+   main_navigator(&pos, &ai);
+   save_destination_to_history();
+   return 1;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
 static void draw_browser_rect(SsdWidget widget, RoadMapGuiRect *rect, int flags){
    RTBonus *pbonus = (RTBonus *)widget->context;
    RMBrowserContext context;
@@ -404,6 +427,9 @@ static int on_next (SsdWidget widget, const char *new_value) {
     ssd_dialog_add_vspace(dialog, 5 ,0);
 
     button = ssd_button_label("Close_button", roadmap_lang_get("Close"), SSD_ALIGN_CENTER, on_button_close);
+    ssd_widget_add(dialog, button);
+    button = ssd_button_label("Navigate_button", roadmap_lang_get("Navigate"), SSD_ALIGN_CENTER, on_button_navigate);
+    button->context = widget->context;
     ssd_widget_add(dialog, button);
 #else
     ssd_widget_set_left_softkey_callback(dialog, NULL);
@@ -723,8 +749,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus) {
    if ((pbonus->bIsCustomeBonus) && (g_CustomIndex != -1))
       return TRUE;
 
-
-   if ((pbonus->bIsCustomeBonus) && !custom_bonus_feature_enabled()){
+   if ((pbonus->bIsCustomeBonus) && (!custom_bonus_feature_enabled() || !roadmap_map_settings_road_goodies() )){
       Realtime_CollectCustomBonus(pbonus->iID,
             FALSE,
             FALSE);
@@ -756,7 +781,7 @@ BOOL RealtimeBonus_Add (RTBonus *pbonus) {
             if ((template->iRadius != -1) && (pbonus->iRadius == -1))
                pbonus->iRadius = template->iRadius;
 
-            if ((template->iRadius != -1) && (pbonus->iRadius == -1))
+            if ((template->iNumPoints != -1) && (pbonus->iNumPoints == -1))
                pbonus->iNumPoints = template->iNumPoints;
 
             if ( (template->pIconName) && (pbonus->pIconName == NULL) )

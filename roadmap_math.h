@@ -37,6 +37,9 @@ enum { MATH_DIST_ACTUAL = 0,
        MATH_DIST_SQUARED = 1
 };
 
+#define ROADMAP_BASE_IMPERIAL 0
+#define ROADMAP_BASE_METRIC   1
+
 /* In 3D mode we devide the screen into PROJ_AREAS each with a
  * different zoom
  */
@@ -46,7 +49,7 @@ enum { MATH_DIST_ACTUAL = 0,
 #define ROADMAP_VISIBILITY_GAP 5
 #define ROADMAP_VISIBILITY_FACTOR 35
 
-#ifdef OGL_TILE
+#ifdef OPENGL
 typedef float  zoom_t;
 #else
 typedef int    zoom_t;
@@ -441,5 +444,7 @@ void roadmap_math_set_min_zoom(zoom_t zoom);
 
 void roadmap_math_displayed_screen_edges (RoadMapArea *area);
 void roadmap_math_displayed_screen_coordinates(RoadMapPosition position[5]);
+int  roadmap_math_to_kph(int knots);
+void roadmap_math_to_area (const RoadMapGuiRect *rect, RoadMapArea *area);
 #endif // INCLUDED__ROADMAP_MATH__H
 

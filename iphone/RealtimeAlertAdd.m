@@ -268,10 +268,11 @@ void periodic_hide ()
 int valid_location()
 {
 	const RoadMapGpsPosition   *TripLocation;
-	
-   TripLocation = roadmap_trip_get_gps_position("AlertSelection");
+	   const RoadMapGpsPosition *pos;
+
+   TripLocation = RTAlerts_alerts_location(FALSE);
 	if ((TripLocation == NULL) /*|| (TripLocation->latitude <= 0) || (TripLocation->longitude <= 0)*/) {
-   		roadmap_messagebox ("Error", "Can't find location.");
+   		roadmap_messagebox ("No GPS reception","Sorry, there's no GPS reception in this location. Make sure you are outdoors" );
    		return 0;
     }
 	
@@ -280,7 +281,7 @@ int valid_location()
 
 static int add_alert_request_valid () {
    if (!valid_location()) {
-		roadmap_main_show_root(1);
+//		roadmap_main_show_root(1);
 		return FALSE;
 	}
    

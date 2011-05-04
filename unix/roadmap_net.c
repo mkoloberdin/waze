@@ -53,6 +53,7 @@
 #include "../websvc_trans/websvc_address.h"
 #include "../websvc_trans/web_date_format.h"
 #include "roadmap_main.h"
+#include "roadmap_ssl.h"
 
 typedef struct roadmap_net_data_t {
    RoadMapNetConnectCallback callback;
@@ -63,7 +64,9 @@ typedef struct roadmap_net_data_t {
 struct roadmap_socket_t {
    int s;
    int is_compressed;
+   int is_secured;
    RoadMapHttpCompCtx compress_ctx;
+   void  *ssl_ctx;
 };
 
 static RoadMapConfigDescriptor RoadMapConfigNetCompressEnabled =
@@ -79,11 +82,18 @@ static const char* GetProxyAddress() {
    return NULL;
 }
 
+#ifndef IPHONE
+int roadmap_ssl_read (void *context, void *buffer, int buffer_size){}
+int roadmap_ssl_send (RoadMapSslIO io, const void *data, int length){}
+int roadmap_ssl_open (RoadMapSocket s, void *data, RoadMapNetSslConnectCallback callback){}
+void roadmap_ssl_close (void *context){}
+#endif
 #define CONNECT_TIMEOUT_SEC 5
 
 static void connect_callback (RoadMapSocket s, RoadMapNetData *data);
 static void io_connect_callback (RoadMapIO *io);
 
+static int roadmap_net_send_ssl (RoadMapSocket s, const void *data, int length, int wait);
 static struct servent* roadmap_net_getservbyname( const char *name, const char *protocol );
 static RoadMapSocket roadmap_net_connect_internal (const char *protocol, const char *name,
                                                    time_t update_time,
@@ -104,37 +114,42 @@ static void check_connect_timeout (void) {
       RoadMapNetData *data = io->context;
       RoadMapSocket s = io->os.socket;
       RoadMapIO retry_io = *io;
-
-      roadmap_log(ROADMAP_ERROR, "Connect time out");
-      roadmap_main_remove_input(io);
+      char *protocol = strdup(retry_io.retry_params.protocol);
+      char *name = strdup(retry_io.retry_params.name);
       
-      RoadMapNetNumConnects--;
-      if (RoadMapNetNumConnects == 0) {
-         roadmap_main_remove_periodic(check_connect_timeout);
+      if (retry_io.retry_params.protocol && retry_io.retry_params.protocol[0]) {
+         free(retry_io.retry_params.protocol);
       }
-      
+      if (retry_io.retry_params.name && retry_io.retry_params.name[0]) {
+         free(retry_io.retry_params.name);
+      }
+
+      roadmap_log(ROADMAP_ERROR, "Connect time out (%d)", s->s);
+      roadmap_main_remove_input(io);
+      roadmap_net_close(s);      
 
       if (retry_io.retry_params.num_retries < 2) {
-         roadmap_net_mon_disconnect();
-         close (s->s);
-         if (s->compress_ctx) roadmap_http_comp_close(s->compress_ctx);
-         
+         RoadMapNetNumConnects--;
          retry_io.retry_params.num_retries++;
          roadmap_log(ROADMAP_ERROR, "Retrying connection (retry # %d)", retry_io.retry_params.num_retries);
-         if (ROADMAP_INVALID_SOCKET != roadmap_net_connect_internal (retry_io.retry_params.protocol, retry_io.retry_params.name,
+         if (ROADMAP_INVALID_SOCKET != roadmap_net_connect_internal (protocol, name,
                                                                      retry_io.retry_params.update_time,
                                                                      retry_io.retry_params.default_port,
                                                                      TRUE,
                                                                      retry_io.retry_params.flags,
                                                                      retry_io.retry_params.callback,
                                                                      retry_io.retry_params.context,
-                                                                     retry_io.os.socket,
-                                                                     retry_io.retry_params.num_retries))
+                                                                     ROADMAP_INVALID_SOCKET,
+                                                                     retry_io.retry_params.num_retries)) {
+            free(protocol);
+            free(name);
+            free(data);
             continue;
-      } else {
-         roadmap_net_close(s);
+         }
       }
       
+      free(protocol);
+      free(name);
       connect_callback(ROADMAP_INVALID_SOCKET, data);
    }
 }
@@ -146,14 +161,25 @@ static void connect_callback (RoadMapSocket s, RoadMapNetData *data) {
    if (RoadMapNetNumConnects == 0) {
       roadmap_main_remove_periodic(check_connect_timeout);
    }
-
+   
    if ((s != ROADMAP_INVALID_SOCKET) && *data->packet) {
-      if( -1 == roadmap_net_send(s, data->packet,
+      if (!s->is_secured) {
+         if( -1 == roadmap_net_send(s, data->packet,
                                     (int)strlen(data->packet), 1)) {
-         roadmap_log( ROADMAP_ERROR, "roadmap_net callback (HTTP) - Failed to send the 'POST' packet");
-         roadmap_net_close(s);
-         s = ROADMAP_INVALID_SOCKET;
+            roadmap_log( ROADMAP_ERROR, "roadmap_net callback (HTTP) - Failed to send the 'POST' packet");
+            roadmap_net_close(s);
+            s = ROADMAP_INVALID_SOCKET;
+         }
+      } else {
+         if( -1 == roadmap_net_send_ssl(s, data->packet,
+                                    (int)strlen(data->packet), 1)) {
+            roadmap_log( ROADMAP_ERROR, "roadmap_net callback (HTTP) - Failed to send the 'POST' packet");
+            roadmap_net_close(s);
+            s = ROADMAP_INVALID_SOCKET;
+         }
       }
+
+      
    }
 
    if (s == ROADMAP_INVALID_SOCKET)
@@ -163,6 +189,16 @@ static void connect_callback (RoadMapSocket s, RoadMapNetData *data) {
    free(data);
 }
 
+static void on_ssl_open_callback (RoadMapSocket s, void *data, void *context, roadmap_result res) {
+   if (res == succeeded) {
+      s->ssl_ctx = context;
+      connect_callback(s, (RoadMapNetData *)data);
+   } else {
+      connect_callback(ROADMAP_INVALID_SOCKET, data);
+   }
+
+}
+
 static void io_connect_callback (RoadMapIO *io) {
 
    RoadMapNetData *data = io->context;
@@ -170,10 +206,24 @@ static void io_connect_callback (RoadMapIO *io) {
 
    s = io->os.socket;
    if (s != ROADMAP_INVALID_SOCKET) {
+      if (io->retry_params.protocol && io->retry_params.protocol[0]) {
+         free(io->retry_params.protocol);
+      }
+      if (io->retry_params.name && io->retry_params.name[0]) {
+         free(io->retry_params.name);
+      }
+      
       roadmap_main_remove_input(io);
    }
 
-   connect_callback(s, data);
+   if (!s->is_secured) {
+      connect_callback(s, data);
+   }
+#ifdef IPHONE
+   else {
+      roadmap_ssl_open(s, data, on_ssl_open_callback);
+   }
+#endif
 }
 
 static RoadMapSocket create_socket (const char *protocol,
@@ -431,6 +481,7 @@ static RoadMapSocket roadmap_net_connect_internal (const char *protocol, const c
       }
       
       res_socket->is_compressed = TEST_NET_COMPRESS( flags );
+      res_socket->is_secured = (server_port == 443); //TODO: consider different check
 
       if (async) {
          data = (RoadMapNetData *)malloc(sizeof(RoadMapNetData));
@@ -458,10 +509,11 @@ static RoadMapSocket roadmap_net_connect_internal (const char *protocol, const c
       io.retry_params.context = context;
 
 #ifdef IPHONE
-      if (roadmap_main_async_connect(&io, &addr, io_connect_callback) == -1) {
+      if (roadmap_main_async_connect(&io, &addr, io_connect_callback) == -1)
 #else
-      if (create_async_connection(&io, &addr) == -1) {
+      if (create_async_connection(&io, &addr) == -1)
 #endif
+      {
          free(data);
          roadmap_net_close(res_socket);
          return ROADMAP_INVALID_SOCKET;
@@ -539,6 +591,10 @@ int roadmap_net_send (RoadMapSocket s, const void *data, int length, int wait) {
    int total = length;
    fd_set fds;
    struct timeval recv_timeout = {0, 0};
+   
+   if (s->is_secured) {
+      return roadmap_net_send_ssl ( s, data, length, wait);
+   }
 
    FD_ZERO(&fds);
    FD_SET(s->s, &fds);
@@ -593,6 +649,8 @@ int roadmap_net_receive (RoadMapSocket s, void *data, int size) {
 
    int received;
    
+   
+   
    if (s->is_compressed) {
 
       if (!s->compress_ctx) {
@@ -608,7 +666,10 @@ int roadmap_net_receive (RoadMapSocket s, void *data, int size) {
 
          roadmap_http_comp_get_buffer(s->compress_ctx, &ctx_buffer, &ctx_buffer_size);
 
-         received = read(s->s, ctx_buffer, ctx_buffer_size);
+         if (!s->is_secured)
+            received = read(s->s, ctx_buffer, ctx_buffer_size);
+         else
+            received = roadmap_ssl_read(s->ssl_ctx, ctx_buffer, ctx_buffer_size);
 
          roadmap_http_comp_add_data(s->compress_ctx, received);
          
@@ -617,8 +678,10 @@ int roadmap_net_receive (RoadMapSocket s, void *data, int size) {
 
 
    } else {
-
-      received = read (s->s, data, size);
+      if (!s->is_secured)
+         received = read (s->s, data, size);
+      else
+         received = roadmap_ssl_read (s->ssl_ctx, data, size);
    }
 
    if (received < 0) {
@@ -630,6 +693,11 @@ int roadmap_net_receive (RoadMapSocket s, void *data, int size) {
    roadmap_net_mon_recv(received);
 
    return received;
+}
+   
+static int roadmap_net_send_ssl (RoadMapSocket s, const void *data, int length, int wait) {
+
+   return roadmap_ssl_send (s->ssl_ctx, data, length);
 }
 
 
@@ -647,6 +715,7 @@ RoadMapSocket roadmap_net_accept(RoadMapSocket server_socket) {
 
 void roadmap_net_close (RoadMapSocket s) {
    roadmap_net_mon_disconnect();
+   if (s->is_secured) roadmap_ssl_close (s->ssl_ctx);
    close (s->s);
    if (s->compress_ctx) roadmap_http_comp_close(s->compress_ctx);
    free(s);
@@ -673,10 +742,11 @@ int roadmap_net_unique_id (unsigned char *buffer, unsigned int size) {
 
 static struct servent* roadmap_net_getservbyname( const char *name, const char *protocol )
 {
-   static int has_bug = -1;   /* Android bug overriding (returns the port in the wrong order */
    struct servent* service = NULL;
-
+   
 #ifndef IPHONE
+   static int has_bug = -1;   /* Android bug overriding (returns the port in the wrong order */
+
    if ( has_bug < 0 )
    {
       service = getservbyname( "http", NULL );
@@ -719,3 +789,14 @@ void roadmap_net_initialize (void) {
    roadmap_net_mon_start ();
 }
 
+int roadmap_net_socket_secured (RoadMapSocket s) {
+   return s->is_secured;
+}
+
+void roadmap_net_set_input (RoadMapIO *io, RoadMapInput callback) {
+   //if (!io->os.socket->is_secured)
+      roadmap_main_set_input(io, callback);
+   //else
+     // roadmap_main_set_secured_input(io, callback, io->os.socket->ssl_ctx);
+   
+}

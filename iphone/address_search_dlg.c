@@ -285,14 +285,14 @@ int on_search(const char *text, void *list_cont)
 
    if ( !strcmp( "##@heb", text ) )
    {
-      roadmap_lang_set_system_lang("heb");
+      roadmap_lang_set_system_lang("heb", TRUE);
       roadmap_messagebox("", "Language changed to Hebrew, please restart waze");
       return 0;
    }
    if ( !strcmp( "##@eng", text ) )
    {
       roadmap_messagebox("","Language changed to English, please restart waze");
-      roadmap_lang_set_system_lang("eng");
+      roadmap_lang_set_system_lang("eng", TRUE);
       return 0;
    }
 

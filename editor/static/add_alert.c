@@ -649,6 +649,13 @@ void add_cam_dlg(void){
    const char *tab_icons[3];
    SsdSegmentedControlCallback callbacks[3];
    g_type = -1;
+   const RoadMapGpsPosition *pos;
+
+   pos = RTAlerts_alerts_location(TRUE);
+   if (pos == NULL) {
+         return;
+   }
+
 
    dialog = ssd_dialog_new ("AddCamDlg",
                             roadmap_lang_get("Speed cam"),

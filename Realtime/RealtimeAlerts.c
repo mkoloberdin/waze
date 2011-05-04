@@ -177,6 +177,9 @@ static RoadMapConfigDescriptor RoadMapConfigMaxAlertPopDist =
 static RoadMapConfigDescriptor RoadMapConfigSecondsToPopup =
                         ROADMAP_CONFIG_ITEM("Alerts", "Seconds to popup");
 
+static RoadMapConfigDescriptor RoadMapConfigSmallAlertScaleFactor =
+                        ROADMAP_CONFIG_ITEM("Alerts", "Alert scale factor");
+
 static RoadMapConfigDescriptor RoadMapConfigOnRoadHazardCategories =
                         ROADMAP_CONFIG_ITEM("Harard", "On road categories");
 
@@ -386,6 +389,12 @@ BOOL RTAlerts_IsIdleAlertScrolling(void){
    return gIdleScrolling;
 }
 
+static void InitVoiceRecording(void){
+   const char *path = roadmap_path_first ("config");
+   const char *file_name = VOICE_FILENAME;
+   if (roadmap_file_exists(path, file_name))
+      roadmap_file_remove(path, file_name);
+}
 
 /**
  * Initialize the Realtime alerts
@@ -450,10 +459,12 @@ void RTAlerts_Init()
 
     roadmap_config_declare ("preferences", &RoadMapConfigSecondsToPopup, "15", NULL);
 
+    roadmap_config_declare ("preferences", &RoadMapConfigSmallAlertScaleFactor, "60", NULL);
+
     roadmap_config_declare ("preferences", &AllowPoliceSubtypeCfg, "yes", NULL);
 
 
-
+    InitVoiceRecording();
  	 RTinitMapProblems();
  	 RTinitOnRoadHazardCategories();
  	 RTinitOnShoulderHarzardCategories();
@@ -2059,12 +2070,17 @@ static void CreateAlertObject(RTAlert *pAlert)
       roadmap_object_add_with_priority( Group, GUI_ID, Name, Sprite, Image, &Pos, &Offset,
                          OBJECT_ANIMATION_POP_IN | OBJECT_ANIMATION_POP_OUT | OBJECT_ANIMATION_WHEN_VISIBLE, NULL, OBJECT_PRIORITY_HIGH);
       roadmap_object_set_action(GUI_ID, OnAlertShortClick);
-      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN));
 
+#ifdef OPENGL
+      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_PRIMARY));
+      roadmap_object_set_scale_factor(GUI_ID, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, roadmap_config_get_integer(&RoadMapConfigSmallAlertScaleFactor));
+#else
+      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN));
+#endif
       roadmap_string_release(Image);
       roadmap_string_release(GUI_ID);
 
-
+#ifndef OPENGL
       image = (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, "alert_marker_small");
       if (image)
          Offset.y = -roadmap_canvas_image_height(image) /2 + ADJ_SCALE(4);
@@ -2080,6 +2096,8 @@ static void CreateAlertObject(RTAlert *pAlert)
 
       roadmap_string_release(Image);
       roadmap_string_release(GUI_ID);
+#endif
+
    }
 
    //addons
@@ -2093,8 +2111,12 @@ static void CreateAlertObject(RTAlert *pAlert)
       snprintf(text, sizeof(text), "%d_%s", pAlert->iID, icon);
       GUI_ID = roadmap_string_new(text);
       roadmap_object_add_with_priority( Group, GUI_ID, Name, Sprite, Image, &Pos, &Offset, 0, NULL, OBJECT_PRIORITY_HIGH);
+#ifdef OPENGL
+      roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_PRIMARY));
+      roadmap_object_set_scale_factor(GUI_ID, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, roadmap_config_get_integer(&RoadMapConfigSmallAlertScaleFactor));
+#else
       roadmap_object_set_zoom (GUI_ID, -1, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN));
-
+#endif
       roadmap_string_release(Image);
       roadmap_string_release(GUI_ID);
    }
@@ -2756,12 +2778,15 @@ static void RTAlerts_Popup(void)
     }
 
     pAlert = RTAlerts_Get(gIterator);
-    if (pAlert == NULL)
-        return;
+    if (pAlert == NULL){
+          if (RTAlerts_IsIdleAlertScrolling())
+              RTAlerts_Stop_Scrolling();
+          return;
+    }
 
     if (pAlert->iPopUpPriority == 1000){
- //      if (!RTAlerts_Live_Is_Empty())
- //        RTAlerts_Popup();
+       if (RTAlerts_IsIdleAlertScrolling())
+           RTAlerts_Stop_Scrolling();
        return;
     }
 
@@ -4533,6 +4558,22 @@ void RTAlerts_Stop_Scrolling()
       roadmap_layer_adjust();
       roadmap_screen_redraw();
     }
+    else{
+       if (gSavedZoom == -1){
+            roadmap_trip_set_focus("GPS");
+            roadmap_math_zoom_reset();
+       }else{
+          roadmap_math_set_context(&gSavedPosition, gSavedZoom);
+          roadmap_trip_set_focus("GPS");
+          gSavedPosition.latitude = -1;
+          gSavedPosition.longitude = -1;
+          gSavedZoom = -2;
+       }
+
+       roadmap_layer_adjust();
+       roadmap_screen_redraw();
+
+    }
 
     if (gPopAllTimerActive){
        roadmap_main_remove_periodic(RTAlerts_Popup) ;
@@ -4759,11 +4800,11 @@ void alerts_direction_menu(const char *name, const RoadMapAction  *actions){
 
 	const RoadMapGpsPosition   *TripLocation;
 
-   TripLocation = roadmap_trip_get_gps_position("AlertSelection");
-	if ((TripLocation == NULL) /*|| (TripLocation->latitude <= 0) || (TripLocation->longitude <= 0)*/) {
-   		roadmap_messagebox ("Oops", "Can't find alert position.");
-   		return;
+   TripLocation = RTAlerts_alerts_location(TRUE);
+   if (TripLocation == NULL) {
+         return;
     }
+
 
 #ifdef IPHONE
 	roadmap_list_menu_simple (name, NULL, DirectionQuickMenu, NULL, NULL, NULL, NULL, actions,
@@ -5110,11 +5151,10 @@ void add_real_time_chit_chat()
     RTAlertContext *AlertConext;
 #endif
 
-    TripLocation = roadmap_trip_get_gps_position("AlertSelection");
-    if ((TripLocation == NULL) /*|| (TripLocation->latitude <= 0) || (TripLocation->longitude <= 0)*/) {
-   		roadmap_messagebox ("Oops", "Can't find current street.");
-   		return;
-    }
+    TripLocation = RTAlerts_alerts_location(TRUE);
+    if (TripLocation == NULL){
+          return;
+     }
 
    if (Realtime_RandomUserMsg()) {
       return ;
@@ -6065,7 +6105,7 @@ BOOL  AlertAheadHandler(int alertId){
 
    AlertAheadDlgDisplay(pAlert);
    roadmap_main_set_periodic(1000, AlertAfeadTimner);
-   g_alert_ahead_seconds = 8;
+   g_alert_ahead_seconds = 12;
    return TRUE;
 }
 
@@ -6170,6 +6210,85 @@ static void get_location_str(char *sLocationStr, int iDirection, const RoadMapGp
             snprintf(sLocationStr,RT_ALERT_LOCATION_MAX_SIZE,"%s, %s", street, city);
     }
 }
+const RoadMapGpsPosition *RTAlerts_alerts_location(BOOL showMsgBox){
+   const RoadMapGpsPosition   *TripLocation;
+   TripLocation = roadmap_trip_get_gps_position("AlertSelection");
+   if ((TripLocation == NULL) /*|| (TripLocation->latitude <= 0) || (TripLocation->longitude <= 0)*/) {
+      PluginLine line;
+      int direction;
+      RoadMapGpsPosition          *CurrentGpsPoint;
+      const RoadMapPosition     *GpsPosition;
+
+      int menu_file;
+      BOOL has_position = FALSE;
+      BOOL has_reception = roadmap_gps_have_reception();
+
+      CurrentGpsPoint = malloc(sizeof(*CurrentGpsPoint));
+      roadmap_check_allocated(CurrentGpsPoint);
+      if (roadmap_navigate_get_current
+          (CurrentGpsPoint, &line, &direction) == -1) {
+         GpsPosition = roadmap_trip_get_position ("GPS");
+         if ( (GpsPosition != NULL) && (has_reception)){
+                       CurrentGpsPoint->latitude = GpsPosition->latitude;
+                       CurrentGpsPoint->longitude = GpsPosition->longitude;
+                       CurrentGpsPoint->speed = 0;
+                       CurrentGpsPoint->steering = 0;
+                       has_position = TRUE;
+          } else{
+             if (roadmap_verbosity () <= ROADMAP_MESSAGE_DEBUG) { // In debug mode allow to report from location
+                GpsPosition = roadmap_trip_get_position( "Location" );
+                if ((GpsPosition != NULL) && !IS_DEFAULT_LOCATION( GpsPosition )){
+                   CurrentGpsPoint->latitude = GpsPosition->latitude;
+                   CurrentGpsPoint->longitude = GpsPosition->longitude;
+                   CurrentGpsPoint->speed = 0;
+                   CurrentGpsPoint->steering = 0;
+                   has_position = TRUE;
+                }
+             }
+             else{
+                       free(CurrentGpsPoint);
+                       if (showMsgBox)
+                       roadmap_messagebox_timeout("No GPS reception","Sorry, there's no GPS reception in this location. Make sure you are outdoors",5);
+                       return NULL;
+             }
+           }
+      }
+      else
+        has_position = TRUE;
+
+      if (has_position)
+      {
+        int from_node, to_node;
+
+        if (line.plugin_id != -1){
+           roadmap_square_set_current (line.square);
+           if (ROUTE_DIRECTION_AGAINST_LINE != direction)
+              roadmap_line_point_ids (line.line_id, &from_node, &to_node);
+           else
+              roadmap_line_point_ids (line.line_id, &to_node, &from_node);
+        }
+        else{
+           from_node = -1;
+           to_node = -1;
+        }
+
+        roadmap_trip_set_gps_and_nodes_position( "AlertSelection", "Selection", "new_alert_marker",
+                                         CurrentGpsPoint, from_node, to_node );
+        roadmap_trip_set_animation("AlertSelection",OBJECT_ANIMATION_POP_IN|OBJECT_ANIMATION_POP_OUT|OBJECT_ANIMATION_WHEN_VISIBLE );
+        roadmap_trip_set_focus("AlertSelection");
+        TripLocation = CurrentGpsPoint;
+        roadmap_screen_redraw();
+        return TripLocation;
+      }
+      else{
+         return NULL;
+      }
+    }
+   else{
+      return TripLocation;
+   }
+}
+
 
 #ifdef TOUCH_SCREEN
 
@@ -6799,6 +6918,8 @@ static void on_report_dialog_close(int exit_code, void* context){
    }
 }
 
+
+
 /////////////////////////////////////////////////////////////////////
 static void report_dialog(int iAlertType){
 	SsdWidget dialog;
@@ -6837,6 +6958,12 @@ static void report_dialog(int iAlertType){
 
    gCurrentImageId[0] = 0;
 
+   TripLocation = RTAlerts_alerts_location(TRUE);
+   if (TripLocation == NULL) {
+         return;
+    }
+   InitVoiceRecording();
+
     isLongScreen = (roadmap_canvas_height()>320);
 #ifdef EMBEDDED_CE
 	isLongScreen = FALSE;
@@ -6847,11 +6974,6 @@ static void report_dialog(int iAlertType){
 	   container1_width = roadmap_canvas_height();
 	}
 
-   TripLocation = roadmap_trip_get_gps_position("AlertSelection");
-	if ((TripLocation == NULL) /*|| (TripLocation->latitude <= 0) || (TripLocation->longitude <= 0)*/) {
-   		roadmap_messagebox ("Oops", "Can't find location.");
-   		return;
-    }
 
 	gMinimizeState = -1;
 
@@ -6890,7 +7012,8 @@ static void report_dialog(int iAlertType){
    if (!sub_type_container)
       txtbox_height = ADJ_SCALE(83);
 
-#ifndef __SYMBIAN32__
+#if (!defined(__SYMBIAN32__) && !defined(_WIN32))
+//#ifndef __SYMBIAN32__
    icon[0] = "button_record";
    icon[1] = "button_record";
    icon[2] = NULL;
@@ -7226,47 +7349,22 @@ void RTAlerts_report_map_problem(){
    SsdWidget space_w;
    SsdWidget text, bitmap, box;
    SsdWidget text_box;
-   RoadMapGpsPosition *TripLocation;
+   const RoadMapGpsPosition *TripLocation;
    char sLocationStr[200];
    int login_state;
-   PluginLine line;
-   int direction;
    int i;
    int iDirection = RT_ALERT_MY_DIRECTION;
    int row_height = ssd_container_get_row_height();
 
    login_state = RealTimeLoginState();
 
-   if (!roadmap_gps_have_reception ()) {
-      roadmap_messagebox ("Error",
-               "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
-      return;
+   TripLocation = RTAlerts_alerts_location(TRUE);
+   if (TripLocation == NULL)  {
+         return;
    }
 
-   TripLocation = (RoadMapGpsPosition *)roadmap_trip_get_gps_position("AlertSelection");
-   if (TripLocation == NULL) {
 
-      TripLocation = malloc (sizeof (*TripLocation));
-      if (roadmap_navigate_get_current (TripLocation, &line, &direction) == -1) {
-        const RoadMapPosition *GpsPosition;
-        GpsPosition = roadmap_trip_get_position ("GPS");
-        if ( (GpsPosition != NULL)) {
-           TripLocation->latitude = GpsPosition->latitude;
-           TripLocation->longitude = GpsPosition->longitude;
-           TripLocation->speed = 0;
-           TripLocation->steering = 0;
-        }
-        else {
-            free (TripLocation);
-            roadmap_messagebox ("Error",
-                       "No GPS connection. Make sure you are outdoors. Currently showing approximate location");
-            return;
-        }
-      }
-      roadmap_trip_set_gps_position( "AlertSelection", "Selection", "new_alert_marker",TripLocation);
-   }
-
-   gMinimizeState = -1;
+    gMinimizeState = -1;
 
    dialog = ssd_dialog_new ("MapErrorDlg", roadmap_lang_get ("Map error"),
             on_map_problem_close, SSD_CONTAINER_TITLE);

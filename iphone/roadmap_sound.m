@@ -176,14 +176,52 @@ RoadMapSoundList roadmap_sound_list_create (int flags) {
    return list;
 }
 
+static char *get_full_name(const char *file_name) {
+   char full_name[MAX_SOUND_NAME];
+   
+   //check if we have .mp3 extention
+   char result[MAX_SOUND_NAME];
+   char *p;
+   
+   strncpy_safe(result, file_name, sizeof(result));
+   
+   p = roadmap_path_skip_directories (result);
+   p = strrchr (p, '.');
+   if (p == NULL) {
+      strcat (result,".mp3");
+   }
+   
+   file_name = result;
+   
+   if (roadmap_path_is_full_path (file_name)) {
+      strncpy_safe(full_name, file_name, sizeof(full_name));
+   } else {
+      const char* prompts_name = roadmap_prompts_get_name();
+      snprintf (full_name, sizeof(full_name), "%ssound/%s/%s",
+                roadmap_path_user(), prompts_name, file_name);
+   }
+   
+   return strdup(full_name);
+}
+
 
 int roadmap_sound_list_add (RoadMapSoundList list, const char *name) {
 
+   char *full_name;
+   
    if (list->count == MAX_SOUND_LIST) return -1;
+   
+   full_name = get_full_name(name);
 
-   strncpy (list->list[list->count], name, sizeof(list->list[0]));
-   list->list[list->count][sizeof(list->list[0])-1] = '\0';
-   list->count++;
+   if (!roadmap_file_exists("", full_name)) {
+      roadmap_log(ROADMAP_DEBUG, "Sound file does not exist: '%s'", full_name);
+   } else {
+      strncpy (list->list[list->count], name, sizeof(list->list[0]));
+      list->list[list->count][sizeof(list->list[0])-1] = '\0';
+      list->count++;
+   }
+   
+   free(full_name);
 
    return list->count - 1;
 }
@@ -235,34 +273,6 @@ int roadmap_sound_play      (RoadMapSound sound) {
    else return -1;*/
    
    return -1;
-}
-
-char *get_full_name(const char *file_name) {
-   char full_name[MAX_SOUND_NAME];
-   
-   //check if we have .mp3 extention
-   char result[MAX_SOUND_NAME];
-   char *p;
-   
-   strncpy_safe(result, file_name, sizeof(result));
-   
-   p = roadmap_path_skip_directories (result);
-   p = strrchr (p, '.');
-   if (p == NULL) {
-      strcat (result,".mp3");
-   }
-   
-   file_name = result;
-   
-   if (roadmap_path_is_full_path (file_name)) {
-      strncpy_safe(full_name, file_name, sizeof(full_name));
-   } else {
-      const char* prompts_name = roadmap_prompts_get_name();
-      snprintf (full_name, sizeof(full_name), "%ssound/%s/%s",
-                roadmap_path_user(), prompts_name, file_name);
-   }
-   
-   return strdup(full_name);
 }
 
 int play_file (AVAudioPlayer* audioPlayer) {
@@ -455,6 +465,10 @@ int roadmap_sound_play_list (const RoadMapSoundList list) {
    if (is_recording)
       return 0;
    
+   int listSize = roadmap_sound_list_count( list );
+   if (listSize == 0)
+	return 0;
+
    if (current_list == -1) {
       /* not playing */
       //roadmap_media_player_pause(TRUE);

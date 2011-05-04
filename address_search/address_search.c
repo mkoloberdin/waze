@@ -166,7 +166,7 @@ BOOL address_search_init()
    }
 
    address  = get_webservice_address();
-   s_websvc = wst_init( get_webservice_address(), "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( get_webservice_address(), NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {
@@ -426,6 +426,7 @@ roadmap_result address_search_report_wrong_address(const char* user_input)
    report = address_search_prepare_report(user_input);
    // Perform WebService Transaction:
    if( wst_start_trans( s_websvc,
+                        0,
                         "mozi_stat",
                         data_parser,
                         sizeof(data_parser)/sizeof(wst_parser),

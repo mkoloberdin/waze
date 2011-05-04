@@ -112,7 +112,9 @@ static const char NAVIGATE_DIR_IMG[][40] = {
    "nav_roundabout_r",
    "nav_roundabout_u",
    "nav_roundabout_u",
-   "nav_approaching"
+   "nav_approaching",
+   "nav_exit_left",
+   "nav_exit_right"
 };
 
 static const char NAVIGATE_UK_DIR_IMG[][40] = {
@@ -131,7 +133,10 @@ static const char NAVIGATE_UK_DIR_IMG[][40] = {
    "nav_roundabout_UK_r",
    "nav_roundabout_UK_u",
    "nav_roundabout_UK_u",
-   "nav_approaching"
+   "nav_approaching",
+   "nav_exit_left",
+   "nav_exit_right"
+
 };
 static RoadMapImage NavigateBarStretchedAddressImage;
 static RoadMapImage NavigateBarAddressImage;
@@ -639,6 +644,9 @@ static void navigate_bar_draw_distance (int distance, int offset) {
    if (distance < 0)
       return;
 
+   if (NavigateBarCurrentInstr == LAST_DIRECTION)
+      return;
+
    distance_far =
       roadmap_math_to_trip_distance(distance);
 
@@ -877,16 +885,18 @@ void navigate_bar_draw (void){
 #endif
 
 
-   // Direction Box
-   if (NavigateBarNextInstr == LAST_DIRECTION){
-      BarLocation.y = NavigateBarLocation.y  + NAV_BAR_PIXELS( 2 );
-      BarLocation.x = 0;
-      roadmap_canvas_draw_image ( NavigateBarDirectionImage, &BarLocation, 0,  IMAGE_NORMAL );
-   }
-   else{
-      BarLocation.y = NavigateBarLocation.y - (get_TallDirectionsBoxHeight() - get_DirectionsBoxHeight()) + NAV_BAR_PIXELS( 2 );
-      BarLocation.x = 0;
-      roadmap_canvas_draw_image ( NavigateBarDirectionTallImage, &BarLocation, 0,  IMAGE_NORMAL );
+   if (NavigateBarCurrentInstr != LAST_DIRECTION){
+         // Direction Box
+         if (NavigateBarNextInstr == LAST_DIRECTION){
+               BarLocation.y = NavigateBarLocation.y  + NAV_BAR_PIXELS( 2 );
+               BarLocation.x = 0;
+               roadmap_canvas_draw_image ( NavigateBarDirectionImage, &BarLocation, 0,  IMAGE_NORMAL );
+         }
+         else{
+               BarLocation.y = NavigateBarLocation.y - (get_TallDirectionsBoxHeight() - get_DirectionsBoxHeight()) + NAV_BAR_PIXELS( 2 );
+               BarLocation.x = 0;
+               roadmap_canvas_draw_image ( NavigateBarDirectionTallImage, &BarLocation, 0,  IMAGE_NORMAL );
+         }
    }
 
    //ETA box

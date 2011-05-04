@@ -54,13 +54,14 @@ typedef void* RoadMapSocket;
 struct roadmap_socket_t;
 typedef struct roadmap_socket_t *RoadMapSocket;
 #define ROADMAP_INVALID_SOCKET ((RoadMapSocket) NULL)
-int roadmap_net_get_fd(RoadMapSocket s);
+//int roadmap_net_get_fd(RoadMapSocket s);
 
 #endif /* _WIN32 */
 
 #define ROADMAP_NET_IS_VALID(s) (s != ROADMAP_INVALID_SOCKET)
 
 typedef void (*RoadMapNetConnectCallback) (RoadMapSocket socket, void *context, roadmap_result res);
+typedef void (*RoadMapNetSslConnectCallback) (RoadMapSocket s, void *data, void *context, roadmap_result res);
 
 RoadMapSocket roadmap_net_connect(  const char*       protocol,
                                     const char*       name, 
@@ -98,5 +99,6 @@ void roadmap_net_initialize( void );
 
 void roadmap_net_set_compress_enabled( BOOL value );
 BOOL roadmap_net_get_compress_enabled( void );
+int roadmap_net_get_fd(RoadMapSocket s);
 #endif // _ROADMAP_NET__H_
 

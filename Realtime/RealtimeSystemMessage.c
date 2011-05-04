@@ -35,6 +35,7 @@
 #include "ssd/ssd_container.h"
 #include "ssd/ssd_button.h"
 #include "ssd/ssd_bitmap.h"
+#include "../roadmap_browser.h"
 
 static RoadMapConfigDescriptor RoadMapConfigLastIdDisplayed =
       ROADMAP_CONFIG_ITEM("System Messages", "Last message ID displayed");
@@ -186,6 +187,7 @@ void  RTSystemMessageQueue_Push( LPRTSystemMessage this)
    }
 
    (*p) = (*this);
+
 }
 
 BOOL  RTSystemMessageQueue_Pop ( LPRTSystemMessage this)
@@ -310,6 +312,139 @@ static void RTSystemMessagesDisplay_Dlg(const char *title, const char *titleText
 
 }
 
+static  RoadMapGuiRect old_rect = {-1, -1, -1, -1};
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static void draw_browser(RTSystemMessage *systemMessage, RoadMapGuiRect *rect, int flags, BOOL force){
+   int width, height;
+   RMBrowserContext context;
+   if (force || (old_rect.minx != rect->minx) || (old_rect.maxx != rect->maxx) || (old_rect.miny != rect->miny) || (old_rect.maxy != rect->maxy)){
+      if ( (old_rect.minx != -1) && (old_rect.maxx != -1) && (old_rect.miny != -1) && (old_rect.maxy != -1))
+         roadmap_browser_hide();
+      old_rect = *rect;
+      context.flags = BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL;
+      context.rect = *rect;
+      height = rect->maxy - rect->miny +1;
+      width = rect->maxx - rect->minx +1;
+      strncpy_safe( context.url, systemMessage->msg, WEB_VIEW_URL_MAXSIZE );
+      context.attrs.on_close_cb = NULL;
+      context.attrs.on_load_cb = NULL;
+      context.attrs.data = NULL;
+      context.attrs.title_attrs.title = NULL;
+      roadmap_browser_show_embeded(&context);
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static void draw_browser_rect(SsdWidget widget, RoadMapGuiRect *rect, int flags){
+   RTSystemMessage *systemMessage = (RTSystemMessage *)widget->context;
+
+   if ((flags & SSD_GET_SIZE)){
+      return;
+   }
+
+   if (systemMessage == NULL)
+      return;
+
+   draw_browser(systemMessage, rect, flags, FALSE);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static void on_dialog_close  (int exit_code, void* context){
+   old_rect.minx = old_rect.maxx = old_rect.miny = old_rect.maxy = -1;
+   roadmap_browser_hide();
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static int on_button_close (SsdWidget widget, const char *new_value){
+   ssd_dialog_hide("SystemMessageWebBased", dec_close);
+   return 1;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static int get_browser_width(){
+  return SSD_MAX_SIZE;
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static int get_browser_height(){
+#ifndef TOUCH_SCREEN
+      if (!is_screen_wide())
+         return 240;
+      return 155;
+#else
+      return roadmap_canvas_height()/2;
+#endif
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void RTSystemMessageShowWebMessageDlg(RTSystemMessage *systemMessage){
+   static SsdWidget dialog;
+   SsdWidget button;
+   SsdWidget browserCont;
+   SsdSize dlg_size, cnt_size;
+
+   int browser_cont_flags = 0;
+
+   if ( dialog != NULL )
+   {
+      if (ssd_dialog_currently_active_name() &&
+          !strcmp(ssd_dialog_currently_active_name(), "SystemMessageWebBased"))
+         ssd_dialog_hide_current(dec_close);
+
+      ssd_dialog_free( "SystemMessageWebBased", FALSE );
+      dialog = NULL;
+   }
+
+
+   dialog = ssd_dialog_new ( "SystemMessageWebBased", "", on_dialog_close,
+         SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|SSD_DIALOG_MODAL|
+         SSD_ALIGN_CENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
+
+
+#ifndef TOUCH_SCREEN
+   browser_cont_flags = SSD_ALIGN_VCENTER;
+   ssd_dialog_add_vspace(dialog, 2 ,0);
+#else
+   ssd_dialog_add_vspace(dialog, 5 ,0);
+#endif
+
+   browserCont = ssd_container_new("RealtimeExternalPoiDlg.BrowserContainer","", get_browser_width(), get_browser_height() , SSD_ALIGN_CENTER|browser_cont_flags);
+   browserCont->context = (void *)systemMessage;
+   browserCont->draw = draw_browser_rect;
+   ssd_widget_set_color(browserCont, NULL, NULL);
+   ssd_widget_add(dialog, browserCont);
+
+#ifdef TOUCH_SCREEN
+    ssd_dialog_add_vspace(dialog, 5 ,0);
+
+    button = ssd_button_label("Close_button", roadmap_lang_get("Close"), SSD_ALIGN_CENTER, on_button_close);
+    button->context = systemMessage;
+    ssd_widget_add(dialog, button);
+
+
+#else
+    ssd_widget_set_left_softkey_callback(dialog, NULL);
+      ssd_widget_set_left_softkey_text(dialog, "");
+#endif
+
+   ssd_dialog_activate ("SystemMessageWebBased", NULL);
+   if (!roadmap_screen_refresh())
+      roadmap_screen_redraw();
+
+   ssd_dialog_recalculate( "SystemMessageWebBased" );
+   ssd_widget_get_size( dialog, &dlg_size, NULL );
+   ssd_widget_get_size( browserCont, &cnt_size, NULL );
+
+}
+
+static void RTSystemMessageShowWebMessage(RTSystemMessage *systemMessage){
+   if (systemMessage->iType == URL_SYSTEM_MESSAGE_POPUP)
+       RTSystemMessageShowWebMessageDlg(systemMessage);
+   else
+      roadmap_browser_show(systemMessage->title, systemMessage->msg, RTSystemMessagesDisplay, NULL, NULL, BROWSER_BAR_NORMAL );
+}
+
 void RTSystemMessagesDisplay(void){
    if( RTSystemMessageQueue_Size()){
       RTSystemMessage systemMessage;
@@ -317,7 +452,13 @@ void RTSystemMessagesDisplay(void){
       RTSystemMessageQueue_Pop(&systemMessage);
       RTSystemMessagesSetLastMessageDisplayed(systemMessage.iId);
 
-      RTSystemMessagesDisplay_Dlg(systemMessage.title, systemMessage.titleTextColor, systemMessage.titleTextSize, systemMessage.msg, systemMessage.msgTextColor,systemMessage.msgTextSize, systemMessage.icon);
+      if ((systemMessage.iType == URL_SYSTEM_MESSAGE_POPUP) || (systemMessage.iType == URL_SYSTEM_MESSAGE_FULL_SCREEN)){
+            RTSystemMessageShowWebMessage(&systemMessage);
+      }
+      else{
+         RTSystemMessagesDisplay_Dlg(systemMessage.title, systemMessage.titleTextColor, systemMessage.titleTextSize, systemMessage.msg, systemMessage.msgTextColor,systemMessage.msgTextSize, systemMessage.icon);
+      }
+
    }
 }
 

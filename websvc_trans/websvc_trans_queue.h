@@ -31,6 +31,7 @@ typedef struct tag_wstq_item
    CB_OnWSTCompleted cbOnCompleted; // Callback for transaction completion
    void*             context;       // Caller context
    char*             packet;        // Custom data for the HTTP request
+   int               flags;         // Flags for server type
 
 }  wstq_item, *wstq_item_ptr;
 

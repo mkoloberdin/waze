@@ -38,4 +38,5 @@ BOOL roadmap_prompts_exist(const char *name);
 const char *roadmap_prompts_get_label (const char *value);
 void roadmap_prompts_set_update_time (const char *update_time);
 BOOL roadmap_prompts_file_exist(const char *prompt_name);
+BOOL roadmap_prompts_file_exist_and_not_empty(const char *prompt_name);
 #endif /* ROADMAP_PROMPTS_H_ */

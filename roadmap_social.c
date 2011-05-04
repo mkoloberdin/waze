@@ -346,7 +346,7 @@ void roadmap_facebook_check_login(void) {
    if (INVALID_WEBSVC_HANDLE != s_websvc)
       wst_term (s_websvc);
 
-   s_websvc = wst_init( url, "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( url, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if (INVALID_WEBSVC_HANDLE == s_websvc) {
       roadmap_log (ROADMAP_ERROR, "roadmap_facebook_check_login() - invalid websvc handle");
@@ -354,6 +354,7 @@ void roadmap_facebook_check_login(void) {
    }
 
    wst_start_trans( s_websvc,
+                    0,
                    "external_facebook",
                    data_parser,
                    sizeof(data_parser)/sizeof(wst_parser),
@@ -415,9 +416,10 @@ static void facebook_disconnect_confirmed_cb(int exit_code, void *context){
    if (INVALID_WEBSVC_HANDLE != s_websvc)
       wst_term (s_websvc);
 
-   s_websvc = wst_init( url, "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( url, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    wst_start_trans( s_websvc,
+                   0,
                    "external_facebook",
                    data_parser,
                    sizeof(data_parser)/sizeof(wst_parser),

@@ -55,8 +55,6 @@
 #include "roadmap_canvas3d.h" // roadmap_canvas3_ogl_updateScale
 #endif// OPENGL
 
-#define ROADMAP_BASE_IMPERIAL 0
-#define ROADMAP_BASE_METRIC   1
 
 #define MIN_ZOOM_IN     6
 
@@ -889,7 +887,7 @@ void roadmap_math_initialize (void) {
 
     memset(&RoadMapContext, 0, sizeof(RoadMapContext));
 
-    roadmap_config_declare ("session", &RoadMapConfigGeneralZoom, "0", NULL);
+    roadmap_config_declare ("session", &RoadMapConfigGeneralZoom, "100", NULL);
     roadmap_config_declare
         ("preferences", &RoadMapConfigGeneralDefaultZoom, "20", NULL);
 
@@ -1695,6 +1693,16 @@ int roadmap_math_to_speed_unit (int knots) {
 
     return (int) (knots * RoadMapContext.units->speed_per_knot);
 }
+
+int roadmap_math_to_kph(int knots){
+   if (roadmap_math_is_metric()){
+         return roadmap_math_to_speed_unit(knots);
+   }
+   else{
+         return (int) (knots*1.852F);
+   }
+}
+
 
 float roadmap_math_meters_p_second_to_speed_unit (float meters_per_second) {
 

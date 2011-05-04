@@ -58,7 +58,7 @@ typedef struct {
 #define ROADMAP_TRACKING_NULL  {0, PLUGIN_STREET_NULL, 0, 0, 0, 0, 0, PLUGIN_LINE_NULL, {0, 0}, {0, 0, 0}};
 
 typedef struct {
-   void (*update) (RoadMapPosition *position, PluginLine *current);
+   void (*update) (RoadMapPosition *position, PluginLine *current, int speed, BOOL announce_prompt);
    void (*get_next_line)
           (PluginLine *current, int direction, PluginLine *next);
    int (*line_in_route)

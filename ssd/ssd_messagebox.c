@@ -42,7 +42,7 @@
 #include "roadmap_screen.h"
 
 #define DLG_MSG_BOX_NAME "message_box"
-#define DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT	20
+#define DLG_MSG_BOX_TITLE_FONT_SIZE_DFLT	18
 #define DLG_MSG_BOX_TEXT_FONT_SIZE_DFLT	16
 static RoadMapCallback MessageBoxCallback = NULL;
 static messagebox_closed MessageBoxClosedCallback = NULL;

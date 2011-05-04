@@ -152,7 +152,7 @@ static void setup_list_rows(ssd_list_data_ptr list)
            if (next_icon_container)
                ssd_widget_hide(next_icon_container);
 
-           ssd_widget_set_offset( label, 10, 0 );
+           ssd_widget_set_offset( label, ADJ_SCALE(10), 0 );
      }
      else
      {
@@ -660,20 +660,20 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
 
         ssd_widget_set_callback (row, label_callback);
         image_con = ssd_container_new ("icon_container", NULL, icon_container_width,
-               row_height-10,  SSD_ALIGN_VCENTER);
+               row_height-ADJ_SCALE(10),  SSD_ALIGN_VCENTER);
 
          ssd_widget_set_color (image_con, NULL, NULL);
 
          if (data->labels_w != NULL){
-            widget_con = ssd_container_new ("widget_container", NULL,roadmap_canvas_width() - icon_container_width-next_container_width-10,
-                  row_height-10,  0);
+            widget_con = ssd_container_new ("widget_container", NULL,roadmap_canvas_width() - icon_container_width - next_container_width-ADJ_SCALE(10),
+                  row_height-ADJ_SCALE(10),  SSD_ALIGN_VCENTER);
 
             ssd_widget_set_color (widget_con, NULL, NULL);
          }
 
 #ifdef TOUCH_SCREEN
          image_con2 = ssd_container_new ("next_icon_container", NULL,next_container_width ,
-                                 row_height-10,  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
+                                 row_height-ADJ_SCALE(10),  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
 
          ssd_widget_add(row, image_con2);
 

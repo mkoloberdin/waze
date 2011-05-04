@@ -24,6 +24,7 @@
 
 #include <string.h>
 #include "navigate_route_trans.h"
+#include "roadmap_time.h"
 #include "navigate_instr.h"
 #include "navigate_cost.h"
 #include "navigate_route.h"
@@ -77,8 +78,11 @@ enum RoutingOptions {
 	AVOID_TOLL_ROADS                    =  10,
    IGNORE_PENALTIES                    =  11,
    PREFER_UNKNOWN_DIRECTIONS           =  12,
-    AVOID_PALESTINIAN_ROADS				= 13,
-	MAX_ROUTING_OPTIONS						=	13
+   AVOID_PALESTINIAN_ROADS				   =  13,
+   ROUTING_OPTION_USED1                =  14,
+   ROUTING_OPTION_USED2                =  15,
+   USE_EXTENDED_PROMPTS                =  16,
+	MAX_ROUTING_OPTIONS						=	16
 };
 
 enum RoutingTypes {
@@ -127,6 +131,9 @@ static void navigate_route_free_context (void)
 	int i;
 
 	if (RoutingContext.route.segments) {
+      for (i = 0; i < RoutingContext.route.num_received; i++) {
+         free (RoutingContext.route.segments[i].dest_name);
+      }
 	   free (RoutingContext.route.segments);
 	   RoutingContext.route.segments = NULL;
 	}
@@ -370,9 +377,26 @@ static void instrument_segments (int initial)
 		roadmap_line_point_ids (segment->line, &from_id, &to_id);
 		if (from_id == segment->from_node_id) {
 			segment->line_direction = ROUTE_DIRECTION_WITH_LINE;
-		} else {
+		} else if (to_id == segment->from_node_id) {
 			segment->line_direction = ROUTE_DIRECTION_AGAINST_LINE;
+		} else {
+         //workaround - assume node id -1 is the missing one
+         //once buildmap is fixed, this should be replaced with inconsistency error
+         if (from_id == -1) {
+            roadmap_log (ROADMAP_ERROR, "Invalid node id - choosing ROUTE_DIRECTION_WITH_LINE - line %d square %d segment_from %d square_from %d square_to %d (update_time=%d, sq.timestamp=%d, range=%d)",
+                         segment->line, segment->square, segment->from_node_id, from_id, to_id, segment->update_time,
+                         (int)roadmap_square_timestamp (segment->square),
+                         roadmap_line_count ());
+            segment->line_direction = ROUTE_DIRECTION_WITH_LINE;
+         } else {
+            roadmap_log (ROADMAP_ERROR, "Invalid node id - choosing ROUTE_DIRECTION_AGAINST_LINE - line %d square %d segment_from %d square_from %d square_to %d (update_time=%d, sq.timestamp=%d, range=%d)",
+                         segment->line, segment->square, segment->from_node_id, from_id, to_id, segment->update_time,
+                         (int)roadmap_square_timestamp (segment->square),
+                         roadmap_line_count ());
+            segment->line_direction = ROUTE_DIRECTION_AGAINST_LINE;
+         }
 		}
+                 
 		roadmap_log (ROADMAP_DEBUG, "Segment %d: group %d from %d to %d track %d direction %s",
 					i,
 					segment->group_id,
@@ -430,12 +454,12 @@ static void instrument_segments (int initial)
 	roadmap_log (ROADMAP_INFO, "done: total %d/%d instrumented", RoutingContext.route.num_instrumented, RoutingContext.route.num_segments);
 
 	if (RoutingContext.route.num_instrumented > prev_done) {
-		if (RoutingContext.callbacks->on_instrumented && !initial) {
+		if (RoutingContext.callbacks && RoutingContext.callbacks->on_instrumented && !initial) {
 			RoutingContext.callbacks->on_instrumented (RoutingContext.route.num_instrumented);
 		}
 	}
 
-	if (is_version_mismatch && RoutingContext.callbacks->on_square_ver_mismatch)
+	if (is_version_mismatch && RoutingContext.callbacks && RoutingContext.callbacks->on_square_ver_mismatch)
 	   RoutingContext.callbacks->on_square_ver_mismatch();
 
 }
@@ -466,7 +490,7 @@ static void on_route_complete (void)
 
 		assign_group_ids ();
 		instrument_segments (1);
-		if (RoutingContext.callbacks->on_segments) {
+		if (RoutingContext.callbacks && RoutingContext.callbacks->on_segments) {
 			RoutingContext.callbacks->on_segments (RoutingContext.route_rc, RoutingContext.result, &RoutingContext.route);
 			RoutingContext.route_rc = route_succeeded;
 		}
@@ -576,11 +600,11 @@ static void routing_error (const char *description)
 {
 	roadmap_messagebox_timeout("Oops", description, 5);
 	roadmap_analytics_log_event (ANALYTICS_EVENT_ROUTE_ERROR, ANALYTICS_EVENT_INFO_ERROR,  description);
-
-	if (RoutingContext.callbacks->on_results) {
+   
+	if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_results) {
 		RoutingContext.callbacks->on_results (RoutingContext.route_rc, 0, NULL);
-	}
-	else if (RoutingContext.callbacks->on_segments) {
+   }
+	else if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_segments) {
 		RoutingContext.callbacks->on_segments (RoutingContext.route_rc, NULL, NULL);
 	}
 }
@@ -644,7 +668,7 @@ const char *on_routing_response_code (/* IN  */   const char*       data,
 			RoutingContext.route_rc = route_server_error;
 	}
 
-	if (RoutingContext.callbacks->on_rc) {
+	if (RoutingContext.callbacks && RoutingContext.callbacks->on_rc) {
 		RoutingContext.callbacks->on_rc (RoutingContext.route_rc, RoutingContext.rc, description);
 
 		if (RoutingContext.rc != 200) {
@@ -1041,6 +1065,7 @@ const char *on_route_segments (/* IN  */   const char*       data,
    int							timestamp;
    int							num_args;
    int							iresult;
+   int                     num_prev;
 
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;
@@ -1096,6 +1121,7 @@ const char *on_route_segments (/* IN  */   const char*       data,
    	RoutingContext.route.segments = calloc (RoutingContext.route.num_segments, sizeof (NavigateSegment));
    }
 
+   num_prev = RoutingContext.route.num_received;
    while (num_args > 0) {
 
    	int 	arg;
@@ -1260,8 +1286,7 @@ const char *on_route_segments (/* IN  */   const char*       data,
 
 	   // exit_no
 	   data = ReadIntFromString(  data,    	//   [in]      Source string
-	                              num_args > 1 ? "," : "\r\n",
-	                              				//   [in,opt]  Value termination
+	                              ",",			//   [in,opt]  Value termination
 	                              NULL,    	//   [in,opt]  Allowed padding
 	                              &arg,			//   [out]     Output value
 	                              1);      	//   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
@@ -1296,6 +1321,42 @@ const char *on_route_segments (/* IN  */   const char*       data,
 		}
 
 	   num_args--;
+   }
+   
+   // read destination labels
+   while (num_prev < RoutingContext.route.num_received) {
+    
+      NavigateSegment *segment = RoutingContext.route.segments + num_prev;
+      // dest_name
+      int label_size = 999;
+      int is_last = (num_prev + 1 == RoutingContext.route.num_received);
+      const char *new_data = 
+          ExtractNetworkString(  data,       //   [in]      Source string
+                                 NULL,       //   [out,opt]Output buffer
+                                 &label_size,//   [in,out] Buffer size / Size of extracted string
+                                 is_last ? "\r\n" : ",",
+                                             //   [in,opt]  Value termination
+                                 1);         //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+      if (!new_data) {
+         roadmap_log (ROADMAP_ERROR, "on_route_segments() - Failed to get 'dest_name' size");
+         return NULL;
+      }
+    
+      if (label_size > 0) {
+         label_size++;
+         segment->dest_name = malloc(label_size);
+         data = 
+          ExtractNetworkString(  data,                            //   [in]      Source string
+                                 segment->dest_name,              //   [out,opt]Output buffer
+                                 &label_size,                     //   [in,out] Buffer size / Size of extracted string
+                                 is_last ? "\r\n" : ",",          //   [in,opt]  Value termination
+                                 is_last ? TRIM_ALL_CHARS : 1);   //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+      } else {
+         segment->dest_name = NULL; 
+      }
+      
+      num_prev++;  
    }
 
 	if (RoutingContext.route.num_received == RoutingContext.route.num_segments) {
@@ -1464,8 +1525,9 @@ void navigate_route_request (const PluginLine *from_line,
    								 navigate_cost_avoid_palestinian_roads())        ?
                                  TRUE : FALSE;
    num_options++;
-
-
+   option_types[num_options] = USE_EXTENDED_PROMPTS;
+   option_values[num_options] = TRUE;
+   num_options++;
 
 	// route type
    if (navigate_cost_type () == COST_FASTEST) {
@@ -1514,6 +1576,13 @@ void navigate_route_request (const PluginLine *from_line,
 		RoutingContext.route_rc = route_server_error;
 		routing_error ("Failed to Communicate with Routing Server");
 	}
+}
+
+void navigate_route_on_response_error (void) {
+   //AviR: this is a patch, need to use callback when calling Realtime_RequestRoute()
+   RoutingContext.rc = 500;
+   RoutingContext.route_rc = route_server_error;
+   routing_error ("Failed to Communicate with Routing Server");
 }
 
 void navigate_route_select (int alt_id)
@@ -1610,7 +1679,7 @@ const char *on_suggest_reroute (/* IN  */   const char*       data,
  	roadmap_log (ROADMAP_DEBUG, "SuggestReroute for id %d segment %d, time improves from %d to %d",
  					 RoutingContext.route_id, reroute_segment, time_before, time_after);
 
- 	if (RoutingContext.callbacks->on_reroute) {
+ 	if (RoutingContext.callbacks && RoutingContext.callbacks->on_reroute) {
  		RoutingContext.callbacks->on_reroute (reroute_segment, time_before, time_after);
  	}
 

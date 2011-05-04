@@ -71,7 +71,7 @@
 #define SSD_BUTTON_KEY           0x1000
 #define SSD_BUTTON_TEXT          0x2000
 #define SSD_BUTTON_TEXT_BELOW    0x4000
-#define SSD_BUTTON_NO_TEXT       0x8000
+
 
 /* Dialogs */
 #define SSD_DIALOG_FLOAT          0x10000

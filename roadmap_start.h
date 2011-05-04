@@ -99,5 +99,6 @@ void roadmap_start_app_run_bg( void );
 void start_more_menu (void);
 
 const char * roadmap_start_get_map_credit(void);
+RoadMapAction *roadmap_start_find_action_un_const (const char *name) ;
 #endif /* INCLUDE__ROADMAP_START__H */
 

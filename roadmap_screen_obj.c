@@ -296,7 +296,7 @@ static void roadmap_screen_obj_decode_position
    pos = atoi(arg);
    object->pos_y = pos;
    object->offset_y = 0;
-                           
+
 #ifdef IPHONE_NATIVE
    object->pos_x = ADJ_SCALE (object->pos_x);
    object->pos_y = ADJ_SCALE (object->pos_y);
@@ -1020,5 +1020,73 @@ void roadmap_screen_obj_draw (void) {
    }
 }
 
+void
+roadmap_screen_object_add ( char * name,
+                            char **images,
+                            int num_images,
+                            const RoadMapGuiPoint *position,
+                            char *action) {
 
+   int i;
+   RoadMapImage image;
+   RoadMapScreenObj object = calloc(sizeof(*object), 1);
+   roadmap_check_allocated(object);
 
+   for (i=0; i<MAX_STATES; i++)
+   {
+        object->images[i] = NULL;
+   }
+
+   for (i=0; i<num_images; i++)
+   {
+        object->images[i] = strdup(images[i]);
+   }
+
+   object->pos_x = position->x;
+   object->pos_y = position->y;
+
+   image = roadmap_res_get( RES_BITMAP, RES_SKIN, object->images[0] );
+   if (image){
+      object->bbox.minx = -ADJ_SCALE(5);
+      object->bbox.maxx = roadmap_canvas_image_width(image) +ADJ_SCALE(5);
+      object->bbox.miny = -ADJ_SCALE(5) ;
+      object->bbox.maxy = roadmap_canvas_image_height(image) +ADJ_SCALE(5) ;
+      //object->pos_x -= roadmap_canvas_image_width(image)/2;
+      object->pos_y -= roadmap_canvas_image_height(image);
+   }
+
+   object->name = strdup(name);
+   object->action = roadmap_start_find_action (action);
+
+   object->next = RoadMapObjectList;
+   RoadMapObjectList = object;
+}
+
+void
+roadmap_screen_object_remove (char * name){
+   RoadMapScreenObj cursor;
+   RoadMapScreenObj prev = NULL;
+   int i;
+   for (cursor = RoadMapObjectList; cursor != NULL; cursor = cursor->next) {
+      if (cursor->name && !strcmp(name, cursor->name)){
+         if (prev == NULL){
+            RoadMapObjectList = cursor->next;
+         }
+         else{
+          prev->next = cursor->next;
+         }
+
+         free(cursor->name);
+         for (i=0; i<MAX_STATES; i++)
+         {
+            if (cursor->images[i] != NULL){
+               free(cursor->images[i]);
+               cursor->images[i] = NULL;
+            }
+         }
+         free(cursor);
+         return;
+      }
+      prev = cursor;
+   }
+}

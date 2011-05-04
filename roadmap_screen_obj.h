@@ -34,6 +34,12 @@ void roadmap_screen_obj_initialize (void);
 void roadmap_screen_obj_global_offset (int x, int y);
 void roadmap_screen_obj_offset ( const char* obj_name, int offset_x, int offset_y );
 void roadmap_screen_obj_draw (void);
+void roadmap_screen_object_add ( char * name,
+                                 char **images,
+                                 int num_images,
+                                 const RoadMapGuiPoint *position,
+                                 char *action);
 
+void roadmap_screen_object_remove (char * name);
 #endif // INCLUDE__ROADMAP_SCREEN_OBJECT__H
 

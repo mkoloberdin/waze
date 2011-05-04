@@ -47,6 +47,7 @@
 #include "../roadmap_map_download.h"
 #include "../roadmap_reminder.h"
 #include "../roadmap_analytics.h"
+#include "../roadmap_gps.h"
 #include "address_search.h"
 #include "local_search.h"
 #include "single_search.h"
@@ -82,6 +83,8 @@ static   BOOL                 s_menu   = FALSE;
 #define  COULDNT_FIND_ADDRESS_TEXT    "Couldn't find the address I wanted. Notify waze."
 
 static int g_is_address = TRUE;
+static BOOL g_is_favorite = FALSE;
+static const char *g_favorite_name;
 
 static void on_search_error_message( int exit_code );
 static void search_progress_message_delayed(void);
@@ -196,7 +199,6 @@ static int get_ls_first_index()
 }
 
 
-
 static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, const void *value)
 {
    if (value == -1){
@@ -207,15 +209,68 @@ static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, c
    }
    g_is_address = TRUE;
 
+   if (g_is_favorite)
+   {
+      if (g_favorite_name){
+         int                        selected_list_item   = get_selected_list_item();
+         const address_candidate*   selection            = generic_search_result( selected_list_item);
+         RoadMapPosition position;
+         position.latitude = (int)(selection->latitude*1000000);
+         position.longitude= (int)(selection->longtitude*1000000);
+         generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                                          selection->city,
+                                          selection->street,
+                                          get_house_number__str( selection->house),
+                                          selection->state,
+                                          g_favorite_name,
+                                          &position);
+         roadmap_search_menu();
+         ssd_progress_msg_dialog_show_timed("The address was successfully added to your Favorites",3);
+         return 0;
+      }
+      else{
+         int                        selected_list_item   = get_selected_list_item();
+         const address_candidate*   selection            = generic_search_result( selected_list_item);
+         RoadMapPosition position;
+         position.latitude = (int)(selection->latitude*1000000);
+         position.longitude= (int)(selection->longtitude*1000000);
+         generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                                               selection->city,
+                                               selection->street,
+                                               get_house_number__str( selection->house),
+                                               selection->state,
+                                               g_favorite_name,
+                                               &position);
+         return 0;
+      }
+   }
+
    on_options( NULL, NULL, NULL);
    return 0;
 }
 
 static int on_ls_list_item_selected(SsdWidget widget, const char *new_value, const void *value)
 {
-   g_is_address = FALSE;
+    g_is_address = FALSE;
 
-   on_options( NULL, NULL, NULL);
+    if (g_is_favorite)
+    {
+       int                        selected_list_item   = get_selected_list_item();
+       const address_candidate*   selection            = generic_search_result( selected_list_item);
+       RoadMapPosition position;
+       position.latitude = (int)(selection->latitude*1000000);
+       position.longitude= (int)(selection->longtitude*1000000);
+       generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                                           selection->city,
+                                           selection->street,
+                                           get_house_number__str( selection->house),
+                                           selection->state,
+                                           g_favorite_name,
+                                           &position);
+       return 1;
+    }
+
+    on_options( NULL, NULL, NULL);
    return 0;
 }
 
@@ -408,6 +463,14 @@ static void on_search(void)
       roadmap_geo_config_stg(NULL);
       return;
    }
+
+   if ( !strcmp( "##@gps", ssd_text_get_text( edit )  ) )
+   {
+         roadmap_gps_set_show_raw(!roadmap_gps_is_show_raw());
+         return ;
+   }
+
+
 
 #ifdef __SYMBIAN32__
    if ( !strcmp( "##@opera",  txt ) )
@@ -650,11 +713,95 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
    return 0;
 }
 
+static int send_error_report(){
+   roadmap_result rc;
+   rc= address_search_report_wrong_address(searched_text);
+   if( succeeded == rc)
+   {
+         roadmap_log(ROADMAP_DEBUG,
+                     "address_search_dialog::on_list_item_selected() - Succeeded in sending report");
+    }
+   else
+    {
+        const char* err = roadmap_result_string( rc);
+        roadmap_log(ROADMAP_ERROR,
+              "address_search_dialog::on_list_item_selected() - Resolve process transaction failed to start: '%s'",
+              err);
+   }
+   return 1;
+}
+
+static int sending_report_not_listed_cb (SsdWidget widget, const char *new_value){
+   send_error_report();
+   ssd_dialog_hide_current(dec_close);
+   return 1;
+}
+
+static int not_listed_cb (SsdWidget widget, const char *new_value){
+   SsdWidget dialog;
+   SsdWidget box;
+   SsdWidget text;
+   SsdWidget button;
+   int width;
+   const char* icons[3];
+
+   if (roadmap_canvas_width() > roadmap_canvas_height())
+      width = roadmap_canvas_height();
+   else
+      width = roadmap_canvas_width();
+
+   width -= 20;
+
+   dialog = ssd_dialog_new ("NotListed",roadmap_lang_get("Not listed"), NULL, SSD_CONTAINER_TITLE);
+
+
+   ssd_dialog_add_vspace(dialog, 10, 0);
+   box = ssd_container_new("NotListedBox","", width, SSD_MIN_SIZE, SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
+
+
+   ssd_dialog_add_vspace(box, 20, 0);
+   text = ssd_text_new("NotListedTxt", roadmap_lang_get("Can't find what you're"), 16,SSD_ALIGN_CENTER|SSD_END_ROW);
+   ssd_text_set_color(text,"#000000");
+   ssd_widget_add(box,text);
+
+   text = ssd_text_new("NotListedTxt", roadmap_lang_get("looking for?"), 16,SSD_ALIGN_CENTER);
+   ssd_text_set_color(text,"#000000");
+   ssd_widget_add(box,text);
+
+   text = ssd_text_new("NotListedtxt2", roadmap_lang_get("If your street is not on the map, note that you can record it and add it yourself!"), 16,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+   ssd_text_set_color(text,"#000000");
+   ssd_text_set_lines_space_padding(text, 5);
+//   ssd_dialog_add_hspace(box, 10, 0);
+   ssd_widget_add(box,text);
+
+   ssd_dialog_add_vspace(box, 10, 0);
+   text = ssd_text_new("NotListedtxt2", roadmap_lang_get("Find out how in the forum."), 16,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+   ssd_text_set_color(text,"#000000");
+//   ssd_dialog_add_hspace(box, 10, 0);
+   ssd_text_set_lines_space_padding(text, 5);
+   ssd_widget_add(box,text);
+   ssd_dialog_add_vspace(box, 30, 0);
+   icons[0] = "welcome_btn";
+   icons[1] = "welcome_btn_h";
+   icons[2] = NULL;
+
+   // REPORT
+   button = ssd_button_label_custom( "Report", roadmap_lang_get ("Report"), SSD_ALIGN_CENTER , sending_report_not_listed_cb,
+          icons, 2, "#FFFFFF", "#FFFFFF",14 );
+   ssd_widget_add(box, button);
+   ssd_widget_add(dialog,box);
+
+   ssd_dialog_activate("NotListed", NULL);
+   return 1;
+}
+
 static SsdWidget create_results_container()
 {
    SsdWidget rcnt = NULL;
    SsdWidget list = NULL;
    SsdWidget text = NULL;
+   SsdWidget bitmap = NULL;
+   SsdWidget not_listed_cont = NULL;
    int width = ssd_container_get_width();
 
    rcnt = ssd_container_new(  SSD_RESULTS_CONT_NAME,
@@ -667,7 +814,11 @@ static SsdWidget create_results_container()
 
    ssd_dialog_add_vspace(rcnt,5,0);
    ssd_dialog_add_hspace(rcnt,5,0);
-   text = ssd_text_new(SSD_RC_ADDRESSLIST_TITLE_NAME, roadmap_lang_get("New address"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
+   if (g_is_favorite){
+      text = ssd_text_new(SSD_RC_ADDRESSLIST_TITLE_NAME, roadmap_lang_get("Tap the correct address below"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
+   }else{
+      text = ssd_text_new(SSD_RC_ADDRESSLIST_TITLE_NAME, roadmap_lang_get("New address"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
+   }
    ssd_widget_add( rcnt, text);
    ssd_dialog_add_vspace(rcnt,1,0);
 
@@ -698,6 +849,19 @@ static SsdWidget create_results_container()
    ssd_list_resize( list, 80);
 
    ssd_widget_add( rcnt, list);
+
+   ssd_dialog_add_vspace(rcnt, 20,0);
+   not_listed_cont = ssd_container_new ("_not_listed_cont", NULL, width, ADJ_SCALE(60), SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
+   ssd_dialog_add_hspace(not_listed_cont, 10, 0);
+   bitmap = ssd_bitmap_new("not_listed", "not_listed", SSD_ALIGN_VCENTER);
+   ssd_widget_add( not_listed_cont, bitmap);
+   ssd_dialog_add_hspace(not_listed_cont, 10, 0);
+   text = ssd_text_new(SSD_RC_LSLIST_TITLE_NAME, roadmap_lang_get("Not listed?"), 16,  SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER|SSD_END_ROW);
+   ssd_widget_add( not_listed_cont, text);
+   not_listed_cont->callback = not_listed_cb;
+   ssd_widget_add( rcnt, not_listed_cont);
+
+
    return rcnt;
 }
 
@@ -733,6 +897,8 @@ void single_search_dlg_show_auto( PFN_ON_DIALOG_CLOSED cbOnClosed,
 BOOL single_search_auto_search( const char* address)
 {
    SsdWidget edit    = NULL;
+   g_is_favorite = FALSE;
+   g_favorite_name = NULL;
 
    generic_search_dlg_update_text( address, single_search );
 #ifdef ANDROID
@@ -752,9 +918,67 @@ BOOL single_search_auto_search( const char* address)
    return TRUE;
 }
 
-void single_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
-                              void*                context)
+
+BOOL single_search_add_favorite( const char* address, const char *favorite_name)
 {
+   SsdWidget edit    = NULL;
+   g_is_favorite = TRUE;
+   g_favorite_name = favorite_name;
+
+   generic_search_dlg_update_text( address, single_search );
+   single_search_dlg_show_auto( on_auto_search_completed, (void*)address);
+   edit  = generic_search_dlg_get_search_edit_box(single_search);
+
+   ssd_text_set_text( edit, address);
+
+   on_search();
+
+   return TRUE;
+}
+
+void single_search_dlg_repoen_favorite( PFN_ON_DIALOG_CLOSED cbOnClosed,
+                                        void*                context)
+{
+   g_is_favorite = TRUE;
+   generic_search_dlg_show( single_search,
+                            SSD_DIALOG_NAME,
+                            SSD_DIALOG_TITLE,
+                            on_options,
+                            on_back,
+                            get_result_container(),
+                            cbOnClosed,
+                            on_search,
+                            single_search_dlg_repoen_favorite,
+                            context,
+                            FALSE);
+
+}
+
+
+void single_search_dlg_show_favorite( const char *favorite_name,
+                                      PFN_ON_DIALOG_CLOSED cbOnClosed,
+                                      void*                context)
+{
+   g_is_favorite = TRUE;
+   g_favorite_name = favorite_name;
+   generic_search_dlg_show( single_search,
+                            SSD_DIALOG_NAME,
+                            SSD_DIALOG_TITLE,
+                            on_options,
+                            on_back,
+                            get_result_container(),
+                            cbOnClosed,
+                            on_search,
+                            single_search_dlg_repoen_favorite,
+                            context,
+                            FALSE);
+
+}
+
+void single_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
+                             void*                context)
+{
+   g_is_favorite = FALSE;
    generic_search_dlg_show( single_search,
                             SSD_DIALOG_NAME,
                             SSD_DIALOG_TITLE,

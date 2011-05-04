@@ -45,5 +45,6 @@ int roadmap_label_draw_cache (int angles, int full);
 
 void roadmap_label_start (void);
 void roadmap_label_clear (int square);
+void roadmap_label_clear_all (void);
 
 #endif // __ROADMAP_LABEL__H

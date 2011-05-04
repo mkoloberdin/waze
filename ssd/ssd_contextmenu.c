@@ -987,13 +987,12 @@ static void initialize_rows(  SsdWidget            menu_cnt,
       // AGA TODO:: Replace by the dynamic scaling factor
       const double hd_factor = 1.5;
       int width_margin = 4;
-      row_height = 45;
 
       if ( roadmap_screen_is_hd_screen() )
       {
-         row_height *= hd_factor;
          width_margin *= hd_factor;
       }
+      row_height = ssd_container_get_row_height();
 
       row_width = text_width + width_margin;
    }

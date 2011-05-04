@@ -53,6 +53,7 @@ RoadMapFuzzy roadmap_fuzzy_or  (RoadMapFuzzy a, RoadMapFuzzy b);
 RoadMapFuzzy roadmap_fuzzy_not (RoadMapFuzzy a);
 
 RoadMapFuzzy roadmap_fuzzy_false (void);
+RoadMapFuzzy roadmap_fuzzy_true (void);
 int          roadmap_fuzzy_is_acceptable (RoadMapFuzzy a);
 int          roadmap_fuzzy_is_good       (RoadMapFuzzy a);
 int          roadmap_fuzzy_is_certain    (RoadMapFuzzy a);

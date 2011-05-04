@@ -46,7 +46,7 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    if (pen == NULL){
       pen = roadmap_canvas_create_pen("separator");
       //roadmap_canvas_set_foreground ("#d8dae0");
-      roadmap_canvas_set_foreground ("#ababab");
+      roadmap_canvas_set_foreground ("#747474");
       roadmap_canvas_set_thickness (1);
    }
    else{

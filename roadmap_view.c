@@ -173,6 +173,8 @@ void roadmap_view_refresh (void) {
    if (RoadMapViewState == VIEW_STATE_SHOW_ROUTE) {
 
       navigate_get_waypoint (-1, &RoadMapViewWayPoint);
+      if ((RoadMapViewWayPoint.latitude == 0) && (RoadMapViewWayPoint.longitude == 0))
+         return;
       RoadMapViewDistance =
          roadmap_math_distance(pos, &RoadMapViewWayPoint) * 9 / 4;
       RoadMapViewAzymuth = 360 - roadmap_math_azymuth(pos, &RoadMapViewWayPoint);
@@ -288,11 +290,17 @@ static int get_autozoom_threshold(void){
 }
 
 static int get_autozoom_scale_factor(void){
-   return roadmap_config_get_integer( &ConfigAutoZoomScaleFactor );
+   if (roadmap_screen_get_view_mode() == VIEW_MODE_3D)
+      return roadmap_config_get_integer( &ConfigAutoZoomScaleFactor );
+   else
+      return roadmap_config_get_integer( &ConfigAutoZoomScaleFactor )*2;
 }
 
 static int get_autozoom_max_scale(void){
-   return roadmap_config_get_integer( &ConfigAutoZoomMaxScale );
+   if (roadmap_screen_get_view_mode() == VIEW_MODE_3D)
+      return roadmap_config_get_integer( &ConfigAutoZoomMaxScale );
+   else
+      return roadmap_config_get_integer( &ConfigAutoZoomMaxScale )*2;
 }
 
 static int get_autozoom_min_scale(void){

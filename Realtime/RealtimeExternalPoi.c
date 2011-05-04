@@ -45,6 +45,7 @@
 #include "../roadmap_navigate.h"
 #include "../roadmap_start.h"
 #include "../roadmap_browser.h"
+#include "../roadmap_screen_obj.h"
 
 #include "../ssd/ssd_dialog.h"
 #include "../ssd/ssd_container.h"
@@ -59,6 +60,9 @@
 #include "RealtimeExternalPoiDlg.h"
 #include "RealtimeExternalPoiNotifier.h"
 #include "RealtimePopUp.h"
+
+
+
 
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
@@ -92,9 +96,17 @@ static RoadMapConfigDescriptor RoadMapConfigExternalPoisMyCouponsURL =
 static RoadMapConfigDescriptor RoadMapConfigExternalPoisMyCouponsEnabled =
       ROADMAP_CONFIG_ITEM("ExternalPOI", "My Coupons Enabled");
 
+static RoadMapConfigDescriptor RoadMapConfigExternalPoisNearbyDisplayTime =
+      ROADMAP_CONFIG_ITEM("ExternalPOI", "NearBy Display Time");
+
+static RoadMapConfigDescriptor RoadMapConfigExternalPoisNearbySleepTime =
+      ROADMAP_CONFIG_ITEM("ExternalPOI", "NearBy Sleep Time");
+
 static void RealtimeExternalPoi_AfterRefresh(void);
 static void RemovePoiObject(RTExternalPoi *pEntity);
 static BOOL is_visible(RTExternalPoi *poi);
+static void remove_all_objects(void);
+static BOOL CreatePoiObject(RTExternalPoi *pEntity, int priority);
 
 static BOOL UpdatingDisplayList = FALSE;
 
@@ -124,6 +136,11 @@ RTExternalPoiList          gExternalPoisTable;
 RTExternalPoiDisplayList   gExternalPoisDisplayList;
 RTExternalPoiPromotionList gExternalPoisPopedUpList;
 RTExternalPoiPromotionList gExternalPoisPreloadedList;
+
+
+static int                 gPoiNearbyID     = -1;
+static int                 gTempPoiNearbyID     = -1;
+static time_t              gPoiNearbyLastShownTime    = 0;
 
 static RoadMapScreenSubscriber prev_after_refresh = NULL;
 static int gPromoScrolling = FALSE;
@@ -265,6 +282,7 @@ BOOL RealtimeExternalPoi_PreloadList_ID_Preloaded(int ID) {
    return FALSE;
 }
 
+/////////////////////////////////////////////////////////////////////////////////////////////////
 static void preloadPromotionPage(RTExternalPoi *pEntity){
    if (!pEntity  ||
        !RealtimeExternalPoi_Is_Promotion(pEntity) ||
@@ -306,6 +324,16 @@ static int get_max_popups_per_scroll(void){
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static int get_popup_number_of_seconds(void){
    return roadmap_config_get_integer(&RoadMapConfigExternalPoisNumberOfSeconds);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static int get_popup_nearby_display_number_of_seconds(void){
+   return roadmap_config_get_integer(&RoadMapConfigExternalPoisNearbyDisplayTime);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static int get_popup_nearby_sleep_number_of_seconds(void){
+   return roadmap_config_get_integer(&RoadMapConfigExternalPoisNearbySleepTime);
 }
 
 
@@ -358,6 +386,10 @@ void RealtimeExternalPoi_Init(void){
    roadmap_config_declare ("preferences", &RoadMapConfigMaxPopUpsPerScroll, "2", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNumberOfSeconds, "15", NULL);
+
+   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbyDisplayTime, "30", NULL);
+
+   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbySleepTime, "3600", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisMyCouponsURL, "", NULL);
 
@@ -439,7 +471,6 @@ static void On_ExternalPoiType_Add(RTExternalPoiType *pEntity){
       }
    }
 
-
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -517,6 +548,8 @@ void RealtimeExternalPoi_ExternalPoi_Init(RTExternalPoi *pEntity) {
    pEntity->iPromotionRadius = -1;
    pEntity->bPopedUp = FALSE;
    pEntity->bShowPromo = FALSE;
+   pEntity->iShowNearByFlags = 0;
+
    memset( pEntity->cResourceUrlParams,0, sizeof(pEntity->cResourceUrlParams));
 }
 
@@ -525,6 +558,219 @@ static void On_ExternalPoi_Add(RTExternalPoi *pEntity) {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
+static void DownloadPoiNearByIcons(RTExternalPoi *pEntity) {
+
+   if (pEntity->ExternalPoiType->cBigIcon[0] != 0){
+      char temp[512];
+      temp[0] = 0;
+      snprintf(temp, 512, "%s_right",pEntity->ExternalPoiType->cBigIcon);
+
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) == NULL){
+         roadmap_res_download(RES_DOWNLOAD_IMAGE, temp, NULL, "",FALSE, 1, NULL, NULL );
+      }
+
+      temp[0] = 0;
+      snprintf(temp, 512, "%s_up",pEntity->ExternalPoiType->cBigIcon);
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) == NULL){
+         roadmap_res_download(RES_DOWNLOAD_IMAGE, temp, NULL, "",FALSE, 1, NULL, NULL );
+      }
+
+      temp[0] = 0;
+      snprintf(temp, 512, "%s_down",pEntity->ExternalPoiType->cBigIcon);
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) == NULL){
+         roadmap_res_download(RES_DOWNLOAD_IMAGE, temp, NULL, "",FALSE, 1, NULL, NULL );
+      }
+
+      temp[0] = 0;
+      snprintf(temp, 512, "%s_left",pEntity->ExternalPoiType->cBigIcon);
+      if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) == NULL){
+         roadmap_res_download(RES_DOWNLOAD_IMAGE, temp, NULL, "",FALSE, 1, NULL, NULL );
+      }
+   }
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL AddPoiNearBy_Left(RTExternalPoi *pEntity){
+   RoadMapGuiPoint position;
+   char *icons[2];
+   char temp[512];
+   temp[0] = 0;
+
+   snprintf(temp, 512, "%s_left",pEntity->ExternalPoiType->cBigIcon);
+   if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) != NULL){
+      gPoiNearbyID = pEntity->iID;
+      position.x = ADJ_SCALE(10);
+      position.y = roadmap_canvas_height()/2;
+      icons[0] = temp;
+      roadmap_screen_object_add("PoiNearBy",  &icons[0], 1, &position, "poi_nearby" );
+      return TRUE;
+   }
+   return FALSE;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL AddPoiNearBy_Right(RTExternalPoi *pEntity){
+   RoadMapGuiPoint position;
+   char *icons[2];
+   char temp[512];
+
+
+   temp[0] = 0;
+   snprintf(temp, 512, "%s_right",pEntity->ExternalPoiType->cBigIcon);
+
+   if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) != NULL){
+      gPoiNearbyID = pEntity->iID;
+      position.x = ADJ_SCALE(-50);
+      position.y = roadmap_canvas_height()/2;
+      icons[0] = temp;
+      roadmap_screen_object_add("PoiNearBy",  &icons[0], 1, &position, "poi_nearby" );
+      return TRUE;
+   }
+   return FALSE;
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL AddPoiNearBy_Up(RTExternalPoi *pEntity){
+   RoadMapGuiPoint position;
+   char *icons[2];
+   char temp[512];
+
+
+   temp[0] = 0;
+   snprintf(temp, 512, "%s_up",pEntity->ExternalPoiType->cBigIcon);
+   if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) != NULL){
+      gPoiNearbyID = pEntity->iID;
+      position.x = roadmap_canvas_width()/2;
+      position.y = ADJ_SCALE(50);
+      icons[0] = temp;
+      roadmap_screen_object_add("PoiNearBy",  &icons[0], 1, &position, "poi_nearby" );
+      return TRUE;
+   }
+   return FALSE;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static BOOL AddPoiNearBy_Down(RTExternalPoi *pEntity){
+   RoadMapGuiPoint position;
+   char *icons[2];
+   char temp[512];
+
+   temp[0] = 0;
+   snprintf(temp, 512, "%s_down",pEntity->ExternalPoiType->cBigIcon);
+   if (roadmap_res_get(RES_BITMAP,RES_SKIN, temp) != NULL){
+      gPoiNearbyID = pEntity->iID;
+      position.x = roadmap_canvas_width()/2;
+      position.y = ADJ_SCALE(-100);
+      icons[0] = temp;
+      roadmap_screen_object_add("PoiNearBy", &icons[0], 1, &position, "poi_nearby" );
+      return TRUE;
+   }
+   return FALSE;
+}
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void RemovePoiNearBy (void) {
+   if (gPoiNearbyID == -1){
+         return;
+   }
+
+   roadmap_screen_object_remove("PoiNearBy");
+   roadmap_screen_refresh();
+   gPoiNearbyID = -1;
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void PoiNearByTimeout (void) {
+   roadmap_main_remove_periodic(PoiNearByTimeout);
+   RemovePoiNearBy();
+}
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void ShowPoiNearBy (RTExternalPoi *pEntity) {
+   RoadMapPosition      Point;
+   RoadMapArea          ScreenArea;
+   BOOL                 bAdded;
+
+   if (gPoiNearbyID != -1){
+      return;
+   }
+
+   if (time(NULL) -  gPoiNearbyLastShownTime < get_popup_nearby_sleep_number_of_seconds())
+      return;
+
+   roadmap_math_displayed_screen_edges(&ScreenArea);
+
+   Point.latitude = pEntity->iLatitude;
+   Point.longitude = pEntity->iLongitude;
+   roadmap_math_rotate_coordinates(1, &Point);
+   if (Point.longitude < ScreenArea.west){
+      bAdded = AddPoiNearBy_Left(pEntity);
+   }else if (Point.longitude > ScreenArea.east){
+      bAdded = AddPoiNearBy_Right(pEntity);
+   }else if (Point.latitude < ScreenArea.south){
+         bAdded = AddPoiNearBy_Down(pEntity);
+   }else{
+         bAdded = AddPoiNearBy_Up(pEntity);
+   }
+
+   if (bAdded){
+      gPoiNearbyLastShownTime = time(NULL);
+      RemoveWazerNearby();
+      roadmap_main_set_periodic(get_popup_nearby_display_number_of_seconds()*1000, PoiNearByTimeout);
+   }
+
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeExternalPoi_OnShowPoiNearByPressedPopUp(void){
+   RTExternalPoi * externalPoi;
+   roadmap_main_remove_periodic(RealtimeExternalPoi_OnShowPoiNearByPressedPopUp);
+   externalPoi = RealtimeExternalPoi_ExternalPoi_GetById(gTempPoiNearbyID);
+   if (externalPoi != NULL){
+      RealtimeExternalPoiNotifier_NotifyOnPopUp(externalPoi->iServerID, externalPoi->iPromotionID);
+      RealtimeExternalPoiDlg(externalPoi);
+      if (!externalPoi->isDiplayed){
+          remove_all_objects();
+          CreatePoiObject(externalPoi, RealtimeExternalPoi_DisplayList_Count());
+          roadmap_screen_redraw();
+      }
+   }
+   RemovePoiNearBy();
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeExternalPoi_OnShowPoiNearByPressed(void){
+   RTExternalPoi * externalPoi;
+   RoadMapPosition position;
+   if (gPoiNearbyID == -1){
+       return;
+   }
+
+   externalPoi = RealtimeExternalPoi_ExternalPoi_GetById(gPoiNearbyID);
+   if (externalPoi != NULL){
+       position.longitude = externalPoi->iLongitude;
+       position.latitude = externalPoi->iLatitude;
+       roadmap_screen_hold();
+       roadmap_trip_set_point("Hold", &position);
+       roadmap_screen_update_center_animated(&position, 1200, 0);
+       roadmap_screen_set_scale(600, roadmap_screen_height() / 3);
+       gTempPoiNearbyID = gPoiNearbyID;
+       roadmap_main_set_periodic(2000,RealtimeExternalPoi_OnShowPoiNearByPressedPopUp);
+
+   }
+   else{
+   }
+
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeExternalPoi_ExternalPoi_Add(RTExternalPoi *pEntity) {
    RTExternalPoi *externalPoi;
    RTExternalPoiType *externalPoiType;
@@ -568,6 +814,20 @@ BOOL RealtimeExternalPoi_ExternalPoi_Add(RTExternalPoi *pEntity) {
       preloadPromotionPage(pEntity);
    }
 
+
+   if (pEntity->iShowNearByFlags){
+      RoadMapPosition      Point;
+      DownloadPoiNearByIcons(pEntity);
+      Point.latitude = pEntity->iLatitude;
+      Point.longitude = pEntity->iLongitude;
+      if (!roadmap_math_point_is_visible(&Point)){
+         ShowPoiNearBy(pEntity);
+      }
+      else{
+         RemovePoiNearBy();
+      }
+   }
+
    for (i = 0; i < RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT; i++){
          if (gExternalPoisTable.externalPoiData[i] == NULL){
             gExternalPoisTable.externalPoiData[i] = externalPoi;
@@ -588,7 +848,11 @@ BOOL RealtimeExternalPoi_ExternalPoi_Remove(int iID) {
    if (!RealtimeExternalPoi_FeatureEnabled())
       return TRUE;
 
+
    roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoi_ExternalPoi_Remove - id =%d",iID);
+
+   if (iID == gPoiNearbyID)
+      RemovePoiNearBy();
 
    pEntity = RealtimeExternalPoi_ExternalPoi_GetById(iID);
    if (pEntity == NULL){
@@ -739,7 +1003,7 @@ static BOOL CreatePoiObject(RTExternalPoi *pEntity, int priority)
      Offset.y = 0;
    Image = roadmap_string_new(big_icon);
 
-   //if (roadmap_object_overlapped(Group, Image, &Pos,  &Offset))
+//   if (roadmap_object_overlapped(Group, Image, &Pos,  &Offset))
 //      return FALSE;
 
    snprintf(text, sizeof(text), "RealtimeExternalPoi_%d_Big", pEntity->iID);
@@ -772,6 +1036,9 @@ static BOOL CreatePoiObject(RTExternalPoi *pEntity, int priority)
 
    //Mark the POI as displayed
    pEntity->isDiplayed = TRUE;
+   if (pEntity->iShowNearByFlags){
+     RemovePoiNearBy();
+   }
 
    // Add ID to list of POIs displayed
    RealtimeExternalPoiNotifier_DisplayedList_add_ID(pEntity->iServerID, pEntity->iPromotionID);
@@ -915,7 +1182,7 @@ void RealtimeExternalPoi_UpdateDisplayList(void) {
          if ((count < max) && (is_visible(externalPoi)) && !externalPoi->isDiplayed){
             if (CreatePoiObject(externalPoi,RealtimeExternalPoi_DisplayList_Count()-i ))
                count++;
-         }
+           }
       }
    }
 
@@ -927,8 +1194,7 @@ void RealtimeExternalPoi_UpdateDisplayList(void) {
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static void RealtimeExternalPoi_AfterRefresh(void)
 {
-//   static RoadMapArea          LastMapPos;
-//   RoadMapArea MapPosition;
+
 
    if (RealtimeExternalPoi_DisplayList_IsEmpty()){
       if (prev_after_refresh) {
@@ -937,19 +1203,6 @@ static void RealtimeExternalPoi_AfterRefresh(void)
       return;
    }
 
-//   roadmap_math_displayed_screen_edges( &MapPosition);
-//   if((LastMapPos.west  == MapPosition.west ) &&
-//      (LastMapPos.south == MapPosition.south) &&
-//      (LastMapPos.east  == MapPosition.east ) &&
-//      (LastMapPos.north == MapPosition.north))
-//   {
-//      if (prev_after_refresh) {
-//         (*prev_after_refresh) ();
-//      }
-//      return ;
-//   }
-
-//  LastMapPos = MapPosition;
    RealtimeExternalPoi_UpdateDisplayList();
    if (prev_after_refresh) {
       (*prev_after_refresh) ();
@@ -1031,7 +1284,6 @@ static RTExternalPoi * getPromotion(BOOL new_session){
       if ((externalPoi != NULL) && (!externalPoi->bPopedUp) && !RealtimeExternalPoi_PopedUpList_ID_Displayed(externalPoi->iPromotionID) && RealtimeExternalPoi_Is_Promotion(externalPoi)){
          if (externalPoi->iPromotionRadius == -1)
             continue;
-         //TEMP_AVI check distance
          session_num_pois++;
          scroll_num_pois++;
          RealtimeExternalPoi_PopedUpList_add_ID(externalPoi->iPromotionID);

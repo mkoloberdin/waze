@@ -577,6 +577,16 @@ static int reminder_add_dlg_buttons_callback (SsdWidget widget, const char *new_
       }
       roadmap_reminder_add_entry (argv, add_reminder && !strcmp( add_reminder, "yes" ));
       ssd_dialog_hide_all(dec_close);
+
+      if (gContext.properties.address && *gContext.properties.address != 0)
+         free((void *)gContext.properties.address);
+
+      if (gContext.properties.city && *gContext.properties.city != 0)
+         free((void *)gContext.properties.city);
+
+      if (gContext.properties.street && *gContext.properties.street != 0)
+         free((void *)gContext.properties.street);
+
       free((void *)argv[reminder_hi_house_number]);
       free((void *)argv[reminder_hi_street]);
       free((void *)argv[reminder_hi_city]);
@@ -592,6 +602,55 @@ static int reminder_add_dlg_buttons_callback (SsdWidget widget, const char *new_
 
    return 1;
 }
+
+static int Save_sk_cb(SsdWidget widget, const char *new_value, void *context){
+   SsdWidget container = widget;
+   const char *argv[reminder_hi__count];
+   char  temp[15];
+
+   const char *title_txt = ssd_widget_get_value(ssd_widget_get(container, "TitleEntry"),"TitleEntry");
+   const char *description = ssd_widget_get_value(ssd_widget_get(container, "DescriptionEntry"),"DescriptionEntry");
+   const char *distance = (const char *)ssd_dialog_get_data("distance");
+   const char *repeat = (const char *)ssd_dialog_get_data("repeat");
+   const char *add_reminder         = ssd_dialog_get_data("add_reminder");
+
+
+   argv[reminder_hi_house_number] = strdup(gContext.properties.address);
+   argv[reminder_hi_street] = strdup(gContext.properties.street);
+   argv[reminder_hi_city] = strdup(gContext.properties.city);
+   argv[reminder_state] = ""; //state
+   sprintf(temp, "%d", gContext.position.latitude);
+   argv[reminder_hi_latitude] = strdup(temp);
+   sprintf(temp, "%d", gContext.position.longitude);
+   argv[reminder_hi_longtitude] = strdup(temp);
+   argv[reminder_hi_title] = strdup(title_txt);
+   if (add_reminder && !strcmp( add_reminder, "yes" )){
+      argv[reminder_hi_add_reminder] = "1";
+      argv[reminder_hi_distance] = strdup(distance);
+      argv[reminder_hi_description] = strdup(description);
+      argv[reminder_hi_repeat] = strdup(repeat);
+   }
+   else{
+      argv[reminder_hi_add_reminder] = "0";
+      argv[reminder_hi_distance] = strdup("");
+      argv[reminder_hi_description] = strdup("");
+      argv[reminder_hi_repeat] = strdup("");
+   }
+   roadmap_reminder_add_entry (argv, add_reminder && !strcmp( add_reminder, "yes" ));
+   ssd_dialog_hide_all(dec_close);
+   free((void *)argv[reminder_hi_house_number]);
+   free((void *)argv[reminder_hi_street]);
+   free((void *)argv[reminder_hi_city]);
+   free((void *)argv[reminder_hi_latitude]);
+   free((void *)argv[reminder_hi_longtitude]);
+   free((void *)argv[reminder_hi_distance]);
+   free((void *)argv[reminder_hi_description]);
+   free((void *)argv[reminder_hi_repeat]);
+
+   return 1;
+}
+
+
 int on_checkbox_selected (SsdWidget widget, const char *new_value){
    SsdWidget container = widget->parent->parent;
    const char *add_reminder         = ssd_dialog_get_data("add_reminder");
@@ -628,9 +687,12 @@ static void reminder_add_dlg(PluginStreetProperties *properties, RoadMapPosition
    static const char *repeat_values[2] = {"0", "1"};
 
 
-   if (properties)
+   if (properties){
       gContext.properties = *properties;
-   else{
+      gContext.properties.address = strdup(properties->address);
+      gContext.properties.street = strdup(properties->street);
+      gContext.properties.city = strdup(properties->city);
+   }else{
       gContext.properties.address = "";
       gContext.properties.street = "";
       gContext.properties.city = "";
@@ -783,6 +845,7 @@ static void reminder_add_dlg(PluginStreetProperties *properties, RoadMapPosition
    ssd_widget_set_color( spacer, NULL, NULL );
    ssd_widget_add( dialog_cont, spacer );
 
+#ifdef TOUCH_SCREEN
    ssd_widget_add (dialog_cont,
                    ssd_button_label ("Save", roadmap_lang_get ("Save"),
                                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM, reminder_add_dlg_buttons_callback));
@@ -790,7 +853,10 @@ static void reminder_add_dlg(PluginStreetProperties *properties, RoadMapPosition
    ssd_widget_add (dialog_cont,
                    ssd_button_label ("Cancel", roadmap_lang_get ("Cancel"),
                                      SSD_WS_TABSTOP|SSD_ALIGN_CENTER|SSD_ALIGN_BOTTOM, reminder_add_dlg_buttons_callback));
-
+#else
+   ssd_widget_set_right_softkey_callback(dialog, Save_sk_cb);
+   ssd_widget_set_right_softkey_text(dialog, roadmap_lang_get("Save"));
+#endif
    ssd_widget_add(dialog, dialog_cont);
 
    ssd_dialog_activate(REMINDER_DLG_NAME, NULL);

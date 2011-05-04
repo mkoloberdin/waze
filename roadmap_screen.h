@@ -214,5 +214,5 @@ void roadmap_screen_start_glow (RoadMapPosition *position, int max_duraiton, Roa
 void roadmap_screen_stop_glow (void);
 
 #define ADJ_SCALE(_size) ( _size * roadmap_screen_get_screen_scale()/100 )
-
+BOOL roadmap_screen_is_any_dlg_active();
 #endif // INCLUDE__ROADMAP_SCREEN__H

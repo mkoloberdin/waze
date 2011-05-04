@@ -135,8 +135,9 @@ BOOL socket_async_receive(  RoadMapSocket     s,
    pDI->cbOnDataReceive = on_data_received;
    pDI->pContext        = context;
 
-   if( set_input)   
-      roadmap_main_set_input( &(pDI->IO), on_socket_has_data);
+   if( set_input) {
+         roadmap_net_set_input( &(pDI->IO), on_socket_has_data);
+   }
 
    return TRUE;
 }                                 

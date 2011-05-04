@@ -576,12 +576,10 @@ SsdWidget ssd_menu_new_grid (const char           *name,
           ssd_widget_add(button_container, button);
 
 
-          if (!(flags & SSD_BUTTON_NO_TEXT)){
-            text = ssd_text_new ("label_long",
-                                 roadmap_lang_get (this_action->label_long),
-                                 SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
-            ssd_widget_add (button_container, text);
-          }
+          text = ssd_text_new ("label_long",
+                              roadmap_lang_get (this_action->label_long),
+                              SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+          ssd_widget_add (button_container, text);
           ssd_widget_add(w, button_container);
           ssd_widget_add (container, w);
 
@@ -741,24 +739,22 @@ SsdWidget ssd_menu_new_cb (const char           *name,
 	         ssd_widget_set_context (w, this_action->callback);
 	         ssd_widget_add (w, button_cont);
 
-	         if (!(flags & SSD_BUTTON_NO_TEXT)){
-	           text_box = ssd_container_new ("text_box", NULL,
-	                                         SSD_MIN_SIZE,
-	                                         SSD_MIN_SIZE,
-	                                         SSD_ALIGN_VCENTER|SSD_END_ROW);
+            text_box = ssd_container_new ("text_box", NULL,
+                                         SSD_MIN_SIZE,
+                                         SSD_MIN_SIZE,
+                                         SSD_ALIGN_VCENTER|SSD_END_ROW);
 
-	           ssd_widget_set_color (text_box, "#000000", NULL);
+            ssd_widget_set_color (text_box, "#000000", NULL);
 
-	           text = ssd_text_new ("label_long",
-	                                roadmap_lang_get (this_action->label_long),
-	                                SSD_MAIN_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_END_ROW);
-	           ssd_widget_set_color(text, "#ffffff","#000000");
-	           if ( roadmap_screen_is_hd_screen() )
-	              item_offset_y *= hd_factor;
-	           ssd_widget_set_offset( text, 0, item_offset_y );
-	           ssd_widget_add (text_box, text);
-	           ssd_widget_add (w, text_box);
-	         }
+            text = ssd_text_new ("label_long",
+                                roadmap_lang_get (this_action->label_long),
+                                SSD_MAIN_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_END_ROW);
+            ssd_widget_set_color(text, "#ffffff","#000000");
+            if ( roadmap_screen_is_hd_screen() )
+               item_offset_y *= hd_factor;
+            ssd_widget_set_offset( text, 0, item_offset_y );
+            ssd_widget_add (text_box, text);
+            ssd_widget_add (w, text_box);
 
 	         ssd_widget_add (container, w);
 	         ssd_widget_add(container, ssd_separator_new("Separator",0));
@@ -820,7 +816,6 @@ SsdWidget ssd_menu_new_cb (const char           *name,
          ssd_widget_add(w, button_container);
 
 
-         if (!(flags & SSD_BUTTON_NO_TEXT)){
            text_box = ssd_container_new ("text_box", NULL,
                                          SSD_MIN_SIZE,
                                          SSD_MIN_SIZE,
@@ -842,7 +837,6 @@ SsdWidget ssd_menu_new_cb (const char           *name,
            ssd_widget_set_color(text, "#206892","#ffffff");
            ssd_widget_add (w, text);
            ssd_widget_add (w, text_box);
-         }
          ssd_widget_add (container, w);
          if (menu_items[i+1] != NULL){
             ssd_widget_add(container, ssd_separator_new("Separator",SSD_END_ROW));

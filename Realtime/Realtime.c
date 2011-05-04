@@ -72,6 +72,7 @@
 #include "Realtime.h"
 #include "../roadmap_general_settings.h"
 #include "roadmap_editbox.h"
+#include "../roadmap_layer.h"
 
 #ifdef IPHONE
 #include "../iphone/roadmap_push_notifications.h"
@@ -120,6 +121,7 @@ static	int					  	gs_iMaxCommCheckSeconds		= 0;
 static	int						gs_iSummaryCycleSeconds		= 0;
 static   int                  gs_iKeepAliveSeconds       = 0;
 static   time_t               gs_LastMsgTime             = 0;
+static   BOOL                 gs_bReconnected            = FALSE;
 
 static   LoginDetails         gs_LoginDetails;
 static   BOOL                 gs_bRTWarningInit	= TRUE;	/* Initial state before the actual */
@@ -241,6 +243,12 @@ static void freeUpdteaMapCache();
 static void RealTime_WarningInit( void );
 void     Realtime_DumpOffline (void);
 
+#define MAX_COMMANDS       20
+static char *gs_V2Commands[MAX_COMMANDS] ;
+static int gs_iV2CommandsCount = 0 ;
+static char *gs_SSLCommands[MAX_COMMANDS] ;
+static int gs_iSSLCommandsCount = 0 ;
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -298,7 +306,37 @@ static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRV_Var =
                                     RT_CFG_TAB,
                                     RT_CFG_PRM_WEBSRV_Name);
 
-//   Web-service address
+//   Web-service secured address
+static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRVSSL_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WEBSRVSSL_Name);
+
+//   Web-service secured commands
+static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRVSSLCMD_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WEBSRVSSLCMD_Name);
+
+//   Web-service secured commands
+static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRVSSLEnabled_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WEBSRVSSLEnabled_Name);
+
+//   Web-service v2 suffix
+static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRVV2SFX_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WEBSRVV2SFX_Name);
+
+//   Web-service v2 commands list
+static RoadMapConfigDescriptor RT_CFG_PRM_WEBSRVV2CMD_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WEBSRVV2CMD_Name);
+
+//   Random user
 static RoadMapConfigDescriptor RT_CFG_PRM_RANDOM_USER_Var =
                            ROADMAP_CONFIG_ITEM(
                                     RT_CFG_TAB,
@@ -357,6 +395,13 @@ static RoadMapConfigDescriptor RT_CFG_PRM_IS_NEWBIE_Var =
                                     RT_CFG_TAB,
                                     RT_CFG_PRM_IS_NEWBIE_Name);
 
+//   Small Wazers scale factor
+static RoadMapConfigDescriptor RT_CFG_PRM_WAZERS_SCALE_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_WAZERS_SCALE_Name);
+
+
 BOOL GetCurrentDirectionPoints(  RoadMapGpsPosition*  GPS_position,
                                  int*                 from_node,
                                  int*                 to_node,
@@ -378,6 +423,93 @@ BOOL IsTransactionError( roadmap_result res)
 const char* RT_GetWebServiceAddress()
 { return roadmap_config_get( &RT_CFG_PRM_WEBSRV_Var);}
 //////////////////////////////////////////////////////////////////////////////////////////////////
+const char* RT_GetWebServiceSecuredAddress()
+{ return roadmap_config_get( &RT_CFG_PRM_WEBSRVSSL_Var);}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char* RT_GetWebServiceSSLCommands()
+{ return roadmap_config_get( &RT_CFG_PRM_WEBSRVSSLCMD_Var);}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+int RT_IsWebServiceSSLEnabled()
+{
+#ifdef IPHONE 
+   return roadmap_config_match(&RT_CFG_PRM_WEBSRVSSLEnabled_Var, "yes") && !roadmap_config_match(&RT_CFG_PRM_WEBSRVSSL_Var, RT_CFG_PRM_WEBSRVSSL_Default);
+#else
+   return FALSE;
+#endif
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char* RT_GetWebServiceV2Suffix()
+{ return roadmap_config_get( &RT_CFG_PRM_WEBSRVV2SFX_Var);}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char* RT_GetWebServiceV2Commands()
+{ return roadmap_config_get( &RT_CFG_PRM_WEBSRVV2CMD_Var);}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+int RT_IsWebServiceV2Command(const char *command)
+{
+   int i;
+   
+   //if (strcmp(roadmap_geo_config_get_server_id(), "2"))
+      return 0;
+   
+   for (i = 0; i < gs_iV2CommandsCount; i++) {
+      if (!strcmp(command, gs_V2Commands[i]))
+         return 1;
+   }
+   
+   return 0;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+int RT_IsWebServiceSecuredCommand(const char *command)
+{
+   int i;
+   
+   for (i = 0; i < gs_iSSLCommandsCount; i++) {
+      if (!strcmp(command, gs_SSLCommands[i]))
+         return 1;
+   }
+   
+   return 0;
+}
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+static void RealtineInitCommands(void){
+   char * Commands;
+   char * tempC;
+   int i;
+   static BOOL initialized = FALSE;
+   
+   if (initialized)
+      return;
+   
+   //V2 commands
+   i = 0;
+   Commands = strdup(RT_GetWebServiceV2Commands());
+   tempC  = strtok(Commands,"-"); // preferences "RoutingRequest-BridgeTo" will use v2 server for RoutingRequest and BridgeTo commands
+   while (tempC!=NULL && i<MAX_COMMANDS){
+      gs_V2Commands[i] = strdup(tempC);
+      gs_iV2CommandsCount++;
+      tempC = strtok(NULL,"-");//parse
+      i++;
+   }
+   free(Commands);
+   
+   //SSL commands
+   i = 0;
+   Commands = strdup(RT_GetWebServiceSSLCommands());
+   tempC  = strtok(Commands,"-"); // preferences "Login-BridgeTo" will use secured server for Login and BridgeTo commands
+   while (tempC!=NULL && i<MAX_COMMANDS){
+      gs_SSLCommands[i] = strdup(tempC);
+      gs_iSSLCommandsCount++;
+      tempC = strtok(NULL,"-");//parse
+      i++;
+   }
+   free(Commands);
+   
+   initialized = TRUE;
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RT_SetWebServiceAddress(const char* address)
@@ -449,7 +581,7 @@ int Realtime_GetRefreshRateinMilliseconds()
 
    roadmap_log( ROADMAP_DEBUG, "Current comm retry time: %d seconds.", gs_iMaxCommCheckSeconds );
 
-   return iRefreshRate;
+   return iRefreshRate/10;
 }
 
 int Realtime_GetKeepALiveRateRateinMilliseconds()
@@ -561,6 +693,38 @@ BOOL Realtime_Initialize()
                            RT_CFG_PRM_WEBSRV_Default,
                            NULL);
 
+   //   Web-service secured address
+   roadmap_config_declare( RT_CFG_TYPE,
+                          &RT_CFG_PRM_WEBSRVSSL_Var,
+                          RT_CFG_PRM_WEBSRVSSL_Default,
+                          NULL);
+   
+   //   Web-service secured commands list
+   roadmap_config_declare( RT_CFG_TYPE,
+                          &RT_CFG_PRM_WEBSRVSSLCMD_Var,
+                          RT_CFG_PRM_WEBSRVSSLCMD_Default,
+                          NULL);
+
+   //   Web-service SSL enabled
+   roadmap_config_declare_enumeration( RT_CFG_TYPE,
+                                      &RT_CFG_PRM_WEBSRVSSLEnabled_Var,
+                                      NULL,
+                                      "yes",
+                                      "no",
+                                      NULL);
+   
+   //   Web-service V2 suffix
+   roadmap_config_declare( RT_CFG_TYPE,
+                          &RT_CFG_PRM_WEBSRVV2SFX_Var,
+                          RT_CFG_PRM_WEBSRVV2SFX_Default,
+                          NULL);
+   
+   //   Web-service V2 commands list
+   roadmap_config_declare( RT_CFG_TYPE,
+                          &RT_CFG_PRM_WEBSRVV2CMD_Var,
+                          RT_CFG_PRM_WEBSRVV2CMD_Default,
+                          NULL);
+   
    // Visability group:
    roadmap_config_declare_enumeration( RT_USER_TYPE,
                                        &RT_CFG_PRM_VISGRP_Var,
@@ -603,6 +767,14 @@ BOOL Realtime_Initialize()
                            RT_CFG_PRM__IS_NEWBIE_Default,
                            NULL);
 
+
+   // Small wazers scale factor
+   roadmap_config_declare( RT_CFG_TYPE,
+                           &RT_CFG_PRM_WAZERS_SCALE_Var,
+                           RT_CFG_PRM_WAZERS_SCALE_Default,
+                           NULL);
+
+
    // Allow Ping
    roadmap_config_declare_enumeration
       (RT_USER_TYPE, &RT_CFG_PRM_ALLOW_PING_Var, OnSettingsChanged_VisabilityGroup, "no", "yes", NULL);
@@ -611,6 +783,7 @@ BOOL Realtime_Initialize()
    roadmap_config_declare_enumeration
       (RT_USER_TYPE, &RT_CFG_PRM_IN_DUMP_OFFLINE_Var, NULL, "no", "yes", NULL);
 
+   RealtineInitCommands();
 
 
    RealtimePrivacyInit();
@@ -651,6 +824,11 @@ BOOL Realtime_is_random_user(){
    int is_random = roadmap_config_get_integer(&RT_CFG_PRM_RANDOM_USER_Var);
    return (BOOL)is_random;
 }
+
+static int Realtime_SmallWazerScaleFactor(void){
+   return roadmap_config_get_integer(&RT_CFG_PRM_WAZERS_SCALE_Var);
+}
+
 
 void Realtime_set_random_user(BOOL is_random){
    roadmap_config_set_integer(&RT_CFG_PRM_RANDOM_USER_Var, (int)is_random);
@@ -1068,6 +1246,9 @@ void OnTransactionCompleted( void* ctx, roadmap_result rc)
          roadmap_net_mon_error(roadmap_result_string(gs_CI.LastError));
 
          Realtime_ResetLoginState( TRUE);
+         
+         if (roadmap_verbosity() <= ROADMAP_MESSAGE_DEBUG)
+            roadmap_messagebox("Warning", "Login problem. This is likely to happen if you login multiple devices with single username.");
          break;
 
       case err_rt_login_failed:
@@ -1176,7 +1357,7 @@ void OnAsyncOperationCompleted_AllTogether( void* ctx, roadmap_result rc)
 void OnAsyncOperationCompleted_KeepAlive( void* ctx, roadmap_result rc)
 {
    if( succeeded != rc)
-      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_KeepAlive(POST) - The 'AllTogether' packet-send had failed");
+      roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_KeepAlive(POST) - The 'KeepAlive' packet-send had failed");
 
    OnTransactionCompleted( ctx, rc);
 }
@@ -2724,6 +2905,11 @@ static ECycleType Realtime_GetCycleType(void)
 	int						currentDirection;
    int                  cycleTime;
 
+   if (gs_bReconnected) {
+      s_lastCommCheck = 0;
+      gs_bReconnected = FALSE;
+   }
+   
 	// test for communication failure
 	if( gs_bQuiteErrorMode ||
 		 (!gs_bHadAtleastOneGoodSession) ||
@@ -2736,10 +2922,11 @@ static ECycleType Realtime_GetCycleType(void)
           timeNow >= s_lastCommCheck + gs_iMaxCommCheckSeconds*2)
          s_lastCommCheck = 0;
 
-		if( 0 == s_lastCommCheck ||
-			 timeNow < s_lastCommCheck + gs_iMaxCommCheckSeconds)
+		if(0 == s_lastCommCheck ||
+         (timeNow < s_lastCommCheck + gs_iMaxCommCheckSeconds &&
+          timeNow >= s_lastCommCheck + gs_iCycleRoundoffSeconds))
 		{
-			if( 0 == s_lastCommCheck)
+			//if( 0 == s_lastCommCheck)
 				s_lastCommCheck = timeNow;
 			s_lastCycle = s_lastFullCycle = timeNow - gs_iCycleRoundoffSeconds;
 			return CT_Full;
@@ -2818,27 +3005,37 @@ void OnTimer_Realtime(void)
       assert(0);
       return;
    }
+   
+   //if (gs_CI.eTransactionStatus == TS_Active) {
+      RTNet_Watchdog( &gs_CI);
+   //}
 
-	ct = Realtime_GetCycleType();
-	if( CT_None == ct)
-	{
-		//roadmap_log (ROADMAP_DEBUG, "Skipping comm cycle");
-		return;
-	}
-
-   switch(gs_CI.eTransactionStatus)
-   {
-      case TS_Idle:
-         StartTransaction( CT_Summary == ct);
-         break;
-
-      case TS_Active:
-         RTNet_Watchdog( &gs_CI);
-         break;
-
-      default:
-    	  break;
+   if (gs_CI.eTransactionStatus == TS_Idle) {
+      
+      ct = Realtime_GetCycleType();
+      if( CT_None == ct)
+      {
+         //roadmap_log (ROADMAP_DEBUG, "Skipping comm cycle");
+         return;
+      }
+      
+      StartTransaction( CT_Summary == ct);
    }
+
+   
+   //switch(gs_CI.eTransactionStatus)
+//   {
+//      case TS_Idle:
+//         StartTransaction( CT_Summary == ct);
+//         break;
+//
+//      case TS_Active:
+//         RTNet_Watchdog( &gs_CI);
+//         break;
+//
+//      default:
+//    	  break;
+//   }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -3076,6 +3273,7 @@ void OnAddUser(LPRTUserLocation pUI)
    animation = OBJECT_ANIMATION_FADE_IN | OBJECT_ANIMATION_FADE_OUT;
    roadmap_object_add( Group, GUI_ID, Name, Sprite, Image, &Pos, NULL, animation, NULL);
    roadmap_object_set_action(GUI_ID, OnUserShortClick);
+   roadmap_object_set_scale_factor(GUI_ID, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
 
    //addons
    if (pUI->iAddon == 1) {
@@ -3085,6 +3283,8 @@ void OnAddUser(LPRTUserLocation pUI)
       else{
          roadmap_object_add( Group, GUI_ID_ADDON, Name, Sprite, Image_Crown, &Pos, NULL, 0, NULL);
       }
+	   roadmap_object_set_scale_factor(GUI_ID_ADDON, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
    else if (pUI->iAddon == 2) {
       if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
@@ -3093,6 +3293,8 @@ void OnAddUser(LPRTUserLocation pUI)
       else{
          roadmap_object_add( Group, GUI_ID_ADDON, Name, Sprite, Image_Sword, &Pos, NULL, 0, NULL);
       }
+	   roadmap_object_set_scale_factor(GUI_ID_ADDON, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
    else if (pUI->iAddon == 3) {
       if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
@@ -3101,6 +3303,8 @@ void OnAddUser(LPRTUserLocation pUI)
       else{
          roadmap_object_add( Group, GUI_ID_ADDON, Name, Sprite, Image_Shield, &Pos, NULL, 0, NULL);
       }
+	   roadmap_object_set_scale_factor(GUI_ID_ADDON, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
    else if (pUI->iAddon == 4) {
       if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
@@ -3109,6 +3313,8 @@ void OnAddUser(LPRTUserLocation pUI)
       else{
          roadmap_object_add( Group, GUI_ID_ADDON, Name, Sprite, Image_Edit, &Pos, NULL, 0, NULL);
       }
+	   roadmap_object_set_scale_factor(GUI_ID_ADDON, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
    else if (pUI->iAddon == 5) {
       if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
@@ -3122,15 +3328,21 @@ void OnAddUser(LPRTUserLocation pUI)
       if (pUI->iPingFlag == RT_USERS_PING_FLAG_ALLOW){
          roadmap_object_add( Group, GUI_ID_ADDON, Name, Sprite, Image_WazerPing, &Pos, NULL, 0, NULL);
       }
+	   roadmap_object_set_scale_factor(GUI_ID_ADDON, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
 
 
    if (pUI->bFacebookFriend){
       roadmap_object_add( Group, GUI_FACEBOOK, Name, Sprite, Image_Facebook, &Pos, NULL, 0, NULL);
+	   roadmap_object_set_scale_factor(GUI_FACEBOOK, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
 
    if (pUI->bShowGroupIcon){
       roadmap_object_add( Group, GUI_GROUP, Name, Sprite, Image_Group, &Pos, NULL, 0, NULL);
+	   roadmap_object_set_scale_factor(GUI_GROUP, roadmap_layer_get_declutter(ROADMAP_ROAD_MAIN) +1, Realtime_SmallWazerScaleFactor());
+
    }
 
    Point.latitude = Pos.latitude;
@@ -3743,6 +3955,7 @@ void OnDeviceEvent( device_event event, void* context)
          break;
    }
 
+#ifndef IPHONE_NATIVE
    // Anything changed?
    if( eNewStatus == gs_eConnectionStatus)
    {
@@ -3754,10 +3967,12 @@ void OnDeviceEvent( device_event event, void* context)
 
       return;
    }
+#endif //IPHONE_NATIVE
 
    // Update current status
    gs_eConnectionStatus = eNewStatus;
 
+#ifndef IPHONE_NATIVE
    // Connected?
    if( CS_Connected != gs_eConnectionStatus)
    {
@@ -3772,8 +3987,32 @@ void OnDeviceEvent( device_event event, void* context)
 
       return;
    }
-
    roadmap_log( ROADMAP_DEBUG, "OnDeviceEvent() - New state: Connected");
+#else
+   if (event == device_event_network_connected ||
+       event == device_event_network_disconnected) {
+      // Assume network change in any case of network connectivity event, therefore old transaction is invalid
+      if( TS_Idle != gs_CI.eTransactionStatus)
+         RTNet_AbortTransaction( &gs_CI.eTransactionStatus);
+      if (event == device_event_network_connected) {
+         roadmap_log( ROADMAP_DEBUG, "OnDeviceEvent() - New state: Connected");
+         gs_bReconnected = TRUE;
+         if (!gs_CI.bLoggedIn) {
+            OnTimer_Realtime();
+         } else {
+         //force keep alive
+         gs_LastMsgTime = 0;
+         OnKeepAliveTimer_Realtime();
+         }
+      } else {
+         roadmap_log( ROADMAP_DEBUG,"OnDeviceEvent() - New state: Disconnected");
+         gs_CI.LastError = err_net_failed;
+         //if disconnected, also clear queue
+         //RTNet_TransactionQueue_Clear();
+      }
+   }
+   
+#endif //IPHONE_NATIVE
 
    if( gs_bWasStoppedAutoamatically)
    {
@@ -4097,10 +4336,12 @@ BOOL Realtime_ReportOnNavigation( const RoadMapPosition* cordinates, address_inf
 
 void OnAsyncOperationCompleted_RequestRoute (void* ctx, roadmap_result rc)
 {
-   if( succeeded == rc)
+   if( succeeded == rc) {
       roadmap_log( ROADMAP_DEBUG, "OnAsyncOperationCompleted_RequestRoute() - succeeded");
-   else
+   } else {
       roadmap_log( ROADMAP_ERROR, "OnAsyncOperationCompleted_RequestRoute() - failed");
+      navigate_route_on_response_error();
+   }
 
    OnTransactionCompleted( ctx, rc);
 }
@@ -4519,6 +4760,16 @@ int RealTime_GetMyRanking(){
 	return gs_CI.iMyRanking;
 }
 
+int RealTime_GetMaxServerProtocol(){
+   return gs_CI.iServerMaxProtocol;
+}
+
+char* Realtime_GetServerVersion(void)
+{
+   return &gs_CI.serverVersion[0];
+}
+
+
 BOOL Realtime_IsNewbie(){
    int is_newbie = roadmap_config_get_integer(&RT_CFG_PRM_IS_NEWBIE_Var);
    return (BOOL)is_newbie;
@@ -4700,7 +4951,7 @@ static void onRandomConfirm(int exit_code, void *data){
 
 BOOL Realtime_RandomUserMsg (void) {
    if (Realtime_is_random_user()){
-      ssd_confirm_dialog_custom_timeout("Oops","You need to be a registered user in order to send pings, chit-chat or comment.", FALSE, onRandomConfirm, NULL, "Register", "Not now", 8);
+      ssd_confirm_dialog_custom_timeout("Oops","You need to be a registered user in order to send pings, chit-chat or comment.", FALSE, onRandomConfirm, NULL, roadmap_lang_get("Register"), roadmap_lang_get("Not now"), 8);
       return TRUE;
    } else {
       return FALSE;

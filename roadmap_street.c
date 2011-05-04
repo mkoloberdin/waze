@@ -1818,9 +1818,11 @@ int roadmap_street_extend_line_ends
    int route = 0;
    int filled_props = 0;
    int scale;
-
+            
+   roadmap_log_push("roadmap_street_extend_line_ends");
 	if (from) roadmap_plugin_line_from (line, from);
 	if (to) roadmap_plugin_line_to (line, to);
+   roadmap_log_pop();
 
 	if (line->plugin_id != ROADMAP_PLUGIN_ID) return 0;
 

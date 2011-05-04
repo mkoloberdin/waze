@@ -259,6 +259,9 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
    SsdWidget dialog,widget_title;
    SsdWidget text_con;
    SsdSize dlg_size;
+   SsdWidget buttonYes;
+   SsdWidget buttonNo;
+
    // const char *question_icon[] = {"question"};
 
 #ifndef TOUCH_SCREEN
@@ -306,16 +309,23 @@ static void create_confirm_dialog (BOOL default_yes, const char * textYes, const
 
    ssd_dialog_add_vspace( dialog, 14, SSD_START_NEW_ROW );
 
-    ssd_widget_add (dialog,
-    ssd_button_label (roadmap_lang_get ("Yes"), textYes,
-                        SSD_ALIGN_CENTER|SSD_WS_TABSTOP,
-                        yes_button_callback));
+   buttonYes = ssd_button_label (roadmap_lang_get ("Yes"), textYes,
+                                 SSD_ALIGN_CENTER|SSD_WS_TABSTOP,
+                                 yes_button_callback);
+    ssd_widget_add (dialog,buttonYes);
 
-   ssd_widget_add (dialog,
-		   ssd_button_label (roadmap_lang_get ("No"), textNo,
+    buttonNo =   ssd_button_label (roadmap_lang_get ("No"), textNo,
                         SSD_ALIGN_CENTER| SSD_WS_TABSTOP,
-                        no_button_callback));
+                        no_button_callback);
+   ssd_widget_add (dialog,buttonNo);
 
+   if (default_yes){
+      ssd_widget_set_color(ssd_widget_get(buttonYes,"label"),"#f6a203", "#ffffff" );
+      ssd_widget_set_color(ssd_widget_get(buttonNo,"label"),"#ffffff", "#ffffff" );
+   }else{
+      ssd_widget_set_color(ssd_widget_get(buttonYes,"label"),"#ffffff", "#ffffff" );
+      ssd_widget_set_color(ssd_widget_get(buttonNo,"label"),"#f6a203", "#ffffff" );
+   }
 #else
 	set_soft_keys(dialog, textYes, textNo);
 
@@ -342,20 +352,27 @@ void ssd_confirm_dialog_custom (const char *title, const char *text, BOOL defaul
       create_confirm_dialog (default_yes,textYes,textNo);
       dialog = ssd_dialog_activate ("confirm_dialog", NULL);
   }
-  else{
 #ifdef TOUCH_SCREEN
    //set button text & softkeys
    SsdWidget buttonYes;
    SsdWidget buttonNo;
    buttonYes = ssd_widget_get(dialog, roadmap_lang_get ("Yes")); // change the buttons to custom text
    ssd_button_change_text(buttonYes, textYes);
+   ssd_widget_loose_focus(buttonYes);
    buttonNo = ssd_widget_get(dialog, roadmap_lang_get ("No"));
    ssd_button_change_text(buttonNo, textNo);
+   ssd_widget_loose_focus(buttonNo);
+   if (default_yes){
+      ssd_widget_set_color(ssd_widget_get(buttonYes,"label"),"#f6a203", "#ffffff" );
+      ssd_widget_set_color(ssd_widget_get(buttonNo,"label"),"#ffffff", "#ffffff" );
+   }else{
+      ssd_widget_set_color(ssd_widget_get(buttonYes,"label"),"#ffffff", "#ffffff" );
+      ssd_widget_set_color(ssd_widget_get(buttonNo,"label"),"#f6a203", "#ffffff" );
+   }
 #else //Non touch
    set_soft_keys(dialog, textYes, textNo); // change softkeys text to custom text
    ssd_dialog_refresh_current_softkeys();
 #endif
-  }
 
   data->callback = callback;
   data->context = context;

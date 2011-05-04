@@ -34,4 +34,6 @@ void roadmap_view_auto_zoom_suspend (void);
 void roadmap_view_reset (void);
 int roadmap_view_hold (void);
 BOOL roadmap_view_is_autozomm();
+int roadmap_view_reset_hold (void);
+int roadmap_view_should_refresh (void);
 #endif /*ROADMAP_VIEW_H_*/

@@ -54,12 +54,12 @@
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-static char       gs_WebServiceAddress [ WSA_STRING_MAXSIZE       + 1];
-static char       gs_WebServerURL      [ WSA_SERVER_URL_MAXSIZE   + 1];
-static char       gs_WebServiceName    [ WSA_SERVICE_NAME_MAXSIZE + 1];
-static int        gs_WebServerPort;
+static char       gs_WebServiceAddress [ WSA_STRING_MAXSIZE + 1];
+static char       gs_WebServiceSecuredAddress [ WSA_STRING_MAXSIZE + 1];
+static char       gs_WebServiceV2Suffix [ WSA_STRING_MAXSIZE + 1];
 static BOOL       gs_WebServiceParamsLoaded = FALSE;
 static wst_handle gs_WST = NULL;
+
 
 static wst_parser login_parser[] =
 {
@@ -136,7 +136,10 @@ static wst_parser general_parser[] =
 };
 
 extern const char* RT_GetWebServiceAddress();
-BOOL RTNet_LoadParams();
+extern const char* RT_GetWebServiceSecuredAddress();
+extern int RT_IsWebServiceSSLEnabled();
+extern const char* RT_GetWebServiceV2Suffix();
+static BOOL RTNet_LoadParams();
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -151,8 +154,17 @@ BOOL  RTNet_Init()
    RTNet_LoadParams();
 #endif   // _DEBUG
 
-   gs_WST = wst_init( gs_WebServiceAddress, "binary/octet-stream");
+   gs_WST = wst_init( gs_WebServiceAddress, gs_WebServiceSecuredAddress, gs_WebServiceV2Suffix, "binary/octet-stream");
    assert( gs_WST);
+   
+   //gs_WSTV2 = wst_init( gs_WebServiceV2Address, "binary/octet-stream");
+//   assert( gs_WST);
+//   
+//   gs_WSTSecured = wst_init( gs_WebServiceSecuredAddress, "binary/octet-stream");
+//   assert( gs_WSTSecured);
+//   
+//   gs_WSTV2Secured = wst_init( gs_WebServiceV2SecuredAddress, "binary/octet-stream");
+//   assert( gs_WSTSecured);
 
    return (NULL != gs_WST);
 }
@@ -167,6 +179,21 @@ void  RTNet_Term()
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static int wst_flags_for_commnand (const char* command) {
+   //return WEBSVC_FLAG_V2;
+   if (RT_IsWebServiceSSLEnabled() && RT_IsWebServiceSecuredCommand(command))
+   {
+      if (RT_IsWebServiceV2Command(command))
+         return (WEBSVC_FLAG_SECURED | WEBSVC_FLAG_V2);
+      else
+         return (WEBSVC_FLAG_SECURED);
+   } else {
+      if (RT_IsWebServiceV2Command(command))
+         return (WEBSVC_FLAG_V2);
+      else
+         return 0;
+   }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 #define  MEGA               (1000000)
@@ -354,17 +381,23 @@ BOOL format_ParamPair_string( char*       buffer,
 }
 
 
-BOOL RTNet_LoadParams()
+static BOOL RTNet_LoadParams()
 {
+   char       WebServerURL      [ WSA_SERVER_URL_MAXSIZE   + 1];
+   char       WebServiceName    [ WSA_SERVICE_NAME_MAXSIZE + 1];
+   int        WebServerPort;
    if( !gs_WebServiceParamsLoaded)
    {
+      //Web server:
+      
       const char*   szWebServiceAddress = RT_GetWebServiceAddress();
+      //if (!strcmp(roadmap_geo_config_get_server_id(), "2"))
+//         szWebServiceAddress = "http://174.129.63.53/rtserver"; //TEST ACK -- REMOVE THIS LINE !!!
       //   Break full name into parameters:
-      if(!WSA_ExtractParams(
-         szWebServiceAddress, //   IN        -   Web service full address (http://...)
-         gs_WebServerURL,     //   OUT,OPT   -   Server URL[:Port]
-         &gs_WebServerPort,   //   OUT,OPT   -   Server Port
-         gs_WebServiceName))  //   OUT,OPT   -   Web service name
+      if(!WSA_ExtractParams(szWebServiceAddress, //   IN        -   Web service full address (http://...)
+                            WebServerURL,     //   OUT,OPT   -   Server URL[:Port]
+                            &WebServerPort,   //   OUT,OPT   -   Server Port
+                            WebServiceName))  //   OUT,OPT   -   Web service name
       {
          roadmap_log( ROADMAP_ERROR, "RTNet_LoadParams() - Invalid web-service address (%s)", szWebServiceAddress);
 
@@ -374,6 +407,42 @@ BOOL RTNet_LoadParams()
 
       //   Copy full address:
       strncpy_safe( gs_WebServiceAddress, szWebServiceAddress, sizeof (gs_WebServiceAddress));
+        // Create V2 address:
+      //snprintf(gs_WebServiceV2Address, sizeof (gs_WebServiceV2Address), "%s%s", szWebServiceAddress, RT_GetWebServiceV2Suffix());
+      
+      
+      
+      //SSL
+      szWebServiceAddress = RT_GetWebServiceSecuredAddress();
+      //szWebServiceAddress = "https://212.150.51.92:443/rtserver"; //IL (ip)
+      //szWebServiceAddress = "https://www.waze.co.il:443/rtserver"; //IL
+      //szWebServiceAddress = "https://rt.waze.com:443/rtserver"; //USA
+      //szWebServiceAddress = "https://174.129.223.127:443/rtserver"; //USA (ip)
+      //szWebServiceAddress = "https://rtworld.waze.com:443/rtserver"; //WORLD
+      //szWebServiceAddress = "https://79.125.19.110:443/rtserver"; //WORLD (ip)
+      
+      //   Break full name into parameters:
+      if(!WSA_ExtractParams(szWebServiceAddress, //   IN        -   Web service full address (https://...)
+                            WebServerURL,     //   OUT,OPT   -   Server URL[:Port]
+                            &WebServerPort,   //   OUT,OPT   -   Server Port
+                            WebServiceName))  //   OUT,OPT   -   Web service name
+      {
+         roadmap_log( ROADMAP_ERROR, "RTNet_LoadParams() - Invalid web-service address (%s)", szWebServiceAddress);
+         
+         //   Web-Service address string is invalid...
+         return FALSE;
+      }
+      
+      //   Copy full address:
+      strncpy_safe( gs_WebServiceSecuredAddress, szWebServiceAddress, sizeof (gs_WebServiceSecuredAddress));
+      
+      
+      //   Create V2 address:
+      
+      
+      //   Copy server v2 suffix
+      strncpy_safe( gs_WebServiceV2Suffix, RT_GetWebServiceV2Suffix(), sizeof (gs_WebServiceV2Suffix));
+      //strncpy_safe( gs_WebServiceV2Suffix, "", sizeof (gs_WebServiceV2Suffix));//TEST ACK -- REMOVE THIS LINE !!!
 
       gs_WebServiceParamsLoaded = TRUE;
    }
@@ -390,6 +459,14 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
                   const char*          szUserNickname,
                   CB_OnWSTCompleted pfnOnCompleted)
 {
+   char *command;
+   int wst_flags;
+   
+   command = strdup(RTNET_FORMAT_NETPACKET_9Login);
+   command = strtok(command,",");
+   wst_flags = wst_flags_for_commnand(command);
+   free(command);
+   
    //   Do we have a name/pw
    if( !szUserName || !(*szUserName) || !szUserPW || !(*szUserPW))
    {
@@ -419,9 +496,9 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
    else
       pCI->UserNk[0] = '\0';
 
-
   // Perform WebService Transaction:
    if( wst_start_trans( gs_WST,
+                        wst_flags,
                         "login",
                         login_parser,
                         sizeof(login_parser)/sizeof(wst_parser),
@@ -446,6 +523,14 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
 
 BOOL RTNet_RandomUserRegister( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 {
+   char *command;
+   int wst_flags;
+   
+   command = strdup(RTNET_FORMAT_NETPACKET_3Register);
+   command = strtok(command,",");
+   wst_flags = wst_flags_for_commnand(command);
+   free(command);
+   
    //   Verify identity is reset:
    memset( pCI->UserNm, 0, sizeof(pCI->UserNm));
    memset( pCI->UserPW, 0, sizeof(pCI->UserPW));
@@ -453,6 +538,7 @@ BOOL RTNet_RandomUserRegister( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCo
 
    // Perform WebService Transaction:
    return wst_start_trans( gs_WST,
+                           wst_flags,
                            "static",
                            register_parser,
                            sizeof(register_parser)/sizeof(wst_parser),
@@ -466,6 +552,14 @@ BOOL RTNet_RandomUserRegister( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCo
 
 BOOL RTNet_GuestLogin( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 {
+   char *command;
+   int wst_flags;
+   
+   command = strdup(RTNET_FORMAT_NETPACKET_3GuestLogin);
+   command = strtok(command,",");
+   wst_flags = wst_flags_for_commnand(command);
+   free(command);
+   
    //   Verify identity is reset:
    memset( pCI->UserNm, 0, sizeof(pCI->UserNm));
    memset( pCI->UserPW, 0, sizeof(pCI->UserPW));
@@ -473,6 +567,7 @@ BOOL RTNet_GuestLogin( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 
    // Perform WebService Transaction:
    return wst_start_trans( gs_WST,
+                           wst_flags,
                            "login",
                            login_parser,
                            sizeof(login_parser)/sizeof(wst_parser),
@@ -506,8 +601,8 @@ BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1.
    char*    Data;
    int      SizeNeeded;
    BOOL     bRes;
-
-
+   char*    command;
+   int      wst_flags;
 
    if( !pCI || !parsers || !parsers_count || !cbOnCompleted || !szFormat || !(*szFormat))
    {
@@ -532,6 +627,12 @@ BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1.
       ebuffer_free( &Packet);
       return FALSE;
    }
+   
+   //In case of multiple lines commands, the first one is currently used to select server type.
+   command = strdup(Data);
+   command = strtok(command,","); 
+   wst_flags = wst_flags_for_commnand(command);
+   free(command);
 
    snprintf(Header,
             CUSTOM_HEADER_MAX_SIZE,
@@ -544,10 +645,11 @@ BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1.
       ebuffer_free( &Packet);
       return FALSE;
    }
-
+   
    Data = AppendPrefix_ShiftOriginalRight( Header, Data);
 
    bRes = wst_start_trans( gs_WST,
+                           wst_flags,
                            "command",
                            parsers,
                            parsers_count,
@@ -1215,7 +1317,7 @@ BOOL RTNet_ReportAlertAtPosition( LPRTConnectionInfo   pCI,
        szImageId = "";
 
    if (!szGroup)
-      szGroup = "";
+      szPackedGroupString = "";
 
    format_RoadMapGpsPosition_string( GPSPosString, MyLocation);
 
@@ -1234,7 +1336,7 @@ BOOL RTNet_ReportAlertAtPosition( LPRTConnectionInfo   pCI,
                               szImageId,
                               bForwardToTwitter ? "T" : "F",
                               bForwardToFacebook ? "T" : "F",
-                              szGroup,
+                              szPackedGroupString,
                               iSubType,
                               szVoiceId);
 
@@ -1618,12 +1720,21 @@ BOOL  RTNet_CreateAccount (
                    BOOL                 send_updates,
                    int                  referrer,
                    CB_OnWSTCompleted pfnOnCompleted){
+   
+   char *command;
+   int wst_flags;
+   
+   command = strdup(RTNET_FORMAT_NETPACKET_5CreateAccount);
+   command = strtok(command,",");
+   wst_flags = wst_flags_for_commnand(command);
+   free(command);
 
    return wst_start_trans( gs_WST,
-            "createaccount",
-            general_parser,
-            sizeof(general_parser)/sizeof(wst_parser),
-            pfnOnCompleted,
+                           wst_flags,
+                           "createaccount",
+                           general_parser,
+                           sizeof(general_parser)/sizeof(wst_parser),
+                           pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_5CreateAccount,// Custom data for the HTTP request
                            userName,
@@ -1903,7 +2014,7 @@ BOOL  RTNet_NotifySplashUpdateTime (LPRTConnectionInfo   pCI,
          return FALSE;
    }
    else
-      return FALSE;
+      return TRUE;
 
 }
 
@@ -2322,6 +2433,7 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    time_t      now;
    struct tm   *current_time;
    long        lTimeOfDay;
+   const char* command = "RoutingRequest";
 
    if (szFrStreet && (*szFrStreet))
    {
@@ -2377,8 +2489,8 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
   	szPacket = malloc (iPacketSize);
 
    snprintf (szPacket, iPacketSize,
-   			 "RoutingRequest,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
-   			 iRoute, iType, iTripId, nMaxRoutes, nMaxSegments, nMaxPoints,
+   			 "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
+   			 command, iRoute, iType, iTripId, nMaxRoutes, nMaxSegments, nMaxPoints,
    			 posFrom.longitude, posFrom.latitude, iFrSegmentId, iFrNodeId[0], iFrNodeId[1],
    			 szPackedFrStreet, bFrAllowBidi ? "T" : "F",
    			 posTo.longitude, posTo.latitude, iToSegmentId, iToNodeId[0], iToNodeId[1],
@@ -2445,6 +2557,7 @@ BOOL RTNet_GetGeoConfig(
 
    // Perform WebService Transaction:
     if( wst_start_trans( websvc,
+                         0,
                          "login",
                          geo_config_parser,
                          sizeof(geo_config_parser)/sizeof(wst_parser),

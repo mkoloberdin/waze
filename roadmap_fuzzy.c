@@ -105,7 +105,7 @@ RoadMapFuzzy roadmap_fuzzy_direction
        if (delta > 180) delta = 360 - delta;
     }
 
-    if (delta >= 90) return 0;
+    if (delta >= 75) return 0;
 
     return (FUZZY_TRUTH_MAX * (100 - delta)) / 100;
 }
@@ -116,17 +116,23 @@ RoadMapFuzzy roadmap_fuzzy_direction
  * constant slope in between.
  */
 RoadMapFuzzy roadmap_fuzzy_distance  (int distance) {
+   
+   distance -= RoadMapError;
 
     if (distance >= RoadMapAccuracyStreet) return 0;
 
-    if (distance <= RoadMapError) return FUZZY_TRUTH_MAX;
+    if (distance <= 0) return FUZZY_TRUTH_MAX;
 
-    distance *= 2;
-
-    if (distance >= RoadMapAccuracyStreet) return FUZZY_TRUTH_MAX / 3;
-
-    return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance)) /
-                                  RoadMapAccuracyStreet - RoadMapError;
+    //distance *= 2;
+//
+//    if (distance >= RoadMapAccuracyStreet) return FUZZY_TRUTH_MAX / 3;
+//
+//    return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance)) /
+//                                  RoadMapAccuracyStreet - RoadMapError;
+   
+   
+   return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance) /
+           (RoadMapAccuracyStreet));
 }
 
 
@@ -150,7 +156,7 @@ RoadMapFuzzy roadmap_fuzzy_connected
 
 
     if (roadmap_plugin_same_db_line (&street->line, &reference->line))
-       return (FUZZY_TRUTH_MAX * 3) / 4;
+       return (FUZZY_TRUTH_MAX * 4) / 4;
 
 	 roadmap_street_extend_line_ends (&street->line,&(line_point[0]), &(line_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
 	 roadmap_street_extend_line_ends (&reference->line,&(reference_point[0]), &(reference_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
@@ -172,30 +178,27 @@ RoadMapFuzzy roadmap_fuzzy_connected
 
        *connection = line_point[i];
 
-       return (FUZZY_TRUTH_MAX * 2) / 3;
-    } else if ((line_point[i].latitude == reference_point[!j].latitude) &&
-         (line_point[i].longitude == reference_point[!j].longitude)) {
+       return (FUZZY_TRUTH_MAX * 4) / 4;
+    } else if ((line_point[!i].latitude == reference_point[j].latitude) &&
+         (line_point[!i].longitude == reference_point[j].longitude)) {
 
-       *connection = line_point[i];
+       *connection = line_point[!i];
 
        return FUZZY_TRUTH_MAX / 2;
 
     } else {
        RoadMapPosition pos1;
        RoadMapPosition pos2;
-       int d;
 
        pos1 = line_point[i];
        pos2 = reference_point[j];
-
-       d = roadmap_math_distance (&pos1, &pos2);
 
        if (roadmap_math_distance (&pos1, &pos2) < 50) {
           connection->latitude  = 0;
           connection->longitude = 0;
 
           return FUZZY_TRUTH_MAX * 2 / 3;
-       }
+    }
     }
 
     connection->latitude  = 0;
@@ -230,6 +233,10 @@ RoadMapFuzzy roadmap_fuzzy_not (RoadMapFuzzy a) {
 
 RoadMapFuzzy roadmap_fuzzy_false (void) {
     return 0;
+}
+
+RoadMapFuzzy roadmap_fuzzy_true (void) {
+   return FUZZY_TRUTH_MAX;
 }
 
 

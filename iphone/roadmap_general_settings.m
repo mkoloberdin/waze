@@ -112,7 +112,7 @@ static void language_callback (int value, int group) {
    char text[256];
    const void ** lang_values = roadmap_lang_get_available_langs_values();
    
-   roadmap_lang_set_system_lang(lang_values[value]);
+   roadmap_lang_set_system_lang(lang_values[value], TRUE);
    roadmap_lang_reload();
    
 	roadmap_main_show_root(NO);
@@ -133,7 +133,7 @@ static void language_callback_initial (int value, int group) {
    roadmap_main_pop_view(YES);
    
    ssd_progress_msg_dialog_show("Downloading language");
-   roadmap_lang_set_system_lang(lang_values[value]);
+   roadmap_lang_set_system_lang(lang_values[value], TRUE);
    roadmap_lang_download_lang_file(roadmap_lang_get_system_lang(), lang_loaded);
 }
 

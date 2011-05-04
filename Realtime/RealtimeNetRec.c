@@ -432,7 +432,32 @@ const char* OnLoginResponse(  /* IN  */   const char*       pNext,
    }
 
    roadmap_mood_set_exclusive_moods(pCI->iExclusiveMoods);
+//TEMP_AVI
+//   pNext = ReadIntFromString( pNext,            //   [in]      Source string
+//                              ",",              //   [in,opt]  Value termination
+//                              NULL,             //   [in,opt]  Allowed padding
+//                              &pCI->iServerMaxProtocol,  //   [out]     Put it here
+//                              1);  //   [in]      Remove additional termination chars
+//   if( !pNext)
+//   {
+//      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse() - Failed to read ServerMaxProtocol", pLast);
+//      (*rc) = err_parser_unexpected_data;
+//      return NULL;   //   Quit the 'receive' loop
+//   }
 
+//   iBufferSize = MAX_SERVER_VERSION;
+//   pNext       = ExtractNetworkString(
+//               pNext,               // [in]     Source string
+//               pCI->serverVersion,   // [out,opt]Output buffer
+//               &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+//               ",\r\n",              // [in]     Array of chars to terminate the copy operation
+//               TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+//   if( !pNext)
+//   {
+//      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse(case 2) - Did not find server-version");
+//      (*rc) = err_parser_unexpected_data;
+//      return NULL;   //   Quit the 'receive' loop
+//   }
    //   Done
    editor_points_set_old_points(pCI->iMyTotalPoints, pCI->iPointsTimeStamp);
 
@@ -4754,10 +4779,10 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
      //  Promotion radius
      pNext = ReadIntFromString(
                           pNext,         //   [in]      Source string
-                          ",\r\n",           //   [in,opt]   Value termination
+                          ",",           //   [in,opt]   Value termination
                           NULL,          //   [in,opt]   Allowed padding
                           &externalPoi.iPromotionRadius,    //   [out]      Put it here
-                          TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+                          1);  //   [in]      Remove additional termination CHARS
 
      if(!pNext)
      {
@@ -4765,6 +4790,28 @@ const char *AddExternalPoi (/* IN  */   const char*       pNext,
             (*rc) = err_parser_unexpected_data;
             return NULL;
      }
+
+
+     //  ShowNearBy
+     pNext = ReadIntFromString(
+                          pNext,         //   [in]      Source string
+                          ",\r\n",           //   [in,opt]   Value termination
+                          NULL,          //   [in,opt]   Allowed padding
+                          &externalPoi.iShowNearByFlags,    //   [out]      Put it here
+                          TRIM_ALL_CHARS);  //   [in]      Remove additional termination CHARS
+
+     if(!pNext)
+     {
+            roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddExternalPoi() - Failed to show Nearby");
+            (*rc) = err_parser_unexpected_data;
+            return NULL;
+     }
+
+     if ((externalPoi.iShowNearByFlags & SHOW_NEAR_BY_AS_AD) && (externalPoi.iPromotionID == -1))
+        externalPoi.iShowNearByFlags = 0;
+
+     if (externalPoi.iShowNearByFlags & SHOW_NEAR_BY_AS_AD)
+        externalPoi.iPromotionID = -1;
 
      RealtimeExternalPoi_ExternalPoi_Add(&externalPoi);
      return pNext;

@@ -432,7 +432,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
    int priorities [] = {ALERTER_PRIORITY_HIGH,ALERTER_PRIORITY_MEDIUM,ALERTER_PRIORITY_LOW};
    int num_priorities = sizeof(priorities)/sizeof(int);
    int alert_providor_ind;
-   int square_ind;
+   int square_ind = -1;
    BOOL found_alert = FALSE;
    gps_pos.latitude = gps_position->latitude;
    gps_pos.longitude = gps_position->longitude;
@@ -486,7 +486,7 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
 	           if(is_alert_in_range_provider(RoadMapAlertProviders.provider[i],
 	                   gps_position, line, &alert_index,&distance,current_street_name))
 	           {
-	             	square_ind = square;
+	             	square_ind = -1;
 	             	alert_providor_ind = i;
 	             	found_alert = TRUE;
 	           }
@@ -502,7 +502,11 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
          the_active_alert.distance_to_alert 	= distance;
          the_active_alert.active_alert_id 	=  (* (RoadMapAlertProviders.provider[alert_providor_ind]->get_id))(alert_index);
          the_active_alert.alert_provider = alert_providor_ind;
-         the_active_alert.square = squares[square_ind];
+         if (square_ind != -1)
+            the_active_alert.square = squares[square_ind];
+         else
+            the_active_alert.square = line->square;
+
          roadmap_math_set_context(&context_save_pos, context_save_zoom);
          return TRUE;
       }
@@ -511,7 +515,10 @@ static int is_alert_in_range(const RoadMapGpsPosition *gps_position, const Plugi
          the_active_alert.distance_to_alert 	= distance;
          the_active_alert.active_alert_id 	= (* (RoadMapAlertProviders.provider[alert_providor_ind]->get_id))(alert_index);
          the_active_alert.alert_provider = alert_providor_ind;
-         the_active_alert.square = squares[square_ind];
+         if (square_ind != -1)
+            the_active_alert.square = squares[square_ind];
+         else
+            the_active_alert.square = line->square;
          roadmap_math_set_context(&context_save_pos, context_save_zoom);
          return TRUE;
       }
@@ -742,7 +749,7 @@ void show_alert_dialog(){
 
    if (can_send_thumbs_up){
       SsdWidget text;
-      text = ssd_text_new("ThumbsUpText",roadmap_lang_get("Thanks sent to user"), -1, 0);
+      text = ssd_text_new("ThumbsUpText",roadmap_lang_get("Thanks sent to user"), -1, SSD_ALIGN_CENTER);
       ssd_text_set_color(text, "#f6a201");
       ssd_widget_hide(text);
       ssd_widget_add(dialog, text);

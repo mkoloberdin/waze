@@ -122,7 +122,12 @@ static ssd_cm_item main_menu_items[] =
 // Context menu:
 static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( main_menu_items);
 
-
+#ifndef IPHONE
+static void add_home_work_dlg(int iType);
+#else
+extern void add_home_work_dlg(int iType);
+#endif
+static g_favorite_name;
 
 static void hide_our_dialogs( int exit_code)
 {
@@ -979,10 +984,21 @@ static int history_callback (SsdWidget widget, const char *new_value, const void
    return TRUE;
 }
 
+
 static int quick_favorites_callback (SsdWidget widget, const char *new_value, const void *value) {
 
    static RoadMapSearchContext context ;
    static ContextmenuContext menu_context;
+
+   if (!strcmp(value,"add home")) {
+      add_home_work_dlg(0);
+      return 1;
+   }
+   else  if (!strcmp(value,"add work")){
+      add_home_work_dlg(1);
+      return 1;
+   }
+
    context.category = 'F';
    menu_context.history = (void *)value;
    menu_context.context = &context;
@@ -1030,7 +1046,7 @@ static void show_empty_list_message(const char * title){
 	   ssd_widget_set_color (space, NULL,NULL);
 	   ssd_widget_add (group, space);
 
-	   text = ssd_text_new ("empty list text", roadmap_lang_get("There are no saved addresses"), 22,SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
+	   text = ssd_text_new ("empty list text", roadmap_lang_get("There are no saved addresses"), 22,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
 
 	   ssd_text_set_color(text, "#24323a");
 
@@ -1041,12 +1057,18 @@ static void show_empty_list_message(const char * title){
    ssd_dialog_activate (title, NULL);
 }
 
+int on_add_favorite_cb (SsdWidget widget, const char *new_value){
+   add_home_work_dlg(2);
+}
+
+
 void roadmap_search_history (char category, const char *title) {
 
 #define MAX_HISTORY_ENTRIES 100
    static RoadMapSearchContext context;
-
-
+   const char *button_icon[]   = {"button_plus", "button_plus_s"};
+   SsdWidget button;
+   SsdWidget text;
    static char *labels[MAX_HISTORY_ENTRIES];
    static void *values[MAX_HISTORY_ENTRIES];
    static char *icons[MAX_HISTORY_ENTRIES];
@@ -1178,6 +1200,26 @@ void roadmap_search_history (char category, const char *title) {
                   &context,
                   roadmap_lang_get("Options"),
                   on_options, height,0,TRUE);
+
+#ifdef TOUCH_SCREEN
+   if (category =='F'){
+      ssd_dialog_change_button("right_title_button", button_icon, 2);
+      button = ssd_dialog_right_title_button();
+      if (button){
+         button->callback = on_add_favorite_cb;
+         if (ssd_widget_rtl(NULL))
+            ssd_widget_set_offset(button, 10, 0);
+         else
+            ssd_widget_set_offset(button, -10, 0);
+         ssd_widget_show(button);
+      }
+   }
+   else{
+      button = ssd_dialog_right_title_button();
+      if (button)
+         ssd_widget_hide(button);
+   }
+#endif
 #else
 	roadmap_list_menu_generic (roadmap_lang_get (title),
                               count,
@@ -1266,6 +1308,23 @@ void search_menu_single_search(void){
    single_search_dlg_show(NULL, NULL);
 #endif //IPHONE
 }
+
+
+void search_menu_single_search_favorite(){
+#ifndef IPHONE
+   if( s_address_search_is_active)
+   {
+      assert(0);
+      return;
+   }
+
+   single_search_dlg_show_favorite( g_favorite_name, on_dlg_closed_address, NULL);
+   s_address_search_is_active = TRUE;
+#else
+   single_search_dlg_show(NULL, NULL);
+#endif //IPHONE
+}
+
 
 void search_menu_search_local(void){
    roadmap_analytics_log_event(ANALYTICS_EVENT_SEARCHLOCAL, NULL, NULL);
@@ -1375,6 +1434,42 @@ void roadmap_search_top_three_fav (char ***labels_o, void ***values_o, char ***i
    if (count > 3)
       count = 3;
 
+   if (count == 0){
+      icons[0] = "home";
+      labels[0] = strdup(roadmap_lang_get("Home (Touch to add)"));
+      icons[1] = "work";
+      labels[1] = strdup(roadmap_lang_get("Work (Touch to add)"));
+      values[0] = "add home";
+      values[1] = "add work";
+      count = 2;
+   }
+   else if (count < 3){
+      if (homeIndex == -1){
+         swap(&values[0],count,0);
+         swap((void **)&labels[0], count,0);
+         swap((void **)&icons[0], count,0);
+         icons[0] = "home";
+         labels[0] = strdup(roadmap_lang_get("Home (Touch to add)"));
+         values[0] = "add home";
+         homeIndex = 0;
+         count++;
+      }
+
+      if  ((count < 3) && (workIndex == -1)){
+         workIndex = count;
+         icons[count] = "work";
+         labels[count] = strdup(roadmap_lang_get("Work (Touch to add)"));
+         values[count] = "add work";
+
+         if (count != 1){
+            swap(&values[0],count,1);
+            swap((void **)&labels[0], count,1);
+            swap((void **)&icons[0], count,1);
+         }
+         count++;
+      }
+   }
+
    *labels_o = labels;
    *values_o = values;
    *icons_o = icons;
@@ -1447,6 +1542,42 @@ static SsdWidget get_favorites_widget( SsdWidget list, int *f_count){
    if (count > 3)
       count = 3;
 
+   if (count == 0){
+        icons[0] = "home";
+        labels[0] = strdup(roadmap_lang_get("Home (Touch to add)"));
+        icons[1] = "work";
+        labels[1] = strdup(roadmap_lang_get("Work (Touch to add)"));
+        values[0] = "add home";
+        values[1] = "add work";
+        count = 2;
+   }
+   else if (count < 3){
+      if (homeIndex == -1){
+         swap(&values[0],count,0);
+         swap((void **)&labels[0], count,0);
+         swap((void **)&icons[0], count,0);
+         icons[0] = "home";
+         labels[0] = strdup(roadmap_lang_get("Home (Touch to add)"));
+         values[0] = "add home";
+         homeIndex = 0;
+         count++;
+      }
+
+      if  ((count < 3) && (workIndex == -1)){
+         workIndex = count;
+         icons[count] = "work";
+         labels[count] = strdup(roadmap_lang_get("Work (Touch to add)"));
+         values[count] = "add work";
+
+         if (count != 1){
+            swap(&values[0],count,1);
+            swap((void **)&labels[0], count,1);
+            swap((void **)&icons[0], count,1);
+         }
+         count++;
+      }
+   }
+
    if (list == NULL){
       list = ssd_list_new(       "__favorites_additional_container_list",
                                  SSD_MAX_SIZE,
@@ -1464,6 +1595,7 @@ static SsdWidget get_favorites_widget( SsdWidget list, int *f_count){
 
          ssd_widget_add( favorites_container, list);
       }
+
    }
    else{
       ssd_list_populate (list, count, (const char **)labels, (const void **)values, (const char **)icons, NULL, quick_favorites_callback, NULL, FALSE);
@@ -1509,6 +1641,36 @@ static BOOL on_key_pressed__delegate_to_editbox(
    return editbox->key_pressed( editbox, utf8char, flags);
 }
 
+static BOOL on_add_favorite_key_pressed__delegate_to_editbox(
+                     SsdWidget   this,
+                     const char* utf8char,
+                     uint32_t    flags)
+{
+   SsdWidget editbox  = NULL;
+   SsdWidget main_cont= this->parent;
+   SsdWidget edit;
+
+   assert( this);
+   assert( main_cont);
+   assert( this->children);
+   assert( this->children->key_pressed);
+
+   editbox = this->children;
+   ssd_widget_hide(ssd_widget_get(editbox, "BgText"));
+
+   edit = ssd_widget_get(editbox,"edit" );
+   edit->flags |= SSD_TEXT_INPUT;
+   //   Special case:   move focus to the list
+   if( KEY_IS_ENTER)
+   {
+      single_search_add_favorite( ssd_text_get_text( edit), g_favorite_name);
+
+      return TRUE;
+   }
+
+   editbox = this->children;
+   return editbox->key_pressed( editbox, utf8char, flags);
+}
 static void reset_edit_box(SsdWidget widget)
 {
    SsdWidget edit;
@@ -1550,6 +1712,139 @@ static int on_input_pointer_down(SsdWidget widget, const RoadMapGuiPoint *point)
    reset_edit_box(widget);
    return TRUE;
 }
+
+static int on_add_favorite_input_pointer_down(SsdWidget widget, const RoadMapGuiPoint *point)
+{
+   if ( !roadmap_native_keyboard_enabled() ){
+
+      search_menu_single_search_favorite();
+            return TRUE;
+   }
+#ifdef ANDROID
+   search_menu_single_search_favorite();
+#else
+   reset_edit_box(widget);
+#endif
+   return TRUE;
+}
+
+
+#ifndef IPHONE
+static void add_home_work_dlg(int iType){
+   SsdWidget dialog;
+   SsdWidget search_container = NULL;
+   SsdWidget search_widget;
+   SsdWidget favorites;
+   SsdWidget icnt;
+   SsdWidget ecnt;
+   SsdWidget bg_text;
+   SsdWidget edit = NULL;
+   SsdWidget bitmap = NULL;
+   SsdWidget box;
+   SsdWidget text;
+   int f_count;
+   int height = ADJ_SCALE(45);
+   int txt_box_height = ADJ_SCALE(37);
+   int container_height = ADJ_SCALE(60);
+   const char *title;
+
+
+   if (iType == 0){
+      title = roadmap_lang_get("My Home");
+      g_favorite_name = roadmap_lang_get("Home");
+   }
+   else if (iType == 1){
+      title = roadmap_lang_get("My Work");
+      g_favorite_name = roadmap_lang_get("Work");
+   }
+   else{
+      title = roadmap_lang_get("Add to favorites");
+      g_favorite_name = NULL;
+   }
+   dialog = ssd_dialog_new ("Add HomeWork",title, NULL, SSD_CONTAINER_TITLE);
+
+   search_container = ssd_container_new ("__search_additional_container", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+           SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW);
+   ssd_widget_set_color(search_container, NULL, NULL);
+   ssd_widget_set_offset(search_container, 0, -5);
+   search_widget = ssd_container_new ("__search_additional_container.search_widget", NULL, SSD_MAX_SIZE, container_height,
+           SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW);
+   ssd_widget_set_color(search_widget, "#b2b2b2", "#b2b2b2");
+
+   icnt = ssd_container_new(  "input_container",
+                              NULL,
+                              SSD_MAX_SIZE,
+                              SSD_MAX_SIZE,
+                              SSD_ALIGN_VCENTER);
+   ssd_widget_set_color(icnt, NULL, NULL);
+
+   ecnt = ssd_container_new(  "input_container",
+                              NULL,
+                              roadmap_canvas_width() - 15,
+                              txt_box_height,
+                              SSD_WS_TABSTOP|SSD_CONTAINER_SEARCH_BOX|SSD_END_ROW|SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
+   ssd_widget_set_focus_highlight( ecnt, FALSE );
+   ecnt->pointer_down = on_add_favorite_input_pointer_down;
+   bitmap = ssd_bitmap_new("serach", "search_icon", SSD_ALIGN_VCENTER);
+
+
+   ssd_widget_add(ecnt, bitmap);
+
+   edit = ssd_text_new     (  "edit",
+                              "", 18, SSD_ALIGN_VCENTER );
+   bg_text = ssd_text_new ("BgText", roadmap_lang_get("Search address or Place"), -1, SSD_ALIGN_VCENTER);
+   ssd_widget_set_color(bg_text, "#C0C0C0",NULL);
+   ssd_widget_add(ecnt, bg_text);
+   ssd_text_set_input_type( edit, inputtype_free_text);
+   ssd_text_set_readonly  ( edit, FALSE);
+   //   Delegate the 'on key pressed' event to the child edit-box:
+   ecnt->key_pressed = on_add_favorite_key_pressed__delegate_to_editbox;
+
+   ssd_widget_add( ecnt, edit);
+   ssd_widget_add( icnt, ecnt );
+
+   ssd_widget_add (search_widget, icnt );
+
+   ssd_widget_add(search_container, search_widget);
+
+
+   ssd_widget_add(dialog,search_container);
+
+
+   box = ssd_container_new("home work box","", SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
+   if (g_favorite_name != NULL){
+      ssd_dialog_add_vspace(box, 10, 0);
+      bitmap = ssd_bitmap_new("homework", "HW_route", SSD_ALIGN_CENTER|SSD_END_ROW);
+      ssd_widget_add(box,bitmap);
+
+      ssd_dialog_add_vspace(box, 10, 0);
+      text = ssd_text_new("HW_route_Txt", roadmap_lang_get("Waze is best used for commuting."), 16,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+      ssd_text_set_color(text,"#000000");
+      ssd_dialog_add_hspace(box, 10, 0);
+      ssd_widget_add(box,text);
+
+      ssd_dialog_add_vspace(box, 30, 0);
+      text = ssd_text_new("HW_route_Txt2", roadmap_lang_get("Once you add 'Home' and 'Work' to your favorites, waze'll learn your preferred routes and departure times to these destinations."), 16,SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_CENTER);
+      ssd_text_set_color(text,"#000000");
+      ssd_dialog_add_hspace(box, 10, 0);
+      ssd_text_set_lines_space_padding(text, 5);
+      ssd_widget_add(box,text);
+   }
+
+   ssd_dialog_add_vspace(box, 10, SSD_END_ROW);
+   text = ssd_text_new("HW_route_Txt2", roadmap_lang_get("Enter your address in the search box above."), 16,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+   ssd_text_set_color(text,"#000000");
+   ssd_dialog_add_hspace(box, 10, 0);
+   ssd_text_set_lines_space_padding(text, 5);
+   ssd_widget_add(box,text);
+
+   ssd_widget_add(dialog,box);
+
+
+
+   ssd_dialog_activate("Add HomeWork", NULL);
+}
+#endif
 
 static SsdWidget create_additional_search_container(){
     SsdWidget search_container = NULL;

@@ -53,7 +53,9 @@
 #include "roadmap_plugin.h"
 #include "roadmap_canvas.h"
 #include "roadmap_canvas3d.h" // roadmap_canvas3_project()
+#ifdef OGL_TILE
 #include "roadmap_canvas_tile.h"
+#endif
 
 #ifdef ROADMAP_USE_LINEFONT
 #include "roadmap_linefont.h"
@@ -88,8 +90,6 @@ RoadMapConfigDescriptor RoadMapConfigLabelsBgColor =
 /* this is fairly arbitrary */
 #ifdef J2ME
 #define MAX_LABELS 1024
-//#elif defined (OGL_TILE)
-//#define MAX_LABELS 4096
 #else
 #define MAX_LABELS 2048
 #endif
@@ -118,7 +118,6 @@ typedef struct {
    RoadMapGuiPoint center_point; /* label point */
    RoadMapGuiRect bbox; /* label bounding box */
    RoadMapGuiPoint poly[4];
-   RoadMapGuiPoint last_check_point;
 
    RoadMapPosition center_pos;
 
@@ -345,9 +344,12 @@ static void roadmap_label_draw_text(const char *text,
         RoadMapGuiPoint *start, RoadMapGuiPoint *center,
         int doing_angles, int angle, int size, int font_type, int opacity)
 {
+#ifdef OGL_TILE
    if (opacity && opacity != 255) {
       roadmap_canvas_set_global_opacity (opacity);
    }
+#endif
+   
 #ifdef ROADMAP_USE_LINEFONT
    roadmap_linefont_text
         (text, doing_angles ? ROADMAP_CANVAS_CENTER_BOTTOM :
@@ -359,9 +361,12 @@ static void roadmap_label_draw_text(const char *text,
       roadmap_canvas_draw_formated_string_size(start, ROADMAP_CANVAS_CENTERLEFT, size, font_type, text);
    }
 #endif
+
+#ifdef OGL_TILE
    if (opacity && opacity != 255) {
       roadmap_canvas_set_global_opacity (255);
    }
+#endif
 }
 
 void roadmap_label_update_pos (void) {
@@ -370,7 +375,6 @@ void roadmap_label_update_pos (void) {
    RoadMapGuiPoint p0;
    int angle_dx = roadmap_math_get_orientation () - RoadMapLabelLastOrient;
    int dx, dy;
-   //printf("update pos\n");
 
    ROADMAP_LIST_FOR_EACH
         (&RoadMapLabelCache,
@@ -391,9 +395,9 @@ void roadmap_label_update_pos (void) {
          cPtr->bbox.maxx = -1;
          if (!(cPtr->flags & LABEL_FLAG_PLACE)) {
             cPtr->angle += angle_dx;
-            if (cPtr->angle < -90) {cPtr->angle += 360;/* printf("\n>> %d\n", cPtr->angle);*/} //TODO: there is a bug when rotating
-            if (cPtr->angle > 90) {cPtr->angle -= 180;/* printf("\n>>>> %d\n", cPtr->angle);*/}
-//                                    printf("-- ");
+            if (cPtr->angle < -90) cPtr->angle += 360;
+            if (cPtr->angle > 90) cPtr->angle -= 180;
+            if (cPtr->angle > 90) cPtr->angle -= 180;
          }
       } else {
 
@@ -426,9 +430,7 @@ void roadmap_label_update_pos (void) {
  * not individual calls to roadmap_label_draw_cache().
  */
 void roadmap_label_start (void) {
-   static zoom_t last_start_zoom = -1;
-   //printf("...start...\n");
-#ifndef OGL_TILE
+   
    /* Cheap cache invalidation:  if the previous center of screen
     * is still visible, assume that the cache is still more useful
     * than not.
@@ -436,42 +438,14 @@ void roadmap_label_start (void) {
    if ( !roadmap_math_point_is_visible (&RoadMapLabelLastCenter) ) {
       ROADMAP_LIST_SPLICE (&RoadMapLabelSpares, &RoadMapLabelCache);
    }
-#endif
-
-#ifdef OGL_TILE
-   if (roadmap_math_get_zoom() != last_start_zoom)
-#endif
-   {
-      if (last_start_zoom == -1) {
-         roadmap_math_get_context (&RoadMapLabelLastCenter, &RoadMapLabelLastZoom);         
-         RoadMapLabelLastOrient = roadmap_math_get_orientation ();
-      }
-      last_start_zoom = roadmap_math_get_zoom();
-       RoadMapLabelGeneration++;
-   }
    
-   //roadmap_math_get_context (&RoadMapLabelLastCenter, &RoadMapLabelLastZoom);
-
+   roadmap_math_get_context (&RoadMapLabelLastCenter, &RoadMapLabelLastZoom);
+   
    MaxPlaceLabel = roadmap_canvas_height() / 75;
    
-   //RoadMapLabelLastOrient = roadmap_math_get_orientation ();
+   RoadMapLabelGeneration++;
+   RoadMapLabelLastOrient = roadmap_math_get_orientation ();
 }
-
-
-static void dump_label_list (void) {
-   RoadMapListItem *item, *tmp;
-   roadmap_label *cPtr = 0;
-   
-   ROADMAP_LIST_FOR_EACH
-   (&RoadMapLabelCache, item, tmp) {
-      BOOL remove_old_label = FALSE;
-      cPtr = (roadmap_label *)item;
-      printf("%d,%d,%s\n", cPtr->center_point.x, cPtr->center_point.y, cPtr->text);
-   }
-   
-   printf("\n");
-}
-
 
 int roadmap_label_add (const RoadMapGuiPoint *point, int angle,
                        int featuresize_sq, const PluginLine *line) {
@@ -514,9 +488,7 @@ int roadmap_label_add (const RoadMapGuiPoint *point, int angle,
       if (RoadMapLabelCacheFull) return -1;
 
       if (RoadMapLabelCacheAlloced == MAX_LABELS) {
-         //if (!RoadMapLabelCacheFull)
-            roadmap_log (ROADMAP_WARNING, "Too many streets to label them all.");
-         //dump_label_list();
+         roadmap_log (ROADMAP_WARNING, "Too many streets to label them all.");
          RoadMapLabelCacheFull = 1;
          return -1;
       }
@@ -526,33 +498,36 @@ int roadmap_label_add (const RoadMapGuiPoint *point, int angle,
    }
 
    cPtr->flags = 0;
+#ifndef OGL_TILE
+   cPtr->opacity = 255;
+#else
    cPtr->opacity = 0;
    cPtr->tile_ids[0] = roadmap_canvas_tile_get_id();
    cPtr->num_tiles = 1;
-
+#endif
+   
    cPtr->bbox.minx = 1;
    cPtr->bbox.maxx = -1;
 
    cPtr->line = *line;
    cPtr->featuresize_sq = featuresize_sq;
-//   cPtr->angle = normalize_angle(angle);
-      cPtr->angle = angle;
-
-   cPtr->center_point = *point;
-   cPtr->last_check_point.x = cPtr->last_check_point.y = 0;
-
-   /* The stored point is not screen oriented, rotate is needed */
-   //roadmap_math_rotate_project_coordinate (&cPtr->center_point);
-//   
-//   roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 1);
    
+   cPtr->center_point = *point;
+   
+   /* The stored point is not screen oriented, rotate is needed */
+#ifndef OGL_TILE
+   cPtr->angle = normalize_angle(angle);
+   roadmap_math_rotate_project_coordinate (&cPtr->center_point);
+   
+   roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 1);
+#else
+   cPtr->angle = angle;
    roadmap_math_rotate_coordinates (1, &cPtr->center_point);
    
    roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 0);
    
    roadmap_math_project(&cPtr->center_point);
-   
-   
+#endif 
 
    /* the "generation" of a label is refreshed when it is re-added.
     * later, labels cache entries can be aged, and discarded.
@@ -631,9 +606,7 @@ int roadmap_label_add_place (const RoadMapGuiPoint *point, int angle,
       if (RoadMapLabelCacheFull) return -1;
 
       if (RoadMapLabelCacheAlloced == MAX_LABELS) {
-         //if (!RoadMapLabelCacheFull)
-            roadmap_log (ROADMAP_WARNING, "Too many streets to label them all.");
-         //dump_label_list();
+         roadmap_log (ROADMAP_WARNING, "Too many streets to label them all.");
          RoadMapLabelCacheFull = 1;
          return -1;
       }
@@ -646,9 +619,13 @@ int roadmap_label_add_place (const RoadMapGuiPoint *point, int angle,
    if (multi_row)
       cPtr->flags |= LABEL_FLAG_MULTI_ROW;
    
+#ifndef OGL_TILE
+   cPtr->opacity = 255;
+#else
    cPtr->opacity = 0;
    cPtr->tile_ids[0] = roadmap_canvas_tile_get_id();
    cPtr->num_tiles = 1;
+#endif
 
    cPtr->text = strdup(name);
 
@@ -660,18 +637,19 @@ int roadmap_label_add_place (const RoadMapGuiPoint *point, int angle,
    cPtr->angle = normalize_angle(angle);
 
    cPtr->center_point = *point;
-   cPtr->last_check_point.x = cPtr->last_check_point.y = 0;
-
+   
    /* The stored point is not screen oriented, rotate is needed */
-   //roadmap_math_rotate_project_coordinate (&cPtr->center_point);
-//
-//   roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 1);
-
+#ifndef OGL_TILE
+   roadmap_math_rotate_project_coordinate (&cPtr->center_point);
+   
+   roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 1);
+#else
    roadmap_math_rotate_coordinates (1, &cPtr->center_point);
    
    roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 0);
    
    roadmap_math_project(&cPtr->center_point);
+#endif
 
    /* the "generation" of a label is refreshed when it is re-added.
     * later, labels cache entries can be aged, and discarded.
@@ -770,23 +748,6 @@ int roadmap_label_draw_cache (int angles, int full) {
                     cPtr->angle = normalize_angle(cPtr->angle);
               }
               
-              
-              //if (!changed_zoom || full) {
-//                 RoadMapGuiPoint unproj_pnt;
-//                 roadmap_math_coordinate(&cPtr->center_pos, &unproj_pnt);
-//                 if (changed_zoom ||
-//                     abs(cPtr->last_check_point.x - unproj_pnt.x) > ADJ_SCALE(2) ||
-//                     abs(cPtr->last_check_point.y - unproj_pnt.y) > ADJ_SCALE(2)) { //tile_cached check is currently costly, we minimize it
-//                    tile_cached = roadmap_canvas_tile_cached (0, &unproj_pnt, cPtr->zoom);
-//                    cPtr->last_check_point = unproj_pnt;
-//                    if (!tile_cached && full) {
-//                       roadmap_list_insert
-//                       (&RoadMapLabelSpares, roadmap_list_remove(&cPtr->link));
-//                       continue;
-//                    }
-//                 }
-//              }
-              
               if (draw && (cPtr->flags & LABEL_FLAG_NOT_CACHED)) {
                  roadmap_list_insert
                                         (&RoadMapLabelSpares, roadmap_list_remove(&cPtr->link));
@@ -818,10 +779,6 @@ int roadmap_label_draw_cache (int angles, int full) {
                if (ncPtr->gen == 0) {
                    continue;
                }
-#else
-               //if (cPtr->zoom != ncPtr->zoom) {
-//                  continue;
-//               }
 #endif
 
                if (!(cPtr->flags & LABEL_FLAG_PLACE) &&
@@ -846,9 +803,7 @@ int roadmap_label_draw_cache (int angles, int full) {
                if (exists) {
                    /* Found a new version of this existing line */
                    int dx, dy;
-#if 1
-                  //remove_old_label = TRUE;
-                  //ncPtr->flags |= LABEL_FLAG_DRAWN;
+#ifdef OGL_TILE
                   while (cPtr->num_tiles < MAX_NUM_TILES && ncPtr->num_tiles > 0) {
                      cPtr->tile_ids[cPtr->num_tiles++]= ncPtr->tile_ids[--ncPtr->num_tiles];
                   }
@@ -857,18 +812,7 @@ int roadmap_label_draw_cache (int angles, int full) {
                      (&RoadMapLabelSpares,
                    roadmap_list_remove(&ncPtr->link));
                   break;//TODO: handle this case instead of removing item
-#else
-                     RoadMapGuiPoint center;
-                     center.x = roadmap_canvas_width()/2;
-                     center.y = roadmap_canvas_height()/2;
-                     //roadmap_math_rotate_point(&ncPtr->center_point, &center, RoadMapLabelLastOrient);
-                     roadmap_math_coordinate(&ncPtr->center_pos, &ncPtr->center_point);
-                  roadmap_math_rotate_project_coordinate (&ncPtr->center_point);
-                     if (!(ncPtr->flags & LABEL_FLAG_PLACE))
-                        ncPtr->angle = normalize_angle(ncPtr->angle);
-                  
 #endif
-
                    dx = ncPtr->center_point.x - cPtr->center_point.x;
                    dy = ncPtr->center_point.y - cPtr->center_point.y;
 
@@ -906,7 +850,6 @@ int roadmap_label_draw_cache (int angles, int full) {
                    if ((abs(dx) > 1) || (abs(dy) > 1)) {
                           cPtr->center_point = ncPtr->center_point;
                           cPtr->center_pos = ncPtr->center_pos;
-                      //roadmap_math_to_position (&cPtr->center_point, &cPtr->center_pos, 1);
                        }
 
                    cPtr->featuresize_sq = ncPtr->featuresize_sq;
@@ -1250,6 +1193,7 @@ void roadmap_label_activate (void) {
 
 }
 
+#ifdef OGL_TILE
 static void roadmap_label_on_delete_tile (int tile_id) {
    RoadMapListItem *item, *tmp;
    int i, j;
@@ -1290,6 +1234,7 @@ static void roadmap_label_on_delete_tile (int tile_id) {
       }
    }
 }
+#endif //OGL_TILE
 
 int roadmap_label_initialize (void) {
 
@@ -1308,7 +1253,9 @@ int roadmap_label_initialize (void) {
    ROADMAP_LIST_INIT(&RoadMapLabelNew);
 
    roadmap_skin_register (roadmap_label_activate);
+#ifdef OGL_TILE
    roadmap_canvas_tile_register_on_delete(roadmap_label_on_delete_tile);
+#endif
    return 0;
 }
 

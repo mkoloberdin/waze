@@ -173,7 +173,7 @@ static int on_ok( SsdWidget this, const char *new_value) {
    if (new_lang && strcmp(current_lang,new_lang)){
       // Language changed
       roadmap_lang_download_lang_file(new_lang, NULL);
-      roadmap_lang_set_system_lang( new_lang);
+      roadmap_lang_set_system_lang( new_lang, TRUE);
       ssd_dialog_hide_all(dec_close);
       roadmap_screen_redraw();
       roadmap_main_set_periodic(500,lang_changed_delayed_message);

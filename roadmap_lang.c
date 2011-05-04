@@ -111,10 +111,11 @@ const char *roadmap_lang_get_user_lang(){
       return lang;
 }
 //////////////////////////////////////////////////////////////////
-void roadmap_lang_set_system_lang(const char *lang){
+void roadmap_lang_set_system_lang(const char *lang, BOOL download){
    if (!initialized)
       roadmap_lang_initialize_params();
-   roadmap_lang_download_lang_file( lang, NULL );
+   if (download)
+      roadmap_lang_download_lang_file( lang, NULL );
    roadmap_config_set(&RoadMapConfigSystemLanguage, lang);
    roadmap_config_save(TRUE);
 }
@@ -393,7 +394,8 @@ void on_conf_file_downloaded (const char* res_name, int success, void *context, 
       roadmap_lang_conf_load(roadmap_path_downloads());
       if (callback)
          (*callback)();
-      download_lang_files();
+      else
+         download_lang_files();
 
    }
    else{

@@ -104,14 +104,14 @@ const char* Hebrew_Disclaimer =
    "ברוכים הבאים ל Waze!\n\n" \
    "מידע חי על מצב התנועה ונווט עוקף פקקים, אשר מיוצר בשיתוף ותרומה של חברי הקהילה\n" \
    "בלחיצה על 'אשר' הנך מאשר כי:\n" \
-   "1. קראת והנך מסכים לתנאי השימוש ומדיניות הפרטיות. השימוש בשירות Waze כפוף להסכמים המחייבים ומעיד על הסכמתך להם. תקציר זה אינו בא במקומם, והוא מיועד לצרכי נוחות בלבד.\n" \
-   "2. השימוש בשירות הינו באחריותך בלבד. הינך מאשר כי תשתמש בשירות בהתאם להוראות כל דין, לרבות דיני התעבורה." \
+   "1. קראת והנך מסכים ל'תנאי השימוש' http://www.waze.co.il/legal/tos/ ו'מדיניות הפרטיות' http://www.waze.co.il/legal/privacy/. השימוש בשירות Waze כפוף להסכמים המחייבים ומעיד על הסכמתך להם. תקציר זה אינו בא במקומם, והוא מיועד לצרכי נוחות בלבד.\n" \
+   "2. השימוש בשירות הינו באחריותך בלבד. הינך מאשר כי תשתמש בשירות בהתאם להוראות כל דין, לרבות דיני התעבורה.\n" \
    "3. שירות Waze מחייב חיבור לרשת האינטרנט לצורך השימוש בו, וקבלת עדכונים בזמן אמת. חברת Waze אינה מספקת קישור כזה. באחריותך לרכוש אותו ולוודא שתנאיו מתאימים לצרכיך. חברת Waze אינה נושאת בכל אחריות לקישור ו/או לכל שיבוש, תקלה או קלקול בו. \n" \
    "4. תוכנת המפוי Waze המותקנת על-גבי מכשיר הטלפון הסלולרי שלך, היא תוכנה חופשית; "  \
    "אתה יכול להפיצה מחדש ו/או לשנות את התוכנה על פי תנאי הרישיון הציבורי הכללי של GNU, אם גרסה 2 של הרישיון, " \
    "ובין אם (לפי בחירתך) כל גרסה מאוחרת שלו. התוכנה מופצת בתקווה שתהיה מועילה, אבל בלא אחריות כלשהי. לפרטים נוספים, ראה את הרישיון הציבורי הכללי של GNU. אם רצונך לקבל את קוד המקור של התכנה, פנה אלינו בכתב. \n" \
    "5. כשאתה מספק מידע ותוכן לשירות, אתה מאשר שאתה בעלים בלעדי של כל הזכויות בו ורשאי להקנות בו זכויות. מידע ותוכן כזה נשאר בבעלותך ואתה מקנה בו לחברת Waze רישיון חינם כלל עולמי, לא בלעדי, בלתי חוזר ובלתי מוגבל בזמן, שניתן להעברה וכולל זכות למתן רשיונות-משנה, להשתמש, להעתיק, להפיץ, ליצור יצירות נגזרות, להציג ולבצע בפומבי מידע ותוכן כזה. בכפוף לכך, בסיס הנתונים של השירות הוא קניינה של החברה ואין להשתמש בו אלא לצרכים לא מסחריים ופרטיים בלבד.\n" \
-   "6. שירות Waze מוצע בחינם, בתקווה שתמצא אותו מועיל. עם זאת, Waze ו/או עובדיה, מנהליה, בעלי מניותיה, יועציה ו/או מי מטעמה, לא ישאו בחבות כלשהיא כלפיך ו/או כלפי צדדים שלישים, מכל סיבה שהיא, בקשר עם מוצריה Waze ו/או שירותיה, לרבות (אך לא רק) בגין כל הפסד, אבדן רווח, פגיעה במוניטין, תשלום, הוצאה ו/או נזק, ישיר או עקיף, ממוני או בלתי-ממוני.\n\n\n";
+   "6. שירות Waze מוצע בחינם, בתקווה שתמצא אותו מועיל. עם זאת, Waze ו/או עובדיה, מנהליה, בעלי מניותיה, יועציה ו/או מי מטעמה, לא ישאו בחבות כלשהיא כלפיך ו/או כלפי צדדים שלישים, מכל סיבה שהיא, בקשר עם מוצריה Waze ו/או שירותיה, לרבות (אך לא רק) בגין כל הפסד, אבדן רווח, פגיעה במוניטין, תשלום, הוצאה ו/או נזק, ישיר או עקיף, ממוני או בלתי-ממוני.\n\n";
 
 
 const char* English_Disclaimer = 
@@ -137,7 +137,7 @@ const char* Spanish_Disclaimer =
    "3. El Servicio requiere de conexión inalámbrica a Internet para actualizaciones a tiempo real. Waze no provee tal conexión. Es su responsabilidad adquirir los servicios de conexión y asegurarse que sus términos satisfagan sus necesidades. Waze no tiene control o es responsable de la conexión y/o interrupción,  fallos o averías en ella al igual que no es responsable de la cobertura ofrecida por el operador respectivo."
    "4. El aplicativo móvil Waze, que usted instale en su dispositivo móvil consiste en un programa libre que usted puede redistribuirlo y/o modificarlo bajo los términos de la Licencia General Pública GNU, ya fuere la versión 2 de la Licencia o (a su elección) cualquier versión posterior.  Este programa se distribuye con la intención de que sea útil, pero SIN NINGUNA GARANTIA. Ver la Licencia General Pública GNU http://www.gnu.org/licenses/gpl-2.0.html para mayores detalles. Si desea obtener el código de fuente del programa, por favor contáctese con Waze."
    "5. Cuando proporcione datos y/o contenidos al Servicio, por el presente usted confirma que es el titular exclusivo de todos los derechos sobre ellos y que podrá ceder o licenciar tales derechos. Usted mantiene toda titularidad y derechos de dichos datos y/o contenidos proporcionados al Servicio, pero concede a Waze Mobile (la \"Compañía\" o \"Waze\") una licencia a nivel mundial, gratuita, no exclusiva, irrevocable, sublicenciable, transferible y perpetua para el uso, reproducción, distribución,  creación de obras derivadas de, exhibición pública, ejecución pública y cualquier otra forma de explotación de esos datos y contenidos. Sujeto a lo antes mencionado, la Compañía mantiene la propiedad y todos los derechos sobre la base de datos del Servicio y usted podrá usarlo exclusivamente para fines  no comerciales y privados."
-   "6. El Servicio Waze se ofrece en forma gratuita, con el objetivo de que usted lo encuentre útil. Sin embargo, Waze y/o sus empleados, directores, accionistas,  asesores, partners y/o cualquiera en su nombre (conjuntamente \"Waze\") no será responsable ante usted y/o cualquier tercero, por cualquier motivo, como resultado del uso del producto o Servicio de la Compañía. Por el presente usted libera irrevocablemente a Waze de toda responsabilidad de cualquier tipo, de cualquier consecuencia derivada del uso del producto o Servicio de la Compañía, incluyendo (pero no limitado) a cualquier pérdida, lucro cesante, pérdida de beneficios, daño a la reputación, tasa, gasto y/o perjuicio, directo o indirecto, económico o no económico.\n\n\n";
+   "6. El Servicio Waze se ofrece en forma gratuita, con el objetivo de que usted lo encuentre útil. Sin embargo, Waze y/o sus empleados, directores, accionistas,  asesores, partners y/o cualquiera en su nombre (conjuntamente \"Waze\") no será responsable ante usted y/o cualquier tercero, por cualquier motivo, como resultado del uso del producto o Servicio de la Compañía. Por el presente usted libera irrevocablemente a Waze de toda responsabilidad de cualquier tipo, de cualquier consecuencia derivada del uso del producto o Servicio de la Compañía, incluyendo (pero no limitado) a cualquier pérdida, lucro cesante, pérdida de beneficios, daño a la reputación, tasa, gasto y/o perjuicio, directo o indirecto, económico o no económico.\n\n";
 
 
 
@@ -254,6 +254,7 @@ void roadmap_welcome_wizard(void){
 	UIImageView *bgView;
 	NSString *text;
 	UILabel *label;
+   UITextView *textView;
 	UIButton *button;
    int viewPosY = 0;
 	rect = [[UIScreen mainScreen] applicationFrame];
@@ -297,17 +298,32 @@ void roadmap_welcome_wizard(void){
       text = [NSString stringWithUTF8String:English_Disclaimer];
    
    gRectTerm.size.width = scrollView.bounds.size.width - 40;
-   label = [[UILabel alloc] initWithFrame:gRectTerm];
-	[label setText:text];
-	[label setNumberOfLines:0];
-   [label setLineBreakMode:UILineBreakModeWordWrap];
-	[label setTextAlignment:UITextAlignmentCenter];
-	[label setFont:[UIFont systemFontOfSize:15]];
-   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
-   [label sizeToFit];
-	[scrollView addSubview:label];
-	[label release];
-   viewPosY = label.bounds.size.height + 20;
+   //label = [[UILabel alloc] initWithFrame:gRectTerm];
+//	[label setText:text];
+//	[label setNumberOfLines:0];
+//   [label setLineBreakMode:UILineBreakModeWordWrap];
+//	[label setTextAlignment:UITextAlignmentCenter];
+//	[label setFont:[UIFont systemFontOfSize:15]];
+//   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+//   [label sizeToFit];
+//	[scrollView addSubview:label];
+//	[label release];
+//   viewPosY = label.bounds.size.height + 20;
+   
+   textView = [[UITextView alloc] initWithFrame:gRectTerm];
+	[textView setText:text];
+	[textView setTextAlignment:UITextAlignmentCenter];
+	[textView setFont:[UIFont systemFontOfSize:15]];
+   [textView setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
+   [textView sizeToFit];
+   gRectTerm.size.height = textView.contentSize.height;
+   textView.frame = gRectTerm;
+   textView.scrollEnabled = NO;
+   textView.editable = NO;
+   textView.dataDetectorTypes = UIDataDetectorTypeLink;
+	[scrollView addSubview:textView];
+	[textView release];
+   viewPosY = textView.bounds.size.height + 20;
 
 	//Accept button
 	button = [UIButton buttonWithType:UIButtonTypeCustom];

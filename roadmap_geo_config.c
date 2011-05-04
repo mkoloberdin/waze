@@ -188,7 +188,7 @@ void GeoConfigTimer (void) {
 }
 
 
-
+   
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
@@ -225,7 +225,7 @@ static void on_lang_conf_downloaded(void){
 static void on_user_lang_downloaded(void){
    clean_up();
    ssd_progress_msg_dialog_hide();
-   roadmap_screen_refresh();
+   roadmap_screen_redraw();
 
    if (GeoConfigContext.callback)
        (*GeoConfigContext.callback)();
@@ -276,7 +276,7 @@ static void on_recieved_completed (void) {
    }
 
    if ((user_lang[0] == 0) && (newServerId == 2)){
-      roadmap_lang_set_system_lang(GeoConfigContext.lang);
+      roadmap_lang_set_system_lang(GeoConfigContext.lang, FALSE);
    }
 
    if ((oldServerId==-1)){
@@ -714,7 +714,7 @@ static int lang_callback (SsdWidget widget, const char *new_value) {
    if (!value)
       return 0;
 
-   roadmap_lang_set_system_lang(value);
+   roadmap_lang_set_system_lang(value, FALSE);
    ssd_dialog_set_focus(widget);
    roadmap_screen_redraw ();
    roadmap_main_set_periodic (300, lang_selected);
@@ -908,7 +908,7 @@ static void roadmap_geo_config_init (void) {
 
    address = get_webservice_address();
    if (INVALID_WEBSVC_HANDLE == s_websvc)
-      s_websvc = wst_init(address , "application/x-www-form-urlencoded; charset=utf-8");
+      s_websvc = wst_init(address, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {

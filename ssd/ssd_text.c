@@ -41,6 +41,7 @@
 #define  AUTO_HEIGHT_FACTOR      (0.5F)
 #define  HEIGHT_FACTOR           (1.2F)
 
+
 static int           cursor_width = 0;
 static int           cursor_height = 0;
 static int           initialized;
@@ -57,7 +58,7 @@ typedef struct tag_text_ctx
    BOOL                 auto_trim;
    int                  lines_space_padding; 	/* Additional padding for the inter-lines space */
    int                  value_max_size;
-
+   BOOL                 use_height_factor;
 }  text_ctx, *text_ctx_ptr;
 
 void text_ctx_init( text_ctx_ptr this)
@@ -65,6 +66,7 @@ void text_ctx_init( text_ctx_ptr this)
    memset( this, 0, sizeof(text_ctx));
    this->input_type     = inputtype_binary;
    this->value_max_size = SSD_TEXT_MAXIMUM_TEXT_LENGTH;
+   this->use_height_factor = TRUE;
 }
 
 void ssd_text_set_auto_size( SsdWidget this)
@@ -307,7 +309,10 @@ static int format_text (SsdWidget widget, int draw,
             }
          }
 
-         h = (text_ascent + text_descent + ctx->lines_space_padding) * HEIGHT_FACTOR;
+         if (ctx->use_height_factor)
+            h = (text_ascent + text_descent + ctx->lines_space_padding) * HEIGHT_FACTOR;
+         else
+            h = (text_ascent + text_descent + ctx->lines_space_padding);
 
          /*
           * This code can add a points at the end of the last line in case of text cut
@@ -645,4 +650,10 @@ void ssd_text_set_lines_space_padding( SsdWidget this, int space )
    ctx->lines_space_padding = space;
 }
 
+
+void ssd_text_set_use_height_factor( SsdWidget this, BOOL use_height_factor )
+{
+   text_ctx_ptr ctx = (text_ctx_ptr) this->data;
+   ctx->use_height_factor = use_height_factor;
+}
 

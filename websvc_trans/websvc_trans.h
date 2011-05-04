@@ -25,18 +25,19 @@
 
 #define  INVALID_WEBSVC_HANDLE      (NULL)
 
-wst_handle  wst_init( const char* service_name, const char* content_type);
+wst_handle  wst_init( const char* service_name, const char* secured_service_name,
+                     const char* service_v2_suffix, const char* content_type);
 void        wst_term( wst_handle h);
 
-BOOL        wst_start_trans(   
-               wst_handle           session,       // Session object
-               const char*          action,        // (/<service_name>/)<ACTION>
-               const wst_parser_ptr parsers,       // Array of 1..n data parsers
-               int                  parsers_count, // Parsers count
-               CB_OnWSTCompleted    cbOnCompleted, // Callback for transaction completion
-               void*                context,       // Caller context
-               const char*          szFormat,      // Custom data for the HTTP request
-               ...);                               // Parameters
+BOOL        wst_start_trans(wst_handle           session,       // Session object
+                            int                  flags,         // Session flags
+                            const char*          action,        // (/<service_name>/)<ACTION>
+                            const wst_parser_ptr parsers,       // Array of 1..n data parsers
+                            int                  parsers_count, // Parsers count
+                            CB_OnWSTCompleted    cbOnCompleted, // Callback for transaction completion
+                            void*                context,       // Caller context
+                            const char*          szFormat,      // Custom data for the HTTP request
+                            ...);                               // Parameters
 
 transaction_state wst_get_trans_state(   
                wst_handle           session);

@@ -182,6 +182,12 @@ BOOL SendMessage_ExternalPoiDisplayed (char* packet_only);
 BOOL Realtime_ReportTraffic(int value);
 void Realtime_SendAllStats(char* packet_only);
 
+int RT_IsWebServiceV2Command(const char *command);
+int RT_IsWebServiceSecuredCommand(const char *command);
+
+int   RealTime_GetMaxServerProtocol();
+char* Realtime_GetServerVersion(void);
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

@@ -236,8 +236,10 @@ void roadmap_plugin_get_line_points (const PluginLine *line,
                                      int              *last_shape,
                                      RoadMapShapeItr  *shape_itr) {
 
+   roadmap_log_push("roadmap_plugin_get_line_points");
    roadmap_plugin_line_from (line, from_pos);
    roadmap_plugin_line_to (line, to_pos);
+   roadmap_log_pop();
 
    if (line->plugin_id == ROADMAP_PLUGIN_ID) {
 

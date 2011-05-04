@@ -130,9 +130,13 @@ static int roadmap_http_async_decode_header (HttpAsyncContext *context,
 
                while (*(++p) == ' ') ;
                context->content_length = atoi(p);
-               if (context->content_length <= 0) {
+               if (context->content_length < 0) {
                   roadmap_log (ROADMAP_ERROR, "roadmap_http_async_decode_header() : bad formed header: %s", buffer);
                   return -1;
+               }
+               else if (context->content_length == 0){
+                  RoadMapHttpAsyncCallbacks *callbacks = context->callbacks;
+                  return -2;
                }
             }
             if (strncasecmp (buffer,
@@ -190,6 +194,13 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
          	context->header_buffer[0] = '\0';
          }
          res = roadmap_http_async_decode_header(context, buffer, res + leftover_size);
+         if (res == -2){
+               roadmap_main_remove_input(io);
+               roadmap_io_close(&context->io);
+               callbacks->done(context->cb_context, context->last_modified_buffer);
+               return;
+         }
+
          if ( context->is_parsing_headers ) {
             if ( res == 0 ) { /* Need more header data - keep listening.
                                * Other res values are handled further (actually can't be positive in this state ... */
@@ -224,7 +235,7 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
       roadmap_main_remove_input(io);
       roadmap_io_close(&context->io);
 
-      if ( ( res >= 0 ) && ( context->content_length > 0 ) && ( context->download_size_current == context->content_length ) ) {
+      if ( ( res >= 0 ) && ( context->content_length >= 0 ) && ( context->download_size_current == context->content_length ) ) {
          callbacks->done(context->cb_context, context->last_modified_buffer);
       }
       else {

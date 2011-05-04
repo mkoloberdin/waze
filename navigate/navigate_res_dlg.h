@@ -28,8 +28,9 @@
 
 #include "ssd/ssd_widget.h"
 SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance, BOOL showAltBtn, SsdCallback callback);
-void navigate_res_update_ETA_widget(SsdWidget container, int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance);
+void navigate_res_update_ETA_widget(SsdWidget dlg, SsdWidget container, int iRouteDistance, int iRouteLenght, const char *via, BOOL showDistance);
 void navigate_res_hide_ETA_widget(SsdWidget container);
 void navigate_res_show_ETA_widget(SsdWidget container);
 void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDistance, int iRouteLenght, const char *via, int iTimeOut, BOOL show_diclaimer) ;
+void navigate_res_dlg_switch_eta_display(void);
 #endif /* NAVIGATE_RES_DLG_H_ */

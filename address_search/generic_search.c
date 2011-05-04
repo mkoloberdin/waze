@@ -216,6 +216,7 @@ roadmap_result generic_search_resolve_address(
 
    // Perform WebService Transaction:
    if( wst_start_trans( websvc,
+                        0,
                         service_name,
                         data_parser,
                         parser_count,
@@ -338,8 +339,10 @@ void generic_search_add_address_to_history( int               category,
 
       for( i=0; i<ahi__count; i++)
          favorites_address_info[i] = strdup( address[i]);
-
-      generic_search_add_to_favorites();
+      if (!name)
+         generic_search_add_to_favorites();
+      else
+         on_favorites_name(dec_ok, name, NULL);
    }
    else
    {

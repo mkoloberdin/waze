@@ -43,7 +43,7 @@
 
 #if defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)
 #define RES_CACHE_SIZE 30	// Symbian non touch
-#elif defined(ANDROID)
+#elif defined(ANDROID) || defined(IPHONE)
 #define RES_CACHE_SIZE 600	// Default
 #else
 #define RES_CACHE_SIZE 150 // Default

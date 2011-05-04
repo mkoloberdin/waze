@@ -35,5 +35,6 @@ void roadmap_location_subscribe_to_navigation (RoadMapGpsdNavigation navigation)
 void roadmap_location_subscribe_to_satellites (RoadMapGpsdSatellite satellite);
 void roadmap_location_subscribe_to_dilution (RoadMapGpsdDilution dilution);
 
+time_t roadmap_location_get_latest_time ();
 
 #endif // __ROADMAP_LOCATION__H

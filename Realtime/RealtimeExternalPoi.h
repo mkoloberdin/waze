@@ -38,6 +38,8 @@
 #define EXTERNAL_POI_SIZE_MEDIUM 2
 #define EXTERNAL_POI_SIZE_LARGE  3
 
+#define SHOW_NEAR_BY_AS_AD          0x1
+#define SHOW_NEAR_BY_AS_PROMOTION   0x2
 
 typedef struct
 {
@@ -78,6 +80,7 @@ typedef struct
     BOOL isDiplayed;
     BOOL bPopedUp;
     BOOL bShowPromo;
+    int  iShowNearByFlags;
 } RTExternalPoi;
 
 BOOL RealtimeExternalPoi_PopupEnabled (void) ;
@@ -122,4 +125,6 @@ BOOL ShowPromotions(BOOL new_session);
 
 BOOL RealtimeExternalPoi_MyCouponsEnabled(void);
 void RealtimeExternalPoi_MyCouponsDlg(void);
+
+void RealtimeExternalPoi_OnShowPoiNearByPressed(void);
 #endif /* REALTIMEEXTERNALPOI_H_ */

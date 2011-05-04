@@ -138,5 +138,7 @@ BOOL roadmap_object_exists(RoadMapDynamicString id);
 
 void roadmap_object_set_no_overlapping (RoadMapDynamicString id);
 BOOL roadmap_object_overlapped(RoadMapDynamicString origin, RoadMapDynamicString   image, const RoadMapGpsPosition *position, const RoadMapGuiPoint    *offset);
+
+void roadmap_object_set_scale_factor (RoadMapDynamicString id, int min_zoom, int scale);
 #endif // INCLUDE__ROADMAP_OBJECT__H
 

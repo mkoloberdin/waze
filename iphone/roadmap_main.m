@@ -47,6 +47,7 @@
 #include "../roadmap_config.h"
 #include "../roadmap_history.h"
 #include "roadmap_canvas.h"
+#include "roadmap_canvas_tile.h"
 #include "roadmap_iphonecanvas.h"
 #include "roadmap_iphonemain.h"
 
@@ -105,7 +106,19 @@ struct roadmap_main_io {
    RoadMapInput callback;
    time_t start_time;
    int type;
+   int is_secured;
 };
+
+#if 0
+struct roadmap_main_ssl_io {
+   RoadMapSocket  s;
+   void           *data;
+   CFReadStreamRef readStream;
+   CFWriteStreamRef writeStream;
+   RoadMapNetSslConnectCallback onOpenCallback;
+   RoadMapInput callback;
+};
+#endif //0
 
 #define ROADMAP_MAX_IO  16
 #define IO_TYPE_OUTPUT  0
@@ -508,6 +521,13 @@ void roadmap_main_set_input (RoadMapIO *io, RoadMapInput callback) {
     [TheApp setInput: io andCallback: callback];
 }
 
+#if 0
+void roadmap_main_set_secured_input (RoadMapIO *io, RoadMapInput callback, void *ssl_context) {
+   struct roadmap_main_ssl_io *ssl_io;
+   ssl_io->callback = callback;
+}
+#endif
+
 static void outputCallback (
    CFSocketRef s,
    CFSocketCallBackType callbackType,
@@ -554,10 +574,10 @@ void reachabilityCallBack	(SCNetworkReachabilityRef	target,
    
    if (flags & kSCNetworkReachabilityFlagsReachable) {
       roadmap_log(ROADMAP_WARNING, "Network reachability changed: connected");
-      //roadmap_device_event_notification(device_event_network_connected);
+      roadmap_device_event_notification(device_event_network_connected);
    } else {
       roadmap_log(ROADMAP_WARNING, "Network reachability changed: NOT connected");
-      //roadmap_device_event_notification(device_event_network_disconnected);
+      roadmap_device_event_notification(device_event_network_disconnected);
    }
 }
 
@@ -620,6 +640,166 @@ int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInpu
    return res;
 }
 
+#if 0
+int roadmap_main_read_ssl_stream (void *context, void *buffer, int buffer_size) {
+   struct roadmap_main_ssl_io *ssl_io = (struct roadmap_main_ssl_io*) context;
+   int bytes_read = CFReadStreamRead (ssl_io->readStream, buffer, buffer_size);
+
+   return bytes_read;
+}
+
+static void read_stream_client_cb (CFReadStreamRef stream,
+                              CFStreamEventType eventType,
+                              void *clientCallBackInfo)
+{
+   printf("read_stream_client_cb status: %d\n", CFReadStreamGetStatus(stream));
+   if (eventType & kCFStreamEventOpenCompleted) {
+      //CFStreamClientContext *context = (CFStreamClientContext*) clientCallBackInfo;
+      //struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
+      NSLog(@"read_stream_client_cb: kCFStreamEventOpenCompleted");
+//      on_ssl_open_callback(io->s, io->data, io);
+//      free(io);
+//      return;
+   }
+   if (eventType & kCFStreamEventErrorOccurred) {
+      CFErrorRef err = CFReadStreamCopyError(stream);
+      if (err) {
+         CFStringRef str = CFErrorCopyDescription(err);
+         char buf[1024];
+         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
+         roadmap_log(ROADMAP_ERROR, "read_stream_client_cb: kCFStreamEventErrorOccurred : '%s'", buf);
+         CFRelease(str);
+         CFRelease(err);
+      }
+      return;
+   }
+   
+   if (eventType & kCFStreamEventEndEncountered) {
+      NSLog(@"read_stream_client_cb: kCFStreamEventEndEncountered");
+      return;
+   }
+   
+   if (eventType & kCFStreamEventHasBytesAvailable) {
+      NSLog(@"read_stream_client_cb: kCFStreamEventHasBytesAvailable");
+      //      
+      //UInt8 buffer[512];
+//            int bytes_read = CFReadStreamRead (stream, buffer, sizeof(buffer));
+//            if (bytes_read == -1)
+//               return;
+//      struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
+      //on_ssl_read_callback(io->s, io->data, buffer, bytes_read);
+     // io->callback();
+      //      
+      //      err = AudioFileStreamParseBytes (af_parser, bytes_read, buffer, parseFlag);
+      //      if (err)
+      //         //NSLog(@"error AudioFileStreamParseBytes");
+      return;
+   }
+}
+
+static void write_stream_client_cb (CFWriteStreamRef stream,
+                                   CFStreamEventType eventType,
+                                   void *clientCallBackInfo)
+{
+   printf("write_stream_client_cb status: %d\n", CFReadStreamGetStatus(stream));
+   if (eventType & kCFStreamEventOpenCompleted) {
+      NSLog(@"write_stream_client_cb: kCFStreamEventOpenCompleted");
+      return;
+   }
+   if (eventType & kCFStreamEventErrorOccurred) {
+      CFErrorRef err = CFWriteStreamCopyError(stream);
+      if (err) {
+         CFStringRef str = CFErrorCopyDescription(err);
+         char buf[1024];
+         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
+         roadmap_log(ROADMAP_ERROR, "write_stream_client_cb: kCFStreamEventErrorOccurred : '%s'", buf);
+         CFRelease(str);
+         CFRelease(err);
+      }
+      return;
+   }
+   
+   if (eventType & kCFStreamEventEndEncountered) {
+      NSLog(@"write_stream_client_cb: kCFStreamEventEndEncountered");
+      return;
+   }
+   
+   if (eventType & kCFStreamEventCanAcceptBytes) {
+      CFWriteStreamSetClient(stream, 0, NULL, NULL);
+      NSLog(@"write_stream_client_cb: kCFStreamEventCanAcceptBytes");
+      struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
+      io->onOpenCallback(io->s, io->data, io, succeeded);
+      return;
+   }
+}
+
+int roadmap_main_send_ssl (struct roadmap_main_ssl_io *io, const void *data, int length) {
+   int res = CFWriteStreamWrite(io->writeStream, data, length);
+   printf("res: %d\n", res);
+   if (res < 0) {
+      CFErrorRef err = CFWriteStreamCopyError(io->writeStream);
+      if (err) {
+         CFStringRef str = CFErrorCopyDescription(err);
+         char buf[1024];
+         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
+         roadmap_log(ROADMAP_ERROR, "Error writing to SSL stream: '%s'", buf);
+         CFRelease(str);
+         CFRelease(err);
+      }
+   }
+   
+   return res;
+}
+
+int roadmap_main_open_ssl (RoadMapSocket s, void *data, RoadMapNetSslConnectCallback callback) {
+   struct roadmap_main_ssl_io *ssl_io;
+   CFReadStreamRef readStream;
+   CFWriteStreamRef writeStream;
+   CFStreamCreatePairWithSocket(NULL, roadmap_net_get_fd(s), &readStream, &writeStream);
+   if (!readStream || !writeStream) {
+      printf("ERROR\n");
+   }
+   printf("open_ssl status: %d\n", CFReadStreamGetStatus(readStream));
+   
+   ssl_io = malloc(sizeof (struct roadmap_main_ssl_io));
+   ssl_io->s = s;
+   ssl_io->data = data;
+   ssl_io->readStream = readStream;
+   ssl_io->writeStream = writeStream;
+   ssl_io->onOpenCallback = callback;
+   CFStreamClientContext context = {0, ssl_io, NULL, NULL, NULL};
+   CFReadStreamSetClient(readStream,
+                         kCFStreamEventHasBytesAvailable | kCFStreamEventErrorOccurred | kCFStreamEventEndEncountered
+                         |kCFStreamEventOpenCompleted,
+                         read_stream_client_cb,
+                         &context);
+   CFReadStreamScheduleWithRunLoop(readStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+   CFWriteStreamSetClient(writeStream,
+                          kCFStreamEventCanAcceptBytes | kCFStreamEventErrorOccurred | kCFStreamEventEndEncountered
+                          |kCFStreamEventOpenCompleted,
+                          write_stream_client_cb,
+                          &context);
+   CFWriteStreamScheduleWithRunLoop(writeStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
+   
+   //Open read stream
+   NSInputStream *inputStream = (NSInputStream *)readStream;
+   [inputStream setProperty:NSStreamSocketSecurityLevelSSLv2 forKey:NSStreamSocketSecurityLevelKey];
+   
+   if (!CFReadStreamOpen(readStream)) {
+      printf(" ERROR\n");
+   }
+   printf("open_ssl status: %d\n", CFReadStreamGetStatus(readStream));
+   
+   //Open write stream
+   NSOutputStream *outputStream = (NSOutputStream *)writeStream;
+   [outputStream setProperty:NSStreamSocketSecurityLevelNegotiatedSSL forKey:NSStreamSocketSecurityLevelKey];
+   
+   if (!CFWriteStreamOpen(writeStream)) {
+      printf(" ERROR\n");
+   }
+   printf("open_ssl status: %d\n", CFWriteStreamGetStatus(writeStream));
+}
+#endif //0
 
 RoadMapIO *roadmap_main_output_timedout(time_t timeout) {
    int i;
@@ -1675,7 +1855,7 @@ int main (int argc, char **argv) {
          directory = roadmap_path_join(roadmap_main_home_path(), "/skins/default");
          files = roadmap_path_list (directory, ".png");
          for (cursor = files; *cursor != NULL; ++cursor) {
-            //if (!strstr(*cursor, "@2x")) //TODO: change this in next build (uncomment)
+            if (!strstr(*cursor, "@2x"))
                roadmap_file_remove(directory, *cursor);
          }
          roadmap_path_list_free (files);
@@ -1776,6 +1956,7 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
       [RoadMapMainSplashWin release];
     */
    [RoadMapMainSplashView removeFromSuperview];
+   RoadMapMainSplashView = NULL;
    (*RoadMapCanvasConfigure) ();
    IsLaunching = 0;
    
@@ -1820,6 +2001,38 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
     
 }
 
+- (void)createAddSplashView
+{
+   UIImage *image;
+   CGRect rect;
+   
+   image = roadmap_iphoneimage_load("welcome");
+   if (!image) {
+      if (RoadMapMainPlatform == ROADMAP_MAIN_PLATFORM_IPAD)
+         image = roadmap_iphoneimage_load("welcome-ipad");
+      else if (roadmap_screen_get_screen_scale() == 200)
+         image = roadmap_iphoneimage_load("welcome-iphone@2x");
+      else
+         image = roadmap_iphoneimage_load("welcome-iphone");
+   }
+   if (image) {
+      
+      RoadMapMainSplashView = [[UIImageView alloc] initWithImage:image];
+      [image release];
+      
+      rect = RoadMapMainSplashView.frame;
+      
+      if (RoadMapMainPlatform != ROADMAP_MAIN_PLATFORM_IPAD){
+         RoadMapMainSplashView.frame = rect;
+      } else {
+         rect.origin.y += 20;
+         RoadMapMainSplashView.frame = rect;
+      }
+      [RoadMapMainWindow addSubview:RoadMapMainSplashView];
+      [RoadMapMainSplashView release];
+   }
+}
+
 
 - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url sourceApplication:(NSString *)sourceApplication annotation:(id)annotation
 {
@@ -1843,10 +2056,7 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
 {
-   //NSURL *launchURL = NULL;
-   UIImage *image = NULL;
    NSTimer *startTimer;
-   CGRect rect;
    
 #if !TARGET_IPHONE_SIMULATOR
    //register for push notifications
@@ -1854,14 +2064,6 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
                                                                           UIRemoteNotificationTypeSound |
                                                                           UIRemoteNotificationTypeAlert)];
 #endif
-   
-   //if (launchOptions != NULL) {
-//      launchURL = (NSURL *)[launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
-//      if (launchURL)
-//         if (!roadmap_urlscheme_handle (launchURL))
-//            return NO;
-//   }
-   
    
    //set model
    NSString *model = [[UIDevice currentDevice] model];
@@ -1886,7 +2088,6 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
    } else {
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_4;
-      //roadmap_screen_set_screen_scale((int)([[UIScreen mainScreen] scale] * 100));
       roadmap_screen_set_screen_type((int)([[UIScreen mainScreen] scale] * 320), (int)([[UIScreen mainScreen] scale] * 480));
    }
    
@@ -1895,38 +2096,8 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    roadmap_main_new("", 0, 0);
    
    
-   image = roadmap_iphoneimage_load("welcome");
-   if (!image) {
-      if (RoadMapMainPlatform == ROADMAP_MAIN_PLATFORM_IPAD)
-         image = roadmap_iphoneimage_load("welcome-ipad");
-      else if (roadmap_screen_get_screen_scale() == 200)
-         image = roadmap_iphoneimage_load("welcome-iphone@2x");
-      else
-         image = roadmap_iphoneimage_load("welcome-iphone");
-   }
-   if (image) {
-      
-      RoadMapMainSplashView = [[UIImageView alloc] initWithImage:image];
-      [image release];
-      //RoadMapMainSplashWin = [[UIWindow alloc] initWithFrame:[UIScreen mainScreen].applicationFrame];
-      
-      rect = RoadMapMainSplashView.frame;
-      
-      if (RoadMapMainPlatform != ROADMAP_MAIN_PLATFORM_IPAD){
-         //rect.origin.y -= 20;
-         RoadMapMainSplashView.frame = rect;
-      } else {
-         rect.origin.y += 20;
-         //RoadMapMainSplashView.frame = RoadMapMainWindow.bounds;
-         RoadMapMainSplashView.frame = rect;
-      }
-      //[RoadMapMainSplashWin addSubview: RoadMapMainSplashView];
-      //[RoadMapMainSplashView release];
-      //[RoadMapMainSplashWin makeKeyAndVisible];
-      [RoadMapMainWindow addSubview:RoadMapMainSplashView];
-      [RoadMapMainSplashView release];
-      [RoadMapMainWindow makeKeyAndVisible];
-   }
+   [self createAddSplashView];
+   [RoadMapMainWindow makeKeyAndVisible];
    
    
    //Clear old version files
@@ -2057,12 +2228,22 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    
    if (IsScreenRefresh)
       roadmap_start_screen_refresh(FALSE);
+   
+   roadmap_canvas_tile_free_all();
+   
+   //show splash
+   [self createAddSplashView];
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application
 {
    if (!IsInBackground) {
       return;
+   }
+   
+   if (RoadMapMainSplashView) {
+      [RoadMapMainSplashView removeFromSuperview];
+      RoadMapMainSplashView = NULL;
    }
 
    IsInBackground = FALSE;

@@ -2213,7 +2213,7 @@ BOOL roadmap_canvas_set_image_texture( RoadMapImage image )
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR );
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST );
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, next_pot( image->width ), next_pot( image->height ), 0, GL_RGBA, GL_UNSIGNED_BYTE, image->buf );
-      
+      check_gl_error();
    }
    
    image->frame_buf = CANVAS_INVALID_TEXTURE_ID;
@@ -2558,6 +2558,7 @@ void roadmap_canvas_draw_image_text (RoadMapImage image,
 }
 
 void roadmap_canvas_begin_draw_to_image (RoadMapImage image) {
+#ifdef OGL_TILE
    if (image->frame_buf == CANVAS_INVALID_TEXTURE_ID) {
       //create framebuffer
       GLuint framebuffer;
@@ -2592,9 +2593,11 @@ void roadmap_canvas_begin_draw_to_image (RoadMapImage image) {
             -100.0f, 100.0f); // near, far
    
    glViewport(0, 0, image->width, image->height);
+#endif //OGL_TILE
 }
 
 void roadmap_canvas_stop_draw_to_image (void) {
+#ifdef OGL_TILE
    static GLint   screen_framebuffer = -1;
    
    if (screen_framebuffer == -1)
@@ -2604,10 +2607,12 @@ void roadmap_canvas_stop_draw_to_image (void) {
 
    //roadmap_canvas3_ogl_prepare();
    roadmap_canvas_ogl_rotateMe(0);
+#endif //OGL_TILE
 }
 
 void roadmap_canvas_free_image (RoadMapImage image)
 {
+   int i;
    GLuint item;
    if (!image)
       return;
@@ -2623,11 +2628,28 @@ void roadmap_canvas_free_image (RoadMapImage image)
       glDeleteTextures( 1, &item );
 */
 #ifdef IPHONE
-   item = image->frame_buf;
-   if (item != CANVAS_INVALID_TEXTURE_ID )
-      glDeleteFramebuffersOES(1, &item);
+   if (!strcmp(image->full_path, CANVAS_IMAGE_NEW_TYPE)) {   // workaround - only free canvas tile images.
+                                                             // need to check why deleting res images does not work
+      item = image->frame_buf;
+      if (item != CANVAS_INVALID_TEXTURE_ID )
+         glDeleteFramebuffersOES(1, &item);
+      check_gl_error();
+      
+      item = image->texture;
+      if (item != CANVAS_INVALID_TEXTURE_ID )
+         glDeleteTextures( 1, &item );
+      check_gl_error();
+      
+      for (i = 0; i < num_tex_units; i++)
+      {
+         if (tex_units[i] == item)
+         {
+            tex_units[i] = CANVAS_INVALID_TEXTURE_ID;
+            break;
+         }
+      }
+   }
 #endif
-   check_gl_error();
 
    unmanaged_list_remove( image );
 

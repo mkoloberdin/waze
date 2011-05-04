@@ -44,7 +44,7 @@ void roadmap_canvas_tile_set_horizon (int horizon,int is_projection);
 void roadmap_canvas_tile_set_target_zoom (int layer_id, zoom_t zoom);
 void roadmap_canvas_tile_register_on_delete (RoadMapCanvasTileOnDeleteCb callback);
 int roadmap_canvas_tile_get_id (void);
-
+void roadmap_canvas_tile_free_all (void);
 
 
 #endif // INCLUDE__ROADMAP_CANVAS_TILE__H

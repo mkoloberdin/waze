@@ -103,6 +103,11 @@ static void set_new_prompts_updated(void){
 }
 
 //////////////////////////////////////////////////////////////////
+static void set_new_prompts_not_updated(void){
+   roadmap_config_set (&RoadMapConfigPromptUpdatedNew, "no");
+}
+
+//////////////////////////////////////////////////////////////////
 const char *roadmap_prompts_get_name (void) {
    if (!initialized)
       roadmap_prompts_init_params ();
@@ -115,6 +120,7 @@ void roadmap_prompts_set_name (const char *name) {
    if (!initialized)
       roadmap_prompts_init_params ();
 
+   set_new_prompts_not_updated();
    roadmap_config_set (&RoadMapConfigPromptName, name);
 }
 
@@ -375,6 +381,7 @@ static BOOL prompt_set_exist(const char *value){
     return FALSE;
 }
 
+
 //////////////////////////////////////////////////////////////////
 static void on_download_lang_confirm(int exit_code, void *context){
    if (exit_code == dec_yes){
@@ -488,7 +495,7 @@ const char *roadmap_prompts_get_label (const char *value) {
 static void check_for_new_prompts(){
    int i = 0;
    BOOL all_update = TRUE;
-   char *new_prompts[] = {"ApproachAccident","ApproachHazard", "ApproachTraffic", "AndThen", NULL};
+   char *new_prompts[] = {"ApproachAccident","ApproachHazard", "ApproachTraffic", "AndThen", "ExitLeft", "ExitRight" ,"400", "400meters", "1500","1500meters", "1000", "1000meters", NULL};
 
    if (new_prompts_updated())
       return;
@@ -574,4 +581,23 @@ BOOL roadmap_prompts_file_exist(const char *prompt_name){
 #endif
    return roadmap_file_exists (path, file_name);
 
+}
+
+BOOL roadmap_prompts_file_exist_and_not_empty(const char *prompt_name){
+   char path[256];
+   char file_name[256];
+
+   if (!roadmap_prompts_file_exist (prompt_name))
+      return FALSE;
+
+   roadmap_path_format (path, sizeof (path), roadmap_path_downloads (), "sound");
+   roadmap_path_format (path, sizeof (path), path, roadmap_prompts_get_name());
+
+#ifdef ANDROID
+   snprintf( file_name, sizeof(file_name), "%s.bin", prompt_name);
+#else
+   snprintf( file_name, sizeof(file_name), "%s.mp3", prompt_name);
+#endif
+
+   return (roadmap_file_length(path,file_name) != 0);
 }

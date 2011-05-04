@@ -27,6 +27,7 @@
 #include <assert.h>
 
 #include "../roadmap.h"
+#include "../roadmap_main.h"
 #include "../roadmap_social.h"
 #include "../roadmap_messagebox.h"
 #include "RealtimeAltRoutes.h"
@@ -37,6 +38,7 @@
 #include "../roadmap_trip.h"
 #include "../roadmap_navigate.h"
 #include "../roadmap_line_route.h"
+#include "roadmap_lang.h"
 #include "roadmap_analytics.h"
 
 
@@ -50,6 +52,9 @@ typedef struct {
 static AltRoutesTripsTable altRoutesTrips;
 
 static BOOL cancelled = FALSE;
+static BOOL CalculatingAltRoutes = FALSE;
+
+static void route_request_timeout(void);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 int RealtimeAltRoutes_Count() {
@@ -122,14 +127,28 @@ BOOL RealtimeAltRoutes_Add_Route(AltRouteTrip *pRoute) {
    return TRUE;
 }
 
+static void RealtimeAltRoutes_OnRouteRC (NavigateRouteRC rc, int protocol_rc, const char *description) {
+   CalculatingAltRoutes = FALSE;
+   
+   // TODO put error handling
+	if (rc == route_succeeded) {
+      roadmap_main_remove_periodic(route_request_timeout);
+		ssd_progress_msg_dialog_hide ();
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeAltRoutes_OnRouteResults (NavigateRouteRC rc, int num_res, const NavigateRouteResult *res){
    int i;
+   
+   CalculatingAltRoutes = FALSE;
+   
    if (num_res > MAX_ROUTES)
       num_res = MAX_ROUTES;
 
 
    if (rc != route_succeeded){
+      roadmap_main_remove_periodic(route_request_timeout);
       ssd_progress_msg_dialog_hide ();
       roadmap_log(ROADMAP_ERROR,"RealtimeAltRoutes_OnRouteResults failed rc=%d", rc );
       return;
@@ -180,11 +199,29 @@ void RealtimeAltRoutes_OnTripRouteResults (NavigateRouteRC rc, int num_res, cons
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeAltRoutes_OnRouteSegments (NavigateRouteRC rc, const NavigateRouteResult *res, const NavigateRouteSegments *segments){
+   char msg[128];
+   
    roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments");
    if (cancelled){
       roadmap_log (ROADMAP_DEBUG,"RealtimeAltRoutes_OnRouteSegments - Navigation cancelled");
       return;
    }
+   
+   if (rc != route_succeeded) {
+      
+		switch (rc) {
+			case route_server_error:
+				// message already displayed
+				break;
+			case route_inconsistent:
+			default:
+		      snprintf(msg, sizeof(msg), "%s.\n%s", roadmap_lang_get("The service failed to provide a valid route"), roadmap_lang_get("Please try again later"));
+			   roadmap_log (ROADMAP_ERROR, "The service failed to provide a valid route rc=%d", rc);
+				roadmap_messagebox ("Oops", msg);
+		}
+      
+		return;
+	}
 
    navigate_main_on_route (res->flags, res->total_length, res->total_time, segments->segments,
                              segments->num_segments, segments->num_instrumented,
@@ -226,10 +263,25 @@ static BOOL RealtimeAltRoutes_GetOrigin(RoadMapGpsPosition *pos, PluginLine *lin
    return FALSE;
 }
 
+static void route_request_timeout(void)
+{
+	roadmap_main_remove_periodic( route_request_timeout );
+	ssd_progress_msg_dialog_hide();
+	if (CalculatingAltRoutes)
+	{
+	   char msg[128];
+	   snprintf(msg, sizeof(msg), "%s.\n%s", roadmap_lang_get("Routing service timed out"), roadmap_lang_get("Please try again later"));
+		roadmap_messagebox_timeout("Oops",msg ,5);
+		roadmap_analytics_log_event (ANALYTICS_EVENT_ROUTE_ERROR, ANALYTICS_EVENT_INFO_ERROR, "TimeOut");
+		navigate_route_cancel_request();
+		CalculatingAltRoutes = FALSE;
+	}
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes){
 	static NavigateRouteCallbacks cb = {
-		NULL,
+		RealtimeAltRoutes_OnRouteRC,
 		RealtimeAltRoutes_OnRouteResults,
       RealtimeAltRoutes_OnRouteSegments,
       navigate_main_update_route,
@@ -257,6 +309,9 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
    }
 
    roadmap_analytics_log_event(ANALYTICS_EVENT_ALT_ROUTES, NULL, NULL);
+
+   CalculatingAltRoutes = TRUE;
+   roadmap_main_set_periodic( 50000, route_request_timeout );
 
    navigate_main_prepare_for_request();
    navigate_route_request (&fromLine,

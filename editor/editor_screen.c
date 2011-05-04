@@ -415,7 +415,7 @@ void editor_screen_selection_menu(void){
         screen_selection_popup();
  #endif
         roadmap_screen_redraw ();
-        return 1;
+        return ;
 }
 static int editor_screen_long_click (RoadMapGuiPoint *point) {
 //   PluginStreet street;

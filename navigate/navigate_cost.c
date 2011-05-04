@@ -350,7 +350,6 @@ static int cost_fastest_traffic (int line_id, int is_reversed, int cur_cost,
 
    if (!cross_time) cross_time =
          roadmap_line_speed_get_avg_cross_time (line_id, is_reversed);
-
    if (node_id != -1) {
 
 	   cross_time += RTAlerts_Penalty(line_id, is_reversed);
@@ -405,7 +404,7 @@ NavigateCostFn navigate_cost_get (void) {
 
    if (navigate_cost_type () == COST_FASTEST) {
       if (navigate_cost_use_traffic ()) {
-         return &cost_fastest_traffic;
+         return &cost_fastest;
       } else {
          return &cost_fastest;
       }
@@ -418,10 +417,10 @@ int navigate_cost_time (int line_id, int is_revesred, int cur_cost,
                         int prev_line_id, int is_prev_reversed) {
 
      if (navigate_cost_use_traffic ()) {
-					return cost_fastest_traffic (line_id, is_revesred, cur_cost,
+					return cost_fastest (line_id, is_revesred, cur_cost,
                					                 prev_line_id, is_prev_reversed, -1);
       } else {
-					return cost_fastest_no_traffic (line_id, is_revesred, cur_cost,
+					return cost_fastest (line_id, is_revesred, cur_cost,
                					                 prev_line_id, is_prev_reversed, -1);
      }
 

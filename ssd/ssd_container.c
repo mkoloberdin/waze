@@ -721,7 +721,7 @@ static void add_title (SsdWidget w, int flags) {
    align_flag = 0;
 #endif //ANDROID
 
-   #ifndef TOUCH_SCREEN
+#ifndef TOUCH_SCREEN
       height = 28;
 #endif
    title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, height, SSD_END_ROW);
@@ -730,11 +730,12 @@ static void add_title (SsdWidget w, int flags) {
    title->draw = draw_title;
   }
   else{
-   int height = 24;
+   int height = 28;
       if ( roadmap_screen_is_hd_screen() )
       {
          height = height*1.8;
       }
+
       title = ssd_container_new ("title_bar", NULL, SSD_MAX_SIZE, height,
                               SSD_END_ROW);
   }

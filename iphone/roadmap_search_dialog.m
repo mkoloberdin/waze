@@ -38,7 +38,7 @@
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-static const char*   title = "Drive to";
+static const char*   search_title = "Drive to";
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -47,7 +47,12 @@ enum IDs {
 	ID_SEARCH_ADDRESSBOOK,
    ID_SEARCH_HISTORY,
    ID_SEARCH_MARKED_LOCATIONS,
-   ID_SEARCH_BAR
+   ID_SEARCH_BAR,
+   ID_TAG_IMAGE,
+   ID_TAG_LABEL1,
+   ID_TAG_LABEL2,
+   ID_TAG_LABEL3,
+   ID_TAG_BACKGROUND
 };
 
 #define MAX_IDS 25
@@ -57,7 +62,8 @@ static const char *id_actions[MAX_IDS];
 void single_search_resolved_dlg_show (const char** results, void** indexes,
                                       int count_adr, int count_ls, int count_ab,
                                       PFN_ON_ITEM_SELECTED on_item_selected, 
-                                      SsdSoftKeyCallback detail_button_callback) {
+                                      SsdSoftKeyCallback detail_button_callback,
+                                      const char* fav_name) {
    
    SingleSearchResultsDialog *dialog = [[SingleSearchResultsDialog alloc] initWithStyle:UITableViewStyleGrouped];
    [dialog showResults:results
@@ -66,7 +72,8 @@ void single_search_resolved_dlg_show (const char** results, void** indexes,
                countLs:count_ls
                countAb:count_ab
         onItemSelected:on_item_selected
-        onDetailButton:detail_button_callback];
+        onDetailButton:detail_button_callback
+               favName:fav_name];
    
 }
 
@@ -77,6 +84,11 @@ void roadmap_search_menu (void) {
    [dialog show];
 }
 
+
+void add_home_work_dlg(int iType){
+   AddHomeWorkDialog *dialog = [[AddHomeWorkDialog alloc] init];
+   [dialog showWithType: iType];
+}
 
 
 
@@ -125,6 +137,7 @@ void roadmap_search_menu (void) {
              countAb:(int)count_ab
       onItemSelected:(PFN_ON_ITEM_SELECTED)on_item_selected
       onDetailButton:(SsdSoftKeyCallback)detail_button_callback
+             favName:(const char*)fav_name
 {
    NSMutableArray *groupArray = NULL;
    NSString *str = NULL;
@@ -136,7 +149,13 @@ void roadmap_search_menu (void) {
    int i;
    int count = 0;
    
-   [self setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Drive to")]];
+   if (!fav_name || !fav_name[0]) {
+      [self setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Drive to")]];
+      accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryDetailDisclosureButton];
+   } else {
+      [self setTitle:[NSString stringWithUTF8String:fav_name]];
+      accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryNone];
+   }
    
    //set right button
 	UINavigationItem *navItem = [self navigationItem];
@@ -147,8 +166,7 @@ void roadmap_search_menu (void) {
    
    g_on_item_selected = on_item_selected;
    g_detail_button_callback = detail_button_callback;
-   
-   accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryDetailDisclosureButton];
+   g_fav_name = fav_name;
    
    //populate list
    //Group #1 - addresses
@@ -159,7 +177,12 @@ void roadmap_search_menu (void) {
          minimized[0] = FALSE;
       
       header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT) ];
-      [header setText:roadmap_lang_get("New address")];
+      if (!fav_name || !fav_name[0]) {
+         [header setText:roadmap_lang_get("New address")];
+      } else {
+         [header setText:roadmap_lang_get("Tap the correct address below")];
+      }
+
       [headersArray addObject:header];
       [header release];
       
@@ -609,7 +632,7 @@ void roadmap_search_menu (void) {
 
 	[self populateData];
 
-	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(title)]];
+	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(search_title)]];
    /*
    //set right button
 	UINavigationItem *navItem = [self navigationItem];
@@ -649,7 +672,7 @@ void roadmap_search_menu (void) {
 
 - (void) cancelSearch
 {
-   UISearchBar *searchBar = [gSearchView viewWithTag:ID_SEARCH_BAR];
+   UISearchBar *searchBar = (UISearchBar *)[gSearchView viewWithTag:ID_SEARCH_BAR];
    [searchBar resignFirstResponder];
    [searchBar setShowsCancelButton:NO animated:YES];
    [self hideCoverView];
@@ -745,3 +768,270 @@ void roadmap_search_menu (void) {
 }
 @end
 
+
+
+/////////////////////////////////////////////////////////////////////////////
+/////////////////////////////////////////////////////////////////////////////
+@implementation AddHomeWorkDialog
+@synthesize gSearchView;
+
+- (id)init
+{
+   CGRect rect = [[UIScreen mainScreen] applicationFrame];
+	rect.origin.x = 0;
+	rect.origin.y = 0;
+	rect.size.height = roadmap_main_get_mainbox_height();
+   
+	self = [super init];
+   
+   UIScrollView *scrollView = [[UIScrollView alloc] initWithFrame:rect];
+   
+   scrollView.alwaysBounceVertical = YES;
+//   [view setAutoresizesSubviews: YES];
+//   [view setAutoresizingMask: UIViewAutoresizingFlexibleWidth || UIViewAutoresizingFlexibleHeight];
+   self.view = scrollView;
+   [scrollView release];
+	
+	return self;
+}
+
+- (void) resizeViews
+{
+   int viewPosY = gSearchView.frame.size.height + 10;
+   CGRect rect;
+   UIImageView *imageView;
+   UILabel *label;
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   
+   //Set image pos
+   imageView = (UIImageView *)[scrollView viewWithTag:ID_TAG_IMAGE];
+   if (!imageView)
+      return;
+   rect = imageView.frame;
+   rect.origin.x = (scrollView.bounds.size.width - imageView.bounds.size.width) /2;
+   rect.origin.y = viewPosY;
+   imageView.frame = rect;
+   viewPosY += imageView.frame.size.height + 5;
+   
+   //Set label1 size/pos
+   label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL1];
+   if (!label)
+      return;
+   rect = label.frame;
+   rect.size.width = scrollView.bounds.size.width - 20;
+   label.frame = rect;
+   [label sizeToFit];
+   rect = label.frame;
+   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+   rect.origin.y = viewPosY;
+   label.frame = rect;
+   viewPosY += label.bounds.size.height + 5;
+   
+   //Set label2 size/pos
+   label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL2];
+   if (!label)
+      return;
+   rect = label.frame;
+   rect.size.width = scrollView.bounds.size.width - 20;
+   label.frame = rect;
+   [label sizeToFit];
+   rect = label.frame;
+   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+   rect.origin.y = viewPosY;
+   label.frame = rect;
+   viewPosY += label.bounds.size.height + 5;
+   
+   //Set label3 size/pos
+   label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL3];
+   if (!label)
+      return;
+   rect = label.frame;
+   rect.size.width = scrollView.bounds.size.width - 20;
+   label.frame = rect;
+   [label sizeToFit];
+   rect = label.frame;
+   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+   rect.origin.y = viewPosY;
+   label.frame = rect;
+   viewPosY += label.bounds.size.height + 5;
+   
+   //Set frame
+   imageView = (UIImageView *)[scrollView viewWithTag:ID_TAG_BACKGROUND];
+   if (!imageView)
+      return;
+   rect = CGRectMake(5, gSearchView.frame.size.height + 5, scrollView.bounds.size.width - 10, viewPosY - gSearchView.frame.size.height);
+   imageView.frame = rect;
+   viewPosY += 5;
+   
+   [scrollView setContentSize:CGSizeMake(scrollView.frame.size.width, viewPosY)];
+}
+
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
+   return roadmap_main_should_rotate (interfaceOrientation);
+}
+
+- (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
+   roadmap_device_event_notification( device_event_window_orientation_changed);
+}
+
+- (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
+   [self resizeViews];
+}
+
+- (void)viewDidAppear:(BOOL)animated {
+   [self resizeViews];
+}
+
+- (void) showWithType: (int)iType
+{
+   CGRect rect;
+   UIScrollView *scrollView = (UIScrollView *)self.view;
+   UISearchBar *searchBar;
+   UIImage *image;
+   UIImageView *imageView;
+   UILabel *label;
+   const char *title;
+   float posY = 0.0f;
+   
+   
+   if (iType == 0){
+      title = roadmap_lang_get("My Home");
+      //g_favorite_name = roadmap_lang_get("Home");
+   }
+   else{
+      title = roadmap_lang_get("My Work");
+      //g_favorite_name = roadmap_lang_get("Work");
+   }
+   
+   g_iType = iType;
+   
+   //Search bar
+   rect = scrollView.bounds;
+	rect.size.height = 45;
+   searchBar = [[UISearchBar alloc] initWithFrame:rect];
+   [searchBar setAutoresizesSubviews: YES];
+   [searchBar setAutoresizingMask: UIViewAutoresizingFlexibleWidth];
+   [searchBar setShowsCancelButton:NO animated:NO];
+   searchBar.showsCancelButton = NO;
+   searchBar.placeholder = [NSString stringWithUTF8String:roadmap_lang_get("Search address or Place")];
+   searchBar.delegate = self;
+   searchBar.tag = ID_SEARCH_BAR;
+   rect.size.height = 50;
+   gSearchView = [[UIView alloc] initWithFrame:rect];
+   [gSearchView setAutoresizesSubviews: YES];
+   [gSearchView setAutoresizingMask: UIViewAutoresizingFlexibleWidth];
+	[gSearchView addSubview:searchBar];
+   [searchBar release];
+   
+   [scrollView addSubview:gSearchView];
+   
+   // Background image
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "comments_alert");
+	if (image) {
+		UIImage *strechedImage = [image stretchableImageWithLeftCapWidth:20 topCapHeight:20];
+		imageView = [[UIImageView alloc] initWithImage:strechedImage];
+		imageView.tag = ID_TAG_BACKGROUND;
+		[scrollView addSubview:imageView];
+		[imageView release];
+	}
+   
+   // HW route image
+   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "HW_route");
+   
+   if (image) {
+      imageView = [[UIImageView alloc] initWithImage:image];
+      imageView.tag = ID_TAG_IMAGE;
+      [scrollView addSubview:imageView];
+      [imageView release];
+   }
+   
+   // label 1
+   label = [[UILabel alloc] initWithFrame:CGRectZero];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Waze is best used for commuting.")]];
+	[label setTextAlignment:UITextAlignmentCenter];
+	[label setFont:[UIFont systemFontOfSize:16]];
+   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight || UIViewAutoresizingFlexibleRightMargin || UIViewAutoresizingFlexibleLeftMargin];
+   [label setBackgroundColor:[UIColor clearColor]];
+   label.tag = ID_TAG_LABEL1;
+	[scrollView addSubview:label];
+	[label release];
+   
+   // label 2
+   label = [[UILabel alloc] initWithFrame:CGRectZero];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Once you add 'Home' and 'Work' to your favorites, waze'll learn your preferred routes and departure times to these destinations.")]];
+	[label setTextAlignment:UITextAlignmentCenter];
+	[label setFont:[UIFont systemFontOfSize:16]];
+   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight || UIViewAutoresizingFlexibleRightMargin || UIViewAutoresizingFlexibleLeftMargin];
+   [label setBackgroundColor:[UIColor clearColor]];
+   [label setNumberOfLines:0];
+   label.tag = ID_TAG_LABEL2;
+	[scrollView addSubview:label];
+	[label release];
+   
+   // label 3
+   label = [[UILabel alloc] initWithFrame:CGRectZero];
+	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Enter your address in the search box above.")]];
+	[label setTextAlignment:UITextAlignmentCenter];
+	[label setFont:[UIFont systemFontOfSize:16]];
+   [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight || UIViewAutoresizingFlexibleRightMargin || UIViewAutoresizingFlexibleLeftMargin];
+   [label setBackgroundColor:[UIColor clearColor]];
+   [label setNumberOfLines:0];
+   label.tag = ID_TAG_LABEL3;
+	[scrollView addSubview:label];
+	[label release];
+   
+	[self setTitle:[NSString stringWithUTF8String:roadmap_lang_get(title)]];
+   
+   [self resizeViews];
+   
+	roadmap_main_push_view (self);
+}
+
+- (void) cancelSearch
+{
+   UISearchBar *searchBar = (UISearchBar *)[gSearchView viewWithTag:ID_SEARCH_BAR];
+   [searchBar resignFirstResponder];
+   [searchBar setShowsCancelButton:NO animated:YES];
+}
+
+- (void)dealloc
+{
+   
+   if (gSearchView)
+      [gSearchView release];
+	
+	[super dealloc];
+}
+
+
+//////////////////////////////////////////////////////////
+//UISearchBar view delegate
+- (void)searchBarSearchButtonClicked:(UISearchBar *)searchBar
+{
+	[searchBar resignFirstResponder];
+   [searchBar setShowsCancelButton:NO animated:NO];
+   
+   if (g_iType == 0){
+      single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Home"));
+   }
+   else{
+      single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Work"));
+   }
+}
+
+- (BOOL)searchBarShouldBeginEditing:(UISearchBar *)searchBar
+{
+   if (roadmap_keyboard_typing_locked(TRUE)){
+      return NO;
+   } else {
+      [searchBar setShowsCancelButton:YES animated:YES];
+      return YES;
+   }
+}
+
+- (void)searchBarCancelButtonClicked:(UISearchBar *)searchBar
+{
+   [self cancelSearch];
+}
+
+@end

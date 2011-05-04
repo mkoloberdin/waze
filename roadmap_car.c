@@ -147,7 +147,7 @@ void roadmap_car_dialog (RoadMapCallback callback) {
                   &context,
                   NULL,
                   NULL,
-                  70,
+                  ADJ_SCALE(70),
                   0,
                   FALSE);
 

@@ -998,9 +998,10 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 	int xPos = X_POS_START;
    RoadMapGuiPoint TextLocation;
 	CGRect rect;
-   static time_t last_draw_time = 0;
+   static uint32_t last_draw_time = 0;
+   uint32_t now = roadmap_time_get_millis();
    
-   if (time(NULL) - last_draw_time < 1)
+   if (now - last_draw_time < 250)
       return;
    
    if (!topBarView)
@@ -1152,7 +1153,7 @@ void draw_top_bar_objects(BarObjectTable_s *table){
 	
    if (last_draw_time == 0)
       roadmap_top_bar_set_ui (&TopBarObjectTable);
-   last_draw_time = time(NULL);
+   last_draw_time = now;
 }
 
 void roadmap_bar_draw_top_bar (BOOL draw_bg) {

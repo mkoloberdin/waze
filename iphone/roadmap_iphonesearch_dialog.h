@@ -33,6 +33,7 @@
    BOOL                    minimized[3];
    PFN_ON_ITEM_SELECTED    g_on_item_selected;
    SsdSoftKeyCallback      g_detail_button_callback;
+   const char              *g_fav_name;
 }
 
 @property (nonatomic, retain) NSMutableArray	*dataArray;
@@ -44,7 +45,8 @@
              countLs:(int)count_ls
              countAb:(int)count_ab
       onItemSelected:(PFN_ON_ITEM_SELECTED)on_item_selected
-      onDetailButton:(SsdSoftKeyCallback)detail_button_callback;
+      onDetailButton:(SsdSoftKeyCallback)detail_button_callback
+             favName:(const char*)fav_name;
 
 @end
 
@@ -78,5 +80,17 @@
 
 @end
 
+
+@interface AddHomeWorkDialog : UIViewController <UISearchBarDelegate> {
+   UIView                  *gSearchView;
+   int                     g_iType;
+}
+
+@property (nonatomic, retain) UIView         *gSearchView;
+
+- (void) showWithType: (int)iType;
+- (void) cancelSearch;
+
+@end
 
 #endif // __ROADMAP_IPHONESEARCH_DIALOG__H

@@ -432,4 +432,6 @@ int         RTAlerts_get_num_categories(int iAlertType, int iAlertSubType);
 int         RTAlerts_get_categories_subtype(int iAlertType, int iAlertSubType, int index);
 
 void RTAlerts_update_location_str(RTAlert *pAlert);
+
+const RoadMapGpsPosition *RTAlerts_alerts_location(BOOL showMsgBox);
 #endif	//	__REALTIME_ALERT_H__

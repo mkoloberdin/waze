@@ -55,6 +55,8 @@ enum NavigateInstr {
    ROUNDABOUT_U,
    ROUNDABOUT_EXIT_U,
    APPROACHING_DESTINATION,
+   EXIT_LEFT,
+   EXIT_RIGHT,
    LAST_DIRECTION
 };
 
@@ -92,6 +94,7 @@ typedef struct {
    NavSmallValue			exit_no;
    NavSmallValue		   instruction;
    NavSmallValue			is_instrumented;
+   char*                dest_name;
 } NavigateSegment;
 
 int navigate_is_enabled (void);
@@ -162,5 +165,8 @@ const RoadMapPosition *navigate_main_get_src_position(void);
 int navigate_main_alt_routes_display(void);
 int navigate_main_is_alt_routes(void);
 void navigate_main_set_dest_pos(RoadMapPosition *position);
+void navigate_main_recalculate_route(void);
+void navigate_main_start_navigating (void);
+
 #endif /* INCLUDE__NAVIGATE_MAIN__H */
 

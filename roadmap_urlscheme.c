@@ -26,6 +26,7 @@
 #include "roadmap.h"
 #include "roadmap_screen.h"
 #include "roadmap_math.h"
+#include "roadmap_start.h"
 #include "roadmap_layer.h"
 #include "address_search/single_search_dlg.h"
 #include "Realtime/Realtime.h"
@@ -39,12 +40,13 @@
 #define URL_QUERY_STR         "q="
 #define URL_MAP_CENTER_STR    "ll="
 #define URL_ZOOM_STR          "z="
-
+#define URL_ACTION_STR        "a="
 
 typedef struct  {
 
    char              query[URL_MAX_LENGTH];
-   char              search_token[URL_MAX_LENGTH];		// Note: can be less 
+   char              search_token[URL_MAX_LENGTH];		// Note: can be less
+   char              action[URL_MAX_LENGTH];
    RoadMapPosition   map_center;
    RoadMapPosition   business_center;
    int               zoom;
@@ -67,6 +69,7 @@ static RoadMapCallback UrlNextLoginCb = NULL;
 ///////////////////////////////////////////////////////////////////////
 static void init_query (void) {
    gs_Query.query[0] = 0;
+   gs_Query.action[0]= 0;
    gs_Query.map_center.latitude = -1;
    gs_Query.map_center.longitude = -1;
    gs_Query.business_center.latitude = -1;
@@ -93,6 +96,13 @@ static void decode (char *txt) {
       return;
    }
    
+   //Action
+   if (strstr(p, URL_ACTION_STR) == p) { //<q=query>
+      char *action = p + strlen(URL_ACTION_STR);
+      strncpy_safe(gs_Query.action, action, sizeof(gs_Query.action));
+      return;
+   }
+
    //map center
    if (strstr(p, URL_MAP_CENTER_STR) == p) { //<ll=lat,lon>
       char *lat;
@@ -167,6 +177,19 @@ static void execute_query (void) {
    if (gs_Query.search_token[0]!=0) {
       roadmap_log(ROADMAP_DEBUG, "Executing query: %s", gs_Query.search_token);
       single_search_auto_search(gs_Query.search_token);
+      return;
+   }
+   if (gs_Query.action[0]!=0) {
+        RoadMapAction * action;
+        roadmap_log(ROADMAP_DEBUG, "Executing action: %s", gs_Query.action);
+        action = roadmap_start_find_action_un_const(gs_Query.action);
+        if (action){
+              action->callback();
+        }
+        else{
+              roadmap_log (ROADMAP_ERROR, "Invalid action query %s", gs_Query.action);
+        }
+        return;
    }
 }
 

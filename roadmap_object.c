@@ -102,6 +102,8 @@ struct RoadMapObjectDescriptor {
    struct RoadMapObjectDescriptor *previous;
 
    BOOL   check_overlapping;
+	int   scale_factor;
+	int   scale_factor_min_zoom;
 };
 
 typedef struct RoadMapObjectDescriptor RoadMapObject;
@@ -602,6 +604,7 @@ void roadmap_object_add_with_priority (RoadMapDynamicString origin,
       cursor->max_zoom = -1;
       cursor->priority = priority;
       cursor->scale = 100;
+	  cursor->scale_factor = 100;
       cursor->scale_y = 100;
       cursor->opacity = 255;
       cursor->glow = -1;
@@ -747,6 +750,7 @@ void roadmap_object_iterate (RoadMapObjectAction action) {
 
    RoadMapObject *cursor;
    RoadMapGuiPoint offset;
+   int scale_factor;
 
    for (cursor = RoadmapObjectList; cursor->next != NULL; cursor = cursor->next);
 
@@ -797,13 +801,18 @@ void roadmap_object_iterate (RoadMapObjectAction action) {
          check_overlapping(cursor);
       }
 
+	  if  (cursor->scale_factor_min_zoom != 0 && roadmap_math_get_zoom() >= cursor->scale_factor_min_zoom)
+		  scale_factor = cursor->scale_factor;
+	  else
+		  scale_factor = 100;
+
       (*action) (roadmap_string_get(cursor->name),
                  roadmap_string_get(cursor->sprite),
                  roadmap_string_get(cursor->image),
                  &(cursor->position),
                  &(cursor->offset),
                  is_visible(cursor),
-                 cursor->scale,
+                 cursor->scale*scale_factor/100,
                  cursor->opacity,
                  cursor->scale_y,
                  roadmap_string_get(cursor->id),
@@ -905,6 +914,7 @@ static RoadMapObject *roadmap_object_by_pos (RoadMapGuiPoint *point, BOOL action
 static int roadmap_object_short_click (RoadMapGuiPoint *point) {
 
    RoadMapObject *object;
+	int scale_factor;
 
    if (!short_click_enabled){
       return 0;
@@ -929,18 +939,24 @@ static int roadmap_object_short_click (RoadMapGuiPoint *point) {
       }
       roadmap_sound_play_list (list);
 #endif //!IPHONE && TOUCH_SCREEN
+
+	   if  (object->scale_factor_min_zoom != 0 && roadmap_math_get_zoom() >= object->scale_factor_min_zoom)
+		   scale_factor = object->scale_factor;
+	   else
+		   scale_factor = 100;
+
       (*(object->action)) (roadmap_string_get(object->name),
                            roadmap_string_get(object->sprite),
                            roadmap_string_get(object->image),
                            &(object->position),
                            &(object->offset),
                            1,
-                           object->scale,
+                           object->scale*scale_factor/100,
                            object->opacity,
                            object->scale_y,
                            roadmap_string_get(object->id),
                            roadmap_string_get(object->text));
-      roadmap_screen_touched();
+      //roadmap_screen_touched();
    }
 
    return 1;
@@ -964,6 +980,16 @@ void roadmap_object_set_action (RoadMapDynamicString id,
    }
 }
 
+void roadmap_object_set_scale_factor (RoadMapDynamicString id,
+									  int min_zoom,
+                                int scale) {
+	RoadMapObject *object = roadmap_object_search (id);
+
+	if (object == NULL) return;
+	object->scale_factor_min_zoom = min_zoom;
+	object->scale_factor = scale;
+
+}
 
 void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom) {
    RoadMapObject *object = roadmap_object_search (id);

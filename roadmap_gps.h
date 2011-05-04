@@ -153,7 +153,7 @@ void roadmap_gps_csv_tracker_initialize(void);
 void roadmap_gps_csv_tracker_set_enable( BOOL value );
 BOOL roadmap_gps_csv_tracker_get_enable( void );
 void roadmap_gps_csv_tracker_shutdown( void );
-void roadmap_gps_coarse_fix( int latitude, int longitude );
+void roadmap_gps_coarse_fix( int latitude, int longitude, int accuracy, time_t time );
 void roadmap_gps_detect_receiver_callback(RoadMapCallback callback);
 int roadmap_gps_satelite_count(void);
 

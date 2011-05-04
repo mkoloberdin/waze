@@ -198,6 +198,7 @@ static void roadmap_gps_no_link_control (RoadMapIO *io) {}
 static void roadmap_gps_no_periodic_control (RoadMapCallback callback) {}
 static void roadmap_gps_csv_tracker(time_t gps_time, const RoadMapGpsPrecision *dilution,
 						const RoadMapGpsPosition *position);
+static void roadmap_gps_csv_tracker_location( time_t gps_time, const RoadMapPosition *position, int accuracy);
 
 static void roadmap_gps_warning_init_timeout( void );
 static BOOL roadmap_gps_warning( char* dest_string );
@@ -298,6 +299,19 @@ static void roadmap_gps_update_status (char status) {
                        "GPS receiver lost satellite fix (status: %c)", status);
        }
        RoadMapLastKnownStatus = status;
+      
+      if (RoadMapGpsCsvTrackerEnabled &&
+          RoadMapLastKnownStatus == 'V') {
+         time_t now;
+         RoadMapGpsPosition position = {ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA,
+                                          ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA};
+#ifdef IPHONE_NATIVE
+         now = roadmap_location_get_latest_time();
+#else
+         now = time(NULL);
+#endif
+         roadmap_gps_csv_tracker((int)now, NULL, &position);
+      }
    }
 }
 
@@ -326,9 +340,6 @@ static int roadmap_gps_validate (int gmt_time,
 		ok = 0;
 	}
 
-	last_valid_time = gmt_time;
-
-
 	if (*speed == 0) {
 		int distance;
 
@@ -339,7 +350,8 @@ static int roadmap_gps_validate (int gmt_time,
 		}
 		#endif
 
-		if (ok && gmt_time < last_valid_time + FILTER_MIN_SECONDS) {
+		if (ok && gmt_time < last_valid_time + FILTER_MIN_SECONDS &&
+          last_valid_time /* AviR: don't test for first gps point */) {
 			distance = roadmap_math_distance (&last_valid_pos, &position);
 			if (distance > FILTER_MAX_DISTANCE) {
 				distance = roadmap_math_distance (&last_pos, &position);
@@ -351,6 +363,8 @@ static int roadmap_gps_validate (int gmt_time,
 			}
 		}
 	}
+   
+   last_valid_time = gmt_time;
 
 	if (*speed >= 128) {
 		roadmap_log (ROADMAP_WARNING, "Ignoring GPS speed of %d knots, using previous speed of %d knots instead",
@@ -448,6 +462,7 @@ static void roadmap_gps_process_position (void) {
    RoadMapGpsLatestFineFix = time( NULL );
    RoadMapGpsCoarseLocationMode = FALSE;
    roadmap_gps_fine_fix_focus();
+   roadmap_gps_update_reception ();
 
    for (i = 0; i < ROADMAP_GPS_CLIENTS; ++i) {
 
@@ -461,8 +476,6 @@ static void roadmap_gps_process_position (void) {
 
    if (roadmap_gps_have_reception() && (roadmap_verbosity () <= ROADMAP_MESSAGE_DEBUG) && (roadmap_gps_show_coordinats()))
       roadmap_display_text("DEBUG_LOC","%d.%06d, %d.%06d", (RoadMapGpsReceivedPosition.longitude)/1000000, abs(RoadMapGpsReceivedPosition.longitude)%1000000, (RoadMapGpsReceivedPosition.latitude)/1000000, abs(RoadMapGpsReceivedPosition.latitude)%1000000);
-
-   roadmap_gps_update_reception ();
 }
 
 
@@ -532,13 +545,23 @@ static void roadmap_gps_keep_alive (void)
  * 3. If not in hold set focus to location
  * 4. Refresh screen
  */
-void roadmap_gps_coarse_fix( int latitude, int longitude )
+void roadmap_gps_coarse_fix( int latitude, int longitude, int accuracy, time_t gps_time )
 {
 	RoadMapPosition position;
+   RoadMapPosition gps_position;
+   const RoadMapGpsPosition *gps = roadmap_trip_get_gps_position ("GPS");
 
 	position.latitude = latitude;
 	position.longitude = longitude;
+   
+   gps_position.latitude = gps->latitude;
+   gps_position.longitude = gps->longitude;
 
+   if (roadmap_math_distance(&position, &gps_position) <= accuracy) {
+      position = gps_position;
+      roadmap_log( ROADMAP_DEBUG, "Using gps position instead of location for accuracy (%d, %d)", accuracy, latitude, longitude );
+   }
+   
    // Update fix - when no GPS reception available
    if (RoadMapGpsLatestFineFix == 0)
    {
@@ -556,11 +579,16 @@ void roadmap_gps_coarse_fix( int latitude, int longitude )
       }
    }
 
+
 	RoadMapGpsLatestCoarseFix = time( NULL );
 
    roadmap_trip_set_point ( "Location", &position );
 
 	roadmap_gps_set_location_focus();
+   
+   if (RoadMapGpsCsvTrackerEnabled) {
+      roadmap_gps_csv_tracker_location(gps_time, &position, accuracy);
+   }
 
 	roadmap_log( ROADMAP_DEBUG, "Applying the fix cell/wifi mode  (%d, %d)", latitude, longitude );
 }
@@ -1643,6 +1671,9 @@ void roadmap_gps_csv_tracker_initialize()
 											tms->tm_hour, tms->tm_min );
 
 	GpsCsvTrackerFile = roadmap_file_fopen( roadmap_path_gps(), file_name, "w" );
+   
+   fprintf( GpsCsvTrackerFile, "%d, S\n", (int)time (NULL)); //TODO: time function may not be sync with GPS time
+   fflush( GpsCsvTrackerFile );
 
 	if ( !GpsCsvTrackerFile )
 		roadmap_log( ROADMAP_WARNING, "Cannot open the gps tracker file" );
@@ -1655,6 +1686,16 @@ static void roadmap_gps_csv_tracker( time_t gps_time, const RoadMapGpsPrecision 
 	{
 		fprintf( GpsCsvTrackerFile, "%d, %c, %d, %d, %d, %d \n", (int) gps_time, RoadMapLastKnownStatus, position->longitude,
 				position->latitude, position->steering, position->speed );
+		fflush( GpsCsvTrackerFile );
+	}
+}
+
+static void roadmap_gps_csv_tracker_location( time_t gps_time, const RoadMapPosition *position, int accuracy)
+{
+	if ( GpsCsvTrackerFile )
+	{
+		fprintf( GpsCsvTrackerFile, "%d, L, %d, %d, %d \n", (int) gps_time, position->longitude,
+              position->latitude, accuracy );
 		fflush( GpsCsvTrackerFile );
 	}
 }
@@ -1909,3 +1950,22 @@ void roadmap_gps_detect_receiver (void) {}
 #endif
 #endif
 
+void roadmap_gps_set_show_raw (BOOL is_show) {
+   if (is_show)
+      roadmap_config_set(&RoadMapConfigGpsRaw, "yes");
+   else
+      roadmap_config_set(&RoadMapConfigGpsRaw, "no");
+
+   roadmap_config_save(0);
+   
+   RoadMapGpsShowRawGps = is_show;
+   
+   if (is_show)
+      roadmap_messagebox("Info", "Raw GPS is ON");
+   else
+      roadmap_messagebox("Info", "Raw GPS is OFF");
+}
+
+int roadmap_gps_is_show_raw (void) {
+   return RoadMapGpsShowRawGps;
+}
