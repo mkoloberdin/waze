@@ -123,7 +123,10 @@ typedef struct
    RMBrowserAttributes attrs;
 } RMBrowserContext;
 
-
+/*
+ * Callback type to be called upon container window size is changed
+ */
+typedef void (*RMBrowserResizeCb)( const RoadMapGuiRect* context );
 
 /*
  * Simple browser view - only title text is shown
@@ -131,8 +134,8 @@ typedef struct
 void roadmap_browser_show (const char* title, const char* url, RoadMapCallback on_close_cb,
                            RMBrowserCallback on_load_cb, void *context, int browser_flags );
 
-void roadmap_browser_show_embeded( RMBrowserContext* context );
-void roadmap_browser_hide(void);
+void roadmap_browser_show_embedded( RMBrowserContext* context );
+void roadmap_browser_close_embedded(void);
 /*
  * Customized browser view - buttons are shown at the title bar
  * (See RMTitleAttributes for definitions)
@@ -150,12 +153,17 @@ void roadmap_browser_register_launcher( RMBrowserLauncherCb launcher_cb );
 
 void roadmap_browser_register_close( RoadMapCallback close_cb );
 
+void roadmap_browser_register_resize( RMBrowserResizeCb resize_cb );
+
 BOOL roadmap_browser_url_handler( const char* url );
 
+void roadmap_browser_init( void );
 
 void roadmap_browser_set_show_external (void);
 
 void roadmap_browser_preload (const char* url, RMBrowserCallback on_load_cb, void *context);
+
+void roadmap_browser_close( void );
 
 #ifdef IPHONE
 BOOL roadmap_browser_show_preloaded (void);

@@ -774,6 +774,7 @@ static void navigate_bar_draw_street (const char *street) {
 
    if ((num_lines < 0)  || ((num_lines>1) && (NavigatePanel->street_line2_pos == -1))){
       /* Try again with a smaller font size */
+      free(text);//AR- memory leak
 	   text = strdup(street);
       size = font_size_small;
       num_lines = navigate_bar_align_text (text, &line1, &line2, size);
@@ -785,8 +786,10 @@ static void navigate_bar_draw_street (const char *street) {
    	   size = ( 7 * font_size_normal ) / 10;
    }
 
-   if ((num_lines < 0) || ((num_lines > 1) && (NavigatePanel->street_line2_pos == -1)))
+   if ((num_lines < 0) || ((num_lines > 1) && (NavigatePanel->street_line2_pos == -1))) {
+      free(text);//AR- memory leak
       text = strdup(street);
+   }
    /* Cut some text until it fits */
    while ((num_lines < 0) || ((num_lines > 1) && (NavigatePanel->street_line2_pos == -1))) {
 

@@ -27,8 +27,20 @@
 #include "roadmap.h"
 #include <time.h>
 
+/*
+ * struct timeval clone
+ */
+
+typedef struct
+{
+   time_t epoch_sec;
+   unsigned long usec; // Micro second fraction
+} EpochTimeMicroSec;
+
 char *roadmap_time_get_hours_minutes (time_t gmt);
 
 uint32_t roadmap_time_get_millis(void);
+
+const EpochTimeMicroSec* roadmap_time_get_epoch_us( EpochTimeMicroSec* time_val );
 
 #endif // INCLUDE__ROADMAP_DISPLAY__H

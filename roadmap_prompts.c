@@ -495,7 +495,7 @@ const char *roadmap_prompts_get_label (const char *value) {
 static void check_for_new_prompts(){
    int i = 0;
    BOOL all_update = TRUE;
-   char *new_prompts[] = {"ApproachAccident","ApproachHazard", "ApproachTraffic", "AndThen", "ExitLeft", "ExitRight" ,"400", "400meters", "1500","1500meters", "1000", "1000meters", NULL};
+   char *new_prompts[] = {"StartDrive", "ApproachAccident", "ApproachHazard", "ApproachTraffic", "AndThen", "ExitLeft", "ExitRight" ,"400", "400meters", "1500","1500meters", "1000", "1000meters", NULL};
 
    if (new_prompts_updated())
       return;

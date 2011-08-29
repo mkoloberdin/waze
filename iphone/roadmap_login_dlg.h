@@ -26,7 +26,8 @@
 
 #include "widgets/iphoneCellEdit.h"
 
-@interface NewExistingDialog : UIViewController <UIScrollViewDelegate> {
+@interface NewExistingDialog : UIViewController <UIScrollViewDelegate, UITextFieldDelegate> {
+   BOOL  kbIsOn;
 }
 
 - (void) show;

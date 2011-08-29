@@ -50,6 +50,8 @@
 #include "roadmap_list_menu.h"
 #include "generic_search.h"
 #include "Realtime.h"
+#include "tts.h"
+#include "roadmap_gps.h"
 
 #include "roadmap_analytics.h"
 
@@ -62,6 +64,7 @@ static   BOOL                 s_history_was_loaded = FALSE;
 static	int					selected_item;
 static   char              searched_text[256];
 static   char              g_favorite_name[256];
+static   BOOL              g_is_favorite = FALSE;
 
 
 #define  ASD_DIALOG_NAME            "address-search-dialog"
@@ -87,6 +90,8 @@ static   char              g_favorite_name[256];
 extern void navigate_main_stop_navigation();
 extern int main_navigator( const RoadMapPosition *point,
 						  address_info_ptr       ai);
+
+extern RoadMapConfigDescriptor NavigateConfigNavigationGuidanceType;
 
 
 static BOOL navigate( BOOL take_me_there);
@@ -169,16 +174,26 @@ static int on_list_item_selected_fav(SsdWidget widget, const char *new_value, co
    RoadMapPosition position;
    position.latitude = (int)(selection->latitude*1000000);
    position.longitude= (int)(selection->longtitude*1000000);
-   generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
-                                         selection->city,
-                                         selection->street,
-                                         get_house_number__str( selection->house),
-                                         selection->state,
-                                         g_favorite_name,
-                                         &position);
-   roadmap_main_show_root(0);
-   roadmap_search_menu();
-   roadmap_messagebox_timeout("", "The address was successfully added to your Favorites",3);
+   if (g_favorite_name[0]) {
+      generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                                            selection->city,
+                                            selection->street,
+                                            get_house_number__str( selection->house),
+                                            selection->state,
+                                            g_favorite_name,
+                                            &position);
+      roadmap_main_show_root(0);
+      roadmap_messagebox_timeout("", "The address was successfully added to your Favorites",3);
+      roadmap_search_menu();
+   } else {
+      generic_search_add_address_to_history( ADDRESS_FAVORITE_CATEGORY,
+                                            selection->city,
+                                            selection->street,
+                                            get_house_number__str( selection->house),
+                                            selection->state,
+                                            NULL,
+                                            &position);
+   }
    return 0;
    
 }
@@ -277,12 +292,13 @@ static void on_address_resolved( void*                context,
 
    
    //show results
-   if (g_favorite_name[0] == 0) {
+   if (!g_is_favorite) {
       single_search_resolved_dlg_show(results, indexes,
                                       count_adr,
                                       count_ls,
                                       count_ab,
                                       on_list_item_selected, on_options,
+                                      g_is_favorite,
                                       g_favorite_name);
    } else {
       single_search_resolved_dlg_show(results, indexes,
@@ -290,6 +306,7 @@ static void on_address_resolved( void*                context,
                                       count_ls,
                                       count_ab,
                                       on_list_item_selected_fav, NULL,
+                                      g_is_favorite,
                                       g_favorite_name);
       
    }
@@ -312,12 +329,6 @@ static int on_search(const char *text, void *list_cont)
       roadmap_gps_reset_show_coordinates();
       roadmap_main_show_root(NO);
       return 0;
-   }
-   if ( !strcmp( "##@gps", text ) )
-   {
-      roadmap_gps_set_show_raw(!roadmap_gps_is_show_raw());
-      roadmap_main_show_root(NO);
-		return 0;
    }
    if ( !strcmp( "##@il", text ) )
    {
@@ -343,21 +354,42 @@ static int on_search(const char *text, void *list_cont)
       roadmap_main_show_root(NO);
       return 0;
    }
-
-   if (strstr(text, "##@")){
-      char *name;
-      name = text+3;
-      if (name && name[0] != 0){
-         roadmap_geo_config_generic(name);
-         return;
-      }
-   }
-   
    if ( !strcmp( "##@gps", text ) )
    {
       roadmap_gps_set_show_raw(!roadmap_gps_is_show_raw());
       roadmap_main_show_root(NO);
 		return 0;
+   }
+   if ( !strcmp( "cc@tts", text ) )
+   {
+      tts_clear_cache();
+      roadmap_messagebox("","TTS cache has been cleared!");
+      roadmap_main_show_root(NO);
+      return 0;
+   }
+   if ( !strcmp( "##@tts", text ) )
+   {
+      tts_set_feature_enabled( !tts_feature_enabled() );
+      if ( tts_feature_enabled() ) {
+         roadmap_messagebox("","TTS Feature is enabled! Please restart");
+         if (roadmap_config_match(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL))
+            roadmap_config_set(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_TTS);
+      } else {
+         roadmap_messagebox("","TTS Feature is disabled! Please restart");
+         if (roadmap_config_match(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_TTS))
+            roadmap_config_set(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL);
+      }
+      roadmap_main_show_root(NO);
+      return 0;
+   }
+   
+   if (strstr(text, "##@")){
+      char *name;
+      name = text+3;
+      if (name && name[0] != 0){
+         roadmap_geo_config_generic(name);
+         return 0;
+      }
    }
 
    // Check if lat lon
@@ -677,7 +709,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
    }
 
 	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL,
-                             on_option_selected, NULL, NULL, NULL, 60, 0, NULL);
+                             on_option_selected, NULL, NULL, NULL, NULL, 60, 0, NULL);
 
 
 
@@ -704,7 +736,7 @@ BOOL single_search_auto_search( const char* address)
 {
    verify_init();
    
-   g_favorite_name[0] = 0;
+   g_is_favorite = FALSE;
 
 	on_search(address, NULL);
 
@@ -715,6 +747,7 @@ BOOL single_search_auto_search_fav( const char* address, const char* fav_name)
 {
    verify_init();
    
+   g_is_favorite = TRUE;
    strncpy_safe (g_favorite_name, fav_name, sizeof(g_favorite_name));
    
 	on_search(address, NULL);

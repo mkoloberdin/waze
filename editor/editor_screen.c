@@ -417,6 +417,27 @@ void editor_screen_selection_menu(void){
         roadmap_screen_redraw ();
         return ;
 }
+
+
+void editor_screen_menu(char *name){
+   const RoadMapPosition * temp_pos;
+   temp_pos = roadmap_trip_get_position("Selection");
+
+   ssd_popup_show_float("SelectDlg",
+                             name,
+                             NULL,
+                             NULL,
+                             NULL,
+                             "marked_location",
+                             temp_pos,
+                             ADJ_SCALE(-18),
+                             popup_menu_callback,
+                             on_next,
+                             "Options",
+                             NULL);
+}
+
+
 static int editor_screen_long_click (RoadMapGuiPoint *point) {
 //   PluginStreet street;
    int distance;
@@ -692,7 +713,7 @@ int editor_screen_override_pen (int line,
       roadmap_screen_draw_line_direction
             (&from, &to, &from, first_shape, last_shape,
              NULL,
-             pen->thickness, direction, "#000000");
+             pen->thickness, direction, "#000000",0);
 
       return 1;
    }
@@ -899,7 +920,7 @@ static int editor_screen_draw_lines
                   (&from, &to, &trk_from_pos, first_shape, last_shape,
                    editor_shape_position,
                    EditorPens[cfcc][pen_type][0].thickness,
-                   direction, "#000000");
+                   direction, "#000000",0);
             }
          }
       }

@@ -56,6 +56,13 @@ static int RoadMapLocationSpeed                    = 0;
 static int RoadMapLocationSteering                 = 0;
 static time_t RoadmapLocationLatestTime            = 0;
 
+static struct acc_t {
+   float x;
+   float y;
+   float z;
+} RoadMapLocationAcceleration;
+
+
 #define MAX_HOR_ACCURACY   1000 //was 80
 #define MAX_VER_ACCURACY   1000 //was 120
 #define MIN_DISTANCE       15 //meters
@@ -65,7 +72,8 @@ static time_t RoadmapLocationLatestTime            = 0;
 
 static RoadMapGpsdNavigation RoadmapLocationNavigationListener = NULL;
 static RoadMapGpsdDilution   RoadmapLocationDilutionListener   = NULL;
-static RoadMapGpsdSatellite RoadmapLocationSatelliteListener  = NULL;
+static RoadMapGpsdSatellite  RoadmapLocationSatelliteListener  = NULL;
+static RoadMapGpsCompass     RoadmapLocationCompassListener    = NULL;
 
 
 
@@ -73,6 +81,7 @@ static RoadMapGpsdSatellite RoadmapLocationSatelliteListener  = NULL;
 static void roadmap_location_start (void){
 #if !TARGET_IPHONE_SIMULATOR
    [RoadMapLocationManager startUpdatingLocation];
+   [RoadMapLocationManager startUpdatingHeading];
 #endif
 }
 
@@ -81,20 +90,23 @@ static void roadmap_location_stop (void){
 }
 
 static void roadmap_location_initialize_internal (void){
-   roadmap_main_remove_periodic(roadmap_location_initialize_internal);
+   //roadmap_main_remove_periodic(roadmap_location_initialize_internal);
    
    [[RoadMapLocationController alloc] init];
    roadmap_location_start();
 }
 
 void roadmap_location_initialize (void){
-   roadmap_main_set_periodic(1000, roadmap_location_initialize_internal);
+   //roadmap_main_set_periodic(1000, roadmap_location_initialize_internal);
+   roadmap_location_initialize_internal();
+   
 }
 
 static void report_fix_loss() {
    RoadmapLocationNavigationListener ('V', ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA, 
                                       ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA,
-                                      ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA);
+                                      ROADMAP_NO_VALID_DATA, ROADMAP_NO_VALID_DATA,
+                                      ROADMAP_NO_VALID_DATA);
 }
 
 void location_timeout (void) {
@@ -124,6 +136,10 @@ void roadmap_location_subscribe_to_satellites (RoadMapGpsdSatellite satellite) {
    RoadmapLocationSatelliteListener = satellite;
 }
 
+void roadmap_location_subscribe_to_compass (RoadMapGpsCompass compass) {
+   RoadmapLocationCompassListener = compass;
+}
+
 int roadmap_location_denied () {
    return RoadMapLocationServiceDenied;
 }
@@ -134,15 +150,26 @@ time_t roadmap_location_get_latest_time () {
    } else {
       return time(NULL);
    }
-
 }
 
+void roadmap_location_get_acceleration (int *x, int *y, int *z) {
+   *x = (int)(1000000 * RoadMapLocationAcceleration.x);
+   *y = (int)(1000000 * RoadMapLocationAcceleration.y);
+   *z = (int)(1000000 * RoadMapLocationAcceleration.z);
+}
+
+BOOL roadmap_location_is_accelerometer_available (void) {
+   return TRUE;
+}
+
+BOOL roadmap_location_is_compass_available (void) {
+   return [RoadMapLocationManager headingAvailable];
+}
 
 
 @implementation RoadMapLocationController
 
 @synthesize locationManager;
-
 
 - (id) init {
    self = [super init];
@@ -159,7 +186,14 @@ time_t roadmap_location_get_latest_time () {
          self.locationManager.desiredAccuracy = kCLLocationAccuracyBest;
       
       RoadMapLocationManager = self.locationManager;
+      
+      //init accelerometer
+      [[UIAccelerometer sharedAccelerometer] setDelegate:self];
+      
+      //heading filter
+      [RoadMapLocationManager setHeadingFilter:1.0f];
    }
+   
    
 #if TARGET_IPHONE_SIMULATORxxx
    // Cupertino
@@ -188,6 +222,7 @@ time_t roadmap_location_get_latest_time () {
    int altitude;
    int speed;
    int steering;
+   int accuracy;
    
    int i;
    NSTimeInterval IntervalSinceOld;
@@ -277,8 +312,11 @@ time_t roadmap_location_get_latest_time () {
 
          altitude = floor (newLocation.altitude);
          
-         RoadmapLocationNavigationListener (status, gmt_time, position.latitude, 
-                                             position.longitude, altitude, speed, steering);
+         accuracy = floor (newLocation.horizontalAccuracy);
+         
+         RoadmapLocationNavigationListener (status, gmt_time,
+                                            position.latitude, position.longitude,
+                                            altitude, speed, steering, accuracy);
 
          return;
       } else { //No valid GPS data
@@ -333,4 +371,33 @@ time_t roadmap_location_get_latest_time () {
 #endif
 }
 
+//Heading update
+- (void)locationManager:(CLLocationManager *)manager didUpdateHeading:(CLHeading *)newHeading
+{
+   static int last_dir = -1;
+   
+   if (last_dir != (int)newHeading.magneticHeading) {
+      //printf("heading: %f\n", newHeading.magneticHeading);
+      
+      last_dir = (int)newHeading.magneticHeading;
+      if (RoadmapLocationCompassListener)
+         RoadmapLocationCompassListener (last_dir);
+   }
+}
+
+- (BOOL)locationManagerShouldDisplayHeadingCalibration:(CLLocationManager *)manager
+{
+   return NO;  
+}
+
+//Accelerometer delegate
+- (void)accelerometer:(UIAccelerometer *)accelerometer didAccelerate:(UIAcceleration *)acceleration
+{
+   //log latest accelerometer
+   
+   //printf("accelerometer - x: %f, y: %f, z: %f\n", acceleration.x, acceleration.y, acceleration.z);
+   RoadMapLocationAcceleration.x = acceleration.x;
+   RoadMapLocationAcceleration.y = acceleration.y;
+   RoadMapLocationAcceleration.z = acceleration.z;
+}
 @end

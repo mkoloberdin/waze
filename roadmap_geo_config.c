@@ -52,7 +52,7 @@
 #endif //IPHONE
 
 #define SYSTEM_DEFAULT_ID ("-1")
-
+#define COMPLETED_CB_MAXNUM   8
 #define REQUEST_TIMEOUT     120000
 #define RETRY_TIMEOUT       5000
 /* TODO:: Check if 3 retries are enough for all the platforms *** AGA *** */
@@ -85,6 +85,9 @@ static BOOL initialized = FALSE;
 static void lang_dlg(void);
 static void lang_loaded (void);
 static BOOL request_geo_config (void);
+static void run_completed_cb( void );
+static void init_completed_cb( void );
+
 void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char *name, RoadMapCallback callback);
 
 
@@ -96,9 +99,11 @@ typedef struct {
    char lang[6];
    int  version;
    RoadMapCallback callback;
+   GeoConfigCompletedCb completed_cb[COMPLETED_CB_MAXNUM];
+   void* completed_cb_ctx[COMPLETED_CB_MAXNUM];
 } NavigateRoutingContext;
 
-static NavigateRoutingContext GeoConfigContext;
+static NavigateRoutingContext GeoConfigContext = {0};
 
 
 ////////////////////////////////////////////////////////////////////
@@ -298,6 +303,9 @@ static void on_recieved_completed (void) {
       (*GeoConfigContext.callback)();
 
    GeoConfigContext.callback = NULL;
+
+   run_completed_cb();
+
    if ((oldServerId!=newServerId)&&(oldServerId!=-1)){
       roadmap_lang_set_update_time("");
       roadmap_lang_set_lang_file_update_time("heb","");
@@ -908,7 +916,7 @@ static void roadmap_geo_config_init (void) {
 
    address = get_webservice_address();
    if (INVALID_WEBSVC_HANDLE == s_websvc)
-      s_websvc = wst_init(address, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
+      s_websvc = wst_init(address, NULL, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {
@@ -995,6 +1003,39 @@ static void completed(void){
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////
+static void run_completed_cb( void )
+{
+   int i;
+   GeoConfigCompletedCb cb;
+   void* ctx;
+   for ( i = 0; i<COMPLETED_CB_MAXNUM; ++i )
+   {
+      if ( GeoConfigContext.completed_cb[i] != NULL )
+      {
+         cb = GeoConfigContext.completed_cb[i];
+         ctx = GeoConfigContext.completed_cb_ctx[i];
+         cb( ctx );
+         GeoConfigContext.completed_cb[i] = NULL;
+      }
+   }
+}
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+static void init_completed_cb( void )
+{
+   int i;
+   for ( i = 0; i<COMPLETED_CB_MAXNUM; ++i )
+   {
+      GeoConfigContext.completed_cb[i] = NULL;
+      GeoConfigContext.completed_cb_ctx[i] = NULL;
+   }
+}
+
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
 void roadmap_geo_config_fixed_location(RoadMapPosition *gpsPosition, const char *name, RoadMapCallback callback){
    roadmap_geo_config_init ();
    GeoConfigContext.callback = callback;
@@ -1074,7 +1115,24 @@ void roadmap_geo_config_other(RoadMapCallback callback){
        callback = completed;
     roadmap_geo_config_fixed_location(&gpsPosition, "world", callback);
 }
+////////////////////////////////////////////////////////////////////
+//
+///////////////////////////////////////////////////////////////////
+int roadmap_geo_register_completed_cb( GeoConfigCompletedCb cb, void* cb_context )
+{
+   int i;
 
+   for ( i = 0; i<COMPLETED_CB_MAXNUM; ++i )
+   {
+      if ( GeoConfigContext.completed_cb[i] == NULL )
+      {
+         GeoConfigContext.completed_cb[i] = cb;
+         GeoConfigContext.completed_cb_ctx[i] = cb_context;
+         break;
+      }
+   }
+   return ( i < COMPLETED_CB_MAXNUM );
+}
 ////////////////////////////////////////////////////////////////////
 //
 ///////////////////////////////////////////////////////////////////

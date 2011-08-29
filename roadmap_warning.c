@@ -110,14 +110,15 @@ void roadmap_warning_monitor(void)
 		{
 			// If warning has to be shown and was not shown before (or  vice versa) - refresh is necessary
 			warn_status = gsSysWarnings[next_idx].warning_fn( warning_str );
-         if (gsSysWarnings[next_idx].last_status != warn_status)
-            refresh_needed = TRUE;  // If there is at least one active warning - refresh the screen
+         //if (gsSysWarnings[next_idx].last_status != warn_status)
+            //refresh_needed = TRUE;  // If there is at least one active warning - refresh the screen
 			gsSysWarnings[next_idx].last_status = warn_status;
 			if ( warn_status )
 			{
 				roadmap_message_set( 'w', warning_str );
 				// If another warning has to be shown - refresh is necessary
-				refresh_needed = refresh_needed || ( gsCurrentWarning != next_idx  );
+				//refresh_needed = refresh_needed || ( gsCurrentWarning != next_idx  );
+            refresh_needed = TRUE;
 				gsCurrentWarning = next_idx;
 				break;
 			}

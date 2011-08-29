@@ -33,6 +33,7 @@
    BOOL                    minimized[3];
    PFN_ON_ITEM_SELECTED    g_on_item_selected;
    SsdSoftKeyCallback      g_detail_button_callback;
+   BOOL                    g_is_favorite;
    const char              *g_fav_name;
 }
 
@@ -46,6 +47,7 @@
              countAb:(int)count_ab
       onItemSelected:(PFN_ON_ITEM_SELECTED)on_item_selected
       onDetailButton:(SsdSoftKeyCallback)detail_button_callback
+          isFavorite:(BOOL)is_favorite
              favName:(const char*)fav_name;
 
 @end

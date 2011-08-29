@@ -65,6 +65,7 @@
 #include "Realtime/Realtime.h"
 
 #include "navigate/navigate_main.h"
+#include "navigate/navigate_route.h"
 #include "address_search/single_search_dlg.h"
 #include "address_search/address_search_dlg.h"
 #include "address_search/local_search_dlg.h"
@@ -72,6 +73,8 @@
 #include "Realtime/RealtimeAltRoutes.h"
 
 #include "roadmap_editbox.h"
+
+#define MAX_HISTORY_ENTRIES 100
 
 #ifdef ANDROID
 #include "roadmap_androidmain.h"
@@ -936,7 +939,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context){
                               on_option_selected,
                               NULL,
                               &menu_context,
-                              NULL, 60, 0, NULL);
+                              NULL, NULL, 60, 0, NULL);
 #endif //IPHONE
 
    return 0;
@@ -984,12 +987,57 @@ static int history_callback (SsdWidget widget, const char *new_value, const void
    return TRUE;
 }
 
+void roadmap_search_navigate_to_favorite( const char *favorite )
+{
+
+   static RoadMapSearchContext context ;
+   static ContextmenuContext menu_context;
+   RoadMapPosition pos = {0, 0};
+   BOOL res = FALSE;
+   int count = 0;
+   char str[512];
+   void* history;
+   void* prev;
+
+   // Look for the destination in the favorites
+   history = roadmap_history_latest ( ADDRESS_FAVORITE_CATEGORY );
+   for ( ; history && (count < MAX_HISTORY_ENTRIES); ++count )
+   {
+      char *argv[ahi__count];
+
+      roadmap_history_get( ADDRESS_FAVORITE_CATEGORY, history, argv );
+      prev = history;
+      snprintf( str, sizeof(str), "%s", argv[4] );
+      if ( !strcasecmp( favorite, str ) || !strcasecmp( roadmap_lang_get( favorite ), str ) )
+      {
+         pos.latitude = atoi( argv[5] );
+         pos.longitude = atoi( argv[6] );
+         res = TRUE;
+         break;
+      }
+      // Next entry
+      history = roadmap_history_before ( ADDRESS_FAVORITE_CATEGORY, history );
+      if (history == prev)
+         break;
+   }
+
+   if ( res == TRUE )
+   {
+      roadmap_trip_set_point ("Destination", &pos );
+      navigate_main_route( DISMISS_RESULT_MESSAGE );
+   }
+   else
+   {
+      roadmap_log( ROADMAP_ERROR, "Cannot navigate to %s. It was not found in history records!", favorite );
+   }
+}
 
 static int quick_favorites_callback (SsdWidget widget, const char *new_value, const void *value) {
 
    static RoadMapSearchContext context ;
    static ContextmenuContext menu_context;
 
+#ifdef TOUCH_SCREEN
    if (!strcmp(value,"add home")) {
       add_home_work_dlg(0);
       return 1;
@@ -998,7 +1046,7 @@ static int quick_favorites_callback (SsdWidget widget, const char *new_value, co
       add_home_work_dlg(1);
       return 1;
    }
-
+#endif
    context.category = 'F';
    menu_context.history = (void *)value;
    menu_context.context = &context;
@@ -1058,13 +1106,15 @@ static void show_empty_list_message(const char * title){
 }
 
 int on_add_favorite_cb (SsdWidget widget, const char *new_value){
+#ifdef TOUCH_SCREEN
    add_home_work_dlg(2);
+#endif
+   return 1;
 }
 
 
 void roadmap_search_history (char category, const char *title) {
 
-#define MAX_HISTORY_ENTRIES 100
    static RoadMapSearchContext context;
    const char *button_icon[]   = {"button_plus", "button_plus_s"};
    SsdWidget button;
@@ -1221,6 +1271,16 @@ void roadmap_search_history (char category, const char *title) {
    }
 #endif
 #else
+   list_menu_right_btn right_button, *p_right_button;
+   if (category =='F'){
+      right_button.text = "";
+      right_button.icon = "+";
+      right_button.callback = on_add_favorite_cb;
+      p_right_button = &right_button;
+   } else {
+      p_right_button = NULL;
+   }
+
 	roadmap_list_menu_generic (roadmap_lang_get (title),
                               count,
                               (const char **)labels,
@@ -1231,7 +1291,7 @@ void roadmap_search_history (char category, const char *title) {
                               history_callback,
                               NULL,
                               &context,
-                              on_options, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
+                              on_options, p_right_button, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
 #endif //IPHONE
 }
 
@@ -1590,7 +1650,7 @@ static SsdWidget get_favorites_widget( SsdWidget list, int *f_count){
       if (count > 0){
          //Quick Setting Container
          favorites_container = ssd_container_new ("__favorites_additional_container", NULL, width, SSD_MIN_SIZE,
-               SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
+               SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER);
          ssd_list_populate (list, count, (const char **)labels, (const void **)values, (const char **)icons, NULL, quick_favorites_callback, NULL, FALSE);
 
          ssd_widget_add( favorites_container, list);
@@ -1678,7 +1738,7 @@ static void reset_edit_box(SsdWidget widget)
 // AGA TEMPORARY SOLUTION
 #ifdef ANDROID
    search_menu_single_search();
-   return TRUE;
+   return;
 #endif
    if ( !roadmap_native_keyboard_enabled() ){
             search_menu_single_search();
@@ -1811,7 +1871,7 @@ static void add_home_work_dlg(int iType){
    ssd_widget_add(dialog,search_container);
 
 
-   box = ssd_container_new("home work box","", SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE);
+   box = ssd_container_new("home work box","", SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_CONTAINER_BORDER|SSD_CONTAINER_FLAGS);
    if (g_favorite_name != NULL){
       ssd_dialog_add_vspace(box, 10, 0);
       bitmap = ssd_bitmap_new("homework", "HW_route", SSD_ALIGN_CENTER|SSD_END_ROW);

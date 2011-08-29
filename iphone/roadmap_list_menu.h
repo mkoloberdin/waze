@@ -60,6 +60,12 @@ typedef struct {
    section_title     footers[LIST_MENU_MAX_GROUPS];
 } list_menu_sections;
 
+typedef struct {
+   char*             text;
+   char*             icon;
+   SsdCallback       callback;
+} list_menu_right_btn;
+
 
 void roadmap_list_menu_simple (const char             *name,
                                const char             *items_file,
@@ -84,6 +90,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                         PFN_ON_ITEM_SELECTED   on_item_deleted,
                                         void*                  context,
                                         SsdSoftKeyCallback     detail_button_callback,
+                                        list_menu_right_btn*   right_button,
                                         int                    list_height,
                                         int                    flags,
                                         list_menu_empty_message* empty_message);
@@ -99,6 +106,7 @@ void* roadmap_list_menu_generic (const char*          title,
                                  PFN_ON_ITEM_SELECTED on_item_deleted,
                                  void*                context,
                                  SsdSoftKeyCallback   detail_button_callback,
+                                 list_menu_right_btn* right_button,
                                  int                  list_height,
                                  int                  flags,
                                  list_menu_empty_message* empty_message);

@@ -68,3 +68,17 @@ uint32_t roadmap_time_get_millis(void) {
    return tv_to_msec(&tv);
 }
 
+const EpochTimeMicroSec* roadmap_time_get_epoch_us( EpochTimeMicroSec* time_val )
+{
+   static EpochTimeMicroSec s_epoch = { 0, 0 };
+   struct timeval tv;
+   gettimeofday(&tv, NULL);
+
+   s_epoch.epoch_sec = tv.tv_sec;
+   s_epoch.usec = tv.tv_usec;
+
+   if ( time_val )
+      *time_val = s_epoch;
+
+   return &s_epoch;
+}

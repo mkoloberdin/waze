@@ -108,7 +108,7 @@ void ssd_login_details_on_server_response (int status) {
 			roadmap_messagebox ("Error", "Invalid email address");
 			break;
 		case 905://Email address already exist
-			roadmap_messagebox ("Error", "Email address already exist");
+			roadmap_messagebox ("Error", "Email address already exists");
 			break;
 		case 906://internal server error cannot complete request
 			roadmap_messagebox ("Error", "Failed to create account, please try again");

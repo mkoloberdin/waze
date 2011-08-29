@@ -240,7 +240,7 @@ static void http_cb_error (void *context, int connection_failure, const char *fo
 #ifndef J2ME
 #define NOPH_System_currentTimeMillis() time(NULL)
 #endif
-static void http_cb_done (void *context,char *last_modified) {
+static void http_cb_done (void *context,char *last_modified, const char *format, ... ) {
 
    ConnectionContext *conn = (ConnectionContext *)context;
 	int *tile_status = conn->tile_status;

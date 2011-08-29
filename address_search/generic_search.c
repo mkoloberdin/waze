@@ -43,6 +43,10 @@
 #include "../roadmap_editbox.h"
 #include "../roadmap_time.h"
 #include "../roadmap_analytics.h"
+#ifdef ANDROID
+#include "roadmap_appwidget.h"
+#endif
+
 extern void convert_int_coordinate_to_float_string(char* buffer, int value);
 
 extern void navigate_main_stop_navigation();
@@ -176,6 +180,10 @@ roadmap_result generic_search_resolve_address(
 {
    transaction_state tstate;
    const char*       query = NULL;
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
 //   assert( address && (*address));
 
@@ -218,6 +226,7 @@ roadmap_result generic_search_resolve_address(
    if( wst_start_trans( websvc,
                         0,
                         service_name,
+                        type,
                         data_parser,
                         parser_count,
                         on_completed,
@@ -275,6 +284,11 @@ BOOL on_favorites_name( int         exit_code,
          favorites_address_info[ahi_synced] = strdup("false");
          roadmap_history_add( ADDRESS_FAVORITE_CATEGORY, (const char **)favorites_address_info);
          roadmap_trip_server_create_poi(name, &coordinates, TRUE);
+
+#ifdef ANDROID_WIDGET
+      roadmap_appwidget_request_refresh();
+#endif
+
 
 #ifdef IPHONE
          roadmap_main_show_root(0);

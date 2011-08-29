@@ -35,16 +35,17 @@
 #include "roadmap_messagebox.h"
 #include "roadmap_pointer.h"
 #include "roadmap_object.h"
+#include "roadmap_screen_obj.h"
 #include "address_search/address_search_defs.h"
 #include "ssd_progress_msg_dialog.h"
 #include "widgets/iphoneLabel.h"
 #include "widgets/iphoneCell.h"
 #include "widgets/iphoneTableHeader.h"
 #include "widgets/iphoneTableFooter.h"
+#include "roadmap_iphonecanvas.h"
 #include "RealtimeAltRoutes.h"
 #include "roadmap_alternative_routes.h"
 #include "roadmap_alternative_routes_dialog.h"
-
 
 
 
@@ -53,6 +54,7 @@
 enum currently_showing {
    SHOWING_NONE,
    SHOWING_ROUTES_LIST,
+   SHOWING_ROUTES_LIST_PENDING_ALL,
    SHOWING_ALL_ROUTES,
    SHOWING_ROUTE
 };
@@ -72,11 +74,11 @@ static int gFrequentHeight = 20;
 
 
 
-void roadmap_alternative_routes_routes_dialog (void) {
+void roadmap_alternative_routes_routes_dialog (BOOL showListFirst) {
    ssd_progress_msg_dialog_hide ();
    ssd_dialog_hide_all(dec_cancel);
    RoadMapAlternativeRoutesView *view = [[RoadMapAlternativeRoutesView alloc] init];
-   [view showListOfRoutes];
+   [view showListOfRoutes:showListFirst];
 }
 
 
@@ -187,10 +189,23 @@ int roadmap_alternative_route_select (int index) {
    [self resizeViews];
 }
 
+- (void)viewDidAppear:(BOOL)animated {
+   [self resizeViews];
+   
+   roadmap_canvas_show_view(gMapNotification);
+   roadmap_screen_obj_global_offset(0, ADJ_SCALE(50));
+   
+   if (currentlyShowing == SHOWING_ROUTES_LIST_PENDING_ALL)
+      [self onShowAll];
+}
 
+- (void)viewWillDisappear:(BOOL)animated {
+   [gMapNotification removeFromSuperview];
+   roadmap_screen_obj_global_offset(0, ADJ_SCALE(-50));
+}
 
 - (void) animateToList
-{
+{   
    //view
    [UIView beginAnimations:NULL context:NULL];
    [UIView setAnimationDuration:0.7f];
@@ -217,12 +232,20 @@ int roadmap_alternative_route_select (int index) {
    [UIView commitAnimations];
 }
 
+- (void) onAnimateToMapEnd
+{
+   roadmap_start_screen_refresh(TRUE);
+}
+
+
 - (void) animateToMap
 {
    //view
    [UIView beginAnimations:NULL context:NULL];
    [UIView setAnimationDuration:0.7f];
    [UIView setAnimationCurve:UIViewAnimationCurveEaseInOut];
+   [UIView setAnimationDidStopSelector:@selector(onAnimateToMapEnd)];
+   [UIView setAnimationDelegate:self];
    
    [UIView setAnimationTransition: UIViewAnimationTransitionFlipFromRight forView:containerView cache:YES];
    
@@ -294,13 +317,13 @@ int roadmap_alternative_route_select (int index) {
    //[routesListView removeFromSuperview];
    //[containerView addSubview:roadmap_main_get_canvas()];
    [self animateToMap];
-   roadmap_start_screen_refresh(TRUE);
+   //roadmap_start_screen_refresh(TRUE);
    currentlyShowing = SHOWING_ALL_ROUTES;
    [self resizeViews];
    add_routes_selection(NULL);
-   highligh_selection(-1);
+   highligh_selection(0);
    roadmap_math_set_min_zoom(ALT_ROUTESS_MIN_ZOOM_IN);
-   roadmap_screen_redraw();
+   //roadmap_screen_redraw();
 }
 
 - (void) onShowRoute: (int) index
@@ -333,13 +356,13 @@ int roadmap_alternative_route_select (int index) {
    navItem.hidesBackButton = YES;
 
    [self animateToMap];
-   roadmap_start_screen_refresh(TRUE);
+   //roadmap_start_screen_refresh(TRUE);
    currentlyShowing = SHOWING_ROUTE;
    [self resizeViews];
    add_routes_selection(NULL);
    highligh_selection(index);
    roadmap_math_set_min_zoom(ALT_ROUTESS_MIN_ZOOM_IN);
-   roadmap_screen_redraw();
+   //roadmap_screen_redraw();
 }
 
 
@@ -397,12 +420,32 @@ int roadmap_alternative_route_select (int index) {
         //                                                      style:UIBarButtonItemStyleDone target:self action:@selector(onShowAll)];
 }
 
-- (void) showListOfRoutes
+- (void) creategMapNotification
+{
+   CGRect rect = CGRectMake(0, 0, roadmap_canvas_width() * 100 / roadmap_screen_get_screen_scale(), 50);
+   char text[1024];
+   gMapNotification = [[iphoneLabel alloc] initWithFrame:rect];
+   gMapNotification.numberOfLines = 2;
+   gMapNotification.textAlignment = UITextAlignmentCenter;
+   snprintf (text, sizeof(text), "%s\n%s",
+             roadmap_lang_get("Note: Waze constantly checks alternatives"),
+             roadmap_lang_get("and re-routes when needed"));
+   gMapNotification.text = [NSString stringWithUTF8String:text];
+   gMapNotification.font = [UIFont boldSystemFontOfSize:14];
+   gMapNotification.backgroundColor = [UIColor colorWithWhite:1.0f alpha:0.6f];
+   //gMapNotification.textColor = [UIColor colorWithRed:0.57f green:0.575f blue:0.58f alpha:1.0f];
+   gMapNotification.textColor = [UIColor colorWithRed:0.45f green:0.45f blue:0.45f alpha:1.0f];
+   gMapNotification.autoresizesSubviews = YES;
+   gMapNotification.autoresizingMask = UIViewAutoresizingFlexibleWidth;
+}
+
+- (void) showListOfRoutes:(BOOL)showListFirst
 {
    self.title = [NSString stringWithUTF8String:roadmap_lang_get(ALT_ROUTES_TITLE)];
    [self createListView];
    [self createShowAllButton];
    [self createShowListButton];
+   [self creategMapNotification];
    
    [containerView addSubview: routesListView];
    
@@ -414,7 +457,11 @@ int roadmap_alternative_route_select (int index) {
    rightButton  = [[UIBarButtonItem alloc] initWithCustomView:rightButtonView];
 	[navItem setRightBarButtonItem:rightButton];
    
-   currentlyShowing = SHOWING_ROUTES_LIST;
+   if (showListFirst) {
+      currentlyShowing = SHOWING_ROUTES_LIST;
+   } else {
+      currentlyShowing = SHOWING_ROUTES_LIST_PENDING_ALL;
+   }
    
    roadmap_main_push_view(self);
 }
@@ -451,8 +498,8 @@ int roadmap_alternative_route_select (int index) {
    
    //time
    msg[0] = 0;
-   snprintf (msg , sizeof (msg), "%.1f %s",
-             nav_result->total_time / 60.0, roadmap_lang_get ("min."));
+   snprintf (msg , sizeof (msg), "%d %s",
+             (int)(nav_result->total_time / 60.0), roadmap_lang_get ("min."));
    rect.origin.y = gTimeOriginY;
    rect.origin.x = gLeftOriginX;
    rect.size.height = gTimeHeight;
@@ -538,10 +585,7 @@ int roadmap_alternative_route_select (int index) {
 
 
 - (void)dealloc
-{
- 
-      
-   
+{   
    if (routesListView)
       [routesListView release];
    if (showAllButton)
@@ -550,6 +594,8 @@ int roadmap_alternative_route_select (int index) {
       [showListButton release];
    if (rightButtonView)
       [rightButtonView release];
+   if (gMapNotification)
+      [gMapNotification release];
    
    [containerView release];
    

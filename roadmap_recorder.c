@@ -63,6 +63,8 @@ typedef struct
 #define VOICE_UPLOAD_CONTENT_TYPE            "audio/ima4"
 #elif defined (_WIN32)
 #define VOICE_UPLOAD_CONTENT_TYPE            "audio/wav"
+#elif defined (ANDROID)
+#define VOICE_UPLOAD_CONTENT_TYPE            "audio/mp4"
 #else
 #define VOICE_UPLOAD_CONTENT_TYPE            "audio/mp4" //TODO: verify that
 #endif
@@ -91,7 +93,7 @@ static RoadMapConfigDescriptor RMCfgRecorderVoiceUrlPrefix =
 static int  download_size_callback( void *context_cb, size_t size );
 static void download_progress_callback( void *context_cb, char *data, size_t size );
 static void download_error_callback( void *context_cb, int connection_failure, const char *format, ... );
-static void download_done_callback( void *context_cb,char *last_modified );
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  );
 
 
 static BOOL roadmap_recorder_voice_uploader( const char *voice_folder, const char *voice_file, char* voice_id,RecorderVoiceUploadCallback cb, void * context);
@@ -102,10 +104,10 @@ static void download_cache_add( const char* file_path );
 static void download_cache_clear( void );
 
 
-static int upload_file_size_callback( void *context, int aSize );
-static void upload_progress_callback( void *context, int aLoaded );
-static void upload_error_callback( void *context );
-static void upload_done( void *context, const char *format, ...);
+static int upload_file_size_callback( void *context, size_t aSize );
+static void upload_progress_callback( void *context, char *data, size_t size);
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...);
+static void upload_done( void *context, char *last_modified, const char *format, ... );
 
 typedef struct tag_upload_context {
 	RecorderVoiceUploadCallback cb;
@@ -117,7 +119,7 @@ typedef struct tag_upload_context {
 /*
  * These functions will handle the async voice upload.
  */
-static EditorUploadCallbacks gUploadCallbackFunctions =
+static RoadMapHttpAsyncCallbacks gUploadCallbackFunctions =
 {
 	upload_file_size_callback,
 	upload_progress_callback,
@@ -285,7 +287,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
  *  Purpose     : Download callback: Done
  *
  */
-static void download_done_callback( void *context_cb, char *last_modified )
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  )
 {
 	DownloadContext* context = (DownloadContext*) context_cb;
 	const char* path = context->voice_path;
@@ -350,47 +352,51 @@ BOOL roadmap_recorder_voice_upload( const char *voice_folder, const char *voice_
 static BOOL roadmap_recorder_voice_uploader( const char *voice_folder, const char *voice_file,
                                             char* voice_id, RecorderVoiceUploadCallback cb, void * context)
 {
-    BOOL res = FALSE;
-    char* full_path;
-    const char* target_url;
-    upload_context *  ctx;
-
-    if( !voice_id )
-    {
-        roadmap_log( ROADMAP_ERROR, "File upload error: voice id buffer is not available!!" );
-        return FALSE;
-    }
-
-    // Get the full path to the file
-    full_path = roadmap_path_join( voice_folder, voice_file );
-
-    // Set the target to upload to
+   BOOL res = FALSE;
+   char* full_path;
+   const char* target_url;
+   upload_context *  ctx;
+   int size;
+   const char *header;
+   
+   if( !voice_id )
+   {
+      roadmap_log( ROADMAP_ERROR, "File upload error: voice id buffer is not available!!" );
+      return FALSE;
+   }
+   
+   // Get the full path to the file
+   full_path = roadmap_path_join( voice_folder, voice_file );
+   
+   // Set the target to upload to
    target_url = get_upload_url();
-
-    roadmap_log( ROADMAP_DEBUG, "Uploading file: %s. ", full_path );
-
-    ctx = malloc(sizeof(upload_context));
-	 ctx->context = context;
-	 ctx->cb = cb;
-	 ctx->full_path = full_path;
-	 ctx->voice_id = voice_id;
-
-    // Upload and get the response
-    if ( !editor_upload_auto( full_path, &gUploadCallbackFunctions, target_url, VOICE_UPLOAD_CONTENT_TYPE, ctx ) )
-    {
-		  //change to debug and comment.
-        roadmap_log( ROADMAP_DEBUG, "Started Async connection for file : %s", full_path );
-        res = TRUE;
-    }
-    else
-    {
-    	roadmap_log( ROADMAP_WARNING, "File upload error on socket connect %s", full_path );
-    	roadmap_path_free( full_path );
-    	free( ctx );
-    	res = FALSE;
-    }
-
-    return res;
+   
+   roadmap_log( ROADMAP_DEBUG, "Uploading file: %s. ", full_path );
+   
+   ctx = malloc(sizeof(upload_context));
+   ctx->context = context;
+   ctx->cb = cb;
+   ctx->full_path = full_path;
+   ctx->voice_id = voice_id;
+   
+   // Upload and get the response
+   size = roadmap_file_length (NULL, full_path);
+   header = roadmap_http_async_get_upload_header(VOICE_UPLOAD_CONTENT_TYPE, full_path, size, NULL, NULL);
+   if (roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)ctx, target_url, header, full_path, size))
+   {
+      //change to debug and comment.
+      roadmap_log( ROADMAP_DEBUG, "Started Async connection for file : %s", full_path );
+      res = TRUE;
+   }
+   else
+   {
+      roadmap_log( ROADMAP_WARNING, "File upload error on socket connect %s", full_path );
+      roadmap_path_free( full_path );
+      free( ctx );
+      res = FALSE;
+   }
+   
+   return res;
 }
 
 
@@ -468,17 +474,17 @@ static void download_cache_clear( void )
 
 }
 
-
-static int upload_file_size_callback( void *context, int aSize ){
+///////////////////////////////////////////////////////
+static int upload_file_size_callback( void *context, size_t aSize ) {
 	return 1; // no voice is too big for sending.
 }
 
-static void upload_progress_callback( void *context, int aLoaded ){
-	//upload_context * ctx = (upload_context *)context;
-	//roadmap_log(ROADMAP_ERROR,"sent %d bytes of file %s",aLoaded,ctx->full_path);
+///////////////////////////////////////////////////////
+static void upload_progress_callback(void *context, char *data, size_t size) {
 }
 
-static void upload_error_callback( void *context ){
+///////////////////////////////////////////////////////
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...) {
 	upload_context *  ctx = (upload_context *)context;
 	roadmap_log(ROADMAP_ERROR,"error in uploading voice : %s",ctx->full_path);
 	(*ctx->cb ) (ctx->context);
@@ -486,7 +492,8 @@ static void upload_error_callback( void *context ){
    free(ctx);
 }
 
-static void upload_done( void *context, const char *format, ...){
+///////////////////////////////////////////////////////
+static void upload_done( void *context, char *last_modified, const char *format, ... ) {
 	upload_context * ctx = (upload_context *)context;
 
 	char response_message[500];
@@ -495,7 +502,7 @@ static void upload_done( void *context, const char *format, ...){
 		va_start(ap, format);
 		vsnprintf(response_message,sizeof(response_message),format,ap);
 		va_end(ap);
-		roadmap_log(ROADMAP_DEBUG,"done uploading log file : %s. Received response : %s",ctx->full_path,response_message);
+		roadmap_log(ROADMAP_DEBUG,"done uploading audio file : %s. Received response : %s",ctx->full_path,response_message);
 	}
 
 	// Parse the answer

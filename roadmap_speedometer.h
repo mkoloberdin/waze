@@ -29,4 +29,6 @@
 void roadmap_speedometer_initialize(void);
 void roadmap_speedometer_set_offset(int offset_y);
 
+void roadmap_speedometer_hide(void);
+void roadmap_speedometer_show(void);
 #endif /* ROADMAP_SPEEDOMETER_H_ */

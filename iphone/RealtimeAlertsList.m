@@ -180,9 +180,7 @@ static void delete_callback(int exit_code, void *context){
    
    alertId = atoi((const char*)context);
    success = real_time_remove_alert(alertId);
-   if (success)
-      roadmap_messagebox("Delete Alert", "Your request was sent to the server");
-   
+  
 }
 
 static void on_delete (void *data) {
@@ -193,9 +191,7 @@ static void on_delete (void *data) {
 		if (gAlertListTable.value[i] == data) break;
 	}
    
-   sprintf(message,"%s\n%s\n%s",roadmap_lang_get("Delete Alert:"), gAlertListTable.type_str[i], gAlertListTable.location_str[i]);
-   
-   ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback, data); 
+   delete_callback(dec_yes, data);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -293,7 +289,7 @@ static int RealtimeAlertsDeleteCallBack(SsdWidget widget, const char *new_value,
                               on_option_selected,
                               NULL,
                               (void *)value,            
-                              NULL,
+                              NULL, NULL,
                               60, 0, NULL);
    
    return FALSE;
@@ -806,9 +802,7 @@ static int RealtimeAlertsDeleteCallBackTabs(SsdWidget widget, const char *new_va
          return TRUE;
     }
 
-	 sprintf(message,"%s\n%s",roadmap_lang_get("Delete Alert:"), new_value);
-   
-    ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback,  (void *)value); 
+	delete_callback(dec_yes, (void *)value);
 
     return FALSE;
 }
@@ -1384,12 +1378,12 @@ static void	show_types_list(BOOL refresh, BOOL no_animation){
       g_list_menu = roadmap_list_menu_generic("Events", count, tabs_titles, 
                                               (const void**)tabs_values, tabs_icons, tabs_item_count, 
                                               get_selector(), on_type_selected, NULL,
-                                              (void *)TYPES_LIST, NULL, 60, flags, p_empty_message);
+                                              (void *)TYPES_LIST, NULL, NULL, 60, flags, p_empty_message);
    else
       roadmap_list_menu_generic_refresh(g_list_menu, "Events", count, tabs_titles, 
                                         (const void**)tabs_values, tabs_icons, tabs_item_count, 
                                         get_selector(), on_type_selected, NULL,
-                                        (void *)TYPES_LIST, NULL, 60, flags, p_empty_message);
+                                        (void *)TYPES_LIST, NULL, NULL, 60, flags, p_empty_message);
    
    
 	

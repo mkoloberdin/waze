@@ -24,14 +24,17 @@
 #include "../websvc_trans/websvc_trans_defs.h"
 
 #define  INVALID_WEBSVC_HANDLE      (NULL)
+#define  WEBSVC_NO_TYPE             (-1)
 
 wst_handle  wst_init( const char* service_name, const char* secured_service_name,
+                     const char* secured_service_name_resolved,
                      const char* service_v2_suffix, const char* content_type);
 void        wst_term( wst_handle h);
 
 BOOL        wst_start_trans(wst_handle           session,       // Session object
                             int                  flags,         // Session flags
                             const char*          action,        // (/<service_name>/)<ACTION>
+                            int                  type,          // Type identifier
                             const wst_parser_ptr parsers,       // Array of 1..n data parsers
                             int                  parsers_count, // Parsers count
                             CB_OnWSTCompleted    cbOnCompleted, // Callback for transaction completion
@@ -43,7 +46,8 @@ transaction_state wst_get_trans_state(
                wst_handle           session);
 
 void        wst_stop_trans(   
-               wst_handle           session);
+               wst_handle           session,
+                           BOOL     bStopNow);
 
 void        wst_watchdog(           wst_handle  session);
 BOOL        wst_queue_is_empty(     wst_handle  session);
@@ -58,5 +62,6 @@ typedef enum tagLastNetConnectRes
 }	LastNetConnectRes;
 
 LastNetConnectRes websvc_trans_getLastNetConnectRes(void);
+int wst_get_unique_type (void);
 
 #endif   //   __HTTPTRANSACTION_H__

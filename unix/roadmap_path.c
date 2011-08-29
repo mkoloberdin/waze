@@ -768,6 +768,18 @@ const char *roadmap_path_voices( void )
    return RoadMapPathVoices;
 }
 
+const char *roadmap_path_tts( void )
+{
+   static char *RoadMapPathTts = NULL;
+
+   if ( RoadMapPathTts == NULL )
+   {
+      RoadMapPathTts = roadmap_path_join( roadmap_path_user(), "tts" );
+      roadmap_path_create( RoadMapPathTts );
+   }
+   return RoadMapPathTts;
+}
+
 const char *roadmap_path_downloads( void )
 {
    return roadmap_path_user();

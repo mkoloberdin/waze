@@ -75,6 +75,7 @@
 #include "navigate/navigate_instr.h"
 #include "Realtime/RealtimeDefs.h"
 #include "editor_track_main.h"
+#include "roadmap_tile_manager.h"
 
 #define GPS_POINTS_DISTANCE "10m"
 #define MAX_POINTS_IN_SEGMENT 10000
@@ -106,6 +107,7 @@ static int points_start = 0;
 static int cur_active_line = 0;
 static RoadMapGpsPosition TrackLastPosition;
 static time_t LastGpsUpdate = 0;
+static RoadMapTileCallback 		TileCbNext = NULL;
 
 static RoadMapTracking  TrackConfirmedStreet = ROADMAP_TRACKING_NULL;
 static RoadMapNeighbour TrackPreviousLine = ROADMAP_NEIGHBOUR_NULL;
@@ -1119,6 +1121,23 @@ editor_gps_update (time_t gps_time,
    }
 }
 
+static void on_tile_update( int tile_id )
+{
+	if (TrackConfirmedStreet.valid &&
+       TrackConfirmedLine.line.square == tile_id) {
+      roadmap_log(ROADMAP_WARNING, "on_tile_update() - confirmed line is in updated tile (%d), invalidating...", tile_id);
+      
+      editor_track_reset();
+      editor_track_known_reset_resolve ();
+   }
+   
+   
+	/* Next callback in chain */
+	if ( TileCbNext )
+	{
+		TileCbNext( tile_id );
+	}
+}
 
 
 void editor_track_initialize (void) {
@@ -1157,7 +1176,7 @@ void editor_track_initialize (void) {
    		editor_bar_show();
    }
 
-
+   TileCbNext = roadmap_tile_register_callback(on_tile_update);
 }
 
 

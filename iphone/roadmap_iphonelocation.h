@@ -28,7 +28,7 @@
 #import <CoreLocation/CoreLocation.h>
 
 
-@interface RoadMapLocationController : NSObject <CLLocationManagerDelegate> {
+@interface RoadMapLocationController : NSObject <CLLocationManagerDelegate, UIAccelerometerDelegate> {
 CLLocationManager *locationManager;
 }
 

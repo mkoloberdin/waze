@@ -63,6 +63,13 @@
 #define  RT_CFG_PRM_NKNM_Name          ("Nickname")
 #define  RT_CFG_PRM_NKNM_Default       ("")
 
+//   Enable skip button on first signup screen
+#define  RT_CFG_PRM_SKIPBTN_Var        RTPrm_SkipButton
+#define  RT_CFG_PRM_SKIPBTN_Name       ("Signup skip button")
+#define  RT_CFG_PRM_SKIPBTN_Enabled    ("Enabled")
+#define  RT_CFG_PRM_SKIPBTN_Disabled   ("Disabled")
+
+
 //   Small Wazers scale factor
 #define  RT_CFG_PRM_WAZERS_SCALE_Var      RTPrm_WazersScaleFactor
 #define  RT_CFG_PRM_WAZERS_SCALE_Name     ("Wazers scale factor")
@@ -85,6 +92,16 @@
 #define  RT_CFG_PRM_RANDOM_USER_Var     RTPrm_RandomUser
 #define  RT_CFG_PRM_RANDOM_USER_Name   ("Random user")
 #define  RT_CFG_PRM_RANDOM_USERT_Default ("0")
+
+//   My Inbox URL
+#define  RT_CFG_PRM_INBOX_URL_Var       RTPrm_InboxUrl
+#define  RT_CFG_PRM_INBOX_URL_Name     ("Inbox URL")
+#define  RT_CFG_PRM_INBOX_URL_Default  ("")
+
+//   My Inbox Enabled
+#define  RT_CFG_PRM_INOBX_ENABLED_Var       RTPrm_InboxFeatureEnabled
+#define  RT_CFG_PRM_INOBX_ENABLED_Name     ("Inbox Enabled")
+#define  RT_CFG_PRM_INOBX_ENABLED_Default  ("no")
 
 //   Refresh rate
 #define  RT_CFG_PRM_REFRAT_Var         	RTPrm_RefreshRate
@@ -129,11 +146,14 @@
 #define  RT_CFG_PRM_WEBSRVSSL_Var         RTPrm_WebServiceSecuredAddress
 #define  RT_CFG_PRM_WEBSRVSSL_Name        ("Web-Service Secured Address")
 #define  RT_CFG_PRM_WEBSRVSSL_Default     ("")
+#define  RT_CFG_PRM_WEBSRVSSLRes_Var      RTPrm_WebServiceSecuredAddressRes
+#define  RT_CFG_PRM_WEBSRVSSLRes_Name     ("Web-Service Secured Address Resolved")
+#define  RT_CFG_PRM_WEBSRVSSLRes_Default  ("")
 #define  RT_CFG_PRM_WEBSRVSSLCMD_Var      RTPrm_WebServiceSecuredCommands
 #define  RT_CFG_PRM_WEBSRVSSLCMD_Name     ("Web-Service Secured Commands")
-#define  RT_CFG_PRM_WEBSRVSSLCMD_Default  ("Login-BridgeTo")
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Default  ("Login-BridgeTo-RoutingRequest")
 #define  RT_CFG_PRM_WEBSRVSSLEnabled_Var  RTPrm_WebServiceSecureEnabled
-#define  RT_CFG_PRM_WEBSRVSSLEnabled_Name ("Web-Service Secure Enabled")
+#define  RT_CFG_PRM_WEBSRVSSLEnabled_Name ("Web-Service Secure Enabled Client_2_3")
 #define  RT_CFG_PRM_WEBSRVV2SFX_Var       RTPrm_WebServiceV2Suffix
 #define  RT_CFG_PRM_WEBSRVV2SFX_Name      ("Web-Service V2 Suffix")
 #define  RT_CFG_PRM_WEBSRVV2SFX_Default   ("_v2")

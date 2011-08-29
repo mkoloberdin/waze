@@ -52,6 +52,9 @@
 static RoadMapConfigDescriptor RoadMapConfigTarget =
                                   ROADMAP_CONFIG_ITEM("Realtime", "OfflineTarget");
 
+static RoadMapConfigDescriptor RoadMapConfigSecuredTarget =
+                                 ROADMAP_CONFIG_ITEM("Realtime", "SecuredOfflineTarget");
+
 static RoadMapConfigDescriptor RoadMapConfigUser =
                                   ROADMAP_CONFIG_ITEM("Realtime", "Name");
 
@@ -490,6 +493,11 @@ void editor_upload_initialize (void) {
       ("preferences",
       &RoadMapConfigTarget,
       "", NULL);
+   
+   roadmap_config_declare
+      ("preferences",
+       &RoadMapConfigSecuredTarget,
+       "", NULL);
 
    roadmap_config_declare ("user", &RoadMapConfigUser, "", NULL);
    roadmap_config_declare_password ("user", &RoadMapConfigPassword, "");
@@ -557,7 +565,7 @@ int editor_upload_auto (const char *filename,
 		url = roadmap_config_get (&RoadMapConfigTarget);
 
 	// Start the async-connect process:
-	if( -1 == roadmap_net_connect_async("http_post",url,0,80,0,editor_upload_on_socket_connected, upload_context))
+	if( NULL == roadmap_net_connect_async("http_post",url,url,0,80,0,editor_upload_on_socket_connected, upload_context))
 	{
 		free(upload_context->custom_content_type);
 		free(upload_context->file_name);
@@ -568,4 +576,15 @@ int editor_upload_auto (const char *filename,
     return 0;
 }
 
+const char *editor_upload_get_url(void) {
+   const char* target;
+
+   target = roadmap_config_get (&RoadMapConfigSecuredTarget);
+   
+   if (!target || !target[0]) {
+      target = roadmap_config_get (&RoadMapConfigTarget);
+   }
+   
+   return target;
+}
 

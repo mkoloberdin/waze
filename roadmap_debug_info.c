@@ -35,11 +35,12 @@
 #include "roadmap_path.h"
 #include "roadmap_zlib.h"
 #include "ssd/ssd_progress_msg_dialog.h"
+#include "roadmap_screen.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "roadmap_lang.h"
 #include "roadmap_messagebox.h"
-#include "editor/export/editor_upload.h"
+#include "roadmap_httpcopy_async.h"
 #include "roadmap_config.h"
 #include "roadmap_warning.h"
 #include "roadmap_debug_info.h"
@@ -75,17 +76,17 @@ typedef struct tag_upload_context{
 	int total;
 }upload_context;
 
-static int upload_file_size_callback( void *context, int aSize );
-static void upload_progress_callback( void *context, int aLoaded );
-static void upload_error_callback( void *context);
-static void upload_done( void *context, const char *format, ... );
+static int upload_file_size_callback( void *context, size_t aSize );
+static void upload_progress_callback(void *context, char *data, size_t size);
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...);
+static void upload_done( void *context, char *last_modified, const char *format, ... );
 
 
 #ifdef RIMAPI
 static char zipped_log_name[256]; // This is a temporary workaround, until roadmap_path_list is implemented
 #endif
 
-static EditorUploadCallbacks gUploadCallbackFunctions =
+static RoadMapHttpAsyncCallbacks gUploadCallbackFunctions =
 {
 upload_file_size_callback,
 upload_progress_callback,
@@ -93,31 +94,59 @@ upload_error_callback,
 upload_done
 };
 
-static int upload_file_size_callback( void *context, int aSize ) {
+
+
+///////////////////////////////////////////////////////
+BOOL debug_info_warning_fn ( char* dest_string ) {
+   
+   if (warning_message[0] == '\0') {
+      return FALSE;
+   }
+   
+   strncpy (dest_string, warning_message, ROADMAP_WARNING_MAX_LEN);
+   
+   return TRUE;	
+}
+
+///////////////////////////////////////////////////////
+static int upload_file_size_callback( void *context, size_t aSize ) {
 	return 1;
 }
 
-static void upload_progress_callback( void *context, int aLoaded ) {
-	//upload_context *  uContext = (upload_context *)context;
-	//roadmap_log(ROADMAP_DEBUG,"sent %d bytes of file %s",aLoaded,uContext->full_path);
+///////////////////////////////////////////////////////
+static void upload_progress_callback(void *context, char *data, size_t size) {
 }
 
-static void upload_error_callback( void *context) {
-	upload_context *  uContext = (upload_context *)context;
-	ssd_progress_msg_dialog_hide();
+///////////////////////////////////////////////////////
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...) {
+	va_list ap;
+   char err_string[1024];
+   upload_context *  uContext = (upload_context *)context;
+
+   // Load the arguments
+   va_start( ap, format );
+   vsnprintf( err_string, 1024, format, ap );
+   va_end( ap );
+
+
+	roadmap_log( ROADMAP_ERROR, "Error uploading log files: %s!", err_string );
+
+   roadmap_warning_unregister (debug_info_warning_fn);
 	roadmap_messagebox_timeout("Error", "Error sending files",5);
 	in_process = 0;
 	roadmap_file_remove(NULL, uContext->full_path);
 	roadmap_path_list_free(uContext->files);
 	roadmap_path_free(uContext->full_path);
 
+
 	free(uContext);
 }
 
+///////////////////////////////////////////////////////
 /*
  * Called once one file was sent successfully. Starts the sending of the next file, if there is one.
  */
-static void upload_done( void *context, const char *format, ... ) {
+static void upload_done( void *context, char *last_modified, const char *format, ... ) {
 	upload_context *  uContext = (upload_context *)context;
 	int new_count;
 	char ** new_cursor;
@@ -141,13 +170,14 @@ static void upload_done( void *context, const char *format, ... ) {
 	if(new_count==total){ // finished - sent all the files!
 		in_process = 0 ;
 		roadmap_path_list_free(uContext->files);
-		ssd_progress_msg_dialog_hide();
+      roadmap_warning_unregister (debug_info_warning_fn);
 		roadmap_messagebox_timeout("Thank you!!!", "Logs submitted successfully to waze",3);
 	}else{ // still more files - call the next one
+      int size;
+      const char *header;
+      
 		upload_context * new_context;
-		sprintf (warning_message,"%s\n%d/%d",roadmap_lang_get("Uploading logs..."),new_count+1, total);
-		ssd_progress_msg_dialog_show(warning_message);
-		roadmap_main_flush();
+		sprintf (warning_message,"%s %d/%d",roadmap_lang_get("Uploading logs..."),new_count+1, total);
 		new_full_path = roadmap_path_join( roadmap_path_debug(), *new_cursor );
 		new_context= malloc(sizeof(upload_context));
 		new_context->cursor = new_cursor;
@@ -155,16 +185,18 @@ static void upload_done( void *context, const char *format, ... ) {
 		new_context->full_path = new_full_path;
 		new_context->file_num = new_count;
 		new_context->total = total;
-	    target_url = roadmap_config_get ( &RMCfgDebugInfoServer);
-		if ( editor_upload_auto( new_full_path, &gUploadCallbackFunctions, target_url, LOG_UPLOAD_CONTENT_TYPE,(void *)new_context) )
-	    {
-		  roadmap_log( ROADMAP_ERROR, "File upload error. for file %s , number %d", new_full_path, new_count);
-		  roadmap_path_free(new_full_path);
-		  roadmap_path_list_free (new_context->files);
-		  ssd_progress_msg_dialog_hide();
-		  roadmap_messagebox_timeout("Error", "Error sending files",5);
-		  in_process = 0;
-	    }
+      target_url = roadmap_config_get ( &RMCfgDebugInfoServer);
+      
+      size = roadmap_file_length (NULL, new_full_path);
+      header = roadmap_http_async_get_upload_header(LOG_UPLOAD_CONTENT_TYPE, new_full_path, size, NULL, NULL);
+      if (!roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)new_context, target_url, header, new_full_path, size)) {         
+         roadmap_log( ROADMAP_ERROR, "File upload error. for file %s , number %d", new_full_path, new_count);
+         roadmap_path_free(new_full_path);
+         roadmap_path_list_free (new_context->files);
+         roadmap_warning_unregister (debug_info_warning_fn);
+         roadmap_messagebox_timeout("Error", "Error sending files",5);
+         in_process = 0;
+      }
 	}
 	roadmap_path_free(uContext->full_path);
 	free(uContext);
@@ -209,7 +241,7 @@ int prepare_for_upload ()
 
    //Prepare log
    count++;
-   sprintf (warning_message,"%s\n%d/%d",roadmap_lang_get("Preparing files for upload..."),count, total);
+   sprintf (warning_message,"%s %d/%d",roadmap_lang_get("Preparing files for upload..."),count, total);
    ssd_progress_msg_dialog_show(warning_message);
    roadmap_main_flush();
 
@@ -243,7 +275,7 @@ int prepare_for_upload ()
    //Prepare CSV files
    for (cursor = files; *cursor != NULL; ++cursor) {
       count++;
-      sprintf (warning_message,"%s\n%d/%d",roadmap_lang_get("Preparing files for upload..."),count, total);
+      sprintf (warning_message,"%s %d/%d",roadmap_lang_get("Preparing files for upload..."),count, total);
       ssd_progress_msg_dialog_show(warning_message);
       roadmap_main_flush();
 
@@ -272,11 +304,13 @@ int prepare_for_upload ()
 
 ///////////////////////////////////////////////////////
 // Compress files and prepare for upload
-int upload () {
+static int upload () {
    const char* directory = roadmap_path_debug();
    const char* target_url;
    char *full_path;
    upload_context * context;
+   int size;
+   const char *header;
 
 #ifndef RIMAPI
    char **files = roadmap_path_list (directory, ".gz");
@@ -293,8 +327,6 @@ int upload () {
    // Set the target to upload to
 
    sprintf (warning_message,"%s",roadmap_lang_get("Uploading logs..."));
-   ssd_progress_msg_dialog_show(warning_message);
-   roadmap_main_flush();
 
    count = 0;
    for (cursor = files; *cursor != NULL; ++cursor) {
@@ -316,28 +348,25 @@ int upload () {
 
    context->full_path = full_path;
 
-   sprintf (warning_message,"%s\n%d/%d",roadmap_lang_get("Uploading logs..."),count+1, context->total);
+   sprintf (warning_message,"%s %d/%d",roadmap_lang_get("Uploading logs..."),count+1, context->total);
+   
+   size = roadmap_file_length (NULL, full_path);
 
-   ssd_progress_msg_dialog_show(warning_message);
-   roadmap_main_flush();
+   roadmap_log( ROADMAP_INFO, "Uploading log file: %s. Size: %d", full_path, size );
 
-   // this starts the async sending sequence. Further progress is done through the callbacks.
-   if ( editor_upload_auto( full_path, &gUploadCallbackFunctions, target_url, LOG_UPLOAD_CONTENT_TYPE,(void *)context) )
-   {
- 	  roadmap_log( ROADMAP_ERROR, "File upload error. for file %s ", full_path);
 
- 	  roadmap_path_free(full_path);
- 	  roadmap_path_list_free (files);
-
- 	  ssd_progress_msg_dialog_hide();
- 	  free(context);
- 	  return 0;
+   header = roadmap_http_async_get_upload_header(LOG_UPLOAD_CONTENT_TYPE, full_path, size, NULL, NULL);
+   if (!roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)context, target_url, header, full_path, size)) {
+      roadmap_log( ROADMAP_ERROR, "File upload error. for file %s ", full_path);
+      
+      roadmap_path_free(full_path);
+      roadmap_path_list_free (files);
+      free(context);
+      return 0;
    }
-
+   
    return 1;
 }
-
-
 
 ///////////////////////////////////////////////////////
 // Submit all debug info - confirmation callback
@@ -350,21 +379,25 @@ static void roadmap_confirmed_debug_info_submit(int exit_code, void *context){
 #endif
 
    in_process = 1;
+   warning_message[0] = '\0';
+   roadmap_warning_register (debug_info_warning_fn, "senddebug");
 
    if (!prepare_for_upload()) {
+      roadmap_log( ROADMAP_ERROR, "Error preparing log files!" );
       roadmap_messagebox_timeout("Oops", "Error sending files",5);
+      roadmap_warning_unregister (debug_info_warning_fn);
       in_process = 0;
       return;
    }
 
    if (!upload()) {
       roadmap_messagebox_timeout("Oops", "Error sending files",5);
+      roadmap_warning_unregister (debug_info_warning_fn);
       in_process = 0;
       return;
    }
 
 }
-
 
 
 ///////////////////////////////////////////////////////
@@ -388,17 +421,16 @@ static void submit (int with_confirmation)
 }
 
 ///////////////////////////////////////////////////////
-// Submit all debug info
+// Submit all debug info - no confirmation needed
 void roadmap_debug_info_submit_confirmed (void)
 {
    submit(FALSE);
 }
 
-
-
 ///////////////////////////////////////////////////////
-// Submit all debug info
+// Submit all debug info - with confirmation
 void roadmap_debug_info_submit (void)
 {
 	submit(TRUE);
 }
+

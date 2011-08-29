@@ -292,6 +292,10 @@ static RoadMapTripPoint *roadmap_trip_update
                 RoadMapTripFocusMoved = 1;
             }
             result->distance = 0;
+        } else if (gps_position &&
+                   result == RoadMapTripFocus &&
+                   result->gps.steering != gps_position->steering) {
+           RoadMapTripFocusMoved = 1;
         }
     }
 
@@ -1183,13 +1187,18 @@ void roadmap_trip_display (void) {
                     if (image){
                         screen_point.x -= roadmap_canvas_image_width(image)/2;
                         screen_point.y -= roadmap_canvas_image_height(image)/2;
+#ifdef OPENGL                        
                         roadmap_canvas_draw_image_angle (image, &screen_point,  0, roadmap_math_get_orientation() + waypoint->gps.steering ,IMAGE_NORMAL);
+#else
+                        roadmap_canvas_draw_image (image, &screen_point,  0, IMAGE_NORMAL);
+#endif
                     } else
                         roadmap_sprite_draw (waypoint->sprite, &point, waypoint->gps.steering);
                 } else
                     roadmap_sprite_draw (waypoint->sprite, &point, waypoint->gps.steering);
             }else{
                BOOL is_location = !strcmp( waypoint->sprite,"Location" );
+
                if ((waypoint->image != NULL) && !(waypoint->is_object) && (  !is_location || ( is_location && focus && !strcmp( focus, "Location" ) ) )){
                     RoadMapImage image;
                     image =  (RoadMapImage) roadmap_res_get(RES_BITMAP, RES_SKIN, waypoint->image);

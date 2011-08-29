@@ -56,6 +56,7 @@ static   SsdWidget            s_dlg    = NULL;
 static   BOOL                 s_1st    = TRUE;
 static   BOOL                 s_menu   = FALSE;
 static   BOOL                 s_history_was_loaded = FALSE;
+static   BOOL                 s_auto_start_nav = FALSE;
 
 static	int					selected_item;
 static   char              searched_text[256];
@@ -225,6 +226,12 @@ static void on_address_resolved( void*                context,
    roadmap_analytics_log_event(ANALYTICS_EVENT_ADDRSUCCESS_NAME, NULL, NULL);
 
    assert( size <= ADSR_MAX_RESULTS);
+   
+   if (size == 1 && s_auto_start_nav) {
+      s_auto_start_nav = FALSE;
+      navigate(1);
+      return;
+   }
 
    for( i=0; i<size; i++)
    {
@@ -238,7 +245,7 @@ static void on_address_resolved( void*                context,
    icons[i] = "submit_logs";
 
 	roadmap_list_menu_generic(roadmap_lang_get(ASD_DIALOG_TITLE), size+1, results, (void *)indexes,
-							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
+							  icons, NULL, NULL, on_list_item_selected, NULL, NULL, on_options, NULL, 60, LIST_MENU_ADD_DETAIL_BUTTON, NULL);
 }
 
 
@@ -576,7 +583,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
    }
 
 	roadmap_list_menu_generic("Options", count, labels, (const void**)values, NULL, NULL, NULL, on_option_selected,
-                             NULL, NULL, NULL, 60, 0, NULL);
+                             NULL, NULL, NULL, NULL, 60, 0, NULL);
 
 
 
@@ -585,6 +592,7 @@ int on_options(SsdWidget widget, const char *new_value, void *context)
 
 BOOL on_searchbox_done (int type, const char *new_value, void *context)
 {
+   s_auto_start_nav = FALSE;
 	on_search (new_value, context);
 	return 0;
 }
@@ -602,9 +610,20 @@ void verify_init ()
 BOOL address_search_auto_search( const char* address)
 {
    verify_init();
+   s_auto_start_nav = FALSE;
 
 	on_search(address, NULL);
 
+	return TRUE;
+}
+
+BOOL address_search_auto_nav( const char* address)
+{
+   verify_init();
+   s_auto_start_nav = TRUE;
+   
+	on_search(address, NULL);
+   
 	return TRUE;
 }
 

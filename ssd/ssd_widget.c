@@ -675,7 +675,7 @@ SsdWidget ssd_widget_new (const char *name,
    w->release = NULL;
    w->tab_sequence   = tab_order_sequence++;
    w->force_click  = FALSE;
-
+   w->additional_flags = 0;
    memset( &w->click_offsets, 0, sizeof( SsdClickOffsets ) );
 
    if( pfn_on_key_pressed)
@@ -973,6 +973,9 @@ int ssd_widget_set_data (const SsdWidget widget, const char *name,
 void ssd_widget_add (SsdWidget parent, SsdWidget child) {
 
    SsdWidget last = parent->children;
+
+   if (!child)
+   	return;
 
    child->parent = parent;
 

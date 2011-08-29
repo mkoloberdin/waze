@@ -218,6 +218,13 @@ int ssd_bitmap_height(SsdWidget widget){
    return widget->size.height;
 }
 
+
+void ssd_bitmap_set_width(SsdWidget widget, int width){
+   bitmap_info_ptr bi = (bitmap_info_ptr)widget->data;
+   widget->size.width = width;
+   bi->width = width;
+}
+
 // Bitmap from image
 SsdWidget ssd_bitmap_image_new(  const char *name,
                                  RoadMapImage image,

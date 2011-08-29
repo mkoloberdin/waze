@@ -34,10 +34,11 @@
    UIView *rightButtonView;
    UIBarButtonItem *rightButton;
    int currentlyShowing;
+   iphoneLabel *gMapNotification;
 }
 
 
-- (void) showListOfRoutes;
+- (void) showListOfRoutes:(BOOL)showListFirst;
 
 @end
 

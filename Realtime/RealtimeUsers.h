@@ -71,6 +71,7 @@ typedef struct tagRTUserLocation
    char              sGroupIcon[RT_USER_GROUP_ICON_MAXSIZE];
    int               iGroupRelevance;
    BOOL              bShowGroupIcon;
+   int               iVipFlags;
 }  RTUserLocation, *LPRTUserLocation;
 
 

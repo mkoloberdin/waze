@@ -149,6 +149,8 @@ BarTitle RoadMapTitles[] = {
 	{"report", "Report"},
    {"scoreboard", "Scoreboard"},
    {"groups", "Groups"},
+   {"mywaze", "My waze"},
+   {"nearby_coupons_and_games", "Games & Coupons"},
 	{NULL, NULL}
 };
 

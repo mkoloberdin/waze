@@ -73,6 +73,7 @@ void* roadmap_list_menu_custom (const char*           title,
 		void* context;
 		SsdSoftKeyCallback detail_button_callback;
 		ViewForCellCallback custom_view_callback;
+      SsdCallback on_right_btn_cb;
 	} listData;
 }
 
@@ -102,6 +103,7 @@ void* roadmap_list_menu_custom (const char*           title,
                  andOnItemDeleted:(PFN_ON_ITEM_SELECTED)on_item_deleted
                        andContext:(void*)context
           andDetailButtonCallback:(SsdSoftKeyCallback)detail_button_callback
+                   andRightButton:(list_menu_right_btn*)right_button
                     andListHeight:(int)list_height
                          andFlags:(int)flags
                        andRefresh:(BOOL)refresh

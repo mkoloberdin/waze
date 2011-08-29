@@ -65,7 +65,7 @@
 #include "roadmap_skin.h"
 #include "roadmap_iphoneimage.h"
 #include "widgets/iphoneRoundedView.h"
-#include "roadmap_iphoneurlscheme.h"
+#include "../roadmap_urlscheme.h"
 #include "roadmap_version.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_map_settings.h"
@@ -75,6 +75,9 @@
 #include "../navigate/navigate_main.h"
 #include "roadmap_browser.h"
 #include "roadmap_iphonebrowser.h"
+#include "tts_was_provider.h"
+
+#include "roadmap_analytics.h"
 
 #ifdef FLURRY
 #import "FlurryAPI.h"
@@ -109,20 +112,11 @@ struct roadmap_main_io {
    int is_secured;
 };
 
-#if 0
-struct roadmap_main_ssl_io {
-   RoadMapSocket  s;
-   void           *data;
-   CFReadStreamRef readStream;
-   CFWriteStreamRef writeStream;
-   RoadMapNetSslConnectCallback onOpenCallback;
-   RoadMapInput callback;
-};
-#endif //0
 
-#define ROADMAP_MAX_IO  16
-#define IO_TYPE_OUTPUT  0
+#define ROADMAP_MAX_IO  32
+#define IO_TYPE_CONNECT 0
 #define IO_TYPE_INPUT   1
+#define IO_TYPE_WRITE   2
 static struct roadmap_main_io RoadMapMainIo[ROADMAP_MAX_IO];
 
 struct roadmap_main_timer {
@@ -517,16 +511,9 @@ void roadmap_main_show (void) {
 }
 
 
-void roadmap_main_set_input (RoadMapIO *io, RoadMapInput callback) {
+void roadmap_main_set_input_old (RoadMapIO *io, RoadMapInput callback) {
     [TheApp setInput: io andCallback: callback];
 }
-
-#if 0
-void roadmap_main_set_secured_input (RoadMapIO *io, RoadMapInput callback, void *ssl_context) {
-   struct roadmap_main_ssl_io *ssl_io;
-   ssl_io->callback = callback;
-}
-#endif
 
 static void outputCallback (
    CFSocketRef s,
@@ -548,7 +535,20 @@ static void outputCallback (
    }
 }
 
-static void internal_set_output (CFSocketRef s, RoadMapIO *io, RoadMapInput callback) {
+static void on_output_callback (RoadMapSocket socket) {
+   int i;
+   
+   for (i = 0; i < ROADMAP_MAX_IO; ++i) {
+      if ((RoadMapMainIo[i].io.subsystem == ROADMAP_IO_NET) &&
+          RoadMapMainIo[i].type != IO_TYPE_INPUT &&
+          (RoadMapMainIo[i].io.os.socket == socket)) {
+         (* RoadMapMainIo[i].callback) (&RoadMapMainIo[i].io);
+         break;
+      }
+   }
+}
+
+void roadmap_main_set_output (RoadMapIO *io, RoadMapInput callback, BOOL is_connect) {
    int i;
    
    for (i = 0; i < ROADMAP_MAX_IO; ++i) {
@@ -557,11 +557,80 @@ static void internal_set_output (CFSocketRef s, RoadMapIO *io, RoadMapInput call
          RoadMapMainIo[i].callback = callback;
          RoadMapMainIo[i].start_time = time(NULL);
          RoadMapMainIo[i].fh = NULL;
-         RoadMapMainIo[i].type = IO_TYPE_OUTPUT;
-         RoadMapMainIo[i].rl = CFSocketCreateRunLoopSource (NULL, s, 0);
+                  
+         //CFSocketRef s = CFSocketCreateWithNative(NULL, roadmap_net_get_fd(RoadMapMainIo[i].io.os.socket), kCFSocketWriteCallBack, outputCallback, NULL);
          
-         CFRunLoopAddSource (CFRunLoopGetCurrent( ), RoadMapMainIo[i].rl,
-                             kCFRunLoopCommonModes);
+         if (is_connect) {
+            RoadMapMainIo[i].type = IO_TYPE_CONNECT;
+           // CFRelease(s); //the previous call receives the original s but also increments the retain count.
+         } else {
+            RoadMapMainIo[i].type = IO_TYPE_WRITE;
+            //CFSocketSetSocketFlags (s, kCFSocketAutomaticallyReenableWriteCallBack);
+         }
+         
+         //RoadMapMainIo[i].rl = CFSocketCreateRunLoopSource (NULL, s, 0);
+         
+         //CFRunLoopAddSource (CFRunLoopGetCurrent( ), RoadMapMainIo[i].rl,
+         //                    kCFRunLoopCommonModes);
+         
+         roadmap_net_register_output(io->os.socket, on_output_callback);
+         
+         
+         
+         break;
+      }
+   }
+   
+   if (i == ROADMAP_MAX_IO)
+      roadmap_log(ROADMAP_FATAL, "IO table saturated !");
+}
+
+static void on_input_callback (RoadMapSocket socket) {
+   int i;
+   
+   for (i = 0; i < ROADMAP_MAX_IO; ++i) {
+      if ((RoadMapMainIo[i].io.subsystem == ROADMAP_IO_NET) &&
+          RoadMapMainIo[i].type == IO_TYPE_INPUT &&
+          (RoadMapMainIo[i].io.os.socket == socket)) {
+         (* RoadMapMainIo[i].callback) (&RoadMapMainIo[i].io);
+         break;
+      }
+   }
+}
+
+void roadmap_main_set_input (RoadMapIO *io, RoadMapInput callback) {
+   int i;
+   
+   for (i = 0; i < ROADMAP_MAX_IO; ++i) {
+      if (RoadMapMainIo[i].io.subsystem == ROADMAP_IO_INVALID) {
+         RoadMapMainIo[i].io = *io;
+         RoadMapMainIo[i].callback = callback;
+         RoadMapMainIo[i].start_time = time(NULL);
+         RoadMapMainIo[i].fh = NULL;
+         RoadMapMainIo[i].type = IO_TYPE_INPUT;
+         
+         roadmap_net_register_input(io->os.socket, on_input_callback);
+         
+         break;
+      }
+   }
+   
+   if (i == ROADMAP_MAX_IO)
+      roadmap_log(ROADMAP_FATAL, "IO table saturated !");
+}
+
+void roadmap_main_remove_input(RoadMapIO *io) {
+   int i;
+   
+   for (i = 0; i < ROADMAP_MAX_IO; ++i) {
+      if (roadmap_io_same(&RoadMapMainIo[i].io, io)) {
+         if (RoadMapMainIo[i].type == IO_TYPE_INPUT)
+            roadmap_net_unregister_input(io->os.socket);
+         else
+            roadmap_net_unregister_output(io->os.socket);
+         
+         roadmap_io_invalidate( &RoadMapMainIo[i].io );
+         
          break;
       }
    }
@@ -611,15 +680,15 @@ void dummy_url_request (void) {
 
 int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInput callback) {
 
-   CFSocketRef s = CFSocketCreateWithNative(NULL, roadmap_net_get_fd(io->os.socket), kCFSocketConnectCallBack, outputCallback, NULL);
+   //CFSocketRef s = CFSocketCreateWithNative(NULL, roadmap_net_get_fd(io->os.socket), kCFSocketConnectCallBack, outputCallback, NULL);
+   CFSocketRef s = CFSocketCreateWithNative(NULL, roadmap_net_get_fd(io->os.socket), kCFSocketWriteCallBack, outputCallback, NULL);
 
-   CFSocketSetSocketFlags (s, kCFSocketAutomaticallyReenableReadCallBack|
-                              kCFSocketAutomaticallyReenableAcceptCallBack|
-                              kCFSocketAutomaticallyReenableDataCallBack);
+   CFSocketSetSocketFlags (s, kCFSocketAutomaticallyReenableDataCallBack |
+                           kCFSocketAutomaticallyReenableWriteCallBack);
 
    CFDataRef address = CFDataCreate(NULL, (const UInt8 *)addr, sizeof(*addr));
    
-   internal_set_output(s, io, callback);
+   roadmap_main_set_output(io, callback, TRUE);
    
    int res =  CFSocketConnectToAddress (s, address, -1);
 
@@ -640,173 +709,12 @@ int roadmap_main_async_connect(RoadMapIO *io, struct sockaddr *addr, RoadMapInpu
    return res;
 }
 
-#if 0
-int roadmap_main_read_ssl_stream (void *context, void *buffer, int buffer_size) {
-   struct roadmap_main_ssl_io *ssl_io = (struct roadmap_main_ssl_io*) context;
-   int bytes_read = CFReadStreamRead (ssl_io->readStream, buffer, buffer_size);
-
-   return bytes_read;
-}
-
-static void read_stream_client_cb (CFReadStreamRef stream,
-                              CFStreamEventType eventType,
-                              void *clientCallBackInfo)
-{
-   printf("read_stream_client_cb status: %d\n", CFReadStreamGetStatus(stream));
-   if (eventType & kCFStreamEventOpenCompleted) {
-      //CFStreamClientContext *context = (CFStreamClientContext*) clientCallBackInfo;
-      //struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
-      NSLog(@"read_stream_client_cb: kCFStreamEventOpenCompleted");
-//      on_ssl_open_callback(io->s, io->data, io);
-//      free(io);
-//      return;
-   }
-   if (eventType & kCFStreamEventErrorOccurred) {
-      CFErrorRef err = CFReadStreamCopyError(stream);
-      if (err) {
-         CFStringRef str = CFErrorCopyDescription(err);
-         char buf[1024];
-         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
-         roadmap_log(ROADMAP_ERROR, "read_stream_client_cb: kCFStreamEventErrorOccurred : '%s'", buf);
-         CFRelease(str);
-         CFRelease(err);
-      }
-      return;
-   }
-   
-   if (eventType & kCFStreamEventEndEncountered) {
-      NSLog(@"read_stream_client_cb: kCFStreamEventEndEncountered");
-      return;
-   }
-   
-   if (eventType & kCFStreamEventHasBytesAvailable) {
-      NSLog(@"read_stream_client_cb: kCFStreamEventHasBytesAvailable");
-      //      
-      //UInt8 buffer[512];
-//            int bytes_read = CFReadStreamRead (stream, buffer, sizeof(buffer));
-//            if (bytes_read == -1)
-//               return;
-//      struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
-      //on_ssl_read_callback(io->s, io->data, buffer, bytes_read);
-     // io->callback();
-      //      
-      //      err = AudioFileStreamParseBytes (af_parser, bytes_read, buffer, parseFlag);
-      //      if (err)
-      //         //NSLog(@"error AudioFileStreamParseBytes");
-      return;
-   }
-}
-
-static void write_stream_client_cb (CFWriteStreamRef stream,
-                                   CFStreamEventType eventType,
-                                   void *clientCallBackInfo)
-{
-   printf("write_stream_client_cb status: %d\n", CFReadStreamGetStatus(stream));
-   if (eventType & kCFStreamEventOpenCompleted) {
-      NSLog(@"write_stream_client_cb: kCFStreamEventOpenCompleted");
-      return;
-   }
-   if (eventType & kCFStreamEventErrorOccurred) {
-      CFErrorRef err = CFWriteStreamCopyError(stream);
-      if (err) {
-         CFStringRef str = CFErrorCopyDescription(err);
-         char buf[1024];
-         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
-         roadmap_log(ROADMAP_ERROR, "write_stream_client_cb: kCFStreamEventErrorOccurred : '%s'", buf);
-         CFRelease(str);
-         CFRelease(err);
-      }
-      return;
-   }
-   
-   if (eventType & kCFStreamEventEndEncountered) {
-      NSLog(@"write_stream_client_cb: kCFStreamEventEndEncountered");
-      return;
-   }
-   
-   if (eventType & kCFStreamEventCanAcceptBytes) {
-      CFWriteStreamSetClient(stream, 0, NULL, NULL);
-      NSLog(@"write_stream_client_cb: kCFStreamEventCanAcceptBytes");
-      struct roadmap_main_ssl_io *io = clientCallBackInfo;//context->info;
-      io->onOpenCallback(io->s, io->data, io, succeeded);
-      return;
-   }
-}
-
-int roadmap_main_send_ssl (struct roadmap_main_ssl_io *io, const void *data, int length) {
-   int res = CFWriteStreamWrite(io->writeStream, data, length);
-   printf("res: %d\n", res);
-   if (res < 0) {
-      CFErrorRef err = CFWriteStreamCopyError(io->writeStream);
-      if (err) {
-         CFStringRef str = CFErrorCopyDescription(err);
-         char buf[1024];
-         CFStringGetCString(str, buf, 1024, kCFStringEncodingUTF8);
-         roadmap_log(ROADMAP_ERROR, "Error writing to SSL stream: '%s'", buf);
-         CFRelease(str);
-         CFRelease(err);
-      }
-   }
-   
-   return res;
-}
-
-int roadmap_main_open_ssl (RoadMapSocket s, void *data, RoadMapNetSslConnectCallback callback) {
-   struct roadmap_main_ssl_io *ssl_io;
-   CFReadStreamRef readStream;
-   CFWriteStreamRef writeStream;
-   CFStreamCreatePairWithSocket(NULL, roadmap_net_get_fd(s), &readStream, &writeStream);
-   if (!readStream || !writeStream) {
-      printf("ERROR\n");
-   }
-   printf("open_ssl status: %d\n", CFReadStreamGetStatus(readStream));
-   
-   ssl_io = malloc(sizeof (struct roadmap_main_ssl_io));
-   ssl_io->s = s;
-   ssl_io->data = data;
-   ssl_io->readStream = readStream;
-   ssl_io->writeStream = writeStream;
-   ssl_io->onOpenCallback = callback;
-   CFStreamClientContext context = {0, ssl_io, NULL, NULL, NULL};
-   CFReadStreamSetClient(readStream,
-                         kCFStreamEventHasBytesAvailable | kCFStreamEventErrorOccurred | kCFStreamEventEndEncountered
-                         |kCFStreamEventOpenCompleted,
-                         read_stream_client_cb,
-                         &context);
-   CFReadStreamScheduleWithRunLoop(readStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-   CFWriteStreamSetClient(writeStream,
-                          kCFStreamEventCanAcceptBytes | kCFStreamEventErrorOccurred | kCFStreamEventEndEncountered
-                          |kCFStreamEventOpenCompleted,
-                          write_stream_client_cb,
-                          &context);
-   CFWriteStreamScheduleWithRunLoop(writeStream, CFRunLoopGetCurrent(), kCFRunLoopCommonModes);
-   
-   //Open read stream
-   NSInputStream *inputStream = (NSInputStream *)readStream;
-   [inputStream setProperty:NSStreamSocketSecurityLevelSSLv2 forKey:NSStreamSocketSecurityLevelKey];
-   
-   if (!CFReadStreamOpen(readStream)) {
-      printf(" ERROR\n");
-   }
-   printf("open_ssl status: %d\n", CFReadStreamGetStatus(readStream));
-   
-   //Open write stream
-   NSOutputStream *outputStream = (NSOutputStream *)writeStream;
-   [outputStream setProperty:NSStreamSocketSecurityLevelNegotiatedSSL forKey:NSStreamSocketSecurityLevelKey];
-   
-   if (!CFWriteStreamOpen(writeStream)) {
-      printf(" ERROR\n");
-   }
-   printf("open_ssl status: %d\n", CFWriteStreamGetStatus(writeStream));
-}
-#endif //0
-
 RoadMapIO *roadmap_main_output_timedout(time_t timeout) {
    int i;
 
    for (i = 0; i < ROADMAP_MAX_IO; ++i) {
       if (RoadMapMainIo[i].io.subsystem != ROADMAP_IO_INVALID &&
-          RoadMapMainIo[i].type == IO_TYPE_OUTPUT) {
+          RoadMapMainIo[i].type == IO_TYPE_CONNECT) {
          if (RoadMapMainIo[i].start_time &&
                (timeout > RoadMapMainIo[i].start_time)) {
             return &RoadMapMainIo[i].io;
@@ -818,7 +726,7 @@ RoadMapIO *roadmap_main_output_timedout(time_t timeout) {
 }
 
 
-void roadmap_main_remove_input (RoadMapIO *io) {
+void roadmap_main_remove_input_old (RoadMapIO *io) {
     [TheApp removeIO: io];
 }
 
@@ -920,6 +828,7 @@ static void roadmap_start_event (int event) {
 //#ifdef FREEMAP_IL
          editor_main_check_map ();
 //#endif
+         tts_was_provider_init();
          roadmap_device_events_register( on_device_event, NULL);
          roadmap_browser_register_launcher( roadmap_main_browser_launcher );
          roadmap_browser_register_close( roadmap_browser_iphone_close );
@@ -1384,6 +1293,12 @@ int main (int argc, char **argv) {
 
 - (void)didRotateFromInterfaceOrientation:(UIInterfaceOrientation)fromInterfaceOrientation {
    roadmap_device_event_notification( device_event_window_orientation_changed);
+   if (roadmap_horizontal_screen_orientation()) {
+      roadmap_analytics_log_event( ANALYTICS_EVENT_ORIENTATION, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_LANDSCAPE );
+   } else {
+      roadmap_analytics_log_event( ANALYTICS_EVENT_ORIENTATION, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_PORTRATE );
+   }
+
 }
 /*
 - (void)willAnimateRotationToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation duration:(NSTimeInterval)duration {
@@ -1566,6 +1481,8 @@ int main (int argc, char **argv) {
          return;
       }
    }
+   
+   //roadmap_log(ROADMAP_WARNING, "Timer not found");
 }
 
 -(void) inputCallback: (id) notify
@@ -1752,7 +1669,8 @@ int main (int argc, char **argv) {
       MPMoviePlayerController *mp = [[MPMoviePlayerController alloc] initWithContentURL:urlFromString];
       if (mp)
       {
-         if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4) {
+         if (roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_4 ||
+             roadmap_main_get_os_ver() == ROADMAP_MAIN_OS_5) {
             //load state change
             [[NSNotificationCenter defaultCenter]
              addObserver: self
@@ -1850,7 +1768,8 @@ int main (int argc, char **argv) {
    roadmap_path_list_free (files);
    
    //clean low res icons for retina
-   if (RoadMapMainOsVersion == ROADMAP_MAIN_OS_4) {
+   if (RoadMapMainOsVersion == ROADMAP_MAIN_OS_4 ||
+       RoadMapMainOsVersion == ROADMAP_MAIN_OS_5) {
       if ([[UIScreen mainScreen] scale] >= 2.0f){
          directory = roadmap_path_join(roadmap_main_home_path(), "/skins/default");
          files = roadmap_path_list (directory, ".png");
@@ -1911,6 +1830,22 @@ int main (int argc, char **argv) {
    }
    roadmap_path_list_free (files);
    
+   //copy default tts files
+   source_directory = roadmap_path_join(roadmap_main_bundle_path(), "/tts");
+   directory = roadmap_path_join(roadmap_main_home_path(), "/tts");   
+   srcStr = [NSString stringWithUTF8String:source_directory];   
+   destinationStr = [NSString stringWithUTF8String:directory];
+   error = nil;
+   //only copy tts on new installation
+   if ([fileManager fileExistsAtPath:destinationStr]) {
+      roadmap_log(ROADMAP_WARNING, "TTS dir exists, not copying files");
+   } else {
+      if (![fileManager copyItemAtPath:srcStr toPath:destinationStr error:&error])
+         roadmap_log (ROADMAP_ERROR, "Error copying TTS directory");
+   }
+
+   roadmap_path_free(source_directory);
+   roadmap_path_free(directory);
 }
 
 void appExceptionHandler(NSException *exception)
@@ -2038,20 +1973,34 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 {
    //for iOS 4.2 and above
    roadmap_log(ROADMAP_ERROR, "In openURL");
-   if (!roadmap_urlscheme_handle (url))
-      return NO;
+   const char* url_str = [[[url absoluteString] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding] UTF8String];
    
-   return YES;
+   if ( roadmap_urlscheme_valid( url_str ) )
+   {
+      char query[URL_MAX_LENGTH];
+      roadmap_urlscheme_remove_prefix( query, url_str );
+      roadmap_urlscheme_init( query );
+      return YES;
+   } else {
+      return NO;
+   }
 }
 
 - (BOOL)application:(UIApplication *)application handleOpenURL:(NSURL *)url
 {
    //for iOS 4.1 and below
    roadmap_log(ROADMAP_ERROR, "In handleOpenURL");
-   if (!roadmap_urlscheme_handle (url))
-      return NO;
+   const char* url_str = [[[url absoluteString] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding] UTF8String];
    
-   return YES;
+   if ( roadmap_urlscheme_valid( url_str ) )
+   {
+      char query[URL_MAX_LENGTH];
+      roadmap_urlscheme_remove_prefix( query, url_str );
+      roadmap_urlscheme_init( query );
+      return YES;
+   } else {
+      return NO;
+   }
 }
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions
@@ -2084,6 +2033,9 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
    if ([sysVersion compare:@"3.0"] == 0 ||
        [sysVersion compare:@"3.0.1"] == 0) {
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_30;
+   } else if ([sysVersion UTF8String][0] == '5'){
+      RoadMapMainOsVersion = ROADMAP_MAIN_OS_5;
+      roadmap_screen_set_screen_type((int)([[UIScreen mainScreen] scale] * 320), (int)([[UIScreen mainScreen] scale] * 480));
    } else if ([sysVersion UTF8String][0] != '4'){
       RoadMapMainOsVersion = ROADMAP_MAIN_OS_31;
    } else {
@@ -2219,6 +2171,10 @@ extern RoadMapCanvasConfigureHandler RoadMapCanvasConfigure;
 {
    if (IsInBackground)
       return;
+   
+   if (RoadMapMainSplashView) {
+      [self onSwapSplash];
+   }
 
    IsInBackground = TRUE;
    if (!IsBackgroundSupported)

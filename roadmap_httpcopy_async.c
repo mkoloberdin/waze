@@ -33,7 +33,9 @@
 #include "roadmap_io.h"
 #include "roadmap_net.h"
 #include "roadmap_file.h"
+#include "roadmap_path.h"
 #include "roadmap_main.h"
+#include "roadmap_base64.h"
 
 #include "editor/editor_main.h"
 #include "roadmap_httpcopy_async.h"
@@ -45,6 +47,16 @@
 #define ROADMAP_HTTP_MAX_CHUNK 4096
 #endif
 
+#define ROADMAP_HTTP_MAX_UPLOAD_CHUNK 4096
+#define ROADMAP_HTTP_MP_BOUNDARY   "---------------------------10424402741337131014341297293" 
+
+typedef enum
+{
+   _http_async_method__get,
+   _http_async_method__post,
+   _http_async_method__post_file
+} HttpAsyncMethod;
+
 struct HttpAsyncContext_st {
 	RoadMapHttpAsyncCallbacks *callbacks;
 	void *cb_context;
@@ -52,10 +64,24 @@ struct HttpAsyncContext_st {
 	int received_status;
 	int content_length;
 	int is_parsing_headers;
-	char header_buffer[256];
+	char header_buffer[512];
+	char error_buffer[512];
 	char last_modified_buffer[256];
 	RoadMapIO io;
+	char* header;
+	const void *data;
+	int data_len;
+   RoadMapFile file;
+	HttpAsyncMethod method;
+   char write_buf[ROADMAP_HTTP_MAX_UPLOAD_CHUNK];
+   int write_buf_read;
+   int write_buf_sent;
+   int flags;
 };
+
+
+static void roadmap_http_async_prepare_input (HttpAsyncContext *hcontext);
+
 
 static int roadmap_http_async_decode_header (HttpAsyncContext *context,
 															char *buffer,
@@ -112,6 +138,7 @@ static int roadmap_http_async_decode_header (HttpAsyncContext *context,
                 * reminder data is part of the download: save it.
                 */
                context->is_parsing_headers = 0;
+               context->header_buffer[0] = '\0';
                next += shift;
                received = (buffer + total) - next;
                if (received) memmove (buffer, next, received);
@@ -119,24 +146,26 @@ static int roadmap_http_async_decode_header (HttpAsyncContext *context,
                return received;
             }
 
-            if (strncasecmp (buffer,
-                        "Content-Length", sizeof("Content-Length")-1) == 0) {
+            if ( ( context->flags & HTTPCOPY_FLAG_IGNORE_CONTENT_LEN ) == 0 ) /* If no ignore */
+            {
+               if (strncasecmp (buffer,
+                           "Content-Length", sizeof("Content-Length")-1) == 0) {
 
-               p = strchr (buffer, ':');
-               if (p == NULL) {
-                  roadmap_log (ROADMAP_ERROR, "roadmap_http_async_decode_header() : bad formed header: %s", buffer);
-                  return -1;
-               }
+                  p = strchr (buffer, ':');
+                  if (p == NULL) {
+                     roadmap_log (ROADMAP_ERROR, "roadmap_http_async_decode_header() : bad formed header: %s", buffer);
+                     return -1;
+                  }
 
-               while (*(++p) == ' ') ;
-               context->content_length = atoi(p);
-               if (context->content_length < 0) {
-                  roadmap_log (ROADMAP_ERROR, "roadmap_http_async_decode_header() : bad formed header: %s", buffer);
-                  return -1;
-               }
-               else if (context->content_length == 0){
-                  RoadMapHttpAsyncCallbacks *callbacks = context->callbacks;
-                  return -2;
+                  while (*(++p) == ' ') ;
+                  context->content_length = atoi(p);
+                  if (context->content_length < 0) {
+                     roadmap_log (ROADMAP_ERROR, "roadmap_http_async_decode_header() : bad formed header: %s", buffer);
+                     return -1;
+                  }
+                  else if (context->content_length == 0){
+                     return -2;
+                  }
                }
             }
             if (strncasecmp (buffer,
@@ -166,23 +195,38 @@ static int roadmap_http_async_decode_header (HttpAsyncContext *context,
    return -1;
 }
 
+/*
+ * Examines the content length value
+ */
+static BOOL _check_content_length( HttpAsyncContext *context ){
+
+   BOOL result = TRUE;
+
+   if ( ( context->flags & HTTPCOPY_FLAG_IGNORE_CONTENT_LEN ) == 0 )
+   {
+      result = ( context->content_length > 0 ) && ( context->download_size_current == context->content_length );
+   }
+
+   return result;
+}
+
 static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
 
 	HttpAsyncContext *context = (HttpAsyncContext *)io->context;
    RoadMapHttpAsyncCallbacks *callbacks = context->callbacks;
    char buffer[ROADMAP_HTTP_MAX_CHUNK + 1];
-
+   BOOL ignore_content_len = ( context->flags & HTTPCOPY_FLAG_IGNORE_CONTENT_LEN );
    int res;
-
+   
    if (!context->is_parsing_headers) {
-		int read_size = context->content_length - context->download_size_current;
-		if (read_size > ROADMAP_HTTP_MAX_CHUNK) {
-			read_size = ROADMAP_HTTP_MAX_CHUNK;
-		}
+      int read_size = context->content_length - context->download_size_current;
+      if (read_size > ROADMAP_HTTP_MAX_CHUNK || ignore_content_len ) {
+         read_size = ROADMAP_HTTP_MAX_CHUNK;
+      }
 		res = roadmap_io_read(io, buffer, read_size);
 		if (res < 0) {
-         roadmap_log(ROADMAP_ERROR, "roadmap_http_async_has_data_cb(): error receiving http data (%d/%d)", context->download_size_current,
-            context->content_length);
+         roadmap_log(ROADMAP_ERROR, "roadmap_http_async_has_data_cb(): error receiving http data (%d/%d). Requested: %d", context->download_size_current,
+            context->content_length, read_size );
 		}
    } else {
       /* we're still parsing headers and may have left overs to append */
@@ -193,12 +237,18 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
          	memcpy(buffer, context->header_buffer, leftover_size);
          	context->header_buffer[0] = '\0';
          }
+         strncpy_safe( context->error_buffer, buffer, sizeof( context->error_buffer ) );
          res = roadmap_http_async_decode_header(context, buffer, res + leftover_size);
          if (res == -2){
-               roadmap_main_remove_input(io);
-               roadmap_io_close(&context->io);
-               callbacks->done(context->cb_context, context->last_modified_buffer);
-               return;
+            roadmap_main_remove_input(io);
+            roadmap_io_close(&context->io);
+            
+            if (context->method == _http_async_method__post_file)
+               callbacks->done(context->cb_context, context->last_modified_buffer, context->header_buffer);
+            else
+               callbacks->done(context->cb_context, context->last_modified_buffer, NULL);
+            
+            return;
          }
 
          if ( context->is_parsing_headers ) {
@@ -210,8 +260,10 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
             }
          } else {
             /* we just finished parsing the headers - check size callback for the received content length */
-            if (!callbacks->size(context->cb_context, context->content_length)) {
-               res = -1;
+            if (context->method != _http_async_method__post_file) {
+               if (!callbacks->size(context->cb_context, context->content_length)) {
+                  res = -1;
+               }
             }
             if ( res == 0 ) { /* Size is Ok and there is no download data to process after checking the headers - keep listening
                                * Other res values will be handled further */
@@ -228,15 +280,34 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
 
    if (res > 0) {
       context->download_size_current += res;
-      callbacks->progress (context->cb_context, buffer, res);
+      if (context->method != _http_async_method__post_file) {
+         callbacks->progress (context->cb_context, buffer, res);
+      } else {
+         if (res > sizeof(context->header_buffer) - strlen(context->header_buffer) - 1) {
+            roadmap_log(ROADMAP_ERROR, "roadmap_http_async_has_data_cb(): error receiving http data - not enough buffer to save response (%d/%d)", context->download_size_current,
+                        context->content_length);
+            res = -1;
+         } else {
+            int cur_size = strlen(context->header_buffer);
+            memcpy (context->header_buffer + cur_size, buffer, res);
+            context->header_buffer[cur_size + res] = 0;
+         }
+      }
+
    }
 
-   if ((res <= 0) || (context->download_size_current >= context->content_length)) {
+   if ((res <= 0) || (context->download_size_current >= context->content_length && !ignore_content_len)) {
       roadmap_main_remove_input(io);
       roadmap_io_close(&context->io);
 
-      if ( ( res >= 0 ) && ( context->content_length >= 0 ) && ( context->download_size_current == context->content_length ) ) {
-         callbacks->done(context->cb_context, context->last_modified_buffer);
+//      if ( context->error_buffer[0] )
+//         roadmap_log (ROADMAP_WARNING, "Http error buffer: %s", context->error_buffer );
+
+      if ( ( res >= 0 ) && _check_content_length( context ) ) {
+         if (context->method == _http_async_method__post_file)
+            callbacks->done(context->cb_context, context->last_modified_buffer, context->header_buffer);
+         else
+            callbacks->done(context->cb_context, context->last_modified_buffer, NULL);
       }
       else {
          roadmap_log (ROADMAP_DEBUG, "Http download error. Res: %d. Content length: %d. Downloaded: %d",
@@ -244,7 +315,10 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
          if ( context->content_length > 0 && context->download_size_current > context->content_length ) {
             roadmap_log (ROADMAP_ERROR, "Too many bytes for http download (%d/%d)", context->download_size_current, context->content_length);
          }
-         callbacks->error (context->cb_context, 0, "roadmap_http_async_has_data_cb() failed" );
+         if ( context->error_buffer[0] )
+            callbacks->error ( context->cb_context, 0, "HTTP Error: %s", context->error_buffer );
+         else
+            callbacks->error (context->cb_context, 0, "roadmap_http_async_has_data_cb() failed" );
       }
       /*
        * Context deallocation. Be aware to NULL references in "error" and "done" callbacks
@@ -253,11 +327,85 @@ static void roadmap_http_async_has_data_cb (RoadMapIO *io) {
    }
 }
 
+static void roadmap_http_async_write_cb (RoadMapIO *io) {
+   int sent = 0;
+   HttpAsyncContext *hcontext = (HttpAsyncContext *)io->context;
+   RoadMapHttpAsyncCallbacks *callbacks = hcontext->callbacks;
+   
+   if (hcontext->download_size_current == hcontext->data_len) {
+      roadmap_file_close (hcontext->file);
+      snprintf(hcontext->write_buf, ROADMAP_HTTP_MAX_UPLOAD_CHUNK, "\r\n--%s--\r\n", ROADMAP_HTTP_MP_BOUNDARY);
+      //This is not async write, but sending small buffer which should not block
+      sent = roadmap_io_write( &hcontext->io, hcontext->write_buf, strlen(hcontext->write_buf), 0 );
+      if (sent == -1) {
+         roadmap_io_close(&hcontext->io);
+         callbacks->error(hcontext->cb_context, 1, "Error sending request.");
+         free (hcontext);
+         return;
+      }
+      
+      roadmap_main_remove_input(io);
+      roadmap_http_async_prepare_input(hcontext);
+      
+      return;
+   }
+   
+   if (hcontext->write_buf_read == 0 ||
+       hcontext->write_buf_read == hcontext->write_buf_sent) {
+      
+      hcontext->write_buf_read = roadmap_file_read (hcontext->file, hcontext->write_buf, ROADMAP_HTTP_MAX_UPLOAD_CHUNK);
+      
+      if (hcontext->write_buf_read <= 0) {
+         roadmap_file_close (hcontext->file);
+         roadmap_io_close(&hcontext->io);
+         callbacks->error(hcontext->cb_context, 1, "Error uploading file - invalid file read size: %d.", sent);
+         free (hcontext);
+         return;
+      }
+      
+      hcontext->write_buf_sent = 0;
+   }
+   
+   sent = roadmap_io_write_async( &hcontext->io, hcontext->write_buf + hcontext->write_buf_sent, hcontext->write_buf_read - hcontext->write_buf_sent);
+   if (sent == -1) {
+      roadmap_file_close (hcontext->file);
+      roadmap_io_close(&hcontext->io);
+      callbacks->error(hcontext->cb_context, 1, "Error sending request.");
+      free (hcontext);
+      return;
+   }
+   
+   hcontext->write_buf_sent += sent;
+   hcontext->download_size_current += sent;
+   
+   if (hcontext->callbacks->progress)
+      hcontext->callbacks->progress(hcontext->cb_context, NULL, sent);
+}
+
+static void roadmap_http_async_prepare_input (HttpAsyncContext *hcontext) {
+   hcontext->header_buffer[0] = '\0';  // Prepare the buffer for the response header
+   hcontext->error_buffer[0] = '\0';
+   hcontext->is_parsing_headers = 1;
+   hcontext->download_size_current = 0;
+   hcontext->received_status = 0;
+   hcontext->content_length = -1;
+   
+   roadmap_main_set_input(&hcontext->io, roadmap_http_async_has_data_cb);
+}
+
+static void roadmap_http_async_prepare_output (HttpAsyncContext *hcontext) {
+   hcontext->download_size_current = 0;
+   hcontext->content_length = -1;
+   
+   roadmap_main_set_output(&hcontext->io, roadmap_http_async_write_cb, FALSE);
+}
+
 
 static void roadmap_http_async_connect_cb (RoadMapSocket socket, void *context, roadmap_result err) {
 
 	HttpAsyncContext *hcontext = (HttpAsyncContext *)context;
    RoadMapHttpAsyncCallbacks *callbacks = hcontext->callbacks;
+   char* header = hcontext->header_buffer;
 
    if (!ROADMAP_NET_IS_VALID(socket)) {
       callbacks->error(hcontext->cb_context, 1, "Can't connect to server.");
@@ -269,6 +417,31 @@ static void roadmap_http_async_connect_cb (RoadMapSocket socket, void *context, 
    hcontext->io.context = context;
    hcontext->io.os.socket = socket;
 
+   if ( ( strlen( header ) + 3 ) /* [header"\r\n\0"]*/ > sizeof( hcontext->header_buffer ) )
+   {
+      callbacks->error( hcontext->cb_context, 1, "Error sending request. Header text is too long." );
+      roadmap_io_close( &hcontext->io );
+      free (hcontext);
+      return;
+   }
+
+   strcat( header, "\r\n" );
+
+   if ( roadmap_io_write( &hcontext->io, header, strlen( header ), 0 ) == -1) {
+      roadmap_io_close(&hcontext->io);
+      callbacks->error(hcontext->cb_context, 1, "Error sending request.");
+      free (hcontext);
+      return;
+   }
+
+   if ( hcontext->data != NULL )
+   {
+      if ( roadmap_io_write( &hcontext->io, hcontext->data, hcontext->data_len, 0 ) == -1) {
+         roadmap_io_close(&hcontext->io);
+         callbacks->error(hcontext->cb_context, 1, "Error sending request.");
+         free (hcontext);
+         return;
+      }
    if (roadmap_io_write(&hcontext->io, "\r\n", 2, 0) == -1) {
       roadmap_io_close(&hcontext->io);
       callbacks->error(hcontext->cb_context, 1, "Error sending request.");
@@ -276,16 +449,162 @@ static void roadmap_http_async_connect_cb (RoadMapSocket socket, void *context, 
       return;
    }
 
-   hcontext->header_buffer[0] = '\0';
-   hcontext->is_parsing_headers = 1;
-   hcontext->download_size_current = 0;
-   hcontext->received_status = 0;
-   hcontext->content_length = -1;
-
-   roadmap_main_set_input(&hcontext->io, roadmap_http_async_has_data_cb);
+   }
+   
+   if (hcontext->method != _http_async_method__post_file)
+      roadmap_http_async_prepare_input(hcontext);
+   else
+      roadmap_http_async_prepare_output(hcontext);
+   
    callbacks->progress (hcontext->cb_context, NULL, 0);
 }
 
+HttpAsyncContext * roadmap_http_async_post_file( RoadMapHttpAsyncCallbacks *callbacks, void *context,
+                                           const char *source, const char* header, const char *full_name, int size )
+{
+   HttpAsyncContext *hcontext = malloc (sizeof (HttpAsyncContext));
+   hcontext->callbacks = callbacks;
+   hcontext->cb_context = context;
+   hcontext->io.os.socket = ROADMAP_INVALID_SOCKET;
+   hcontext->last_modified_buffer[0] = '\0';
+   hcontext->header_buffer[0] = '\0';
+   hcontext->error_buffer[0] = '\0';
+   hcontext->data = NULL;
+   hcontext->data_len = size;
+   hcontext->write_buf[0] = '\0';
+   hcontext->write_buf_read = 0;
+   hcontext->write_buf_sent = 0;
+   hcontext->method = _http_async_method__post_file;
+   hcontext->flags = HTTPCOPY_FLAG_NONE;
+   
+   if ( header != NULL )
+      strncpy( hcontext->header_buffer, header, sizeof( hcontext->header_buffer ) );
+   
+   hcontext->file = roadmap_file_open (full_name, "r");
+   
+   if (!ROADMAP_FILE_IS_VALID(hcontext->file)) {
+      roadmap_log(ROADMAP_ERROR,"Could not open file '%s' for upload", full_name);
+      callbacks->error(context, 1, "Could not open file");
+      free (hcontext);
+      return NULL;
+   }
+   
+   if (!callbacks->size(hcontext->cb_context, hcontext->data_len)) {
+      roadmap_log(ROADMAP_ERROR,"Size check failed for file '%s' upload", full_name);
+      callbacks->error(context, 1, "Size check failed");
+      free (hcontext);
+      return NULL;
+   }
+   
+   if ( roadmap_net_connect_async( "http_post", source, source, 0, 80, 0,
+                                  roadmap_http_async_connect_cb, hcontext ) == NULL )
+   {
+      callbacks->error(context, 1, "Can't create http connection.");
+      free (hcontext);
+      return NULL;
+   }
+   
+   return hcontext;
+}
+
+static char* get_encoded_auth (const char *user, const char *pw) {
+   char auth_string[255];
+   char *base64Text;
+   int text_length;
+   int size;
+   
+   snprintf (auth_string, sizeof(auth_string), "%s:%s", user, pw);
+   
+   size = strlen(auth_string);   
+   text_length = roadmap_base64_get_buffer_size(size);
+   base64Text = (char*)malloc( text_length );
+   
+   if (!roadmap_base64_encode(auth_string, size, &base64Text, text_length))
+      return NULL;
+   
+   return base64Text;
+}
+
+const char* roadmap_http_async_get_upload_header( const char* content_type, const char *full_name, int size,
+                                                 const char *user, const char *pw)
+{
+   static char s_header[512];
+   char *encoded_auth;
+   
+   const char *filename = roadmap_path_skip_directories (full_name);
+   
+   s_header[0] = '\0';
+   
+   if (user && user[0] && pw && pw[0]) {
+      encoded_auth = get_encoded_auth(user, pw);
+      if (!encoded_auth) {
+         return s_header;
+      }
+      snprintf( s_header, sizeof( s_header ),
+               "Authorization: Basic %s\r\n",
+               encoded_auth);
+
+      free(encoded_auth);
+
+   }
+
+   
+   snprintf( s_header + strlen(s_header), sizeof( s_header ) - strlen(s_header),
+            "Content-Type: multipart/form-data; boundary=%s\r\n"
+            "Content-Length: %d\r\n\r\n"
+            "--%s\r\n"
+            "Content-disposition: form-data; name=\"file_0\"; filename=\"%s\"\r\n"
+            "Content-type: %s\r\n"
+            "Content-Transfer-Encoding: binary\r\n",
+            ROADMAP_HTTP_MP_BOUNDARY,
+            (int)(size + 237 + strlen(filename) + strlen(content_type)),
+            ROADMAP_HTTP_MP_BOUNDARY,
+            filename,
+            content_type);
+   
+   return s_header;
+}
+
+HttpAsyncContext * roadmap_http_async_post( RoadMapHttpAsyncCallbacks *callbacks, void *context,
+                                                 const char *source, const char* header, const void* data, int data_length, int flags )
+{
+   HttpAsyncContext *hcontext = malloc (sizeof (HttpAsyncContext));
+   hcontext->callbacks = callbacks;
+   hcontext->cb_context = context;
+   hcontext->io.os.socket = ROADMAP_INVALID_SOCKET;
+   hcontext->last_modified_buffer[0] = '\0';
+   hcontext->header_buffer[0] = '\0';
+   hcontext->error_buffer[0] = '\0';
+   hcontext->data = data;
+   hcontext->data_len = data_length;
+   hcontext->method = _http_async_method__post;
+   hcontext->flags = flags;
+
+   if ( header != NULL )
+      strncpy( hcontext->header_buffer, header, sizeof( hcontext->header_buffer ) );
+
+   if ( roadmap_net_connect_async( "http_post", source, source, 0, 80, 0,
+               roadmap_http_async_connect_cb, hcontext ) == NULL )
+      {
+         callbacks->error(context, 1, "Can't create http connection.");
+         free (hcontext);
+         return NULL;
+      }
+
+      return hcontext;
+}
+
+const char* roadmap_http_async_get_simple_header( const char* content_type, int content_len )
+{
+   static char s_header[256];
+
+   snprintf( s_header, sizeof( s_header ),
+               "Content-type: %s\r\n"
+               "Content-Length: %d\r\n",
+               content_type, content_len );
+
+   return s_header;
+}
 
 
 HttpAsyncContext * roadmap_http_async_copy (RoadMapHttpAsyncCallbacks *callbacks,
@@ -298,9 +617,15 @@ HttpAsyncContext * roadmap_http_async_copy (RoadMapHttpAsyncCallbacks *callbacks
 	hcontext->cb_context = context;
 	hcontext->io.os.socket = ROADMAP_INVALID_SOCKET;
 	hcontext->last_modified_buffer[0] = '\0';
+	hcontext->header_buffer[0] = '\0';
+	hcontext->error_buffer[0] = '\0';
+	hcontext->data = NULL;
+   hcontext->data_len = 0;
+	hcontext->method = _http_async_method__get;
+	hcontext->flags = HTTPCOPY_FLAG_NONE;
 	
-   if (roadmap_net_connect_async("http_get", source, update_time, 80, 0,
-            roadmap_http_async_connect_cb, hcontext) == -1) {
+   if (roadmap_net_connect_async("http_get", source, source, update_time, 80, 0,
+            roadmap_http_async_connect_cb, hcontext) == NULL) {
       callbacks->error(context, 1, "Can't create http connection.");
       free (hcontext);
       return NULL;

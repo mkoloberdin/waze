@@ -39,6 +39,7 @@ LDFLAGS=$(MODELDFLAGS)
 
 OSLIBSRCSCORE=roadmap_file.c \
               roadmap_library.c \
+              roadmap_ssl.c \
               roadmap_net.c \
               ../md5.c \
               roadmap_serial.c \

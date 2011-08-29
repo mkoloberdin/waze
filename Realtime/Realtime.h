@@ -29,6 +29,7 @@
 #include "../websvc_trans/websvc_trans.h"
 #include "../roadmap.h"
 #include "../roadmap_login.h"
+#include "../navigate/navigate_main.h"
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -83,7 +84,10 @@ BOOL  Realtime_RequestRoute(int						iRoute,
 									const BOOL*				bOptionValue,
 									int                  iTwitterLevel,
 									int                  iFacebookLevel,
-									BOOL						bReRoute);
+									BOOL						bReRoute,
+                           NavigateLocationInfo locationInfo,
+                           BOOL                 bRetry);
+
 BOOL	Realtime_SelectRoute	(int                 iRoute,
 								 	 int                 AltId);
 
@@ -147,6 +151,7 @@ void RecommentToFriend(void);
 int         RealTimeLoginState(void);
 const char* RealTime_GetUserName();
 const char* Realtime_GetNickName();
+const char* Realtime_GetPassword();
 
 int RealTime_GetMyTotalPoints();
 int RealTime_GetMyRanking();
@@ -188,6 +193,9 @@ int RT_IsWebServiceSecuredCommand(const char *command);
 int   RealTime_GetMaxServerProtocol();
 char* Realtime_GetServerVersion(void);
 
+int Realtime_MyInboxCount(void);
+BOOL Realtime_MyInboxFeatureEnabled(void);
+void Realtime_MyInboxDlg(void);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 typedef enum tagEnumSendMapProblemResult

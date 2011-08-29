@@ -56,12 +56,21 @@ static GLdouble max_model_coord= 150000;
 
 static void orientMe(float ang) {
 
+#ifdef _WIN32
+	ly = -sin(ang);
+	lz = cos(ang);
+	roadmap_glmatrix_identity();
+	gluLookAt(x, y, z,
+		      x + lx,y + ly,z + lz,
+			  0.0f,-1.0f,-1.0f);
+#else
 	ly = -sinf(ang);
 	lz = cosf(ang);
 	roadmap_glmatrix_identity();
 	gluLookAt(x, y, z,
 		      x + lx,y + ly,z + lz,
 			  0.0f,-1.0f,-1.0f);
+#endif
 }
 
 /*
@@ -206,8 +215,13 @@ static double setCameraAndOrient(float ang,int w, int h, int isUpdated) {
 	}
 	cameraDist= z_v0/cos(ang_0);
 	y_c= y_v0-z_v0*tan(ang_0);
+#ifdef _WIN32
+    y= (y_c+cameraDist*sin(angle))*h;
+	z= -cameraDist*cos(angle)*h;
+#else
 	y= (y_c+cameraDist*sinf(angle))*h;
 	z= -cameraDist*cosf(angle)*h;
+#endif
 	x= w/2;
 	orientMe(ang);
 	readMatsProject(x,h,z_level,&wx,&wy,&wz);

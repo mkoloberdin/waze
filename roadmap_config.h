@@ -106,6 +106,8 @@ const char *roadmap_config_get (RoadMapConfigDescriptor *descriptor);
 void        roadmap_config_set
                 (RoadMapConfigDescriptor *descriptor, const char *value);
 
+int roadmap_config_get_list (RoadMapConfigDescriptor *descriptor, const char* delimiters, const char* list_out[], int list_size );
+
 int   roadmap_config_get_integer (RoadMapConfigDescriptor *descriptor);
 void  roadmap_config_set_integer (RoadMapConfigDescriptor *descriptor, int x);
 

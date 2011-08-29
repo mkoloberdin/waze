@@ -33,7 +33,8 @@ enum { VIEW_MODE_2D = 0,
 };
 
 enum { ORIENTATION_DYNAMIC = 0,
-       ORIENTATION_FIXED
+       ORIENTATION_FIXED,
+       ORIENTATION_MAGNETIC
 };
 
 
@@ -123,7 +124,8 @@ int roadmap_screen_draw_one_tex_line (RoadMapPosition *from,
                                       RoadMapGuiPoint *middle,
                                       int *angle,
                                       RoadMapImage image,
-                                      BOOL oposite);
+                                      BOOL oposite,
+                                      int offset);
 
 void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          RoadMapPosition *to,
@@ -133,7 +135,8 @@ void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          RoadMapShapeItr shape_itr,
                                          int width,
                                          int direction,
-                                         const char *color);
+                                         const char *color,
+                                         int offset);
 
 int roadmap_screen_fast_refresh (void);
 
@@ -215,4 +218,8 @@ void roadmap_screen_stop_glow (void);
 
 #define ADJ_SCALE(_size) ( _size * roadmap_screen_get_screen_scale()/100 )
 BOOL roadmap_screen_is_any_dlg_active();
+
+void roadmap_screen_override_view_mode (int override_mode);
+void roadmap_screen_reset_view_mode (void);
+
 #endif // INCLUDE__ROADMAP_SCREEN__H

@@ -320,7 +320,7 @@ static void draw_browser(RTSystemMessage *systemMessage, RoadMapGuiRect *rect, i
    RMBrowserContext context;
    if (force || (old_rect.minx != rect->minx) || (old_rect.maxx != rect->maxx) || (old_rect.miny != rect->miny) || (old_rect.maxy != rect->maxy)){
       if ( (old_rect.minx != -1) && (old_rect.maxx != -1) && (old_rect.miny != -1) && (old_rect.maxy != -1))
-         roadmap_browser_hide();
+         roadmap_browser_close_embedded();
       old_rect = *rect;
       context.flags = BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL;
       context.rect = *rect;
@@ -331,7 +331,7 @@ static void draw_browser(RTSystemMessage *systemMessage, RoadMapGuiRect *rect, i
       context.attrs.on_load_cb = NULL;
       context.attrs.data = NULL;
       context.attrs.title_attrs.title = NULL;
-      roadmap_browser_show_embeded(&context);
+      roadmap_browser_show_embedded(&context);
    }
 }
 
@@ -352,7 +352,7 @@ static void draw_browser_rect(SsdWidget widget, RoadMapGuiRect *rect, int flags)
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static void on_dialog_close  (int exit_code, void* context){
    old_rect.minx = old_rect.maxx = old_rect.miny = old_rect.maxy = -1;
-   roadmap_browser_hide();
+   roadmap_browser_close_embedded();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -373,7 +373,7 @@ static int get_browser_height(){
          return 240;
       return 155;
 #else
-      return roadmap_canvas_height()/2;
+      return roadmap_canvas_height()*3/4;
 #endif
 }
 
@@ -409,7 +409,7 @@ void RTSystemMessageShowWebMessageDlg(RTSystemMessage *systemMessage){
    ssd_dialog_add_vspace(dialog, 5 ,0);
 #endif
 
-   browserCont = ssd_container_new("RealtimeExternalPoiDlg.BrowserContainer","", get_browser_width(), get_browser_height() , SSD_ALIGN_CENTER|browser_cont_flags);
+   browserCont = ssd_container_new("SystemMessageWebBased.BrowserContainer","", get_browser_width(), get_browser_height() , SSD_ALIGN_CENTER|browser_cont_flags);
    browserCont->context = (void *)systemMessage;
    browserCont->draw = draw_browser_rect;
    ssd_widget_set_color(browserCont, NULL, NULL);

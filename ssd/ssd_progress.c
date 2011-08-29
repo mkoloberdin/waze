@@ -59,44 +59,44 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
    if (!left)
          left =   roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_left");
 
    if (!right)
          right =  roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_right");
 
    if (!middle)
          middle =    roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_middle");
 
    if (!filled)
       filled =    roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_filled");
 
    if (!left_fill)
       left_fill =    roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_left_fill");
 
    if (!right_fill)
          right_fill =    roadmap_res_get(
                                        RES_BITMAP,
-                                       RES_SKIN,
+                                       RES_SKIN|RES_NOCACHE,
                                        "progress_right_fill");
 
 
    if (!wazzy)
       wazzy =    roadmap_res_get(
                                     RES_BITMAP,
-                                    RES_SKIN,
+                                    RES_SKIN|RES_NOCACHE,
                                     "progress_wazzy");
 
    if (!left || !right || !middle || !filled)
@@ -179,13 +179,13 @@ static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
        point.y = rect->miny;
        if ((!ssd_widget_rtl(NULL))){
           if (right_fill){
-             point.x = rect-> maxx -width_right_fill - 30;
+             point.x = rect-> maxx -width_right_fill - 25;
              roadmap_canvas_draw_image (right_fill, &point, 0, IMAGE_NORMAL);
           }
        }
        else{
           if (left_fill){
-             point.x = rect-> minx + 30 ;
+             point.x = rect-> minx + 25 ;
              roadmap_canvas_draw_image (left_fill, &point, 0, IMAGE_NORMAL);
           }
        }
@@ -215,6 +215,7 @@ SsdWidget ssd_progress_new (const char *name,
 {
    SsdWidget         w  = ssd_widget_new(name, NULL, flags);
    progress_info_ptr   pi = (progress_info_ptr)malloc(sizeof(progress_info));
+   pi->percentage = percentage;
    pi->show_wazer = show_wazer;
    w->data        = pi;
    w->_typeid     = "Progress";

@@ -31,7 +31,7 @@
 
 BOOL roadmap_alternative_feature_enabled (void);
 void roadmap_alternative_routes_init(void);
-void roadmap_alternative_routes_routes_dialog (void);
+void roadmap_alternative_routes_routes_dialog (BOOL showListFirst);
 void roadmap_alternative_routes_suggested_trip (void);
 void roadmap_alternative_routes_suggest_route_dialog (void);
 BOOL roadmap_alternative_routes_suggest_routes(void);

@@ -183,15 +183,14 @@ INLINE_DEC int roadmap_math_line_is_visible (const RoadMapPosition *point1,
       visibility_distance = ROADMAP_VISIBILITY_FACTOR * (int)RoadMapContext.zoom;
    }
    
-   if (RoadMapContext._is3D_projection== PROJECTION_MODE_3D && !RoadMapMathTileMode) {
-      if (roadmap_math_point_is_visible(point1) ||
-          roadmap_math_point_is_visible(point2))
-         return 1;
-      else {
-      return 0;
-   }
-   }
-
+   //if (RoadMapContext._is3D_projection== PROJECTION_MODE_3D && !RoadMapMathTileMode) {
+//      if (roadmap_math_point_is_visible(point1) ||
+//          roadmap_math_point_is_visible(point2))
+//         return 1;
+//      else
+//         return 0;
+//   }
+   
    if ((point1->longitude > RoadMapContext.focus.east + visibility_distance) &&
        (point2->longitude > RoadMapContext.focus.east + visibility_distance)) {
       return 0;
@@ -302,7 +301,7 @@ void roadmap_math_initialize   (void);
 void roadmap_math_use_metric   (void);
 void roadmap_math_use_imperial (void);
 
-void roadmap_math_restore_zoom (void);
+void roadmap_math_restore_zoom ( BOOL use_saved );
 void roadmap_math_zoom_in      (void);
 void roadmap_math_zoom_out     (void);
 void roadmap_math_zoom_reset   (void);

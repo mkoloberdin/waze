@@ -153,7 +153,7 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
 	   text = ssd_text_new ("ExitTxt", roadmap_lang_get("Quit"), 16, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
 	   ssd_text_set_color(text,"#ffffff");
 	   ssd_widget_add(box, text);
-	   ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
+      ssd_widget_add(box, ssd_separator_new("Separator",SSD_ALIGN_BOTTOM));
 	   box->callback = auto_hide_dlg_callback ;
 	   ssd_widget_set_pointer_force_click( box );
 	   box->pointer_down = on_pointer_down;
@@ -168,7 +168,6 @@ void auto_hide_dlg(PFN_ON_DIALOG_CLOSED cbOnClosed){
 	   ssd_widget_set_pointer_force_click( box );
 	   box->pointer_down = on_pointer_down;
 	   ssd_widget_add(container, box);
-
 
 	   ssd_widget_add(dialog, container);
    }

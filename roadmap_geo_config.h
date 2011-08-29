@@ -28,6 +28,11 @@
 
 #include "websvc_trans/string_parser.h"
 
+
+typedef void (* GeoConfigCompletedCb) ( void* context );
+
+int roadmap_geo_register_completed_cb( GeoConfigCompletedCb cb, void* cb_context );
+
 void roadmap_geo_config(RoadMapCallback callback);
 
 void roadmap_geo_config_transaction_failed();

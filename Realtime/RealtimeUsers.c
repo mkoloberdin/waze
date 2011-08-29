@@ -543,11 +543,11 @@ static void disclaimer_cb( int exit_code ){
 }
 
 static int ping (LPRTUserLocation user){
-   
+
    if (Realtime_RandomUserMsg()) {
       return 0;
    }
-   
+
    if (Realtime_AnonymousMsg()) {
       return 0;
    }
@@ -629,7 +629,7 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
 #ifndef TOUCH_SCREEN
    RTUserLocation_Init(&g_user);
 #endif
-   
+
 #ifdef IPHONE
    width = ADJ_SCALE(320);
 #else
@@ -676,6 +676,24 @@ void RTUsers_Popup (LPRTUsers this, const char *id, int iCenterAround)
          ssd_bitmap_add_overlay(mood_icon,"wazer_shield_ping");
       else
          ssd_bitmap_add_overlay(mood_icon,"shield");
+   }
+   else if (user->iAddon == 4) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_edit_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"edit");
+   }
+   else if (user->iAddon == 5) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_beta_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"beta");
+   }
+   else if (user->iAddon == 6) {
+      if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW)
+         ssd_bitmap_add_overlay(mood_icon,"wazer_halo_ping");
+      else
+         ssd_bitmap_add_overlay(mood_icon,"halo");
    }
    else{
       if (user->iPingFlag == RT_USERS_PING_FLAG_ALLOW){

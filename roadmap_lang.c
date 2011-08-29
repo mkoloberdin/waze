@@ -215,7 +215,7 @@ static void roadmap_lang_new_item (const char *name, const char *value) {
 
    RoadMapLangCount++;
 
-#ifndef _WIN32
+#if !defined( _WIN32) && !defined(ANDROID)
    {
       //cache characters
       int width, ascent, descent, can_tilt=1;

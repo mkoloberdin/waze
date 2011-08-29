@@ -85,7 +85,7 @@ BOOL single_search_init()
    }
 
    address  = get_webservice_address();
-   s_websvc = wst_init( address, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( address, NULL, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {

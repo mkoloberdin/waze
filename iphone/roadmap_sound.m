@@ -209,17 +209,19 @@ int roadmap_sound_list_add (RoadMapSoundList list, const char *name) {
 
    char *full_name;
    
-   if (list->count == MAX_SOUND_LIST) return -1;
+   if (list->count == MAX_SOUND_LIST) return SND_LIST_ERR_LIST_FULL;
    
    full_name = get_full_name(name);
 
    if (!roadmap_file_exists("", full_name)) {
       roadmap_log(ROADMAP_DEBUG, "Sound file does not exist: '%s'", full_name);
-   } else {
-      strncpy (list->list[list->count], name, sizeof(list->list[0]));
-      list->list[list->count][sizeof(list->list[0])-1] = '\0';
-      list->count++;
+      free(full_name);
+      return SND_LIST_ERR_NO_FILE;
    }
+   
+   strncpy (list->list[list->count], name, sizeof(list->list[0]));
+   list->list[list->count][sizeof(list->list[0])-1] = '\0';
+   list->count++;
    
    free(full_name);
 
@@ -400,12 +402,11 @@ static void play_next_file (void) {
          if (audioPlayer) {
             play_file (audioPlayer);
             audioPlayer = NULL;
-         }
-         else
+            if (next_name)
+               prepare_file(next_name, &audioPlayer);
+         } else {
             play_next_file();
-         
-         if (next_name)
-            prepare_file(next_name, &audioPlayer);
+         }
 		}
 	} else { //skip this file, as mute is ON
 		play_next_file ();
@@ -462,12 +463,12 @@ int roadmap_sound_play_file (const char *file_name) {
 
 
 int roadmap_sound_play_list (const RoadMapSoundList list) {
-   if (is_recording)
+   if (is_recording || !list)
       return 0;
    
    int listSize = roadmap_sound_list_count( list );
    if (listSize == 0)
-	return 0;
+      return 0;
 
    if (current_list == -1) {
       /* not playing */
@@ -680,6 +681,10 @@ static void activate_session (BOOL activate) {
       is_session_active = activate;
    }
 
+}
+
+int roadmap_sound_list_add_buf (RoadMapSoundList list, void* buf, size_t size ) {
+   //Not implemented
 }
 
 

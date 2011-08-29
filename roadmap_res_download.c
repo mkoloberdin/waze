@@ -100,7 +100,7 @@ static void download_error_callback (void *context_cb,
                int connection_failure,
                const char *format,
                ...);
-static void download_done_callback (void *context_cb, char *last_modified);
+static void download_done_callback (void *context_cb, char *last_modified, const char *format, ... );
 
 static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks = { download_size_callback,
       download_progress_callback, download_error_callback, download_done_callback };
@@ -650,7 +650,7 @@ static void download_error_callback (void *context_cb,
 }
 
 //////////////////////////////////////////////////////////////////
-static void download_done_callback (void *context_cb, char *last_modified) {
+static void download_done_callback (void *context_cb, char *last_modified, const char *format, ... ) {
    DownloadContext* context = (DownloadContext*) context_cb;
    const char* path = context->res_path;
    RoadMapFile file;

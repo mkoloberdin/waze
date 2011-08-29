@@ -105,6 +105,7 @@ int roadmap_navigate_get_current (RoadMapGpsPosition *position,
                                   PluginLine *line,
                                   int *direction);
 time_t roadmap_navigate_get_time (void);
+RoadMapGpsPosition *roadmap_navigate_get_last_valid_pos (void);
 
 void roadmap_navigate_check_alerts (RoadMapGpsPosition *gps_position);
 

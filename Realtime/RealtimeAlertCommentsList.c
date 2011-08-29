@@ -194,6 +194,38 @@ static int on_options_comments(SsdWidget widget, const char *new_value, void *co
 }
 #endif //TOUCH_SCREEN
 
+
+///////////////////////////////////////////////////////////////////////////////////////////
+static int on_options_alert( SsdWidget this, const char *new_value)
+{
+	int   menu_x;
+
+	g_Comment_id = -1;
+
+   if(g_context_menu_is_active)
+   {
+      ssd_dialog_hide_current(dec_cancel);
+      g_context_menu_is_active = FALSE;
+   }
+
+   if  (ssd_widget_rtl (NULL))
+	   menu_x = SSD_X_SCREEN_RIGHT;
+	else
+		menu_x = SSD_X_SCREEN_LEFT;
+
+    ssd_context_menu_show(  menu_x,   // X
+                           SSD_Y_SCREEN_BOTTOM, // Y
+                           &context_menu,
+                           on_option_selected,
+                           NULL,
+                           dir_default,
+                           0,
+                           TRUE);
+
+   g_context_menu_is_active = TRUE;
+
+   return 0;
+}
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void on_option_add_comment(){
     real_time_post_alert_comment_by_id(g_Alert_Id);
@@ -597,8 +629,8 @@ int RealtimeAlertCommentsList(int iAlertId)
    ssd_widget_add(dialog, group);
    ssd_widget_set_pointer_force_click( group );
 
-   group->callback = AlertSelected;
-
+   //group->callback = AlertSelected;
+   group->callback = on_options_alert;
    CommentEntry = alert->Comment;
 
    iCount++;

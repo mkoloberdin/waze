@@ -125,6 +125,7 @@ BOOL ShowPromotions(BOOL new_session);
 
 BOOL RealtimeExternalPoi_MyCouponsEnabled(void);
 void RealtimeExternalPoi_MyCouponsDlg(void);
+void RealtimeExternalPoi_NearbyCouponsAndGamesDlg(void);
 
 void RealtimeExternalPoi_OnShowPoiNearByPressed(void);
 #endif /* REALTIMEEXTERNALPOI_H_ */

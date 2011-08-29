@@ -360,7 +360,7 @@ end_of_decoding:
    if (got_navigation_data) {
 
       RoadmapGpsd2NavigationListener
-         (status, gps_time, latitude, longitude, altitude, speed, steering);
+         (status, gps_time, latitude, longitude, altitude, speed, steering, ROADMAP_NO_VALID_DATA );
 
       return 1;
    }

@@ -68,6 +68,10 @@ else
 endif
 endif
 
+ifeq ($(DESKTOP),GTK2)
+MODECFLAGS+= -DGTK
+endif
+
 ifeq ($(SSD),YES)
 # Small screen devices
    SSDCFLAGS=-DSSD 
@@ -217,6 +221,7 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_power.c \
           roadmap_camera_image.c \
           roadmap_httpcopy_async.c \
+          roadmap_base64.c \
           roadmap.c \
           roadmap_tile_manager.c \
           roadmap_tile_status.c \
@@ -231,6 +236,7 @@ RMLIBSRCS=roadmap_log.c \
           roadmap_map_download.c \
           roadmap_reminder.c \
           roadmap_scoreboard.c \
+          roadmap_speechtt.c \
           roadmap_recorder.c \
           roadmap_recorder_dlg.c \
           roadmap_analytics.c
@@ -240,6 +246,11 @@ ifeq ($(TILESTORAGE),SQLITE)
   RMLIBSRCS += roadmap_tile_storage_sqlite.c
 else  
   RMLIBSRCS += roadmap_tile_storage.c
+endif
+
+ifeq ($(TTS),YES)
+  RMLIBSRCS += tts/tts_utils.c tts/tts.c tts/tts_queue.c tts/tts_voices.c tts/tts_db.c tts/tts_cache.c tts/tts_db_files.c tts/tts_db_sqlite.c tts/tts_ui.c
+  RMLIBSRCS += tts_was_provider.c tts_apptext.c
 endif
 
 RMLIBOBJS=$(RMLIBSRCS:.c=.o)
@@ -371,6 +382,8 @@ RMPLUGINSRCS=roadmap_copy.c \
              navigate/fib-1.1/fib.c \
              navigate/navigate_route_trans.c \
              navigate/navigate_res_dlg.c \
+             navigate/navigate_tts.c \
+             navigate/navigate_route_events.c
 
 RMPLUGINOBJS=$(RMPLUGINSRCS:.c=.o)
 

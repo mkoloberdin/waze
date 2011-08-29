@@ -56,6 +56,10 @@
 #include "single_search_dlg.h"
 #include "../roadmap_bar.h"
 #include "../roadmap_device_events.h"
+#include "tts/tts.h"
+#include "navigate/navigate_main.h"
+#include "roadmap_config.h"
+#include "tts_was_provider.h"
 
 #ifdef TOUCH_SCREEN
    #define  USE_ONSCREEN_KEYBOARD
@@ -89,6 +93,7 @@ static const char *g_favorite_name;
 static void on_search_error_message( int exit_code );
 static void search_progress_message_delayed(void);
 static int on_addr_list_item_selected(SsdWidget widget, const char *new_value, const void *value);
+extern RoadMapConfigDescriptor NavigateConfigNavigationGuidanceType;
 
 typedef enum tag_contextmenu_items
 {
@@ -469,8 +474,40 @@ static void on_search(void)
          roadmap_gps_set_show_raw(!roadmap_gps_is_show_raw());
          return ;
    }
-
-
+   if ( !strcmp( "cc@tts", ssd_text_get_text( edit ) ) )
+   {
+      tts_clear_cache();
+      roadmap_messagebox("","TTS cache has been cleared!");
+      return;
+   }
+   if ( !strcmp( "##@tts", ssd_text_get_text( edit ) ) )
+   {
+      tts_set_feature_enabled( !tts_feature_enabled() );
+      if ( tts_feature_enabled() )
+      {
+         roadmap_messagebox("","TTS Feature is enabled!\nPlease restart WAZE.");
+      }
+      else
+      {
+         roadmap_messagebox("","TTS Feature is disabled!");
+      }
+      navigate_main_override_nav_settings();
+      return;
+   }
+   if ( !strcmp( "dbg@tts", ssd_text_get_text( edit ) ) )
+   {
+      if ( !strcmp( tts_was_provider_voices_set(), TTS_WAS_VOICES_SET_PRODUCTION ) )
+      {
+         tts_was_provider_apply_voices_set( TTS_WAS_VOICES_SET_DEBUG );
+         roadmap_messagebox("","TTS Feature is running in debug mode!\nPlease restart WAZE.");
+      }
+      else
+      {
+         tts_was_provider_apply_voices_set( TTS_WAS_VOICES_SET_PRODUCTION );
+         roadmap_messagebox("","TTS Feature is running in production mode!\nPlease restart WAZE.");
+      }
+      return;
+   }
 
 #ifdef __SYMBIAN32__
    if ( !strcmp( "##@opera",  txt ) )
@@ -500,6 +537,45 @@ static void on_search(void)
       return;
    }
 
+   if (strstr(txt, "@")){
+
+       char txt_buffer[128];
+       strcpy (txt_buffer, txt);
+       char *name = strtok (txt_buffer, "@");
+       char *coord = strtok (NULL, "@");
+       if (coord && (isdigit(coord[0]) || coord[0] == '-') && strchr (coord, ',') && strchr (coord, '.')){
+             RoadMapPosition position;
+              double   longtitude;
+              double   latitude;
+              char *latitude_ascii;
+              char buffer[128];
+              char txt_buffer[128];
+              char *lon_ascii;
+
+              strcpy (txt_buffer, coord);
+              strcpy (buffer, coord);
+
+              latitude_ascii = strchr (buffer, ',');
+              if (latitude_ascii != NULL) {
+                 *(latitude_ascii++) = 0;
+                 lon_ascii = strtok(txt_buffer, ",");
+                 if (latitude_ascii[0] == ' ')
+                    latitude_ascii++;
+
+                 if ((isdigit(txt_buffer[0]) || txt_buffer[0] == '-') && (isdigit(latitude_ascii[0]) || latitude_ascii[0] == '-')){
+                    longtitude= atof(latitude_ascii);
+                    latitude= atof(lon_ascii);
+                    position.longitude = longtitude*1000000;
+                    position.latitude  = latitude*1000000;
+                    roadmap_trip_set_point ("Selection", &position);
+                    roadmap_trip_set_focus ("Selection");
+                    ssd_dialog_hide_all(dec_close);
+                    editor_screen_menu(name);
+                    return;
+                 }
+              }
+       }
+   }
    // Check if lat lon
    if ((isdigit(txt[0]) || txt[0] == '-') && strchr (txt, ',') && strchr (txt, '.')){
       RoadMapPosition position;
@@ -901,19 +977,14 @@ BOOL single_search_auto_search( const char* address)
    g_favorite_name = NULL;
 
    generic_search_dlg_update_text( address, single_search );
-#ifdef ANDROID
-   single_search_dlg_show( on_auto_search_completed, (void*)address);
-#else
+
    single_search_dlg_show_auto( on_auto_search_completed, (void*)address);
-#endif
+
    edit  = generic_search_dlg_get_search_edit_box(single_search);
 
    ssd_text_set_text( edit, address);
 
-// AGA Don't start, just show to user. Perhaps some editing is necessary
-#ifndef ANDROID
    on_search();
-#endif
 
    return TRUE;
 }

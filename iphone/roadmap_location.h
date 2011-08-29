@@ -36,5 +36,8 @@ void roadmap_location_subscribe_to_satellites (RoadMapGpsdSatellite satellite);
 void roadmap_location_subscribe_to_dilution (RoadMapGpsdDilution dilution);
 
 time_t roadmap_location_get_latest_time ();
+BOOL roadmap_location_is_accelerometer_available (void);
+BOOL roadmap_location_is_compass_available (void);
+void roadmap_location_get_acceleration (int *x, int *y, int *z);
 
 #endif // __ROADMAP_LOCATION__H

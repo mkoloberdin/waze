@@ -213,6 +213,7 @@ SsdWidget ssd_checkbox_row_new (const char *name,
                                  int style) {
    char widget_name[256];
    SsdWidget box, box2;
+   SsdWidget text;
    int row_height = ssd_container_get_row_height();
    int width = ssd_container_get_width();
 
@@ -220,17 +221,18 @@ SsdWidget ssd_checkbox_row_new (const char *name,
    snprintf(widget_name, sizeof(widget_name), "%s_group", name);
    box = ssd_container_new (widget_name, NULL, SSD_MAX_SIZE, row_height,
                            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_WS_TABSTOP);
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_set_color (box, NULL, NULL);
 
    //Create text label
    snprintf(widget_name, sizeof(widget_name), "%s_label", name);
    box2 = ssd_container_new ("box2", NULL, 2*width/3, SSD_MAX_SIZE,
                               SSD_ALIGN_VCENTER);
    ssd_widget_set_color(box2, NULL, NULL);
-   ssd_widget_add (box2,
-                  ssd_text_new (widget_name,
-                    label,
-                    SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   text = ssd_text_new (widget_name,
+                        label,
+                        SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box2, text);
 
    ssd_widget_add(box,box2);
 

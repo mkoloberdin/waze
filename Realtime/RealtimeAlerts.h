@@ -30,6 +30,10 @@
 #include "../ssd/ssd_widget.h"
 #include "../roadmap_alerter.h"
 
+// Defines if police alerts can be shown and reported
+// Uncomment it whenever no-police version is necessary ( like for Verizon android market )
+//#define RT_ALERT_POLICE_FORBIDDEN
+
 // Alerts types
 #define RT_ALERT_TYPE_CHIT_CHAT			   0
 #define RT_ALERT_TYPE_POLICE				   1
@@ -262,6 +266,7 @@ typedef struct
     BOOL bThumbsUpByMe;
     BOOL bIsAlertable;
     BOOL bAlertHandled;
+    int  iNumViewed;
 } RTAlert;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -308,6 +313,7 @@ char * RTAlerts_Get_LocationStrByID(int Id);
 unsigned int RTAlerts_Get_Speed(int record);
 int RTAlerts_Get_Distance(int record);
 const char * RTAlerts_Get_Map_Icon(int alert);
+const char * RTAlerts_Get_Map_Icon_By_Type(int iType);
 const char * RTAlerts_Get_Icon(int alertId);
 const char * RTAlerts_Get_Alert_Icon(int alertId);
 const char * RTAlerts_Get_Warn_Icon(int alertId);
@@ -399,7 +405,7 @@ void RTAlerts_show_space_before_desc( SsdWidget containter, RTAlert *pAlert );
 int RTAlertsGetMapProblems (int **outMapProblems, char **outMapProblemsOption[]);
 BOOL RTAlerts_Can_Send_Thumbs_up(int alertId);
 int  Rtalerts_Thumbs_Up(int alertId);
-void RTAlerts_Update(int iID, int iNumThumbsUp, BOOL bIsOnRoute, BOOL bIsArchive);
+void RTAlerts_Update(int iID, int iNumThumbsUp, BOOL bIsOnRoute, BOOL bIsArchive, int iNumViewed);
 void RTAlerts_ThumbsUpRecordInit(ThumbsUp *thumbsUp);
 BOOL RTAlerts_ThumbsUpReceived(ThumbsUp *thumbsUp);
 
@@ -434,4 +440,6 @@ int         RTAlerts_get_categories_subtype(int iAlertType, int iAlertSubType, i
 void RTAlerts_update_location_str(RTAlert *pAlert);
 
 const RoadMapGpsPosition *RTAlerts_alerts_location(BOOL showMsgBox);
+
+int RTALerts_OnRouteCount(void);
 #endif	//	__REALTIME_ALERT_H__

@@ -35,6 +35,7 @@
 #include "widgets/iphoneCellSwitch.h"
 #include "widgets/iphoneCellSelect.h"
 #include "widgets/iphoneTableHeader.h"
+#include "roadmap_checklist.h"
 #include "roadmap_factory.h"
 #include "roadmap_start.h"
 #include "roadmap_screen.h"
@@ -46,16 +47,21 @@
 #include "roadmap_map_download.h"
 #include "roadmap_device_events.h"
 #include "Realtime/RealtimeExternalPoi.h"
+#include "navigate/navigate_main.h"
+#include "tts.h"
 
 #include "roadmap_analytics.h"
 
 
 static const char*   title = "Settings menu";
 
-extern RoadMapConfigDescriptor NavigateConfigNavigationGuidance;
+extern RoadMapConfigDescriptor NavigateConfigNavigationGuidanceType;
+extern RoadMapConfigDescriptor NavigateConfigNavigationGuidanceOn;
+
+#define FIRST_TAG  (1000)
 
 enum IDs {
-	ID_MUTE = 1,
+	ID_NAV_GUIDANCE = 1,
 	ID_DISPLAY,
 	ID_LIGHT,
 	ID_TRAFFIC,
@@ -75,9 +81,75 @@ enum IDs {
 #define MAX_IDS 25
 
 static const char *id_actions[MAX_IDS];
+static RoadMapCallback id_callbacks[MAX_IDS];
 static int isSettingsShown = 0;
 
-                       
+
+//static void guidance_callback (int value, int group) {
+//   const char ** guidance_values = navigate_main_get_guidance_types();
+//   
+//   if (!strcmp( guidance_values[value], NAV_CFG_GUIDANCE_TYPE_NATURAL )) {
+//      if ( !roadmap_config_match( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL ) )
+//         roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_NAV_GUIDANCE_NATURAL );
+//   } else if (!strcmp( guidance_values[value], NAV_CFG_GUIDANCE_TYPE_TTS )) {
+//      if ( !roadmap_config_match( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_TTS ) )
+//         roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_NAV_GUIDANCE_TTS );
+//   } else if (!strcmp( guidance_values[value], NAV_CFG_GUIDANCE_TYPE_NONE )) {
+//      if ( !roadmap_config_match( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NONE ) )
+//         roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF );
+//   }
+//   
+//   roadmap_config_set ( &NavigateConfigNavigationGuidanceType, guidance_values[value] );
+//   if ( strcmp( guidance_values[value], NAV_CFG_GUIDANCE_TYPE_NONE ) )
+//   {
+//      roadmap_config_set ( &NavigateConfigNavigationGuidanceOn, "yes" );
+//   }
+//   
+//   roadmap_config_save(FALSE);
+//   roadmap_main_pop_view(YES);
+//}
+//
+//static void show_guidance_type (void) {
+//   const char ** guidance_values = navigate_main_get_guidance_types();
+//   const char ** guidance_labels = navigate_main_get_guidance_labels();
+//   int guidance_count = navigate_main_get_guidance_types_count();   
+//   int i;
+//   
+//   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+//	NSMutableArray *groupArray = NULL;
+//   NSMutableDictionary *dict = NULL;
+//   NSString *text;
+//   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+//   RoadMapChecklist *GuidanceView;
+//   const char *current_value;
+//   
+//   if ( roadmap_config_match( &NavigateConfigNavigationGuidanceOn, "yes" ) )
+//   {
+//      current_value = navigate_main_get_guidance_type( roadmap_config_get( &NavigateConfigNavigationGuidanceType ) );
+//   }
+//   else
+//   {
+//      current_value = navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_NONE );
+//   }
+//   
+//   groupArray = [NSMutableArray arrayWithCapacity:1];
+//   
+//   for (i = 0; i < guidance_count; ++i) {
+//      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+//      text = [NSString stringWithUTF8String:roadmap_lang_get(guidance_labels[i])];
+//      [dict setValue:text forKey:@"text"];
+//      if (strcmp(guidance_values[i], current_value) == 0) {
+//         [dict setObject:accessoryType forKey:@"accessory"];
+//      }
+//      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+//      [groupArray addObject:dict];
+//   }
+//   [dataArray addObject:groupArray];
+//   
+//   text = [NSString stringWithUTF8String:roadmap_lang_get ("Navigation guidance")];
+//	GuidanceView = [[RoadMapChecklist alloc] 
+//                  activateWithTitle:text andData:dataArray andHeaders:NULL
+//                  andCallback:guidance_callback andHeight:60 andFlags:0];}
 
 void roadmap_settings(void) {
    SettingsDialog *dialog;
@@ -118,6 +190,7 @@ void roadmap_settings(void) {
 	if (!initialized) {
 		for (i=0; i < MAX_IDS; ++i) {
 			id_actions[i] = NULL;
+         id_callbacks[i] = NULL;
 		}
 		initialized = 1;
 	}
@@ -143,17 +216,25 @@ void roadmap_settings(void) {
    }
 }
 
-- (void)viewWillAppear:(BOOL)animated
-{
-   [super viewWillAppear:animated];
-   /*static*/ BOOL first_time = TRUE;
-   UITableView *tableView = [self tableView];
-   
-   if (first_time) {
-      first_time = FALSE;
-      [tableView reloadData];
-   }
-}
+//- (void)viewWillAppear:(BOOL)animated
+//{
+//   [super viewWillAppear:animated];
+//   UITableView *tableView = [self tableView];
+//   
+//   iphoneCell *cell = (iphoneCell *)[tableView viewWithTag:ID_NAV_GUIDANCE+FIRST_TAG];
+//   if (cell){
+//      const char *current_value;
+//      if ( roadmap_config_match( &NavigateConfigNavigationGuidanceOn, "yes" ) )
+//         current_value = navigate_main_get_guidance_type( roadmap_config_get( &NavigateConfigNavigationGuidanceType ) );
+//      else
+//         current_value = navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_NONE );
+//      cell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get (navigate_main_get_guidance_label(current_value))];
+//      
+//      [cell setNeedsLayout];
+//   }
+//   
+//   [tableView reloadData];
+//}
 
 - (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation {
    return roadmap_main_should_rotate (interfaceOrientation);
@@ -168,7 +249,7 @@ void roadmap_settings(void) {
    NSMutableArray *groupArray = NULL;
    iphoneCell *actionCell = NULL;
    NSArray *segmentsArray = NULL;
-   iphoneCellSwitch *swCell = NULL;
+   iphoneCell *callbackCell = NULL;
    iphoneCellSelect *selCell = NULL;
    UIImage *img = NULL;
    iphoneTableHeader *header = NULL;
@@ -180,17 +261,74 @@ void roadmap_settings(void) {
    groupArray = [NSMutableArray arrayWithCapacity:1];
    
    header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
-   [header setText:"Quick actions"];
+   [header setText:"Navigation Guidance"];
    [headersArray addObject:header];
    [header release];
    
-   //Mute
-   swCell = [[[iphoneCellSwitch alloc] initWithFrame:CGRectZero reuseIdentifier:@"switchCell"] autorelease];
-   [swCell setTag:ID_MUTE];
-   [swCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Navigation guidance")]];
-   [swCell setDelegate:self];
-   [swCell setState:roadmap_config_match(&NavigateConfigNavigationGuidance, "yes")];
-   [groupArray addObject:swCell];
+   //Navigation guidance type
+   //callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+//   [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+//   [callbackCell setTag:ID_NAV_GUIDANCE+FIRST_TAG];
+//   id_callbacks[ID_NAV_GUIDANCE] = show_guidance_type;
+//   callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Guidance")];
+//   const char *current_value;
+//   if ( roadmap_config_match( &NavigateConfigNavigationGuidanceOn, "yes" ) )
+//      current_value = navigate_main_get_guidance_type( roadmap_config_get( &NavigateConfigNavigationGuidanceType ) );
+//   else
+//      current_value = navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_NONE );
+//   callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get (navigate_main_get_guidance_label(current_value))];
+//   [groupArray addObject:callbackCell];
+   
+   selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
+//   [selCell setLabel:[NSString stringWithUTF8String:roadmap_lang_get ("Display")]];
+   if (tts_feature_enabled()) {
+      segmentsArray = [NSArray arrayWithObjects:
+                       [NSString stringWithUTF8String:roadmap_lang_get(navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_TTS ))],
+                       [NSString stringWithUTF8String:roadmap_lang_get(navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_NATURAL ))],
+                       [NSString stringWithUTF8String:roadmap_lang_get(navigate_main_get_guidance_type( NAV_CFG_GUIDANCE_TYPE_NONE ))],
+                       NULL];
+      [selCell setItems:segmentsArray];
+      
+      const char *current_value;
+      if ( roadmap_config_match( &NavigateConfigNavigationGuidanceOn, "yes" ) )
+         current_value = roadmap_config_get( &NavigateConfigNavigationGuidanceType ) ;
+      else
+         current_value = ( NAV_CFG_GUIDANCE_TYPE_NONE );
+      if (!strcmp(current_value, NAV_CFG_GUIDANCE_TYPE_NONE ))
+         [selCell setSelectedSegment:2];
+      else if (!strcmp(current_value, NAV_CFG_GUIDANCE_TYPE_NATURAL ))
+         [selCell setSelectedSegment:1];
+      else
+         [selCell setSelectedSegment:0];
+   } else {
+      segmentsArray = [NSArray arrayWithObjects:
+                       [NSString stringWithUTF8String:roadmap_lang_get("On")],
+                       [NSString stringWithUTF8String:roadmap_lang_get("Off")],
+                       NULL];
+      [selCell setItems:segmentsArray];
+      
+      if ( roadmap_config_match( &NavigateConfigNavigationGuidanceOn, "yes" ) )
+         [selCell setSelectedSegment:0];
+      else
+         [selCell setSelectedSegment:1];
+      
+      if (!roadmap_config_match( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL))
+         roadmap_config_set(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL);
+   }
+
+   [selCell setTag:ID_NAV_GUIDANCE+FIRST_TAG];
+   [selCell setDelegate:self];
+   [groupArray addObject:selCell];
+   
+   [dataArray addObject:groupArray];
+   
+   //second group
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
+   [header setText:"Map"];
+   [headersArray addObject:header];
+   [header release];
    
    //View 2D/3D
    selCell = [[[iphoneCellSelect alloc] initWithFrame:CGRectZero reuseIdentifier:@"selectCell"] autorelease];
@@ -201,7 +339,7 @@ void roadmap_settings(void) {
       [selCell setSelectedSegment:1];
    else
       [selCell setSelectedSegment:0];
-   [selCell setTag:ID_DISPLAY];
+   [selCell setTag:ID_DISPLAY+FIRST_TAG];
    [selCell setDelegate:self];
    [groupArray addObject:selCell];
    
@@ -217,38 +355,32 @@ void roadmap_settings(void) {
       [selCell setSelectedSegment:1];
    else
       [selCell setSelectedSegment:0];
-   [selCell setTag:ID_LIGHT];
+   [selCell setTag:ID_LIGHT+FIRST_TAG];
    [selCell setDelegate:self];
    [groupArray addObject:selCell];
    
    [dataArray addObject:groupArray];
    
    
-   //second group
-   groupArray = [NSMutableArray arrayWithCapacity:1];
    
-   header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT)];
-   [header setText:""];
-   [headersArray addObject:header];
-   [header release];
    
    //Media Player
-   actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-   icon_name = "media_player";
-   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
-   if (img) {
-      actionCell.imageView.image = img;
-   }
-   
-   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_MEDIA_PLAYER];
-   id_actions[ID_MEDIA_PLAYER] = "media_player";
-   this_action =  roadmap_start_find_action (id_actions[ID_MEDIA_PLAYER]);
-   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
-                                (this_action->label_long)];
-   [groupArray addObject:actionCell];
-   
-   [dataArray addObject:groupArray];
+   //actionCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+//   icon_name = "media_player";
+//   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, icon_name);
+//   if (img) {
+//      actionCell.imageView.image = img;
+//   }
+//   
+//   [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+//   [actionCell setTag:ID_MEDIA_PLAYER+FIRST_TAG];
+//   id_actions[ID_MEDIA_PLAYER] = "media_player";
+//   this_action =  roadmap_start_find_action (id_actions[ID_MEDIA_PLAYER]);
+//   actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+//                                (this_action->label_long)];
+//   [groupArray addObject:actionCell];
+//   
+//   [dataArray addObject:groupArray];
    
    
    //third group
@@ -268,7 +400,7 @@ void roadmap_settings(void) {
    }
    
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_GENERAL];
+   [actionCell setTag:ID_GENERAL+FIRST_TAG];
    id_actions[ID_GENERAL] = "general_settings";
    this_action =  roadmap_start_find_action (id_actions[ID_GENERAL]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -283,7 +415,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_LOGIN];
+   [actionCell setTag:ID_LOGIN+FIRST_TAG];
    id_actions[ID_LOGIN] = "login_details";
    this_action =  roadmap_start_find_action (id_actions[ID_LOGIN]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -298,7 +430,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_MAP];
+   [actionCell setTag:ID_MAP+FIRST_TAG];
    id_actions[ID_MAP] = "map_settings";
    this_action =  roadmap_start_find_action (id_actions[ID_MAP]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -313,7 +445,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_DOWNLOAD];
+   [actionCell setTag:ID_DOWNLOAD+FIRST_TAG];
    id_actions[ID_DOWNLOAD] = "download_settings";
    this_action =  roadmap_start_find_action (id_actions[ID_DOWNLOAD]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -328,7 +460,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_TRAFFIC];
+   [actionCell setTag:ID_TRAFFIC+FIRST_TAG];
    id_actions[ID_TRAFFIC] = "traffic";
    this_action =  roadmap_start_find_action (id_actions[ID_TRAFFIC]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -343,7 +475,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_PRIVACY];
+   [actionCell setTag:ID_PRIVACY+FIRST_TAG];
    id_actions[ID_PRIVACY] = "privacy_settings";
    this_action =  roadmap_start_find_action (id_actions[ID_PRIVACY]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -360,7 +492,7 @@ void roadmap_settings(void) {
    }
    
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_GROUPS];
+   [actionCell setTag:ID_GROUPS+FIRST_TAG];
    id_actions[ID_GROUPS] = "group_settings";
    this_action =  roadmap_start_find_action (id_actions[ID_GROUPS]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -375,7 +507,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_RECOMMEND];
+   [actionCell setTag:ID_RECOMMEND+FIRST_TAG];
    id_actions[ID_RECOMMEND] = "recommend";
    this_action =  roadmap_start_find_action (id_actions[ID_RECOMMEND]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -390,7 +522,7 @@ void roadmap_settings(void) {
       actionCell.imageView.image = img;
    }
    [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-   [actionCell setTag:ID_HELP_MENU];
+   [actionCell setTag:ID_HELP_MENU+FIRST_TAG];
    id_actions[ID_HELP_MENU] = "help_menu";
    this_action =  roadmap_start_find_action (id_actions[ID_HELP_MENU]);
    actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -417,7 +549,7 @@ void roadmap_settings(void) {
          actionCell.imageView.image = img;
       }
       [actionCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-      [actionCell setTag:ID_MY_COUPONS];
+      [actionCell setTag:ID_MY_COUPONS+FIRST_TAG];
       id_actions[ID_MY_COUPONS] = "my_coupons";
       this_action =  roadmap_start_find_action (id_actions[ID_MY_COUPONS]);
       actionCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
@@ -477,12 +609,23 @@ void roadmap_settings(void) {
 }
 
 - (void)tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-	int tag = [[tableView cellForRowAtIndexPath:indexPath] tag];
+	int tag = [[tableView cellForRowAtIndexPath:indexPath] tag] - FIRST_TAG;
 	
 	if (id_actions[tag]) {
 		const RoadMapAction *this_action =  roadmap_start_find_action (id_actions[tag]);
 		(*this_action->callback)();
+	} else if (id_callbacks[tag]) {
+		(*id_callbacks[tag])();
 	}
+}
+
+- (CGFloat)tableView:(UITableView *)tableView heightForRowAtIndexPath:(NSIndexPath *)indexPath {
+   if (indexPath.section == 0 && indexPath.row == 0) {
+      return 40;
+   } else {
+      return 50;
+   }
+
 }
 
 
@@ -505,45 +648,43 @@ void roadmap_settings(void) {
 }
 
 
-//////////////////////////////////////////////////////////
-//Switch delegate
-- (void) switchToggle:(id)switchView {
-	
-	static const char *yesno[2];
-	if (!yesno[0]) {
-		yesno[0] = "Yes";
-		yesno[1] = "No";
-	}
-	
-	iphoneCellSwitch *view = (iphoneCellSwitch*)[[switchView superview] superview];
-	int tag = [view tag];
-	
-	switch (tag) {
-		case ID_MUTE:
-			if ([view getState]) {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
 
-				roadmap_config_set (&NavigateConfigNavigationGuidance, yesno[0]);
-			} else {
-            roadmap_analytics_log_event(ANALYTICS_EVENT_MUTE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
-
-				roadmap_config_set (&NavigateConfigNavigationGuidance, yesno[1]);
-			}
-			roadmap_bar_draw();
-			break;
-      default:
-			break;
-	}
-	
-}
 
 //////////////////////////////////////////////////////////
 //Segmented ctrl delegate
 - (void) segmentToggle:(id)segmentView {
 	iphoneCellSelect *view = (iphoneCellSelect*)[[segmentView superview] superview];
-	int tag = [view tag];
+	int tag = [view tag]-FIRST_TAG;
 	
 	switch (tag) {
+      case ID_NAV_GUIDANCE:
+         if (tts_feature_enabled()) {
+            switch ([view getItem]) {
+               case 0:
+                  roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_NAV_GUIDANCE_TTS );
+                  roadmap_config_set ( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_TTS );
+                  roadmap_config_set ( &NavigateConfigNavigationGuidanceOn, "yes" );
+                  break;
+               case 1:
+                  roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_NAV_GUIDANCE_NATURAL );
+                  roadmap_config_set ( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL );
+                  roadmap_config_set ( &NavigateConfigNavigationGuidanceOn, "yes" );
+                  break;
+               case 2:
+                  roadmap_analytics_log_event( ANALYTICS_EVENT_NAVGUIDANCE, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF );
+                  roadmap_config_set ( &NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NONE );
+               default:
+                  break;
+            }
+         } else {
+            if ([view getItem] == 0)
+               roadmap_config_set ( &NavigateConfigNavigationGuidanceOn, "yes" );
+            else
+               roadmap_config_set ( &NavigateConfigNavigationGuidanceOn, "no" );
+         }
+
+         roadmap_config_save(FALSE);
+         break;
 		case ID_DISPLAY:
 			if ([view getItem] == 1) {
             roadmap_analytics_log_event(ANALYTICS_EVENT_VIEWMODESET, ANALYTICS_EVENT_INFO_NEW_MODE, ANALYTICS_EVENT_3D);

@@ -72,6 +72,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                         PFN_ON_ITEM_SELECTED   on_item_deleted,
                                         void*                  context,
                                         SsdSoftKeyCallback     detail_button_callback,
+                                        list_menu_right_btn*   right_button,
                                         int                    list_height,
                                         int                    flags,
                                         list_menu_empty_message* empty_message) {
@@ -92,6 +93,7 @@ void roadmap_list_menu_generic_refresh (void*                  list,
                                 andOnItemDeleted:on_item_deleted
                                       andContext:context
                          andDetailButtonCallback:detail_button_callback
+                                  andRightButton:right_button
                                    andListHeight:list_height
                                         andFlags:flags
                                       andRefresh:TRUE
@@ -104,11 +106,12 @@ void* roadmap_list_menu_generic (const char*          title,
                                  const void**         values,
                                  const char** 		   icons,
                                  const char** 		   right_labels,
-                                 list_menu_selector   *selector,
+                                 list_menu_selector*  selector,
                                  PFN_ON_ITEM_SELECTED on_item_selected,
                                  PFN_ON_ITEM_SELECTED on_item_deleted,
                                  void*                context,
                                  SsdSoftKeyCallback   detail_button_callback,
+                                 list_menu_right_btn* right_button,
                                  int                  list_height,
                                  int                  flags,
                                  list_menu_empty_message* empty_message) {
@@ -126,6 +129,7 @@ void* roadmap_list_menu_generic (const char*          title,
                                 andOnItemDeleted:on_item_deleted
                                       andContext:context
                          andDetailButtonCallback:detail_button_callback
+                                  andRightButton:right_button
                                    andListHeight:list_height
                                         andFlags:flags
                                       andRefresh:FALSE
@@ -319,6 +323,13 @@ void* roadmap_list_menu_custom (const char*           title,
 {
    [self.navigationController setToolbarHidden:YES];
    roadmap_main_show_root(NO);
+}
+
+- (void) onRightBtn
+{
+   if (listData.on_right_btn_cb) {
+      listData.on_right_btn_cb (NULL, NULL);
+   }
 }
 
 - (const RoadMapAction *) findAction: (const RoadMapAction *) actions
@@ -810,6 +821,7 @@ void* roadmap_list_menu_custom (const char*           title,
                  andOnItemDeleted:(PFN_ON_ITEM_SELECTED)on_item_deleted
                        andContext:(void*)context
           andDetailButtonCallback:(SsdSoftKeyCallback)detail_button_callback
+                   andRightButton:(list_menu_right_btn*)right_button
                     andListHeight:(int)list_height
                          andFlags:(int)flags
                        andRefresh:(BOOL)refresh
@@ -821,8 +833,30 @@ void* roadmap_list_menu_custom (const char*           title,
    
    //set right button
 	UINavigationItem *navItem = [self navigationItem];
-   UIBarButtonItem *barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")]
-                                                                 style:UIBarButtonItemStyleDone target:self action:@selector(onClose)];
+   UIBarButtonItem *barButton = NULL;
+   
+   if (!right_button) {
+      barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get("Close")]
+                                                   style:UIBarButtonItemStyleDone target:self action:@selector(onClose)];
+   } else {
+      listData.on_right_btn_cb = right_button->callback;
+      
+      if (right_button->icon) {
+         if (!strcmp(right_button->icon, "+")) {
+            barButton = [[UIBarButtonItem alloc] initWithBarButtonSystemItem:UIBarButtonSystemItemAdd target:self action:@selector(onRightBtn)];
+         } else {
+            UIImage *image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, right_button->icon);
+            if (!image)
+               return;
+            
+            barButton = [[UIBarButtonItem alloc] initWithImage:image style:UIBarButtonItemStylePlain target:self action:@selector(onRightBtn)];
+         }
+      } else {
+         barButton = [[UIBarButtonItem alloc] initWithTitle:[NSString stringWithUTF8String:roadmap_lang_get(right_button->text)]
+                                                      style:UIBarButtonItemStyleDone target:self action:@selector(onRightBtn)];
+      }
+   }
+
    [navItem setRightBarButtonItem:barButton];
    [barButton release];
 	

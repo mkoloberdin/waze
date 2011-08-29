@@ -160,7 +160,7 @@ static void on_dialog_close  (int exit_code, void* context){
    if (g_timer_active)
       roadmap_main_remove_periodic(ExternalPoiDlgTimer);
    RealtimeExternalPoi_SetScrolling(FALSE);
-   roadmap_browser_hide();
+   roadmap_browser_close_embedded();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -235,7 +235,7 @@ static void draw_browser(RTExternalPoi *externalPoi, RoadMapGuiRect *rect, int f
    BOOL is_promotion;
    if (force || (old_rect.minx != rect->minx) || (old_rect.maxx != rect->maxx) || (old_rect.miny != rect->miny) || (old_rect.maxy != rect->maxy)){
       if ( (old_rect.minx != -1) && (old_rect.maxx != -1) && (old_rect.miny != -1) && (old_rect.maxy != -1))
-         roadmap_browser_hide();
+         roadmap_browser_close_embedded();
       old_rect = *rect;
       context.flags = BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL;
       context.rect = *rect;
@@ -247,7 +247,7 @@ static void draw_browser(RTExternalPoi *externalPoi, RoadMapGuiRect *rect, int f
       context.attrs.on_load_cb = NULL;
       context.attrs.data = NULL;
       context.attrs.title_attrs.title = NULL;
-      roadmap_browser_show_embeded(&context);
+      roadmap_browser_show_embedded(&context);
    }
 }
 

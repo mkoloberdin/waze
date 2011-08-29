@@ -45,17 +45,21 @@ static   transaction_result
 static   transaction_result
                OnCustomResponse     ( wst_context_ptr session);
 static LastNetConnectRes ELastNetConnectRes = LastNetConnect_Success;
+static   int   gNextTypeId = 0;
 
 
 static BOOL wst_start_trans__int(wst_context_ptr      session,
                                  int                  flags,
                                  const char*          action,
+                                 int                  type,
                                  const wst_parser_ptr parsers,
                                  int                  parsers_count,
                                  CB_OnWSTCompleted    cbOnCompleted,
                                  void*                context,
                                  char*                packet,
                                  BOOL                 retry);
+
+static void wst_stop_trans__int( wst_handle h, BOOL bStopNow, BOOL bNotifyCb);
 
 
 void wst_context_init( wst_context_ptr this)
@@ -69,7 +73,7 @@ void wst_context_init( wst_context_ptr this)
 /* 4*/this->Socket               = ROADMAP_INVALID_SOCKET;/*
    5  this->state                = trans_idle;
    6  this->async_receive_started= FALSE;
-   7  this->starting_time        = 0;              */
+   7  this->last_receive_time        = 0;              */
 /* 8*/wstq_init(                 &(this->queue));  /*
    9  this->context              = NULL;           */
       this->retries              = 0;
@@ -88,6 +92,7 @@ void wst_context_init( wst_context_ptr this)
   16 this->result                = trans_succeeded;
   17 this->rc                    = succeeded;
   18 this->delete_on_idle        = FALSE;          */
+   this->connect_context         = FALSE;
 }
 
 void wst_context_free( wst_context_ptr this)
@@ -124,9 +129,10 @@ static void wst_context_reset( wst_context_ptr this, int use_ack)
 /* General:       */
 /* 5*/   this->state                = trans_idle;
 /* 6*/   this->async_receive_started= FALSE;
-/* 7*/   this->starting_time        = 0;
+/* 7*/   this->last_receive_time        = 0;
 // 8     this->queue    !NOT MODIFYING QUEUE!
 /* 9*/   //this->context              = NULL;
+   this->retries = 0;
 
 /* Send:          */
 /*10*/   ebuffer_free(              &(this->packet));
@@ -145,6 +151,9 @@ static void wst_context_reset( wst_context_ptr this, int use_ack)
 /*15*/   //this->cbOnWSTCompleted     = NULL;
 /*16*/   this->result               = trans_succeeded;
 /*17*/   this->rc                   = succeeded;
+   
+   this->active_item.type = WEBSVC_NO_TYPE;
+   this->active_item.packet = NULL;
 
 // Restore:
 /* 1*/   this->service     = service;
@@ -181,6 +190,7 @@ static BOOL wst_Receive( wst_context_ptr session)
 static void  wst_context_load(wst_context_ptr         this,
                               int                     flags,
                               const char*             action,
+                              int                     type,
                               const wst_parser_ptr    parsers,
                               int                     parsers_count,
                               CB_OnWSTCompleted       cbOnCompleted,
@@ -200,6 +210,7 @@ static void  wst_context_load(wst_context_ptr         this,
    wstq_item_init( &this->active_item);
    
    this->active_item.action        = action;
+   this->active_item.type          = type;
    this->active_item.parsers       = parsers;
    this->active_item.parsers_count = parsers_count;
    this->active_item.cbOnCompleted = cbOnCompleted;
@@ -210,6 +221,7 @@ static void  wst_context_load(wst_context_ptr         this,
 
 wst_handle wst_init( const char* service_name,  // e.g. - rtserver
                      const char* secured_service_name,
+                     const char* secured_service_name_resolved,
                      const char* service_v2_suffix,
                      const char* content_type)  // e.g. - binary/octet-stream
 {
@@ -246,6 +258,10 @@ wst_handle wst_init( const char* service_name,  // e.g. - rtserver
       session->secured_port = secured_server_port;
    }
    
+   if (secured_service_name_resolved && *secured_service_name_resolved) {      
+      session->secured_service_resolved = secured_service_name_resolved;
+   }
+   
    if (service_v2_suffix) {
       session->service_v2_suffix = service_v2_suffix;
    }
@@ -264,8 +280,8 @@ void wst_term( wst_handle h)
          //assert(0);  // THIS IS NOT AN ERROR
                      // Just left this assert in order to see if this case happens...
 
-         wst_stop_trans( h);
          session->delete_on_idle = TRUE;
+         wst_stop_trans( h, FALSE);
       }
       else
       {
@@ -316,6 +332,7 @@ BOOL wst_process_queue_item( wst_handle h, BOOL* transaction_started)
    bRes = wst_start_trans( session,
                            Item.flags,
                            Item.action,
+                           Item.type,
                            Item.parsers,
                            Item.parsers_count,
                            Item.cbOnCompleted,
@@ -347,6 +364,16 @@ void wst_transaction_completed( wst_handle h, roadmap_result res)
       return;  // Do we want to call callback? (no)
    }
 
+   if (ROADMAP_INVALID_SOCKET == session->Socket)
+   {
+      roadmap_log(ROADMAP_DEBUG, "wst_transaction_completed() - stopping active session WITHOUT socket");
+      if (session->connect_context) {//should never be NULL !
+         roadmap_net_cancel_connect(session->connect_context);
+         session->connect_context = NULL;
+         session->state = trans_idle;
+      }
+   }
+
    if( session->async_receive_started)
    {
       socket_async_receive_end( session->Socket);
@@ -360,11 +387,12 @@ void wst_transaction_completed( wst_handle h, roadmap_result res)
    }
 
    if (res == err_timed_out &&
-       time(NULL) - session->starting_time < WST_SESSION_TIMEOUT && //means we did not get any response
+       time(NULL) - session->last_receive_time < WST_SESSION_TIMEOUT && //means we did not get any response
        session->retries++ < MAX_RETRIES) {
       BOOL bRes = wst_start_trans__int(session,                            // Session object
                                        session->active_item.flags,         // Session flags
                                        session->active_item.action,        // /<service_name>/<action>
+                                       session->active_item.type,          // Type identifier
                                        session->active_item.parsers,       // Array of 1..n data parsers
                                        session->active_item.parsers_count, // Parsers count
                                        session->active_item.cbOnCompleted, // Callback for transaction completion
@@ -378,8 +406,10 @@ void wst_transaction_completed( wst_handle h, roadmap_result res)
             cb( context, err_net_failed);
       }
    } else {
-      if (session->active_item.packet && session->active_item.packet[0])
+      if (session->active_item.packet && session->active_item.packet[0]){
          free(session->active_item.packet);
+         session->active_item.packet = NULL;
+      }
       
       wst_context_reset( session, 0);
       
@@ -392,36 +422,65 @@ void wst_watchdog( wst_handle h)
 {
    wst_context_ptr   session        = (wst_context_ptr)h;
    time_t            now            = time(NULL);
-   int               seconds_passed = (int)(now - session->starting_time);
+   int               seconds_passed = (int)(now - session->last_receive_time);
 
-   if (session->starting_time &&
-      seconds_passed >= WST_SESSION_TIMEOUT) {
-      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Session is running already %d seconds (action '%s')",
-                  seconds_passed, session->active_item.action);
-      wst_transaction_completed( session, err_timed_out);
-   }/* else if (session->Socket != ROADMAP_INVALID_SOCKET &&
-              session->starting_time &&
-              session->state == http_not_acked &&
+   if (!session->last_receive_time)
+      return;
+   
+   if (session->Socket != ROADMAP_INVALID_SOCKET &&
+              session->http_parser_state == http_not_acked &&
               seconds_passed >= WST_ACK_TIMEOUT) {
+      //connect to ack timeout
       roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Ack not received in %d seconds (action '%s')",
                   seconds_passed, session->active_item.action);
       wst_transaction_completed( session, err_timed_out);
    } else if (session->Socket != ROADMAP_INVALID_SOCKET &&
-              session->starting_time &&
-              session->state == http_not_parsed &&
+              session->http_parser_state == http_not_parsed &&
               !(session->active_item.flags & WEBSVC_FLAG_V2) &&
-              !strcmp(roadmap_geo_config_get_server_id(), "2") && //tODO: remove this when all servers are up
               seconds_passed >= WST_ACK_TIMEOUT * 2) {
-      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Response not received in %d seconds (action '%s')",
+      //connect to header timeout (non-ack request)
+      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Header not received in %d seconds (action '%s')",
                   seconds_passed, session->active_item.action);
       wst_transaction_completed( session, err_timed_out);
+   } else if (session->Socket != ROADMAP_INVALID_SOCKET &&
+              session->http_parser_state == http_not_parsed &&
+              session->active_item.flags & WEBSVC_FLAG_V2 &&
+              seconds_passed >= WST_ACK_HEADER_TIMEOUT) {
+      //ack to header timeout
+      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Ack to header not received in %d seconds (action '%s')",
+                  seconds_passed, session->active_item.action);
+      wst_transaction_completed( session, err_timed_out);
+   } else if (session->Socket != ROADMAP_INVALID_SOCKET &&
+              session->http_parser_state != http_not_acked && session->http_parser_state != http_not_parsed &&
+//              session->active_item.flags & WEBSVC_FLAG_V2 &&
+              seconds_passed >= WST_RECEIVE_TIMEOUT) {
+      //between receives timeout
+      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - No Receive in %d seconds (action '%s')",
+                  seconds_passed, session->active_item.action);
+      wst_transaction_completed( session, err_timed_out);
+   } else if (seconds_passed >= WST_SESSION_TIMEOUT) {
+      roadmap_log( ROADMAP_ERROR, "wst_watchdog() - TERMINATING SESSION !!! - Session is running already %d seconds (action '%s')",
+                  seconds_passed, session->active_item.action);
+      wst_transaction_completed( session, err_timed_out);
+   }     
+}
+
+static void wstq_RemoveType ( wst_context_ptr   session,
+                             int        type) {
+   wstq_remove_type (&(session->queue), type);
+   
+   if (trans_idle != session->state &&
+       session->active_item.type != WEBSVC_NO_TYPE &&
+       session->active_item.type == type) {
+      roadmap_log(ROADMAP_WARNING, "wstq_RemoveType() - stopping active session with type %d", type);
+      wst_stop_trans__int(session, TRUE, FALSE);
    }
-     */
 }
 
 static BOOL wstq_Add( wst_context_ptr      session,
                       int                  flags,
                       const char*          action,
+                      int                  type,
                       const wst_parser_ptr parsers,
                       int                  parsers_count,
                       CB_OnWSTCompleted    cbOnCompleted,
@@ -440,6 +499,7 @@ static BOOL wstq_Add( wst_context_ptr      session,
    wstq_item_init( &TQI);
 
    TQI.action        = action;
+   TQI.type          = type;
    TQI.parsers       = parsers;
    TQI.parsers_count = parsers_count;
    TQI.cbOnCompleted = cbOnCompleted;
@@ -470,6 +530,7 @@ static BOOL wstq_Add( wst_context_ptr      session,
 static BOOL wst_start_trans__int(wst_context_ptr      session,
                                  int                  flags,
                                  const char*          action,
+                                 int                  type,
                                  const wst_parser_ptr parsers,
                                  int                  parsers_count,
                                  CB_OnWSTCompleted    cbOnCompleted,
@@ -480,6 +541,7 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
    char* AsyncPacket    = NULL;
    int   AsyncPacketSize= 0;
    char  WebServiceMethod[WST_WEBSERVICE_METHOD_MAX_SIZE];
+   char  WebServiceMethodResolved[WST_WEBSERVICE_METHOD_MAX_SIZE];
    int   port;
    
    if (!retry) {
@@ -491,21 +553,34 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
          return FALSE;
       }
       
-      if( trans_idle != session->state)
-         return wstq_Add(  session, flags, action,  parsers, parsers_count,
+      if( trans_idle != session->state) {
+         if (type != WEBSVC_NO_TYPE)
+            wstq_RemoveType( session, type);
+      }
+      
+      if( trans_idle != session->state) {
+         roadmap_log(ROADMAP_DEBUG, "wst_start_trans() - queue not idle, adding to queue item of type: %d", type);
+         return wstq_Add(  session, flags, action, type, parsers, parsers_count,
                          cbOnCompleted, context, packet);
+      }
       
       if( ROADMAP_INVALID_SOCKET != session->Socket)
       {
          assert(0);  // No session is active - Socket should be invalid..
+         roadmap_log( ROADMAP_ERROR, "wst_start_trans() - socket should be invalid");
          return FALSE;
       }
       
       //    Inital transaction context:
-      wst_context_load( session, flags, action, parsers, parsers_count, cbOnCompleted, context, packet);
+      wst_context_load( session, flags, action, type, parsers, parsers_count, cbOnCompleted, context, packet);
    } else {
       roadmap_log( ROADMAP_ERROR, "wst_start_trans() - retry # %d", session->retries); //TODO: reduce log level
       session->state             = trans_active;
+      
+      if (flags & WEBSVC_FLAG_V2)
+         session->http_parser_state    = http_not_acked;
+      else
+         session->http_parser_state    = http_not_parsed;
    }
    
 
@@ -517,9 +592,15 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
       snprintf(WebServiceMethod,
                WST_WEBSERVICE_METHOD_MAX_SIZE,
                "%s/%s", session->secured_service, action);
+      snprintf(WebServiceMethodResolved,
+               WST_WEBSERVICE_METHOD_MAX_SIZE,
+               "%s/%s", session->secured_service_resolved, action);
       port = session->secured_port;
    } else if (!(flags & WEBSVC_FLAG_SECURED) && (flags & WEBSVC_FLAG_V2)) {
       snprintf(WebServiceMethod,
+               WST_WEBSERVICE_METHOD_MAX_SIZE,
+               "%s%s/%s", session->service, session->service_v2_suffix, action);
+      snprintf(WebServiceMethodResolved,
                WST_WEBSERVICE_METHOD_MAX_SIZE,
                "%s%s/%s", session->service, session->service_v2_suffix, action);
       port = session->port;
@@ -527,9 +608,15 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
       snprintf(WebServiceMethod,
                WST_WEBSERVICE_METHOD_MAX_SIZE,
                "%s%s/%s", session->secured_service, session->service_v2_suffix, action);
+      snprintf(WebServiceMethodResolved,
+               WST_WEBSERVICE_METHOD_MAX_SIZE,
+               "%s%s/%s", session->secured_service_resolved, session->service_v2_suffix, action);
       port = session->secured_port;
    } else {
       snprintf(WebServiceMethod,
+               WST_WEBSERVICE_METHOD_MAX_SIZE,
+               "%s/%s", session->service, action);
+      snprintf(WebServiceMethodResolved,
                WST_WEBSERVICE_METHOD_MAX_SIZE,
                "%s/%s", session->service, action);
       port = session->port;
@@ -547,13 +634,15 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
             packet);
 
    // Start the async-connect process:
-   if( -1 == roadmap_net_connect_async("http_post",
-                                       WebServiceMethod,
-                                       0,
-                                       port,
-                                       NET_COMPRESS,
-                                       on_socket_connected,
-                                       session))
+   session->connect_context = roadmap_net_connect_async("http_post",
+                                                        WebServiceMethod,
+                                                        WebServiceMethodResolved,
+                                                        0,
+                                                        port,
+                                                        NET_COMPRESS,
+                                                        on_socket_connected,
+                                                        session);
+   if( NULL == session->connect_context)
    {
       ELastNetConnectRes = LastNetConnect_Failure;
       roadmap_log( ROADMAP_ERROR, "wst_start_trans() - 'roadmap_net_connect_async' had failed (Invalid params or queue is full?)");
@@ -562,7 +651,7 @@ static BOOL wst_start_trans__int(wst_context_ptr      session,
    }
    ELastNetConnectRes = LastNetConnect_Success;
    // Mark starting time:
-   session->starting_time = time(NULL);
+   session->last_receive_time = time(NULL);
 
    return TRUE;
 }
@@ -576,19 +665,33 @@ transaction_state wst_get_trans_state( wst_handle h)
    return session->state;
 }
 
-void wst_stop_trans( wst_handle h)
+static void wst_stop_trans__int( wst_handle h, BOOL bStopNow, BOOL bNotifyCb)
 {
    wst_context_ptr   session = (wst_context_ptr)h;
 
    assert(session);
+   
+   if (trans_idle == session->state)
+      return;
 
-   if( trans_active == session->state)
+   if (bStopNow) {
+      if (!bNotifyCb) {
+         session->active_item.cbOnCompleted = NULL;
+      }
+      wst_transaction_completed( session, err_aborted);
+   } else {
       session->state = trans_stopping;
+   }
+}
+
+void wst_stop_trans( wst_handle h, BOOL bStopNow) {
+   wst_stop_trans__int (h, bStopNow, TRUE);
 }
 
 BOOL wst_start_trans(wst_handle           h,             // Session object
                      int                  flags,         // Session flags
                      const char*          action,        // (/<service_name>/)<ACTION>
+                     int                  type,          // Type identifier
                      const wst_parser_ptr parsers,       // Array of 1..n data parsers
                      int                  parsers_count, // Parsers count
                      CB_OnWSTCompleted    cbOnCompleted, // Callback for transaction completion
@@ -598,7 +701,7 @@ BOOL wst_start_trans(wst_handle           h,             // Session object
 {
    wst_context_ptr   session = (wst_context_ptr)h;
    va_list           vl;
-   int               i;
+   int               j;
    ebuffer           Packet;
    char*             Data;
    int               SizeNeeded;
@@ -648,10 +751,10 @@ BOOL wst_start_trans(wst_handle           h,             // Session object
    Data        = ebuffer_alloc( &Packet, SizeNeeded);
 
    va_start(vl, szFormat);
-   i = vsnprintf( Data, SizeNeeded, szFormat, vl);
+   j = vsnprintf( Data, SizeNeeded, szFormat, vl);
    va_end(vl);
 
-   if( i < 0)
+   if( j < 0)
    {
       roadmap_log( ROADMAP_ERROR, "wst_start_trans() - Failed to format command '%s' (buffer size too small?)", szFormat);
       ebuffer_free( &Packet);
@@ -661,6 +764,7 @@ BOOL wst_start_trans(wst_handle           h,             // Session object
    bRes = wst_start_trans__int(  session,       // Session object
                                  flags,         // Session flags
                                  action,        // /<service_name>/<action>
+                                 type,          // Type identifier
                                  parsers,       // Array of 1..n data parsers
                                  parsers_count, // Parsers count
                                  cbOnCompleted, // Callback for transaction completion
@@ -681,20 +785,16 @@ transaction_result on_socket_connected_(  RoadMapSocket     Socket,
 
    session->rc = res;
 
-   // Where we asked to abort transaction?
-   if( trans_stopping == session->state)
-   {
-      session->rc = err_aborted;
-      roadmap_log( ROADMAP_ERROR, "on_socket_connected() - Was asked to abort session");
-      return trans_failed;
-   }
 
    // Verify Socket is valid:
    if( ROADMAP_INVALID_SOCKET == Socket)
    {
       assert( succeeded != res);
-
       roadmap_log( ROADMAP_ERROR, "on_socket_connected() - INVALID SOCKET - Failed to create Socket; Error '%s'", roadmap_result_string( res));
+      /*
+       * In this case the context is deallocated in the net layer.
+       */
+      session->connect_context = NULL;
       return trans_failed;
    }
 
@@ -702,6 +802,14 @@ transaction_result on_socket_connected_(  RoadMapSocket     Socket,
 
    packet         = ebuffer_get_buffer( &(session->packet));
    session->Socket= Socket;
+   
+   // Were we asked to abort transaction?
+   if( trans_stopping == session->state)
+   {
+      session->rc = err_aborted;
+      roadmap_log( ROADMAP_ERROR, "on_socket_connected() - Was asked to abort session");
+      return trans_failed;
+   }
 
    // Try to send packet:
    if( !wst_Send( Socket, packet))
@@ -717,6 +825,8 @@ transaction_result on_socket_connected_(  RoadMapSocket     Socket,
       roadmap_log( ROADMAP_ERROR, "on_socket_connected() - 'wst_Receive()' had failed");
       return trans_failed;
    }
+   
+   session->last_receive_time = time(NULL);
 
    return trans_in_progress;
 }
@@ -749,7 +859,7 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
 
    assert(session);
 
-   // Where we asked to abort transaction?
+   // Were we asked to abort transaction?
    if( trans_stopping == session->state)
    {
       session->rc = err_aborted;
@@ -770,7 +880,8 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
    }
 
    roadmap_log( ROADMAP_DEBUG, "on_data_received( SOCKET: %d) - Received %d bytes", roadmap_net_get_fd(session->Socket), size);
-
+   session->last_receive_time = time(NULL);
+   
    CB                = &(session->CB);
    http_parser_state = session->http_parser_state;
    res               = trans_failed;   //   Default
@@ -816,6 +927,9 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
    //   3.   Handle custom data:
    if( http_parse_completed == http_parser_state)
       res = OnCustomResponse( session);
+   
+   if (res == trans_canceled)
+      return res;
 
    if( res == trans_failed ) {
       roadmap_log( ROADMAP_DEBUG,
@@ -840,7 +954,6 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
 
 	   roadmap_log( ROADMAP_DEBUG,
 	                "on_data_received() - Finish to process all data; Status: %s", "Succeeded" );
-
 	  return trans_succeeded;
    }
    
@@ -875,6 +988,7 @@ transaction_result on_data_received_( void* data, int size, wst_context_ptr sess
    }
 
    session->async_receive_started = TRUE;
+   
    return trans_in_progress;
 }
 
@@ -901,6 +1015,7 @@ static void on_data_received( void* data, int size, void* context)
          break;
 
       case trans_in_progress:
+      case trans_canceled:
          break;
    }
 }
@@ -1157,7 +1272,12 @@ static transaction_result OnCustomResponse( wst_context_ptr session)
       //   Activate the appropriate server-request handler function:
       next = cyclic_buffer_get_unprocessed_data( CB);
       next = parser( next, session->active_item.context, &more_data_needed, &rc);
-
+      
+      if (session->http_parser_state != http_parse_completed) {
+         //current request was removed from queue and replaced by a new request
+         return trans_canceled;
+      }
+      
       if( !next)
       {
          if( succeeded == rc)
@@ -1260,4 +1380,8 @@ transaction_result http_response_status_load(
 
 LastNetConnectRes websvc_trans_getLastNetConnectRes(void){
 	return ELastNetConnectRes;
+}
+
+int wst_get_unique_type (void) {
+   return (gNextTypeId++);
 }

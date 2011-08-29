@@ -56,7 +56,7 @@ typedef struct image_slot {
 static int  download_size_callback( void *context_cb, size_t size );
 static void download_progress_callback( void *context_cb, char *data, size_t size );
 static void download_error_callback( void *context_cb, int connection_failure, const char *format, ... );
-static void download_done_callback( void *context_cb,char *last_modified );
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  );
 
 static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks =
 {
@@ -191,7 +191,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-static void download_done_callback( void *context_cb, char *last_modified )
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  )
 {
    ImageDownloadContext* context = (ImageDownloadContext*) context_cb;
    RoadMapImage image;

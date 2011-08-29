@@ -95,6 +95,11 @@ static RoadMapStreetContext *RoadMapStreetActive = NULL;
 static int RoadMapStreetSearchCount;
 static char *RoadMapStreetSearchNames[MAX_SEARCH_NAMES];
 
+enum t2s_types_tag {
+   STREET_EXTENDED_TYPE_SHIELD_TEXT = 0,
+   STREET_EXTENDED_TYPE_SHIELD_TYPE
+};
+
 static const char *roadmap_street_get_street_name_from_id (int street);
 
 static void *roadmap_street_map (const roadmap_db_data_file *file) {
@@ -1316,8 +1321,8 @@ int roadmap_street_intersection (const char *state,
 }
 
 
-void roadmap_street_get_properties
-        (int line, RoadMapStreetProperties *properties) {
+void roadmap_street_get_properties (
+        int line, RoadMapStreetProperties *properties) {
 
    int range = roadmap_line_get_range (line);
    int street;
@@ -1359,8 +1364,8 @@ static void roadmap_street_append (char *name, int max_size, char *item) {
 }
 
 
-const char *roadmap_street_get_street_address
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_address (
+                const RoadMapStreetProperties *properties) {
 
     static char RoadMapStreetAddress [32];
     int min = RANGE_ADDR_MAX_VALUE;
@@ -1404,8 +1409,7 @@ const char *roadmap_street_get_street_address
 }
 
 
-static const char *roadmap_street_get_street_name_from_id
-                (int street) {
+static const char *roadmap_street_get_street_name_from_id (int street) {
 
     static char RoadMapStreetName [512];
 
@@ -1454,15 +1458,15 @@ static const char *roadmap_street_get_street_name_from_id
 }
 
 
-const char *roadmap_street_get_street_name
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_name (
+                const RoadMapStreetProperties *properties) {
 
 	return roadmap_street_get_street_name_from_id (properties->street);
 }
 
 
-const char *roadmap_street_get_city_name
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_city_name (
+                const RoadMapStreetProperties *properties) {
 
    if (RoadMapStreetActive == NULL) return 0;
 
@@ -1474,8 +1478,8 @@ const char *roadmap_street_get_city_name
 }
 
 
-const char *roadmap_street_get_full_name
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_full_name (
+                const RoadMapStreetProperties *properties) {
 
     static char RoadMapStreetName [512];
 
@@ -1506,8 +1510,8 @@ const char *roadmap_street_get_full_name
 }
 
 
-const char *roadmap_street_get_street_fename
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_fename (
+                const RoadMapStreetProperties *properties) {
 
     RoadMapStreet *this_street;
 
@@ -1525,8 +1529,8 @@ const char *roadmap_street_get_street_fename
 }
 
 
-const char *roadmap_street_get_street_fetype
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_fetype (
+                const RoadMapStreetProperties *properties) {
 
     RoadMapStreet *this_street;
 
@@ -1544,8 +1548,8 @@ const char *roadmap_street_get_street_fetype
 }
 
 
-const char *roadmap_street_get_street_fedirs
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_fedirs (
+                const RoadMapStreetProperties *properties) {
 
     RoadMapStreet *this_street;
 
@@ -1563,8 +1567,8 @@ const char *roadmap_street_get_street_fedirs
 }
 
 
-const char *roadmap_street_get_street_fedirp
-                (const RoadMapStreetProperties *properties) {
+const char *roadmap_street_get_street_fedirp (
+                const RoadMapStreetProperties *properties) {
 
     RoadMapStreet *this_street;
 
@@ -1581,34 +1585,133 @@ const char *roadmap_street_get_street_fedirp
             (RoadMapStreetActive->RoadMapStreetType, this_street->fedirp);
 }
 
+static const char *parse_extended_data(const RoadMapStreetProperties *properties, int type) {
+#ifdef J2MEMAP
+   return "";
+#else
+   RoadMapStreet *this_street;
+   char *data;
+   static char text[256];
+   int i;
+   
+   if (RoadMapStreetActive == NULL ||
+       RoadMapStreetActive->RoadMapText2Speech == NULL) return "";
+   
+   if (properties->street < 0) {
+      return "";
+   }
+   
+   this_street = RoadMapStreetActive->RoadMapStreets + properties->street;
+   
+   data = roadmap_dictionary_get (RoadMapStreetActive->RoadMapText2Speech, this_street->t2s);
+   text[0] = '\0';
+   
+   for (i = 0; i <= type && data && data[0] >= '0' && data[0] <= '9'; i++) {
+      int count = 0;
+      
+      // read char count of row
+      while (data && data[0] >= '0' && data[0] <= '9') {
+         count = count * 10 + (data[0] - '0');
+         data++;
+      }
+      if (!data || !data[0] == ',')
+         return "";
+      
+      data++;
+      
+      if (strlen(data) < count)
+         return "";
+      
+      if (count + 1 > 256) {
+         roadmap_log(ROADMAP_DEBUG, "Data too long, cannot handle more than (256)");
+         return "";
+      }
+      
+      if (i == type) {
+         strncpy_safe (text, data, count + 1);
+      }
+      
+      data += count;
+   }
+   
+   return text;
+#endif
+   
+}
 
-const char *roadmap_street_get_street_t2s
-                (const RoadMapStreetProperties *properties) {
+
+const char *roadmap_street_get_street_t2s (
+                const RoadMapStreetProperties *properties) {
 
 #ifdef J2MEMAP
     return "";
 #else
-    RoadMapStreet *this_street;
-
-    if (RoadMapStreetActive == NULL ||
-    	  RoadMapStreetActive->RoadMapText2Speech == NULL) return "";
-
-    if (properties->street < 0) {
-        return "";
-    }
-
-    this_street =
-        RoadMapStreetActive->RoadMapStreets + properties->street;
-
-    return
-        roadmap_dictionary_get
-            (RoadMapStreetActive->RoadMapText2Speech, this_street->t2s);
+    return ""; //t2s field is currently used as extended data. t2s value is not used currently
 #endif
 }
 
+const char *roadmap_street_get_street_shield_text (
+                const RoadMapStreetProperties *properties) {
+   /*
+   const char *street_t2s = roadmap_street_get_street_t2s(properties);
+   
+   if (street_t2s && street_t2s[0] >= '0' && street_t2s[0] <= '9')
+      printf("(square: %d) '%s'\n", RoadMapSquareCurrent, street_t2s);
+   else
+      printf("NOT new format (square: %d) '%s'\n", RoadMapSquareCurrent, street_t2s);
 
-const char *roadmap_street_get_street_city
-                (const RoadMapStreetProperties *properties, int side) {
+   
+   const char *street_name = roadmap_street_get_street_name(properties);
+   if (street_name && street_name[0] >= '0' && street_name[0] <= '9' &&
+       strlen(street_name) <= 4)
+      return street_name;
+   else
+      return "";
+    */
+   
+   static char shield_text[256];
+   
+   strncpy_safe (shield_text, parse_extended_data(properties, STREET_EXTENDED_TYPE_SHIELD_TEXT), sizeof(shield_text));
+   
+   return shield_text;
+}
+
+const char *roadmap_street_get_street_shield_type (
+                const RoadMapStreetProperties *properties) {
+   /*
+   const char *street_name = roadmap_street_get_street_name(properties);
+   if (street_name && street_name[0] >= '0' && street_name[0] <= '9' &&
+       strlen(street_name) <= 4) {
+      switch (strlen(street_name)) {
+         case 1:
+            return "1";
+            break;
+         case 2:
+            return "2";
+            break;
+         case 3:
+            return "3";
+            break;
+         case 4:
+            return "4";
+            break;
+         default:
+            break;
+      }
+      return "1";
+   } else
+      return "";
+    */
+   
+   static char shield_type[256];
+   
+   strncpy_safe (shield_type, parse_extended_data(properties, STREET_EXTENDED_TYPE_SHIELD_TYPE), sizeof(shield_type));
+   
+   return shield_type;
+}
+
+const char *roadmap_street_get_street_city (
+                const RoadMapStreetProperties *properties, int side) {
 
 //TODO add street sides search
 
@@ -1616,8 +1719,8 @@ const char *roadmap_street_get_street_city
 }
 
 
-const char *roadmap_street_get_street_zip
-                (const RoadMapStreetProperties *properties, int side) {
+const char *roadmap_street_get_street_zip (
+                const RoadMapStreetProperties *properties, int side) {
 //TODO add implement get_street_zip
    return "";
 }

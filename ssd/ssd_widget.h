@@ -117,8 +117,9 @@
 #define  SSD_HEADER_TEXT_SIZE                (13)
 #define  SSD_FOOTER_TEXT_SIZE                (11)
 
-#define  SSD_ROW_HEIGHT                      (58)
-
+#define  SSD_ROW_HEIGHT                      (60)
+#define  SSD_CONTAINER_FLAGS                 (SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE)
+#define  SSD_CONTAINER_TEXT_COLOR            ("#000000")
 #define  SOFT_MENU_BAR_HEIGHT                (24)
 #define  TITLE_BAR_HEIGHT                    (24)
 
@@ -183,6 +184,7 @@ struct ssd_widget {
    int offset_y;
 
    int         flags;
+   int         additional_flags;
    BOOL        tab_stop;        	//  Can we receive the focus?
    BOOL        default_widget;  	//  First this to receive the focus in the dialog
    BOOL        in_focus;        	//  Keyboard focus

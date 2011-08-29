@@ -63,6 +63,7 @@ void single_search_resolved_dlg_show (const char** results, void** indexes,
                                       int count_adr, int count_ls, int count_ab,
                                       PFN_ON_ITEM_SELECTED on_item_selected, 
                                       SsdSoftKeyCallback detail_button_callback,
+                                      BOOL is_favorite,
                                       const char* fav_name) {
    
    SingleSearchResultsDialog *dialog = [[SingleSearchResultsDialog alloc] initWithStyle:UITableViewStyleGrouped];
@@ -73,6 +74,7 @@ void single_search_resolved_dlg_show (const char** results, void** indexes,
                countAb:count_ab
         onItemSelected:on_item_selected
         onDetailButton:detail_button_callback
+            isFavorite:is_favorite
                favName:fav_name];
    
 }
@@ -137,6 +139,7 @@ void add_home_work_dlg(int iType){
              countAb:(int)count_ab
       onItemSelected:(PFN_ON_ITEM_SELECTED)on_item_selected
       onDetailButton:(SsdSoftKeyCallback)detail_button_callback
+          isFavorite:(BOOL)is_favorite
              favName:(const char*)fav_name
 {
    NSMutableArray *groupArray = NULL;
@@ -149,9 +152,13 @@ void add_home_work_dlg(int iType){
    int i;
    int count = 0;
    
-   if (!fav_name || !fav_name[0]) {
+   if (!is_favorite) {
       [self setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Drive to")]];
       accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryDetailDisclosureButton];
+   } else 
+   if (!fav_name || !fav_name[0]) {
+      [self setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Add to favorites")]];
+      accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryNone];
    } else {
       [self setTitle:[NSString stringWithUTF8String:fav_name]];
       accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryNone];
@@ -166,6 +173,7 @@ void add_home_work_dlg(int iType){
    
    g_on_item_selected = on_item_selected;
    g_detail_button_callback = detail_button_callback;
+   g_is_favorite = is_favorite;
    g_fav_name = fav_name;
    
    //populate list
@@ -177,11 +185,13 @@ void add_home_work_dlg(int iType){
          minimized[0] = FALSE;
       
       header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT) ];
-      if (!fav_name || !fav_name[0]) {
+      if (!is_favorite) {
          [header setText:roadmap_lang_get("New address")];
       } else {
          [header setText:roadmap_lang_get("Tap the correct address below")];
       }
+      
+      [header setImage:"search_address"];
 
       [headersArray addObject:header];
       [header release];
@@ -196,10 +206,10 @@ void add_home_work_dlg(int iType){
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "search_address");
-         if (img) {
-            [dict setObject:img forKey:@"image"];
-         }
+         //img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "search_address");
+//         if (img) {
+//            [dict setObject:img forKey:@"image"];
+//         }
          
          [dict setObject:accessoryType forKey:@"accessory"];
          
@@ -218,6 +228,7 @@ void add_home_work_dlg(int iType){
       
       header = [[iphoneTableHeader alloc] initWithFrame:CGRectMake(IPHONE_TABLE_INIT_RECT) ];
       [header setText:roadmap_lang_get(local_search_get_provider_label())];
+      [header setImage:local_search_get_icon_name()];
       [headersArray addObject:header];
       [header release];
       
@@ -237,10 +248,10 @@ void add_home_work_dlg(int iType){
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, local_search_get_icon_name());
-         if (img) {
-            [dict setObject:img forKey:@"image"];
-         }
+         //img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, local_search_get_icon_name());
+//         if (img) {
+//            [dict setObject:img forKey:@"image"];
+//         }
          
          [dict setObject:accessoryType forKey:@"accessory"];
          
@@ -273,10 +284,10 @@ void add_home_work_dlg(int iType){
          value = [NSData dataWithBytes:&indexes[count] length:sizeof(indexes[count])];
 			[dict setObject:value forKey:@"value"];
          
-         img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "");
-         if (img) {
-            [dict setObject:img forKey:@"image"];
-         }
+         //img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "");
+//         if (img) {
+//            [dict setObject:img forKey:@"image"];
+//         }
          
          [dict setObject:accessoryType forKey:@"accessory"];
          
@@ -285,6 +296,8 @@ void add_home_work_dlg(int iType){
       }
       [dataArray addObject:groupArray];
    }
+   
+   self.tableView.rowHeight = 70;
    
    roadmap_main_push_view (self);
 }
@@ -805,41 +818,41 @@ void add_home_work_dlg(int iType){
    
    //Set image pos
    imageView = (UIImageView *)[scrollView viewWithTag:ID_TAG_IMAGE];
-   if (!imageView)
-      return;
-   rect = imageView.frame;
-   rect.origin.x = (scrollView.bounds.size.width - imageView.bounds.size.width) /2;
-   rect.origin.y = viewPosY;
-   imageView.frame = rect;
-   viewPosY += imageView.frame.size.height + 5;
+   if (imageView) {
+      rect = imageView.frame;
+      rect.origin.x = (scrollView.bounds.size.width - imageView.bounds.size.width) /2;
+      rect.origin.y = viewPosY;
+      imageView.frame = rect;
+      viewPosY += imageView.frame.size.height + 5;
+   }
    
    //Set label1 size/pos
    label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL1];
-   if (!label)
-      return;
-   rect = label.frame;
-   rect.size.width = scrollView.bounds.size.width - 20;
-   label.frame = rect;
-   [label sizeToFit];
-   rect = label.frame;
-   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
-   rect.origin.y = viewPosY;
-   label.frame = rect;
-   viewPosY += label.bounds.size.height + 5;
+   if (label) {
+      rect = label.frame;
+      rect.size.width = scrollView.bounds.size.width - 20;
+      label.frame = rect;
+      [label sizeToFit];
+      rect = label.frame;
+      rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+      rect.origin.y = viewPosY;
+      label.frame = rect;
+      viewPosY += label.bounds.size.height + 5;
+   }
    
    //Set label2 size/pos
    label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL2];
-   if (!label)
-      return;
-   rect = label.frame;
-   rect.size.width = scrollView.bounds.size.width - 20;
-   label.frame = rect;
-   [label sizeToFit];
-   rect = label.frame;
-   rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
-   rect.origin.y = viewPosY;
-   label.frame = rect;
-   viewPosY += label.bounds.size.height + 5;
+   if (label) {
+      rect = label.frame;
+      rect.size.width = scrollView.bounds.size.width - 20;
+      label.frame = rect;
+      [label sizeToFit];
+      rect = label.frame;
+      rect.origin.x = (scrollView.bounds.size.width - label.bounds.size.width)/2;
+      rect.origin.y = viewPosY;
+      label.frame = rect;
+      viewPosY += label.bounds.size.height + 5;
+   }
    
    //Set label3 size/pos
    label = (UILabel *)[scrollView viewWithTag:ID_TAG_LABEL3];
@@ -894,13 +907,18 @@ void add_home_work_dlg(int iType){
    float posY = 0.0f;
    
    
-   if (iType == 0){
-      title = roadmap_lang_get("My Home");
-      //g_favorite_name = roadmap_lang_get("Home");
-   }
-   else{
-      title = roadmap_lang_get("My Work");
-      //g_favorite_name = roadmap_lang_get("Work");
+   switch (iType) {
+      case 0:
+         title = roadmap_lang_get("My Home");
+         break;
+      case 1:
+         title = roadmap_lang_get("My Work");
+         break;
+      case 2:
+         title = roadmap_lang_get("Add to favorites");
+         break;
+      default:
+         break;
    }
    
    g_iType = iType;
@@ -936,18 +954,19 @@ void add_home_work_dlg(int iType){
 	}
    
    // HW route image
-   image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "HW_route");
-   
-   if (image) {
-      imageView = [[UIImageView alloc] initWithImage:image];
-      imageView.tag = ID_TAG_IMAGE;
-      [scrollView addSubview:imageView];
-      [imageView release];
-   }
+   if (iType != 2) {
+      image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "HW_route");
+      
+      if (image) {
+         imageView = [[UIImageView alloc] initWithImage:image];
+         imageView.tag = ID_TAG_IMAGE;
+         [scrollView addSubview:imageView];
+         [imageView release];
+      }
    
    // label 1
    label = [[UILabel alloc] initWithFrame:CGRectZero];
-	[label setText:[NSString stringWithUTF8String:roadmap_lang_get("Waze is best used for commuting.")]];
+   [label setText:[NSString stringWithUTF8String:roadmap_lang_get("Waze is best used for commuting.")]];
 	[label setTextAlignment:UITextAlignmentCenter];
 	[label setFont:[UIFont systemFontOfSize:16]];
    [label setAutoresizingMask:UIViewAutoresizingFlexibleHeight || UIViewAutoresizingFlexibleRightMargin || UIViewAutoresizingFlexibleLeftMargin];
@@ -967,6 +986,7 @@ void add_home_work_dlg(int iType){
    label.tag = ID_TAG_LABEL2;
 	[scrollView addSubview:label];
 	[label release];
+   }
    
    // label 3
    label = [[UILabel alloc] initWithFrame:CGRectZero];
@@ -1011,11 +1031,18 @@ void add_home_work_dlg(int iType){
 	[searchBar resignFirstResponder];
    [searchBar setShowsCancelButton:NO animated:NO];
    
-   if (g_iType == 0){
-      single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Home"));
-   }
-   else{
-      single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Work"));
+   switch (g_iType) {
+      case 0:
+         single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Home"));
+         break;
+      case 1:
+         single_search_auto_search_fav ([[searchBar text] UTF8String], roadmap_lang_get("Work"));
+         break;
+      case 2:
+         single_search_auto_search_fav ([[searchBar text] UTF8String], "");
+         break;
+      default:
+         break;
    }
 }
 

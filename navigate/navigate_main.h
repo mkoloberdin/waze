@@ -57,7 +57,12 @@ enum NavigateInstr {
    APPROACHING_DESTINATION,
    EXIT_LEFT,
    EXIT_RIGHT,
-   LAST_DIRECTION
+   LAST_DIRECTION,
+   PREPARE_TURN_LEFT,
+   PREPARE_TURN_RIGHT,
+   PREPARE_EXIT_LEFT,
+   PREPARE_EXIT_RIGHT,
+   NAVIGATE_INSTRUCTIONS_COUNT
 };
 
 #ifdef J2ME
@@ -67,6 +72,15 @@ typedef char	NavSmallValue;
 typedef int		NavMedValue;
 typedef int		NavSmallValue;
 #endif
+
+#define NAV_CFG_GUIDANCE_TYPE_NATURAL     "Minimal"
+#define NAV_CFG_GUIDANCE_TYPE_TTS         "Full"
+#define NAV_CFG_GUIDANCE_TYPE_NONE        "None"
+
+#define NAV_ANNOUNCE_STATE_UNDEFINED     -1
+#define NAV_ANNOUNCE_STATE_FIRST          2
+#define NAV_ANNOUNCE_STATE_SECOND         1
+#define NAV_ANNOUNCE_STATE_LAST           0
 
 enum SegmentOrigin {
 
@@ -97,6 +111,19 @@ typedef struct {
    char*                dest_name;
 } NavigateSegment;
 
+typedef struct {
+   int                  cur_satellites; // current satellites
+   int                  cur_accuracy; // current accuracy
+   int                  cur_heading; // current heading
+   int                  cur_compass; // current compass
+   int                  cur_gyro_x; // current gyro_x
+   int                  cur_gyro_y; // current gyro_y
+   int                  cur_gyro_z; // current gyro_z
+   int                  last_pos_lon; // last pos lon
+   int                  last_pos_lat; // last pos lat
+   int                  last_heading; // last gps heading
+} NavigateLocationInfo;
+
 int navigate_is_enabled (void);
 int navigate_track_enabled(void);
 int navigate_offtrack(void);
@@ -110,8 +137,8 @@ void navigation_guidance_off(void);
 void navigate_main_set (int status);
 int navigate_main_get_follow_gps (void);
 void navigate_main_prepare_for_request (void);
-int  navigate_main_calc_route (void);
-int navigate_main_route (void);
+int  navigate_main_calc_route ( int add_flags /* Additional flags */ );
+int navigate_main_route ( int add_flags );
 void navigate_main_on_route (int flags, int length, int track_time,
 									  NavigateSegment *segments, int num_segment, int num_instrumented,
 									  RoadMapPosition *outline_points, int num_outline_points, const char *description, BOOL show_message);
@@ -129,6 +156,12 @@ void navigate_main_adjust_layer (int layer, int thickness, int pen_count);
 void navigate_main_stop_navigation(void);
 void navigate_main_stop_navigation_menu(void);
 
+const char** navigate_main_get_guidance_types( void );
+int navigate_main_get_guidance_types_count( void );
+const char* navigate_main_get_guidance_type( const char* name );
+const char* navigate_main_get_guidance_label( const char* type );
+const char** navigate_main_get_guidance_labels( void );
+BOOL navigate_main_guidance_is_on(void);
 
 void navigate_auto_zoom_suspend(void);
 void navigate_get_waypoint (int distance, RoadMapPosition *way_point);
@@ -149,7 +182,9 @@ void navigate_main_list_hide(void);
 void navigate_main_update_route (int num_instrumented);
 void navigate_main_on_suggest_reroute (int reroute_segment, int time_before, int time_after);
 void navigate_main_on_segment_ver_mismatch (void);
+void navigate_main_on_instrumented_segment( const NavigateSegment *segment );
 void navigate_main_set_outline(int num, RoadMapPosition *outline_points, int num_outline_points, int alt_id, BOOL alt_routes);
+void navigate_main_get_plugin_line (PluginLine *line, const NavigateSegment *segment);
 
 int navigate_main_reload_data (void);
 
@@ -166,7 +201,14 @@ int navigate_main_alt_routes_display(void);
 int navigate_main_is_alt_routes(void);
 void navigate_main_set_dest_pos(RoadMapPosition *position);
 void navigate_main_recalculate_route(void);
-void navigate_main_start_navigating (void);
+void navigate_main_alt_recalculate_route(void);
 
+void navigate_main_start_navigating (void);
+int navigate_main_tts_prepare_route( void );
+void navigate_main_override_nav_settings( void );
+
+char *navigate_main_get_dest_str(void);
+
+int navigate_main_visible_route_scale(RoadMapPosition *pos);
 #endif /* INCLUDE__NAVIGATE_MAIN__H */
 

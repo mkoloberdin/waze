@@ -101,32 +101,26 @@ static int gAfterCreate;
 
 
 const char* Hebrew_Disclaimer = 
-   "ברוכים הבאים ל Waze!\n\n" \
-   "מידע חי על מצב התנועה ונווט עוקף פקקים, אשר מיוצר בשיתוף ותרומה של חברי הקהילה\n" \
-   "בלחיצה על 'אשר' הנך מאשר כי:\n" \
-   "1. קראת והנך מסכים ל'תנאי השימוש' http://www.waze.co.il/legal/tos/ ו'מדיניות הפרטיות' http://www.waze.co.il/legal/privacy/. השימוש בשירות Waze כפוף להסכמים המחייבים ומעיד על הסכמתך להם. תקציר זה אינו בא במקומם, והוא מיועד לצרכי נוחות בלבד.\n" \
-   "2. השימוש בשירות הינו באחריותך בלבד. הינך מאשר כי תשתמש בשירות בהתאם להוראות כל דין, לרבות דיני התעבורה.\n" \
-   "3. שירות Waze מחייב חיבור לרשת האינטרנט לצורך השימוש בו, וקבלת עדכונים בזמן אמת. חברת Waze אינה מספקת קישור כזה. באחריותך לרכוש אותו ולוודא שתנאיו מתאימים לצרכיך. חברת Waze אינה נושאת בכל אחריות לקישור ו/או לכל שיבוש, תקלה או קלקול בו. \n" \
-   "4. תוכנת המפוי Waze המותקנת על-גבי מכשיר הטלפון הסלולרי שלך, היא תוכנה חופשית; "  \
-   "אתה יכול להפיצה מחדש ו/או לשנות את התוכנה על פי תנאי הרישיון הציבורי הכללי של GNU, אם גרסה 2 של הרישיון, " \
-   "ובין אם (לפי בחירתך) כל גרסה מאוחרת שלו. התוכנה מופצת בתקווה שתהיה מועילה, אבל בלא אחריות כלשהי. לפרטים נוספים, ראה את הרישיון הציבורי הכללי של GNU. אם רצונך לקבל את קוד המקור של התכנה, פנה אלינו בכתב. \n" \
-   "5. כשאתה מספק מידע ותוכן לשירות, אתה מאשר שאתה בעלים בלעדי של כל הזכויות בו ורשאי להקנות בו זכויות. מידע ותוכן כזה נשאר בבעלותך ואתה מקנה בו לחברת Waze רישיון חינם כלל עולמי, לא בלעדי, בלתי חוזר ובלתי מוגבל בזמן, שניתן להעברה וכולל זכות למתן רשיונות-משנה, להשתמש, להעתיק, להפיץ, ליצור יצירות נגזרות, להציג ולבצע בפומבי מידע ותוכן כזה. בכפוף לכך, בסיס הנתונים של השירות הוא קניינה של החברה ואין להשתמש בו אלא לצרכים לא מסחריים ופרטיים בלבד.\n" \
-   "6. שירות Waze מוצע בחינם, בתקווה שתמצא אותו מועיל. עם זאת, Waze ו/או עובדיה, מנהליה, בעלי מניותיה, יועציה ו/או מי מטעמה, לא ישאו בחבות כלשהיא כלפיך ו/או כלפי צדדים שלישים, מכל סיבה שהיא, בקשר עם מוצריה Waze ו/או שירותיה, לרבות (אך לא רק) בגין כל הפסד, אבדן רווח, פגיעה במוניטין, תשלום, הוצאה ו/או נזק, ישיר או עקיף, ממוני או בלתי-ממוני.\n\n";
+   "הסכם שימוש ב- Waze\n\n" \
+   "מידע חי על מצב התנועה ונווט עוקף פקקים, המיוצר בשיתוף ותרומה של חברי הקהילה (ה\"שירות\")\n\n" \
+   "בלחיצה על 'אשר' הנך מאשר כי:\n\n" \
+   "1. קראת והנך מסכים ל'תנאי השימוש' http://www.waze.co.il/legal/tos/ ו'מדיניות הפרטיות' http://www.waze.co.il/legal/privacy/ בשירות (\"ההסכמים המחייבים\"). השימוש בשירות כפוף להסכמים המחייבים ומעיד כי קראת אותם במלואם ואתה מסכים להם. תקציר זה מיועד לצרכי נוחות בלבד ואינו בא במקומם.\n\n" \
+   "2. השימוש בשירות הינו באחריותך בלבד. מידע אודות מיקומים עלול להיות בלתי מדויק. אתה מאשר כי תשתמש בשירות בהתאם להוראות כל דין, לרבות דיני התעבורה.\n\n" \
+   "3. תוכנת המפוי, , Waze – Social GPS navigation, traffic & road reports המותקנת על-גבי מכשיר הטלפון הסלולרי שלך, היא תוכנה חופשית; אתה יכול להפיצה מחדש ו/או לשנות אותה על-פי תנאי הרישיון הציבורי הכללי של GNU, בין אם גרסה 2 של הרישיון, ובין אם (לפי בחירתך) כל גרסה מאוחרת שלו. התוכנה מופצת בתקווה שתהיה מועילה, אבל בלא אחריות כלשהי. לפרטים נוספים, ראה את ה רישיון הציבורי הכללי של GNU http://www.gnu.org/licenses/gpl-2.0.html. אם רצונך לקבל את קוד המקור של התכנה, פנה אלינו בכתב.\n\n" \
+   "4. אתה מאשר שאתה בעלים בלעדי של כל הזכויות במידע ובתוכן שתספק לשירות. מידע ותוכן כזה נשאר בבעלותך ואתה מקנה בו ל- Waze רישיון חינם כלל עולמי, לא בלעדי, בלתי חוזר ובלתי מוגבל בזמן, שניתן להעברה וכולל זכות למתן רשיונות-משנה, להשתמש, להעתיק, להפיץ, ליצירות יצירות נגזרות, להציג ולבצע בפומבי מידע ותוכן כזה. בכפוף לכך, בסיס הנתונים של השירות הוא קניינה של החברה ואין להשתמש בהם אלא לצרכים פרטיים ולא מסחריים בלבד.\n\n" \
+   "5. השירות מוצע בחינם, בתקוה שתמצא אותו מועיל. עם זאת, Waze ו/או עובדיה, מנהליה בעלי מניותיה, יועציה ו/או מי מטעמה (לעיל ולהלן: (Waze לא ישאו בחבות כלשהיא כלפיך ו/או כלפי צדדים שלישים, מכל סיבה שהיא, בקשר עם מוצרי ו/או שירותי Waze והנך משחרר בזאת באופן בלתי חוזר את Waze מכל אחריות מכל סוג שהיא, לכל תוצאה הנובעת מהשימוש במוצרי ו/או שירותי Waze, לרבות (אך לא רק) בגין כל הפסד, אבדן רווח, פגיעה במוניטין, תשלום, הוצאה ו/או נזק, ישיר או עקיף, ממוני או בלתי-ממוני.\n\n";
 
 
 const char* English_Disclaimer = 
-   "Welcome to Waze!\n\n"
-   "You're about to join the first network of drivers working together to build and share real-time road intelligence.\n\n"
-   "Since Waze is 100% user generated, we need your collaboration and patience!"
+   "Waze™ End User License Agreement\n\n" \
+   "You're about to join the first network of drivers working together to build and share real-time road intelligence (the \"Service\"). Since Waze™ is 100% user generated, we need your collaboration and patience!\n\n" \
    "By clicking 'Accept' you confirm that:\n\n" \
-   "1. You have read and agreed to the 'Terms of Use' http://www.waze.com/legal/tos/ and 'Privacy Policy' http://www.waze.com/legal/privacy/ ('Binding Agreements'). The use of Waze service (the 'Service') is subject to the Binding Agreements and indicates your consent to them. This summary is not meant to replace the Binding Agreements. It is intended for convenience purposes only.\n"
-   "2. Use of Service is made at your sole risk.  You hereby agree to use the Service only in accordance with any applicable law, including but not limited to, all transportation laws and regulations.\n"
-   "3. The Service requires Internet connection for real time updates. Waze does not provide such connection. It is your responsibility to purchase connection services and to make sure its terms matches your needs. Waze has no control over or responsibility to the connection and/or any disruption, failure or breakdown therein.\n\n" \
-   "4. The Waze client, that you install on your cellular device, is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License; either version 2 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See the GNU General Public License http://www.gnu.org/licenses/gpl-2.0.html for more details. If you wish to obtain the program's source code, please write to us.\n"
-   "5. When you provide data and or content to the Service, you hereby confirm that you own all exclusive rights at it and may assign or license such rights. You keep all title and rights to such data and/or content you provide to the Service, but you grant Waze Inc. and/or Waze Mobile (the Company or 'Waze') a worldwide, free, non-exclusive, irrevocable, sublicensable, transferable and perpetual license to use, copy, distribute, create derivative works of, publicly display, publicly perform and exploit in any other manner such data and content. Subject to the aforementioned, the Company keeps title and all rights to the Service's database and you may use it for non-commercial and private purposes only.\n\n" \
-   "6. Waze service is offered for free, with hope that you find it useful. However, Waze and/or its employees, directors shareholders, advisors and/or on anyone of it's behalf (collectively: 'Waze') shall not be liable to you and/or to any third party, for any reason whatsoever, as result with the use of the Company's product and/or Service. You hereby irrevocably release Waze from any liability of any kind, for any consequence arising from use of the Company's products and/or Service, Including (but not only) for any loss, loss of profit, damage to reputation, fee, expense and/or damage, direct or indirect, financial or non-financial.\n\n";
-
-
+   "1. You have read and agree to the 'Terms of Use' http://www.waze.com/legal/tos/ and 'Privacy Policy' http://www.waze.com/legal/privacy/ (the \"Agreements\"). The use of the Service is subject to the Agreements and indicates your consent to them. This summary is not meant to replace the Agreements. It is intended for convenience purposes only.\n\n" \
+   "2. YOUR USE OF THIS REAL TIME ROUTE GUIDANCE APPLICATION IS AT YOUR SOLE RISK. LOCATION DATA MAY NOT BE ACCURATE.\nYou agree to use the Service only in accordance with any applicable law, including all transportation laws and regulations.\n\n" \
+   "3. Waze has no control over or responsibility to the online connection that is required to use the Service or any disruption, failure or breakdown therein.\n\n" \
+   "4. The Waze client, Waze – Social GPS navigation, traffic & road reports that you install on your cellular device (the \"Client\"), is a free software; you can redistribute it and/or modify it under the terms of the GNU General Public License; either version 2 of the License, or (at your option) any later version. This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY. See the 'GNU General Public License' http://www.gnu.org/licenses/gpl-2.0.html for more details. If you wish to obtain the program's source code, please write to us.\n\n" \
+   "5. You hereby confirm that you own all exclusive rights at any data and content (the \"Content\") that you provide to the Service and may assign in license such rights. You keep all title and rights to the Content, but you  grant Waze, Inc. (the \"Company\") a worldwide, free, non-exclusive, irrevocable, sublicensable, transferable and perpetual license to use, copy, distribute, create derivative works of, publicly display, publicly perform and exploit in any other manner the Content. Subject to the aforementioned, the Company keeps title and all rights to the Service's database which you may use for non-commercial and private purposes only.\n\n" \
+   "6. Waze service is offered for free, with hope that you find it useful. However, Waze or its employees, directors shareholders, advisors or on anyone of it's behalf shall not be liable to you or to any third party, for any reason whatsoever, as result with the use of the Company's product or Service. You hereby irrevocably release all of the above from any liability of any kind, for any consequence arising from use of the Client or Service, Including for any loss, loss of profit, damage to reputation, fee, expense or damage, direct or indirect, financial or non-financial.\n\n";
 
 
 const char* Spanish_Disclaimer = 
@@ -247,6 +241,13 @@ void roadmap_welcome_wizard(void){
 		(*gCallback)();
 }
 
+- (void) onDecline
+{
+	roadmap_log (ROADMAP_ERROR, "Terms of use declined !");
+	
+	roadmap_main_exit();
+}
+
 - (void)show
 {
 	CGRect rect;
@@ -312,7 +313,7 @@ void roadmap_welcome_wizard(void){
    
    textView = [[UITextView alloc] initWithFrame:gRectTerm];
 	[textView setText:text];
-	[textView setTextAlignment:UITextAlignmentCenter];
+	//[textView setTextAlignment:UITextAlignmentCenter];
 	[textView setFont:[UIFont systemFontOfSize:15]];
    [textView setAutoresizingMask:UIViewAutoresizingFlexibleHeight];
    [textView sizeToFit];
@@ -338,13 +339,35 @@ void roadmap_welcome_wizard(void){
 	}
    [button sizeToFit];
    rect.size = button.bounds.size;
-   rect.origin.x = (scrollView.bounds.size.width - button.bounds.size.width) / 2;
+   rect.origin.x = (scrollView.bounds.size.width - button.bounds.size.width) * 4 / 5;
+   rect.origin.y = viewPosY;
+	[button setFrame:rect];
+   //viewPosY += button.bounds.size.height + 10;
+	[button addTarget:self action:@selector(onAccept) forControlEvents:UIControlEventTouchUpInside];
+	[scrollView addSubview:button];
+   
+   
+	//Decline button
+	button = [UIButton buttonWithType:UIButtonTypeCustom];
+	[button setTitle:[NSString stringWithUTF8String:roadmap_lang_get("Decline")] forState:UIControlStateNormal];
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_up");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateNormal];
+	}
+	image = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, "button_down");
+	if (image) {
+		[button setBackgroundImage:image forState:UIControlStateHighlighted];
+	}
+   [button sizeToFit];
+   rect.size = button.bounds.size;
+   rect.origin.x = (scrollView.bounds.size.width - button.bounds.size.width) * 1 / 5;
    rect.origin.y = viewPosY;
 	[button setFrame:rect];
    viewPosY += button.bounds.size.height + 10;
-	[button addTarget:self action:@selector(onAccept) forControlEvents:UIControlEventTouchUpInside];
+	[button addTarget:self action:@selector(onDecline) forControlEvents:UIControlEventTouchUpInside];
 	[scrollView addSubview:button];
-	
+   
+   
    rect = bgView.frame;
    rect.size.height = viewPosY;
    bgView.frame = rect;

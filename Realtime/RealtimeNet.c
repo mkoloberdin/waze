@@ -30,6 +30,7 @@
 #include "RealtimeExternalPoiNotifier.h"
 
 #include "../roadmap_gps.h"
+#include "../roadmap_start.h"
 #include "../roadmap_navigate.h"
 #include "../roadmap_trip.h"
 #include "../roadmap_net.h"
@@ -56,9 +57,11 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static char       gs_WebServiceAddress [ WSA_STRING_MAXSIZE + 1];
 static char       gs_WebServiceSecuredAddress [ WSA_STRING_MAXSIZE + 1];
+static char       gs_WebServiceSecuredAddressResolved [ WSA_STRING_MAXSIZE + 1];
 static char       gs_WebServiceV2Suffix [ WSA_STRING_MAXSIZE + 1];
 static BOOL       gs_WebServiceParamsLoaded = FALSE;
 static wst_handle gs_WST = NULL;
+static wst_handle gs_WST_Routing = NULL;
 
 
 static wst_parser login_parser[] =
@@ -69,6 +72,7 @@ static wst_parser login_parser[] =
    { "UpdateConfig",          on_update_config},
    { "UpgradeClient",         VersionUpgrade},
    { "UserGroups",            UserGroups},
+   { "UpdateInboxCount",		UpdateInboxCount},
    { NULL, OnLoginResponse},
 };
 
@@ -114,6 +118,7 @@ static wst_parser general_parser[] =
    { "RoutingResponse",			on_routing_response },
    { "RoutePoints",				on_route_points },
    { "RouteSegments",			on_route_segments },
+   { "EventOnRoute",			   on_route_events },
    { "SuggestReroute",			on_suggest_reroute },
    { "GeoServerConfig",       on_geo_server_config},
    { "ServerConfig",          on_server_config},
@@ -131,12 +136,14 @@ static wst_parser general_parser[] =
    { "SetExternalPoiDrawOrder",SetExternalPoiDrawOrder},
    { "ThumbsUpRes"            ,ThumbsUpRes},
    { "UpdateAlert"            ,UpdateAlert},
+   { "UpdateInboxCount"       ,UpdateInboxCount},
    { "ThumbsUpReceived"       ,ThumbsUpReceived},
    { "AddBonusTemplate"       ,AddBonusTemplate},
 };
 
 extern const char* RT_GetWebServiceAddress();
 extern const char* RT_GetWebServiceSecuredAddress();
+extern const char* RT_GetWebServiceSecuredAddressResolved();
 extern int RT_IsWebServiceSSLEnabled();
 extern const char* RT_GetWebServiceV2Suffix();
 static BOOL RTNet_LoadParams();
@@ -154,17 +161,11 @@ BOOL  RTNet_Init()
    RTNet_LoadParams();
 #endif   // _DEBUG
 
-   gs_WST = wst_init( gs_WebServiceAddress, gs_WebServiceSecuredAddress, gs_WebServiceV2Suffix, "binary/octet-stream");
+   gs_WST = wst_init( gs_WebServiceAddress, gs_WebServiceSecuredAddress, gs_WebServiceSecuredAddressResolved, gs_WebServiceV2Suffix, "binary/octet-stream");
    assert( gs_WST);
    
-   //gs_WSTV2 = wst_init( gs_WebServiceV2Address, "binary/octet-stream");
-//   assert( gs_WST);
-//   
-//   gs_WSTSecured = wst_init( gs_WebServiceSecuredAddress, "binary/octet-stream");
-//   assert( gs_WSTSecured);
-//   
-//   gs_WSTV2Secured = wst_init( gs_WebServiceV2SecuredAddress, "binary/octet-stream");
-//   assert( gs_WSTSecured);
+   gs_WST_Routing = wst_init( gs_WebServiceAddress, gs_WebServiceSecuredAddress, gs_WebServiceSecuredAddressResolved, gs_WebServiceV2Suffix, "binary/octet-stream");
+   assert( gs_WST_Routing);
 
    return (NULL != gs_WST);
 }
@@ -175,6 +176,12 @@ void  RTNet_Term()
    {
       wst_term( gs_WST);
       gs_WST = NULL;
+   }
+   
+   if( gs_WST_Routing)
+   {
+      wst_term( gs_WST_Routing);
+      gs_WST_Routing = NULL;
    }
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -389,10 +396,8 @@ static BOOL RTNet_LoadParams()
    if( !gs_WebServiceParamsLoaded)
    {
       //Web server:
-      
       const char*   szWebServiceAddress = RT_GetWebServiceAddress();
-      //if (!strcmp(roadmap_geo_config_get_server_id(), "2"))
-//         szWebServiceAddress = "http://174.129.63.53/rtserver"; //TEST ACK -- REMOVE THIS LINE !!!
+      
       //   Break full name into parameters:
       if(!WSA_ExtractParams(szWebServiceAddress, //   IN        -   Web service full address (http://...)
                             WebServerURL,     //   OUT,OPT   -   Server URL[:Port]
@@ -406,20 +411,11 @@ static BOOL RTNet_LoadParams()
       }
 
       //   Copy full address:
-      strncpy_safe( gs_WebServiceAddress, szWebServiceAddress, sizeof (gs_WebServiceAddress));
-        // Create V2 address:
-      //snprintf(gs_WebServiceV2Address, sizeof (gs_WebServiceV2Address), "%s%s", szWebServiceAddress, RT_GetWebServiceV2Suffix());
+      strncpy_safe( gs_WebServiceAddress, szWebServiceAddress, sizeof (gs_WebServiceAddress));      
       
       
-      
-      //SSL
+      //SSL Server
       szWebServiceAddress = RT_GetWebServiceSecuredAddress();
-      //szWebServiceAddress = "https://212.150.51.92:443/rtserver"; //IL (ip)
-      //szWebServiceAddress = "https://www.waze.co.il:443/rtserver"; //IL
-      //szWebServiceAddress = "https://rt.waze.com:443/rtserver"; //USA
-      //szWebServiceAddress = "https://174.129.223.127:443/rtserver"; //USA (ip)
-      //szWebServiceAddress = "https://rtworld.waze.com:443/rtserver"; //WORLD
-      //szWebServiceAddress = "https://79.125.19.110:443/rtserver"; //WORLD (ip)
       
       //   Break full name into parameters:
       if(!WSA_ExtractParams(szWebServiceAddress, //   IN        -   Web service full address (https://...)
@@ -437,12 +433,28 @@ static BOOL RTNet_LoadParams()
       strncpy_safe( gs_WebServiceSecuredAddress, szWebServiceAddress, sizeof (gs_WebServiceSecuredAddress));
       
       
-      //   Create V2 address:
+      
+      //SSL Resolved address
+      szWebServiceAddress = RT_GetWebServiceSecuredAddressResolved();
+      
+      //   Break full name into parameters:
+      if(!WSA_ExtractParams(szWebServiceAddress, //   IN        -   Web service full address (https://...)
+                            WebServerURL,     //   OUT,OPT   -   Server URL[:Port]
+                            &WebServerPort,   //   OUT,OPT   -   Server Port
+                            WebServiceName))  //   OUT,OPT   -   Web service name
+      {
+         roadmap_log( ROADMAP_ERROR, "RTNet_LoadParams() - Invalid web-service address (%s)", szWebServiceAddress);
+         
+         //   Web-Service address string is invalid...
+         return FALSE;
+      }
+      
+      //   Copy full address:
+      strncpy_safe( gs_WebServiceSecuredAddressResolved, szWebServiceAddress, sizeof (gs_WebServiceSecuredAddressResolved));
       
       
       //   Copy server v2 suffix
       strncpy_safe( gs_WebServiceV2Suffix, RT_GetWebServiceV2Suffix(), sizeof (gs_WebServiceV2Suffix));
-      //strncpy_safe( gs_WebServiceV2Suffix, "", sizeof (gs_WebServiceV2Suffix));//TEST ACK -- REMOVE THIS LINE !!!
 
       gs_WebServiceParamsLoaded = TRUE;
    }
@@ -461,6 +473,10 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
 {
    char *command;
    int wst_flags;
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
    
    command = strdup(RTNET_FORMAT_NETPACKET_9Login);
    command = strtok(command,",");
@@ -500,6 +516,7 @@ BOOL RTNet_Login( LPRTConnectionInfo   pCI,
    if( wst_start_trans( gs_WST,
                         wst_flags,
                         "login",
+                        type,
                         login_parser,
                         sizeof(login_parser)/sizeof(wst_parser),
                         pfnOnCompleted,
@@ -540,6 +557,7 @@ BOOL RTNet_RandomUserRegister( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCo
    return wst_start_trans( gs_WST,
                            wst_flags,
                            "static",
+                           WEBSVC_NO_TYPE,
                            register_parser,
                            sizeof(register_parser)/sizeof(wst_parser),
                            pfnOnCompleted,
@@ -554,6 +572,10 @@ BOOL RTNet_GuestLogin( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 {
    char *command;
    int wst_flags;
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
    
    command = strdup(RTNET_FORMAT_NETPACKET_3GuestLogin);
    command = strtok(command,",");
@@ -569,6 +591,7 @@ BOOL RTNet_GuestLogin( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
    return wst_start_trans( gs_WST,
                            wst_flags,
                            "login",
+                           type,
                            login_parser,
                            sizeof(login_parser)/sizeof(wst_parser),
                            pfnOnCompleted,
@@ -582,13 +605,17 @@ BOOL RTNet_GuestLogin( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 /*    Method:  wst_start_session_trans()
 
       Wraps    [websvc_trans]  wst_start_trans()
+      
+      If type is provided, old requests of the same type in queue will be removed prior to adding the new request.
+      Use type only for requests which require single instance
 
       Additional task:
 
       Prefix packet with session-ID:
          "UID,123,abc\r\n"...                                     */
-BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1..n data parsers
+static BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1..n data parsers
                               int                  parsers_count, // Parsers count
+                              int                  type,          // Type of request
                               CB_OnWSTCompleted    cbOnCompleted, // Callback for transaction completion
                               LPRTConnectionInfo   pCI,           // Connection info
                               const char*          szFormat,      // Custom data for the HTTP request
@@ -651,6 +678,7 @@ BOOL wst_start_session_trans( const wst_parser_ptr parsers,       // Array of 1.
    bRes = wst_start_trans( gs_WST,
                            wst_flags,
                            "command",
+                           type,
                            parsers,
                            parsers_count,
                            cbOnCompleted,
@@ -666,6 +694,7 @@ BOOL RTNet_Logout( LPRTConnectionInfo pCI, CB_OnWSTCompleted pfnOnCompleted)
 {
    return wst_start_session_trans(  logout_parser,
                                     sizeof(logout_parser)/sizeof(wst_parser),
+                                    WEBSVC_NO_TYPE,
                                     pfnOnCompleted,
                                     pCI,
                                     "Logout");
@@ -681,6 +710,10 @@ BOOL RTNet_At( LPRTConnectionInfo   pCI,
                char*                packet_only)
 {
    char  GPSPosString[RoadMapGpsPosition_STRING_MAXSIZE+1];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    format_RoadMapGpsPosition_string( GPSPosString, pGPSPosition);
 
@@ -698,6 +731,7 @@ BOOL RTNet_At( LPRTConnectionInfo   pCI,
    // Else:
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
+                                    type,
                                     pfnOnCompleted,
                                     pCI,
                                     RTNET_FORMAT_NETPACKET_4At,// Custom data for the HTTP request
@@ -710,8 +744,14 @@ BOOL RTNet_At( LPRTConnectionInfo   pCI,
 BOOL RTNet_KeepAlive( LPRTConnectionInfo   pCI,
                       CB_OnWSTCompleted pfnOnCompleted)
 {
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
+                                    type,
                                     pfnOnCompleted,
                                     pCI,
                                     "KeepAlive\n");
@@ -723,11 +763,16 @@ BOOL RTNet_NavigateTo(  LPRTConnectionInfo   pCI,
                         CB_OnWSTCompleted pfnOnCompleted)
 {
    char  gps_point[RoadMapPosition_STRING_MAXSIZE+1];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    format_RoadMapPosition_string( gps_point, cordinates);
 
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
+                                    type, 
                                     pfnOnCompleted,
                                     pCI,
                                     RTNET_FORMAT_NETPACKET_4NavigateTo, // Custom data for the HTTP request
@@ -746,6 +791,10 @@ BOOL RTNet_MapDisplyed( LPRTConnectionInfo   pCI,
    int i;
    char  MapArea[RoadMapArea_STRING_MAXSIZE+1];
    char  DisplayedCoordinates[10 * COORDINATE_VALUE_STRING_MAXSIZE+10];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    format_RoadMapArea_string( MapArea, pRoadMapArea);
 
@@ -769,6 +818,7 @@ BOOL RTNet_MapDisplyed( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                general_parser,
                sizeof(general_parser)/sizeof(wst_parser),
+               type, //Do we want to send all map displayed in queue or only the latest? If so need to change this to no-type
                pfnOnCompleted,
                pCI,
                RTNET_FORMAT_NETPACKET_2MapDisplayed,
@@ -816,6 +866,7 @@ BOOL RTNet_CreateNewRoads( LPRTConnectionInfo   pCI,
       bRes = wst_start_session_trans(
                               general_parser,
                               sizeof(general_parser)/sizeof(wst_parser),
+                              WEBSVC_NO_TYPE,
                               pfnOnCompleted,
                               pCI,
                               CreateNewRoadsBuffer);      //   Custom data
@@ -945,6 +996,7 @@ BOOL RTNet_GPSPath(  LPRTConnectionInfo   pCI,
       bRes = wst_start_session_trans(
                               general_parser,
                               sizeof(general_parser)/sizeof(wst_parser),
+                              WEBSVC_NO_TYPE,
                               pfnOnCompleted,
                               pCI,
                               GPSPathBuffer);      //   Custom data
@@ -1036,6 +1088,7 @@ BOOL RTNet_NodePath( LPRTConnectionInfo   pCI,
       bRes = wst_start_session_trans(
                               general_parser,
                               sizeof(general_parser)/sizeof(wst_parser),
+                              WEBSVC_NO_TYPE,
                               pfnOnCompleted,
                               pCI,
                               NodePathBuffer);     //   Custom data
@@ -1079,6 +1132,7 @@ BOOL  RTNet_ExternalPoiDisplayed(     LPRTConnectionInfo   pCI,
       bRes = wst_start_session_trans(
                               general_parser,
                               sizeof(general_parser)/sizeof(wst_parser),
+                              WEBSVC_NO_TYPE,
                               pfnOnCompleted,
                               pCI,
                               PoisBuffer);     //   Custom data
@@ -1125,6 +1179,7 @@ BOOL RTNet_SendSMS( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_1SendSMS,// Custom data for the HTTP request
@@ -1139,10 +1194,15 @@ BOOL  RTNet_TwitterConnect (
                    BOOL                 bForwardToTwitter,
                    int                  iDeviceId,
                    CB_OnWSTCompleted pfnOnCompleted){
-
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_5TwitterConnect,// Custom data for the HTTP request
@@ -1160,10 +1220,15 @@ BOOL  RTNet_FoursquareConnect (
                    const char*          passWord,
                    BOOL                 bTweetLogin,
                    CB_OnWSTCompleted    pfnOnCompleted){
-
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_4FoursquareConnect,// Custom data for the HTTP request
@@ -1181,12 +1246,17 @@ BOOL  RTNet_FoursquareSearch (
 
    char  lat[RoadMapPosition_STRING_MAXSIZE+1];
    char  lon[RoadMapPosition_STRING_MAXSIZE+1];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    convert_int_coordinate_to_float_string(lat, coordinates->latitude);
    convert_int_coordinate_to_float_string(lon, coordinates->longitude);
 
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
+                                    type,
                                     pfnOnCompleted,
                                     pCI,
                                     RTNET_FORMAT_NETPACKET_2FoursquareSearch, // Custom data for the HTTP request
@@ -1202,6 +1272,7 @@ BOOL  RTNet_FoursquareCheckin (
 
    return wst_start_session_trans(  general_parser,
                                     sizeof(general_parser)/sizeof(wst_parser),
+                                    WEBSVC_NO_TYPE,
                                     pfnOnCompleted,
                                     pCI,
                                     RTNET_FORMAT_NETPACKET_2FoursquareCheckin, // Custom data for the HTTP request
@@ -1225,6 +1296,7 @@ BOOL  RTNet_Scoreboard_getPoints (
 
    return wst_start_session_trans(  general_parser,
                                   sizeof(general_parser)/sizeof(wst_parser),
+                                  WEBSVC_NO_TYPE,
                                   pfnOnCompleted,
                                   pCI,
                                   RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints, // Custom data for the HTTP request
@@ -1260,6 +1332,7 @@ BOOL RTNet_PostAlertComment( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "PostAlertComment,%d,%s,%s,%s", // Custom data for the HTTP request
@@ -1324,6 +1397,7 @@ BOOL RTNet_ReportAlertAtPosition( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "At,%s,%d,%d\nReportAlert,%d,%s,%d,%s,%s,%s,%s,%d,%s", // Custom data for the HTTP request
@@ -1368,6 +1442,7 @@ BOOL RTNet_ReportTraffic( LPRTConnectionInfo   pCI, int traffic_value,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "At,%s,%d,%d\nReportTraffic,%d", // Custom data for the HTTP request
@@ -1418,6 +1493,7 @@ BOOL RTNet_PinqWazer( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                                      general_parser,
                                      sizeof(general_parser)/sizeof(wst_parser),
+                                     WEBSVC_NO_TYPE,
                                      pfnOnCompleted,
                                      pCI,
                                      "PingWazer,%s,%d,%d,%d,%d,%s,%s,%s,%s", // Custom data for the HTTP request
@@ -1440,6 +1516,7 @@ BOOL RTNet_RemoveAlert( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "ReportRmAlert,%d",  // Custom data for the HTTP request
@@ -1491,6 +1568,7 @@ BOOL RTNet_ReportMapProblem( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_4ReportMapError,// Custom data for the HTTP request
@@ -1560,6 +1638,7 @@ BOOL  RTNet_ReportMarker(  LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_6ReportMarker, // Custom data for the HTTP request
@@ -1607,6 +1686,7 @@ BOOL RTNet_SetMyVisability(LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "SeeMe,%d,%d,%s,%s,%s,%s,%d",          //   Custom data for the HTTP request
@@ -1623,6 +1703,11 @@ BOOL RTNet_SetMood(LPRTConnectionInfo   pCI,
                    CB_OnWSTCompleted pfnOnCompleted,
                    char*                packet_only)
 {
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    if( packet_only)
    {
       sprintf( packet_only, "SetMood,%d\n", iMood);
@@ -1633,6 +1718,7 @@ BOOL RTNet_SetMood(LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            "SetMood,%d",          //   Custom data for the HTTP request
@@ -1645,6 +1731,10 @@ BOOL RTNet_Location        (LPRTConnectionInfo     pCI,
                            char*                   packet_only)
 {
    char  location_string[RoadMapPosition_STRING_MAXSIZE+1];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    format_RoadMapPosition_string( location_string, location);
 
@@ -1658,6 +1748,7 @@ BOOL RTNet_Location        (LPRTConnectionInfo     pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            "Location,%s\n",          //   Custom data for the HTTP request
@@ -1679,6 +1770,7 @@ BOOL RTNet_UserPoints(LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "UserPoints,%d",          //   Custom data for the HTTP request
@@ -1692,6 +1784,7 @@ BOOL RTNet_SendTrafficInfo ( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "SendRoadInfo,%d",   // Custom data for the HTTP request
@@ -1706,6 +1799,7 @@ BOOL RTNet_TrafficAlertFeedback( LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "TrafficAlertFeedback,%d,%d",  // Custom data for the HTTP request
@@ -1732,6 +1826,7 @@ BOOL  RTNet_CreateAccount (
    return wst_start_trans( gs_WST,
                            wst_flags,
                            "createaccount",
+                           WEBSVC_NO_TYPE,
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
                            pfnOnCompleted,
@@ -1758,6 +1853,7 @@ BOOL  RTNet_UpdateProfile (
 
    return wst_start_session_trans( general_parser,
                                    sizeof(general_parser)/sizeof(wst_parser),
+                                   WEBSVC_NO_TYPE,
                                    pfnOnCompleted,
                                    pCI,
                                    RTNET_FORMAT_NETPACKET_5UpdateProfile,// Custom data for the HTTP request
@@ -1776,6 +1872,7 @@ BOOL RTNet_GeneralPacket(  LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            Packet);             //   Custom data for the HTTP request
@@ -1788,12 +1885,15 @@ BOOL RTNet_CollectBonus(LPRTConnectionInfo   pCI,
                         BOOL                 bForwardToFacebook,
                         CB_OnWSTCompleted    pfnOnCompleted){
 
+   BOOL success;
    char AtStr[MESSAGE_MAX_SIZE__At];
-   SendMessage_At( AtStr, FALSE);
-
+   success = SendMessage_At( AtStr, FALSE);
+   if (!success)
+      AtStr[0] = '\0';
    return wst_start_session_trans(
                              general_parser,
                              sizeof(general_parser)/sizeof(wst_parser),
+                             WEBSVC_NO_TYPE,
                              pfnOnCompleted,
                              pCI,
                              "%sCollectBonus,%d,%d,%s,%s",  // Custom data for the HTTP request
@@ -1819,6 +1919,7 @@ BOOL RTNet_CollectCustomBonus(LPRTConnectionInfo   pCI,
     return wst_start_session_trans(
                              general_parser,
                              sizeof(general_parser)/sizeof(wst_parser),
+                             WEBSVC_NO_TYPE,
                              pfnOnCompleted,
                              pCI,
                              "%sCollectCustomBonus,%d,%s,%s",  // Custom data for the HTTP request
@@ -1836,6 +1937,7 @@ BOOL RTNet_ReportAbuse (LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                              general_parser,
                              sizeof(general_parser)/sizeof(wst_parser),
+                             WEBSVC_NO_TYPE,
                              pfnOnCompleted,
                              pCI,
                              "ReportAbuse,%d,%d",  // Custom data for the HTTP request
@@ -1850,6 +1952,7 @@ BOOL RTNet_ThumbsUp (LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                              general_parser,
                              sizeof(general_parser)/sizeof(wst_parser),
+                             WEBSVC_NO_TYPE,
                              pfnOnCompleted,
                              pCI,
                              "ThumbsUp,%d",  // Custom data for the HTTP request
@@ -1863,6 +1966,10 @@ BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
                                  int                  iShowTwitterProfile,
                                  CB_OnWSTCompleted    pfnOnCompleted){
    const char *show_name, *show_picture, *show_facebook_profile, *show_twitter_profile;
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    switch (iShowFacebookName) {
       case ROADMAP_SOCIAL_SHOW_DETAILS_MODE_DISABLED:
@@ -1927,6 +2034,7 @@ BOOL  RTNet_FacebookPermissions (LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                                   general_parser,
                                   sizeof(general_parser)/sizeof(wst_parser),
+                                  type,
                                   pfnOnCompleted,
                                   pCI,
                                   RTNET_FORMAT_NETPACKET_4FacebookPermissions,// Custom data for the HTTP request
@@ -1946,6 +2054,7 @@ BOOL  RTNet_ExternalPoiNotifyOnPopUp (LPRTConnectionInfo   pCI,
     return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "NotifyExternalPoiViewed,%d,%d",  // Custom data for the HTTP request
@@ -1961,6 +2070,7 @@ BOOL  RTNet_ExternalPoiNotifyOnPromotionPopUp (LPRTConnectionInfo   pCI,
     return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "NotifyExternalPoiPromotionPopUp,%d,%d",  // Custom data for the HTTP request
@@ -1976,6 +2086,7 @@ BOOL  RTNet_ExternalPoiNotifyOnInfoPressed (LPRTConnectionInfo   pCI,
     return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            "NotifyExternalPoiInfoPressed,%d,%d",  // Custom data for the HTTP request
@@ -1989,6 +2100,7 @@ BOOL  RTNet_ExternalPoiNotifyOnNavigate (LPRTConnectionInfo   pCI,
      return wst_start_session_trans(
                             general_parser,
                             sizeof(general_parser)/sizeof(wst_parser),
+                            WEBSVC_NO_TYPE,
                             pfnOnCompleted,
                             pCI,
                             "NotifyExternalPoiNavigation,%d",  // Custom data for the HTTP request
@@ -2006,6 +2118,7 @@ BOOL  RTNet_NotifySplashUpdateTime (LPRTConnectionInfo   pCI,
          return wst_start_session_trans(
                             general_parser,
                             sizeof(general_parser)/sizeof(wst_parser),
+                            WEBSVC_NO_TYPE,
                             pfnOnCompleted,
                             pCI,
                             "NotifySplashUpdateTime,%s",  // Custom data for the HTTP request
@@ -2195,7 +2308,7 @@ BOOL  RTNet_TripServer_CreatePOI  (LPRTConnectionInfo   pCI,
 											 const char*           name,
 											 RoadMapPosition*      coordinates,
 											 BOOL					     overide,
-											 int                   id,
+											 int                   poi_id,
 											 CB_OnWSTCompleted pfnOnCompleted){
 
    if (name == NULL){
@@ -2211,6 +2324,7 @@ BOOL  RTNet_TripServer_CreatePOI  (LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_5TripServerCreatePOI,// Custom data for the HTTP request
@@ -2218,17 +2332,22 @@ BOOL  RTNet_TripServer_CreatePOI  (LPRTConnectionInfo   pCI,
                            coordinates->latitude, //y
                            name,
                            "true",
-                           id);
+                           poi_id);
 
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL  RTNet_TripServer_GetPOIs  (LPRTConnectionInfo   pCI,
                                  CB_OnWSTCompleted pfnOnCompleted){
-
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_0TripServerGetPOIs,// Custom data for the HTTP request
@@ -2239,10 +2358,15 @@ BOOL  RTNet_TripServer_GetPOIs  (LPRTConnectionInfo   pCI,
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL  RTNet_TripServer_GetNumPOIs  (LPRTConnectionInfo   pCI,
                                  CB_OnWSTCompleted pfnOnCompleted){
-
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_0TripServerGetNumPOIs,// Custom data for the HTTP request
@@ -2264,6 +2388,7 @@ BOOL  RTNet_TripServer_DeletePOI  (LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_1TripServerDeletePOI,// Custom data for the HTTP request
@@ -2277,11 +2402,17 @@ BOOL RTNet_TripServer_FindTrip  (
 								CB_OnWSTCompleted pfnOnCompleted){
 
 	//time_t current_time = time(NULL);
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    roadmap_log (ROADMAP_DEBUG, "RTNet_TripServer_FindTrip() - lat=%d, lon=%d",coordinates->latitude,coordinates->longitude );
 
 	return wst_start_session_trans(
                 general_parser,
                 sizeof(general_parser)/sizeof(wst_parser),
+                type,
                 pfnOnCompleted,
                 pCI,
                 RTNET_FORMAT_NETPACKET_2TripServerFindTrip,// Custom data for the HTTP request
@@ -2294,10 +2425,15 @@ BOOL RTNET_TripServer_GetTripRoutes(
 								LPRTConnectionInfo pCI,
 								int routId,
 								CB_OnWSTCompleted pfnOnCompleted){
-
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
 	return wst_start_session_trans(
                 general_parser,
                 sizeof(general_parser)/sizeof(wst_parser),
+                type,
                 pfnOnCompleted,
                 pCI,
                 RTNET_FORMAT_NETPACKET_1TripServerGetTripRoutes,// Custom data for the HTTP request
@@ -2311,6 +2447,7 @@ BOOL RTNET_TripServer_GetRouteSegments(LPRTConnectionInfo
 	return wst_start_session_trans(
                 general_parser,
                 sizeof(general_parser)/sizeof(wst_parser),
+                WEBSVC_NO_TYPE,
                 pfnOnCompleted,
                 pCI,
                 RTNET_FORMAT_NETPACKET_1TripServerGetRouteSegments,// Custom data for the HTTP request
@@ -2340,23 +2477,27 @@ void RTNet_Watchdog(LPRTConnectionInfo  pCI)
 {
    if( gs_WST)
       wst_watchdog( gs_WST);
+   
+   if (gs_WST_Routing)
+      wst_watchdog(gs_WST_Routing);
+   
 #ifdef   _DEBUG
    else
       assert(0);
 #endif   // _DEBUG
 }
 
-ETransactionStatus RTNet_GetTransactionState()
+ETransactionStatus RTNet_GetTransactionState(wst_handle handle)
 {
    transaction_state state;
 
-   if( !gs_WST)
+   if( !handle)
    {
       assert(0);
       return TS__invalid;
    }
 
-   state = wst_get_trans_state( gs_WST);
+   state = wst_get_trans_state( handle);
 
    switch(state)
    {
@@ -2369,9 +2510,9 @@ ETransactionStatus RTNet_GetTransactionState()
    return TS__invalid;
 }
 
-void RTNet_AbortTransaction( ETransactionStatus* new_state)
+void RTNet_AbortTransaction( ETransactionStatus* new_state, BOOL bStopNow)
 {
-   ETransactionStatus State = RTNet_GetTransactionState();
+   ETransactionStatus State = RTNet_GetTransactionState(gs_WST);
 
    (*new_state) = TS__invalid;
 
@@ -2382,9 +2523,13 @@ void RTNet_AbortTransaction( ETransactionStatus* new_state)
       (*new_state) = TS_Idle;
    else
    {
-      wst_stop_trans( gs_WST);
-      (*new_state) = RTNet_GetTransactionState();
+      wst_stop_trans( gs_WST, bStopNow);
+      (*new_state) = RTNet_GetTransactionState(gs_WST);
    }
+   
+   State = RTNet_GetTransactionState(gs_WST_Routing);
+   if( TS_Idle != State)
+      wst_stop_trans( gs_WST_Routing, bStopNow);
 }
 
 
@@ -2419,6 +2564,8 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
 								int                  iTwitterLevel,
 								int                  iFacebookLevel,
 								BOOL						bReRoute,
+                        NavigateLocationInfo locationInfo,
+                        BOOL                 bRetry,
                         CB_OnWSTCompleted		pfnOnCompleted)
 {
    char        *PackedFrStreet = NULL;
@@ -2434,6 +2581,11 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    struct tm   *current_time;
    long        lTimeOfDay;
    const char* command = "RoutingRequest";
+   static int type = WEBSVC_NO_TYPE;
+   int      wst_flags;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    if (szFrStreet && (*szFrStreet))
    {
@@ -2470,7 +2622,8 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    if (!szToState)
       szToState = "";
 
-   iPacketSize = 15 + // RoutingRequest,
+   iPacketSize = CUSTOM_HEADER_MAX_SIZE +
+                 15 + // RoutingRequest,
    				  11 + // route_id,
    				  11 + // type,
    				  11 + // trip_id,
@@ -2482,14 +2635,26 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    				  strlen (szPackedToStreet) + 1 +
    				  2 + 2 + // with geometries, with instructions
    				  11 + nOptions * (11 + 2) + // options
-                 2 + strlen(szToStreetNumber) + 1 + strlen(szToCity) + 1 + strlen(szToState) + 1 + 11 + 2 + 2
+                 2 + strlen(szToStreetNumber) + 1 + strlen(szToCity) + 1 + strlen(szToState) + 1 + 11 + 2 + 2 +
                                     // iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel, bReroute
+                 11 + // current satellites
+                 11 + // current accuracy
+                 11 + // current heading
+                 11 + // current compass
+                 11 + // current gyro_x
+                 11 + // current gyro_y
+                 11 + // current gyro_z
+                 11 + // last pos lon
+                 11 + // last pos lat
+                 11 + // last gps heading
+                 2    // bRetry
    				  ;
 
   	szPacket = malloc (iPacketSize);
 
    snprintf (szPacket, iPacketSize,
-   			 "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
+   			 "UID,%d,%s\r\n%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%s,%s,%d,%d,%d,%d,%d,%s,%s,T,T,%d",
+             pCI->iServerID, pCI->ServerCookie,
    			 command, iRoute, iType, iTripId, nMaxRoutes, nMaxSegments, nMaxPoints,
    			 posFrom.longitude, posFrom.latitude, iFrSegmentId, iFrNodeId[0], iFrNodeId[1],
    			 szPackedFrStreet, bFrAllowBidi ? "T" : "F",
@@ -2511,15 +2676,33 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
    snprintf (szPacket + len, iPacketSize - len, ",%d,%s,%s,%s,%ld,%d,%s",
              iTwitterLevel, szToStreetNumber, szToCity, szToState, lTimeOfDay, iFacebookLevel,
              bReRoute ? "T" : "F");
+   
+   //location and heading info
+   len = strlen (szPacket);
+   snprintf (szPacket + len, iPacketSize - len, ",%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+             locationInfo.cur_satellites, locationInfo.cur_accuracy, locationInfo.cur_heading, locationInfo.cur_compass,
+             locationInfo.cur_gyro_x, locationInfo.cur_gyro_y, locationInfo.cur_gyro_z,
+             locationInfo.last_pos_lon, locationInfo.last_pos_lat, locationInfo.last_heading);
+   
+   //retry flag
+   len = strlen (szPacket);
+   snprintf (szPacket + len, iPacketSize - len, ",%s",
+             bRetry ? "T" : "F");
+   
    roadmap_log (ROADMAP_ERROR, szPacket);
-
-   rc = wst_start_session_trans(
-                           general_parser,
-                           sizeof(general_parser)/sizeof(wst_parser),
-                           pfnOnCompleted,
-                           pCI,
-                           szPacket);
-
+   
+   wst_flags = wst_flags_for_commnand(command);
+   
+   rc = wst_start_trans( gs_WST_Routing,
+                        wst_flags,
+                        "command",
+                        type,
+                        general_parser,
+                        sizeof(general_parser)/sizeof(wst_parser),
+                        pfnOnCompleted,
+                        pCI,
+                        szPacket);
+   
 Exit:
 	if (szPacket) free (szPacket);
 	if (PackedToStreet) free (PackedToStreet);
@@ -2532,9 +2715,15 @@ BOOL	RTNet_SelectRoute	(LPRTConnectionInfo   	pCI,
 								 int							iAltId,
 								 CB_OnWSTCompleted		pfnOnCompleted)
 {
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           type,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_2SelectRoute,// Custom data for the HTTP request
@@ -2552,6 +2741,10 @@ BOOL RTNet_GetGeoConfig(
 {
 
    char  GPSPosString[RoadMapGpsPosition_STRING_MAXSIZE+1];
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
 
    format_RoadMapPosition_string( GPSPosString, pGPSPosition);
 
@@ -2559,16 +2752,18 @@ BOOL RTNet_GetGeoConfig(
     if( wst_start_trans( websvc,
                          0,
                          "login",
+                         type,
                          geo_config_parser,
                          sizeof(geo_config_parser)/sizeof(wst_parser),
                          pfnOnCompleted,
                          pCI,
-                         RTNET_FORMAT_NETPACKET_5GetGeoConfig,// Custom data for the HTTP request
+                         RTNET_FORMAT_NETPACKET_6GetGeoConfig,// Custom data for the HTTP request
                          RTNET_PROTOCOL_VERSION,
                          GPSPosString,
                          RT_DEVICE_ID,
                          roadmap_start_version(),
-                         name))
+                         name,
+                         roadmap_start_is_first_use() ? "T" : "F"))
 
        return TRUE;
     else
@@ -2623,6 +2818,7 @@ BOOL  RTNet_Stats(  LPRTConnectionInfo   pCI,
    return wst_start_session_trans(
                            general_parser,
                            sizeof(general_parser)/sizeof(wst_parser),
+                           WEBSVC_NO_TYPE,
                            pfnOnCompleted,
                            pCI,
                            RTNET_FORMAT_NETPACKET_2Stats, // Custom data for the HTTP request
@@ -2656,6 +2852,7 @@ BOOL RTNet_SetPushNotifications( LPRTConnectionInfo  pCI,
    return wst_start_session_trans(
                                   general_parser,
                                   sizeof(general_parser)/sizeof(wst_parser),
+                                  WEBSVC_NO_TYPE,
                                   pfnOnCompleted,
                                   pCI,
                                   RTNET_FORMAT_NETPACKET_4PushNotificationsSet,// Custom data for the HTTP request

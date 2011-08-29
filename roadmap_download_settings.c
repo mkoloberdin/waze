@@ -174,8 +174,10 @@ void roadmap_download_settings_show(void){
        box = ssd_container_new ("Download Heading group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
-  	   ssd_widget_add (box, ssd_text_new ("Download_Heading_text_cont",
-            roadmap_lang_get ("Reduce data usage:"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+       text = ssd_text_new ("Download_Heading_text_cont",
+             roadmap_lang_get ("Reduce data usage:"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE);
+       ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+  	    ssd_widget_add (box, text);
        ssd_widget_set_color (box, NULL, NULL);
        ssd_widget_add (dialog, box);
 
@@ -193,7 +195,7 @@ void roadmap_download_settings_show(void){
      // ---------------------- Net config group ---------------------------------------------
      box = ssd_container_new ("Download map group", NULL,
                   width, SSD_MIN_SIZE,
-		  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+		  SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 	  ssd_widget_set_color (box, "#000000", "#ffffff");
 
 	  if ( roamdmap_map_download_enabled() )
@@ -208,8 +210,9 @@ void roadmap_download_settings_show(void){
                            (const char **)&icon[0], 1,SSD_START_NEW_ROW|SSD_ALIGN_VCENTER, NULL ) );
         box2->callback = roadmap_map_download;
 
-        ssd_widget_add( box2,
-                 ssd_text_new ( "Download map text", roadmap_lang_get("Download map of my area"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER ) );
+        text = ssd_text_new ( "Download map text", roadmap_lang_get("Download map of my area"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER );
+        ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+        ssd_widget_add( box2,text );
 
 
         ssd_widget_add( box, box2 );
@@ -228,8 +231,9 @@ void roadmap_download_settings_show(void){
                         NULL ) );
      box2->callback = refresh_tiles_callback;
 
-     ssd_widget_add( box2,
-              ssd_text_new ("Refresh map text", roadmap_lang_get( "Refresh map of my area" ), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER ) );
+     text = ssd_text_new ("Refresh map text", roadmap_lang_get( "Refresh map of my area" ), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER );
+     ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+     ssd_widget_add( box2, text);
 
      //ssd_dialog_add_vspace( box2, 2, 0 );
      ssd_widget_add( box, box2 );
@@ -239,7 +243,7 @@ void roadmap_download_settings_show(void){
 
 	   // ---------------------- Net config group ---------------------------------------------
       container = ssd_container_new ("Net compression", NULL, width, SSD_MIN_SIZE,
-            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
       //////// Net compress ////////
       box = ssd_checkbox_row_new("NetCompression", roadmap_lang_get ("Use data compression"),
@@ -258,7 +262,7 @@ void roadmap_download_settings_show(void){
 
 	  // ---------------------- Traffic download group ---------------------------------------------
 	   container = ssd_container_new ("Download prefs", NULL, width, SSD_MIN_SIZE,
-            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+            SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
 	   box = ssd_checkbox_row_new("DownloadTraffic", roadmap_lang_get ("Download traffic info"),
 	         roadmap_download_settings_isEnabled(RoadMapConfigDownloadTraffic), NULL,NULL,NULL,CHECKBOX_STYLE_ON_OFF);

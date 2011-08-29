@@ -32,7 +32,15 @@
 extern "C" {
 #endif
 
+typedef struct
+{
+   char** image_path;
+   RoadMapImage *image_thumbnail;
+   const void* callback_data;    // Data provided by the callback supplier
+} CameraImageAlertContext;
 
+
+typedef void (*CameraImageAlertCallback) (CameraImageAlertContext* context, int res );
 typedef void (*ImageDownloadCallback) ( void* context, int status, const char* image_path );
 typedef void (* CameraImageUploadCallback) (void * context);
 
@@ -40,6 +48,8 @@ typedef void (* CameraImageUploadCallback) (void * context);
 #define ROADMAP_IMAGE_ID_BUF_LEN	( ROADMAP_IMAGE_ID_LEN + 1 )
 
 BOOL roadmap_camera_image_alert( char** image_path,  RoadMapImage *image_thumbnail );
+
+BOOL roadmap_camera_image_alert_async( CameraImageAlertCallback callback, CameraImageAlertContext* context );
 
 BOOL roadmap_camera_image_capture( CameraImageFile *image_file, CameraImageBuf *image_thumbnail );
 

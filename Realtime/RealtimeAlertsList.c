@@ -1,3 +1,4 @@
+
 /* RealtimeAlertsList.c - manage the Real Time Alerts list display
  *
  * LICENSE:
@@ -57,18 +58,13 @@
 #include "ssd/ssd_bitmap.h"
 #include "ssd/ssd_confirm_dialog.h"
 #include "ssd/ssd_segmented_control.h"
+#include "ssd/ssd_separator.h"
 #include "navigate/navigate_main.h"
 #include "Realtime.h"
 #include "RealtimeAlerts.h"
 #include "RealtimeAlertsList.h"
 #include "RealtimeAlertCommentsList.h"
 #include "RealtimeTrafficInfo.h"
-
-#ifdef TOUCH_SCREEN
-#define ALERT_ROW_HEIGHT 160
-#else
-#define ALERT_ROW_HEIGHT 120
-#endif
 
 // Context menu:
 static ssd_cm_item      context_menu_items[] =
@@ -92,6 +88,7 @@ static ssd_contextmenu  context_menu = SSD_CM_INIT_MENU( context_menu_items);
 
 static void populate_list();
 static void set_softkeys( SsdWidget dialog);
+static int on_options(SsdWidget widget, const char *new_value, void *context);
 
 static SsdWidget tabs[tab__count];
 static AlertList gAlertListTable;
@@ -113,8 +110,7 @@ static void delete_callback(int exit_code, void *context){
 
     alertId = atoi((const char*)context);
     success = real_time_remove_alert(alertId);
-    if (success)
-        roadmap_messagebox_timeout("Delete Alert", "Your request was sent to the server",5);
+    roadmap_messagebox_timeout("Delete Alert", "Your request was sent to the server",5);
 
 }
 
@@ -129,8 +125,10 @@ static int RealtimeAlertsListCallBackTabs(SsdWidget widget, const char *new_valu
     alertId = atoi((const char*)value);
     if (RTAlerts_Get_Number_of_Comments(alertId) == 0)
     {
-        ssd_generic_list_dialog_hide_all();
-        RTAlerts_Popup_By_Id(alertId,FALSE);
+//        ssd_generic_list_dialog_hide_all();
+//        RTAlerts_Popup_By_Id(alertId,FALSE);
+          on_options(NULL, NULL, NULL);
+
     }
     else
     {
@@ -144,12 +142,9 @@ static int RealtimeAlertsListCallBackTabs(SsdWidget widget, const char *new_valu
 static int RealtimeAlertsDeleteCallBackTabs(SsdWidget widget, const char *new_value,
         const void *value)
 {
-   char message[200];
 
 
-    sprintf(message,"%s\n%s",roadmap_lang_get("Delete Alert:"), new_value);
-
-    ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback,  (void *)value);
+    delete_callback(dec_yes, (void *)value);
 
     return FALSE;
 }
@@ -195,7 +190,7 @@ static void populate_tab(int tab, int num, int types,...){
     }
     gTabAlertList.iCount = count;
     ssd_widget_show(tabs[tab]);
-    ssd_list_populate_widgets (tabs[tab], count, (const char **)&gTabAlertList.labels[0], &gTabAlertList.labels_widget[0], (const void **)&gTabAlertList.values[0],&gTabAlertList.icons_widget[0], NULL,RealtimeAlertsListCallBackTabs, RealtimeAlertsDeleteCallBackTabs, TRUE);
+    ssd_list_populate_widgets (tabs[tab], count, (const char **)&gTabAlertList.labels[0], &gTabAlertList.labels_widget[0], (const void **)&gTabAlertList.values[0],&gTabAlertList.icons_widget[0], NULL,RealtimeAlertsListCallBackTabs, RealtimeAlertsDeleteCallBackTabs, FALSE);
 
     if ((gAlertListTable.iCount == 0) && (g_list_filter == filter_on_route) && (navigate_main_state() == -1)){
        SsdWidget dialog;
@@ -304,6 +299,14 @@ static void set_counts(void){
    ssd_menu_set_right_text(ALERTS_LIST_TITLE, "report_list_other",count_tab(tab_others,5, RT_ALERT_TYPE_HAZARD,RT_ALERT_TYPE_OTHER, RT_ALERT_TYPE_CONSTRUCTION, RT_ALERT_TYPE_PARKING, RT_ALERT_TYPE_DYNAMIC));
 }
 
+static int on_groups_callbak (SsdWidget widget, const char *new_value){
+   RTAlert *pAlert = (RTAlert *)widget->context;
+   if (!pAlert)
+      return 0;
+   roadmap_groups_show_group(pAlert->sGroup);
+   return 1;
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void populate_list(){
     int iCount = -1;
@@ -328,6 +331,7 @@ static void populate_list(){
     SsdWidget icon_container;
     SsdWidget attachment_container;
     SsdSize  size_alert_icon;
+    SsdSize  size;
     static SsdSize size_attach_icon = {-1, -1};
     int   image_container_width = ADJ_SCALE(70);
     int   offset_y = 0;
@@ -336,6 +340,9 @@ static void populate_list(){
     const char *button[2];
     SsdWidget widget;
     SsdWidget text;
+	char tempStr1[200];
+    char tempStr2[200];
+
     int group_flag = 0;
 
     for (i=0; i<MAX_ALERTS_ENTRIES; i++)
@@ -356,24 +363,113 @@ static void populate_list(){
 
     while ((iAlertCount > 0) && (iCount < MAX_ALERTS_ENTRIES))    {
         SsdWidget groups_container;
+        SsdWidget counters_container;
+        SsdWidget bottom_container;
+        SsdWidget counter_inner_container;
+        SsdWidget additional_text_container;
+        SsdWidget counter_inner_text_container;
         SsdWidget text_container;
+        SsdWidget separator;
         int groups_container_height = 0;
+        char counter[20];
+        int width = roadmap_canvas_width()-image_container_width-ADJ_SCALE(10);
 
-        widget = ssd_container_new("list", "list_row", SSD_MIN_SIZE, SSD_MAX_SIZE, SSD_ALIGN_VCENTER);
+        widget = ssd_container_new("list", "list_row", width, SSD_MIN_SIZE, SSD_ALIGN_VCENTER);
         ssd_widget_set_color(widget, NULL, NULL);
         alert = RTAlerts_Get(index);
 
         if (alert->sGroup[0] != 0){
-              groups_container_height = ADJ_SCALE(52);
-              groups_container = ssd_container_new("groups_container", "groups_container", SSD_MAX_SIZE,groups_container_height , SSD_ALIGN_BOTTOM);
-              ssd_widget_set_color(groups_container, "#ebf5f9","#ebf5f9");
+              groups_container_height = ADJ_SCALE(40);
+              groups_container = ssd_container_new("groups_container", "groups_container", SSD_MAX_SIZE,groups_container_height , SSD_END_ROW);
+              ssd_widget_set_color(groups_container, "#ebf5f9dc","#ebf5f9dc");
+              groups_container->callback = on_groups_callbak;
+              groups_container->context = alert;
         }
         else{
               groups_container_height = 0;
         }
 
+        bottom_container = ssd_container_new("bottom_container", "bottom_container",width, groups_container_height+ADJ_SCALE(20)+2 , SSD_ALIGN_BOTTOM);
+        ssd_widget_set_color(bottom_container, NULL, NULL);
 
-        text_container = ssd_container_new("text_container", "text_container", SSD_MIN_SIZE, ADJ_SCALE(ALERT_ROW_HEIGHT) - groups_container_height - ADJ_SCALE(10), 0);
+        counters_container = ssd_container_new("counters_container", "counters_container", SSD_MAX_SIZE,ADJ_SCALE(20) , SSD_ALIGN_CENTER);
+        ssd_widget_set_color(counters_container, NULL, NULL);
+
+        if (alert->sGroup[0] == 0){
+           separator = ssd_separator_new("sep", SSD_END_ROW);
+           separator->bg_color = "#d9d9d9";
+           ssd_widget_add(counters_container, separator);
+        }
+
+        //Num Comments
+        counter_inner_container = ssd_container_new("counter_inner_container1", "counter_inner_container1", (alert->iNumViewed >= 0) ? width/3+5 : width/2+5,SSD_MAX_SIZE , 0);
+        ssd_widget_set_color(counter_inner_container,NULL, NULL);
+        ssd_widget_add(counter_inner_container, ssd_vseparator_new("sep",ADJ_SCALE(20), SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT));
+        ssd_widget_add(counters_container, counter_inner_container);
+        counter_inner_text_container= ssd_container_new("counter_inner_text_container", "counter_inner_text_container",  SSD_MIN_SIZE, SSD_MAX_SIZE , SSD_ALIGN_VCENTER);
+        ssd_widget_set_color(counter_inner_text_container,NULL, NULL);
+        ssd_widget_add(counter_inner_container, counter_inner_text_container);
+        text = ssd_text_new("Comments", roadmap_lang_get("Comments:"), 9, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
+        ssd_widget_set_offset(text, 0, ADJ_SCALE(2));
+        ssd_text_set_color(text, "#969696");
+        ssd_widget_add(counter_inner_text_container, text);
+        ssd_dialog_add_hspace(counter_inner_text_container, ADJ_SCALE(2), 0);
+        counter[0] = 0;
+        snprintf(counter, sizeof(counter), "%d", alert->iNumComments);
+        text = ssd_text_new("Comments_Num", counter, 13, SSD_ALIGN_VCENTER);
+        ssd_text_set_color(text, "#969696");
+        ssd_widget_add(counter_inner_text_container, text);
+
+        //Num Thumbs up
+        counter_inner_container = ssd_container_new("counter_inner_container1", "counter_inner_container1",  (alert->iNumViewed >= 0) ? width/3-ADJ_SCALE(20) : width/2-5,SSD_MAX_SIZE , 0);
+        ssd_widget_set_color(counter_inner_container, NULL, NULL);
+        if (alert->iNumViewed >= 0)
+      	  ssd_widget_add(counter_inner_container, ssd_vseparator_new("sep",ADJ_SCALE(20), SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT));
+        ssd_widget_add(counters_container, counter_inner_container);
+        counter_inner_text_container= ssd_container_new("counter_inner_text_container", "counter_inner_text_container",  SSD_MIN_SIZE, SSD_MAX_SIZE , SSD_ALIGN_VCENTER);
+        ssd_widget_set_color(counter_inner_text_container,NULL, NULL);
+        ssd_widget_add(counter_inner_container, counter_inner_text_container);
+
+        ssd_dialog_add_hspace(counter_inner_text_container, ADJ_SCALE(5), 0);
+        text = ssd_text_new("Thanks", roadmap_lang_get("Thanks:"), 9, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
+        ssd_widget_set_offset(text, 0, ADJ_SCALE(2));
+        ssd_text_set_color(text, "#969696");
+        ssd_dialog_add_hspace(counter_inner_container, ADJ_SCALE(2), 0);
+        ssd_widget_add(counter_inner_text_container, text);
+        ssd_dialog_add_hspace(counter_inner_text_container, ADJ_SCALE(2), 0);
+        counter[0] = 0;
+        snprintf(counter, sizeof(counter), "%d", alert->iNumThumbsUp);
+        text = ssd_text_new("Thanks_Num", counter, 13, SSD_ALIGN_VCENTER);
+        ssd_text_set_color(text, "#969696");
+        ssd_widget_add(counter_inner_text_container, text);
+
+        //Num Viewed
+        if (alert->iNumViewed >= 0){
+			  counter_inner_container = ssd_container_new("counter_inner_container1", "counter_inner_container1",  width/3+ADJ_SCALE(10),SSD_MAX_SIZE , 0);
+			  ssd_widget_set_color(counter_inner_container, NULL, NULL);
+			  ssd_widget_add(counters_container, counter_inner_container);
+			  counter_inner_text_container= ssd_container_new("counter_inner_text_container", "counter_inner_text_container",  SSD_MIN_SIZE, SSD_MAX_SIZE , SSD_ALIGN_VCENTER);
+			  ssd_widget_set_color(counter_inner_text_container,NULL, NULL);
+			  ssd_widget_add(counter_inner_container, counter_inner_text_container);
+			  ssd_dialog_add_hspace(counter_inner_text_container, ADJ_SCALE(5), 0);
+			  text = ssd_text_new("Viewed", roadmap_lang_get("Viewed:"), 9, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
+			  ssd_widget_set_offset(text, 0, ADJ_SCALE(1));
+			  ssd_text_set_color(text, "#969696");
+			  ssd_dialog_add_hspace(counter_inner_container, ADJ_SCALE(2), 0);
+			  ssd_widget_add(counter_inner_text_container, text);
+			  ssd_dialog_add_hspace(counter_inner_text_container, ADJ_SCALE(2), 0);
+			  counter[0] = 0;
+			  snprintf(counter, sizeof(counter), "%d", alert->iNumViewed);
+			  text = ssd_text_new("Viewed_Num", counter, 13, SSD_ALIGN_VCENTER);
+			  ssd_text_set_color(text, "#969696");
+			  ssd_widget_add(counter_inner_text_container, text);
+        }
+
+        if (alert->sGroup[0] != 0)
+           ssd_widget_add(bottom_container, groups_container);
+        ssd_widget_add(bottom_container, counters_container);
+
+        text_container = ssd_container_new("text_container", "text_container", SSD_MIN_SIZE, SSD_MIN_SIZE, 0);
         ssd_widget_set_color(text_container,NULL, NULL);
         ssd_widget_add(widget, text_container);
         AlertStr[0] = 0;
@@ -466,25 +562,35 @@ static void populate_list(){
         AlertStr[0] = 0;
         ssd_widget_add(text_container, text);
 
-        snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                - strlen(AlertStr), "\n%s", alert->sDescription);
+        ssd_dialog_add_vspace(text_container, ADJ_SCALE(5), 0);
+        separator = ssd_separator_new("sep", 0);
+        separator->bg_color = "#d9d9d9";
+        ssd_widget_add(text_container, separator);
 
-        ssd_dialog_add_vspace(text_container, 5
-              , 0);
-        text = ssd_text_new("alert_txt", AlertStr, 14, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
-        ssd_widget_set_color(text, "#000000","#ffffff");
-        AlertStr[0] = 0;
-        ssd_widget_add(text_container, text);
-
+        if ( alert->sDescription[0] == 0){
+              ssd_dialog_add_vspace(text_container, ADJ_SCALE(5), 0);
+        }
+        else{
+              ssd_dialog_add_vspace(text_container, ADJ_SCALE(2), 0);
+              snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
+                    - strlen(AlertStr), "\n%s", alert->sDescription);
+              text = ssd_text_new("alert_txt", AlertStr, 14, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
+              ssd_widget_set_color(text, "#000000","#ffffff");
+              AlertStr[0] = 0;
+              ssd_widget_add(text_container, text);
+              ssd_dialog_add_vspace(text_container, ADJ_SCALE(5), 0);
+              separator = ssd_separator_new("sep", 0);
+              separator->bg_color = "#d9d9d9";
+              ssd_widget_add(text_container, separator);
+              ssd_dialog_add_vspace(text_container, ADJ_SCALE(2), 0);
+        }
 
         if (alert->sGroup[0] == 0)
-           group_flag = SSD_ALIGN_BOTTOM;
+           group_flag = SSD_END_ROW;
         else{
            group_flag = SSD_END_ROW;
         }
 
-        char tempStr1[200];
-        char tempStr2[200];
         AlertStr[0] = 0;
         tempStr1[0] = 0;
         tempStr2[0] = 0;
@@ -494,11 +600,11 @@ static void populate_list(){
            RTAlerts_get_reported_by_string(alert,&tempStr2[0],sizeof(tempStr2));
         }
         snprintf(AlertStr, sizeof(AlertStr), "%s %s", tempStr1, tempStr2);
-        text = ssd_text_new("reported_by_info", AlertStr, 12,SSD_TEXT_NORMAL_FONT|group_flag);
+        text = ssd_text_new("reported_by_info", AlertStr, 13,SSD_TEXT_NORMAL_FONT|group_flag);
         ssd_widget_set_color(text, "#000000","#ffffff");
-        if (alert->sGroup[0] == 0){
-              ssd_widget_add(text_container, text);
-        }
+        ssd_widget_add(text_container, text);
+
+        ssd_dialog_add_vspace(text_container, ADJ_SCALE(6), SSD_ALIGN_BOTTOM);
 
         if (alert->sGroup[0] != 0){
            SsdWidget text_gr_container;
@@ -506,18 +612,22 @@ static void populate_list(){
            text_gr_container = ssd_container_new("list", "list_row", SSD_MIN_SIZE, SSD_MIN_SIZE, SSD_ALIGN_VCENTER);
            ssd_widget_set_color(text_gr_container, NULL, NULL);
 
-           ssd_widget_add(text_gr_container, text);
+           //ssd_widget_add(text_gr_container, text);
            AlertStr[0] = 0;
            snprintf(AlertStr + strlen(AlertStr), sizeof(AlertStr)
-                   - strlen(AlertStr), "\n %s: %s", roadmap_lang_get("group"), alert->sGroup);
-           text = ssd_text_new("GroupStr", AlertStr, 12,SSD_TEXT_NORMAL_FONT);
+                   - strlen(AlertStr), "%s: %s", roadmap_lang_get("group"), alert->sGroup);
+           text = ssd_text_new("GroupStr", AlertStr, 12,SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
            ssd_widget_set_color(text, "#000000","#ffffff");
 
            ssd_widget_add(text_gr_container, text);
            ssd_widget_add(groups_container, text_gr_container);
-           ssd_widget_add(widget,groups_container);
+        //   ssd_widget_add(widget,groups_container);
         }
         snprintf(str, sizeof(str), "%d", alert->iID);
+
+        if (alert->iType != RT_ALERT_TYPE_TRAFFIC_INFO)
+           ssd_widget_add(widget,bottom_container);
+
 
         //      if (labels[iCount]) free (labels[iCount]);
         gAlertListTable.labels[iCount] = strdup(str);
@@ -527,11 +637,13 @@ static void populate_list(){
 
         if ( roadmap_screen_is_hd_screen() )
         {
-			offset_y = 10;
+			offset_y = 5;
         }
 
+
+        ssd_widget_get_size(widget, &size, NULL);
         /* Persistent widget - can be released only when forced */
-        icon_container = ssd_container_new ("alert_icon_container", NULL, image_container_width,  SSD_MAX_SIZE,  SSD_PERSISTENT|SSD_ALIGN_VCENTER );
+        icon_container = ssd_container_new ("alert_icon_container", NULL, image_container_width,  size.height,  SSD_PERSISTENT );
         ssd_widget_set_color(icon_container, NULL, NULL);
         button[0] = strdup(RTAlerts_Get_Icon(alert->iID));
         button[1] = NULL;
@@ -576,21 +688,26 @@ static void populate_list(){
         ssd_widget_set_offset(text_w, 0, offset_y);
         ssd_widget_add(icon_container, text_w);
 
-        text_w = ssd_text_new ("Alert Distance units", unit_str, 12,SSD_ALIGN_CENTER|SSD_TEXT_NORMAL_FONT|SSD_END_ROW);
+        text_w = ssd_text_new ("Alert Distance units", unit_str, 11,SSD_ALIGN_CENTER|SSD_TEXT_NORMAL_FONT|SSD_END_ROW);
         ssd_widget_set_color(text_w, "#aaaaaa","#aaaaaa");
-        ssd_widget_set_offset(text_w, 0, offset_y);
+        ssd_widget_set_offset(text_w, 0, offset_y-2);
         ssd_widget_add(icon_container, text_w);
 
         if (alert->sGroup[0] != 0){
            SsdWidget group_icon_w;
-           group_icon_w = ssd_container_new("group_icon_w", "group_icon_w", SSD_MAX_SIZE,groups_container_height , SSD_ALIGN_BOTTOM);
-           ssd_widget_set_color(group_icon_w, "#ebf5f9","#ebf5f9");
+           SsdWidget group_icon_w2;
+           group_icon_w = ssd_container_new("group_icon_w", "group_icon_w", SSD_MAX_SIZE,groups_container_height +ADJ_SCALE(20)+2, SSD_ALIGN_BOTTOM);
+           ssd_widget_set_color(group_icon_w, NULL, NULL);
+
+           group_icon_w2 = ssd_container_new("group_icon_w", "group_icon_w", SSD_MAX_SIZE,groups_container_height, 0);
+           ssd_widget_set_color(group_icon_w2, "#ebf5f9dc","#ebf5f9dc");
+           ssd_widget_add(group_icon_w, group_icon_w2);
 
            if (alert->sGroupIcon[0] != 0)
               icon_w =  ssd_bitmap_new ("group_icon",alert->sGroupIcon, SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
             else
               icon_w =  ssd_bitmap_new ("group_icon","groups_default_icons", SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER);
-           ssd_widget_add(group_icon_w, icon_w);
+           ssd_widget_add(group_icon_w2, icon_w);
 
            ssd_widget_add(icon_container, group_icon_w);
         }
@@ -622,7 +739,7 @@ static SsdWidget create_list(int tab_id){
    sprintf(tab_name, "list %d", tab_id);
    list = ssd_list_new (tab_name, SSD_MIN_SIZE, SSD_MIN_SIZE, inputtype_none,flags, NULL);
    ssd_widget_set_color(list, "#ffffff", "#000000");
-   ssd_list_resize (list, ADJ_SCALE(ALERT_ROW_HEIGHT));
+   ssd_list_resize (list, SSD_MIN_SIZE);
 
    return list;
 }
@@ -651,7 +768,7 @@ static void populate_first_tab(){
           }
     }
     ssd_widget_show(tabs[0]);
-    ssd_list_populate_widgets (tabs[0], gAlertListTable.iCount, (const char **)&gAlertListTable.labels[0], &gAlertListTable.labels_widget[0], (const void **)&gAlertListTable.values[0],&gAlertListTable.icons_widget[0], NULL,RealtimeAlertsListCallBackTabs, RealtimeAlertsDeleteCallBackTabs, TRUE);
+    ssd_list_populate_widgets (tabs[0], gAlertListTable.iCount, (const char **)&gAlertListTable.labels[0], &gAlertListTable.labels_widget[0], (const void **)&gAlertListTable.values[0],&gAlertListTable.icons_widget[0], NULL,RealtimeAlertsListCallBackTabs, RealtimeAlertsDeleteCallBackTabs, FALSE);
     if ((gAlertListTable.iCount == 0) && (g_list_filter == filter_on_route) && (navigate_main_state() == -1)){
        SsdWidget dialog;
        SsdWidget msg;
@@ -1192,6 +1309,8 @@ static void ShowListMenu(){
 #ifndef TOUCH_SCREEN
    SsdTcCtx tabcontrol;
 #endif
+   const char *menu_file = "report_list";
+
    if (ssd_dialog_is_currently_active()) {
       if (!strcmp(ssd_dialog_currently_active_name(),ALERTS_LIST_TITLE )){
          ssd_dialog_hide_current(dec_close);
@@ -1200,10 +1319,14 @@ static void ShowListMenu(){
       }
    }
 
+#ifdef RT_ALERT_POLICE_FORBIDDEN
+   menu_file = "report_list_nopolice";
+#endif
+
 #ifdef TOUCH_SCREEN
   g_filter_container = create_filter_container();
   ssd_segmented_control_set_focus(g_filter_container, g_list_filter);
-  ssd_menu_activate (ALERTS_LIST_TITLE, "report_list", NULL, g_filter_container, NULL,
+  ssd_menu_activate (ALERTS_LIST_TITLE, menu_file, NULL, g_filter_container, NULL,
                              RoadMapAlertListActions,SSD_CONTAINER_TITLE,0);
 
   populate_list();
@@ -1232,18 +1355,14 @@ void RealtimeAlertsListGroup(void){
 
 ///////////////////////////////////////////////////////////////////////////////////////////
 static void on_option_delete(){
-   char message[300];
    SsdWidget list = tabs[g_active_tab];
    const void *value = ssd_list_selected_value ( list);
    const char* string   = ssd_list_selected_string( list);
-   int alertId = atoi((const char*)string);
 
 
    if (value != NULL){
 
-       sprintf(message,"%s\n%s",roadmap_lang_get("Delete Alert:"),(const char *)RTAlerts_Get_LocationStrByID(alertId));
-
-       ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback,  (void *)value);
+       delete_callback(dec_yes,(void *)value );
    }
 }
 
@@ -1307,7 +1426,7 @@ static void on_option_report_abuse(){
    SsdWidget list = tabs[g_active_tab];
    const void *value = ssd_list_selected_value ( list);
    if (value != NULL){
-      ssd_confirm_dialog_custom (roadmap_lang_get("Report abuse"), roadmap_lang_get("Reports by several users will disable this user from reporting"), FALSE,report_abuse_confirm_dlg_callback, (void *)value, roadmap_lang_get("Report"), roadmap_lang_get("Cancel")) ;
+      ssd_confirm_dialog_custom (roadmap_lang_get("Report abuse"), roadmap_lang_get("Reports by several users will disable this user from reporting"), TRUE,report_abuse_confirm_dlg_callback, (void *)value, roadmap_lang_get("Report"), roadmap_lang_get("Cancel")) ;
    }
 }
 
@@ -1480,7 +1599,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
 
    can_show_group = roadmap_groups_display_groups_supported();
 
-   is_empty = ((g_active_tab == 0) && (gAlertListTable.iCount < 2)) || ((g_active_tab != 0) && (gTabAlertList.iCount < 1));
+   is_empty = ((g_active_tab == 0) && (gAlertListTable.iCount < 2) && (g_list_filter == filter_none)) || ((g_active_tab != 0) && (gTabAlertList.iCount < 1));
    if ((is_empty) && (g_list_filter == filter_none))
       return 0;
 
@@ -1517,7 +1636,7 @@ static int on_options(SsdWidget widget, const char *new_value, void *context)
 
    ssd_contextmenu_show_item( &context_menu,
                               rtl_cm_show,
-                              FALSE,//!is_empty && is_selected,
+                              !is_empty && is_selected,
                               FALSE);
    ssd_contextmenu_show_item( &context_menu,
                               rtl_cm_view_image,
@@ -1608,3 +1727,4 @@ static void set_softkeys( SsdWidget dialog)
    ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Options"));
    ssd_widget_set_left_softkey_callback   ( dialog, on_options);
 }
+

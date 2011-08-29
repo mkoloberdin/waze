@@ -648,8 +648,8 @@ void add_cam_dlg(void){
    const char *tab_values[3];
    const char *tab_icons[3];
    SsdSegmentedControlCallback callbacks[3];
-   g_type = -1;
    const RoadMapGpsPosition *pos;
+   g_type = -1;
 
    pos = RTAlerts_alerts_location(TRUE);
    if (pos == NULL) {

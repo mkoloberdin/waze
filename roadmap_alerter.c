@@ -556,7 +556,8 @@ void roadmap_alerter_audio(){
 
    if (config_audio_alerts_enabled()) {
       sound_list = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->get_sound)) (roadmap_alerter_get_active_alert_id());
-      roadmap_sound_play_list (sound_list);
+      if ( sound_list )
+         roadmap_sound_play_list (sound_list);
    }
 }
 
@@ -579,11 +580,10 @@ static void delete_callback(int exit_code, void *context){
 
 
 static int report_irrelevant(SsdWidget widget, const char *new_value, void *context){
-   char message[200];
    PluginLine line;
    int direction;
-   const char *str;
    RoadMapGpsPosition 	*CurrentGpsPoint;
+   BOOL success;
 
    if (the_active_alert.active_alert_id == -1)
       return 1;
@@ -595,14 +595,10 @@ static int report_irrelevant(SsdWidget widget, const char *new_value, void *cont
       return 0;
    }
 
-   roadmap_trip_set_gps_position ("AlertSelection", "Selection", NULL, CurrentGpsPoint);
-   str = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->get_string)) (the_active_alert.active_alert_id);
-   if (str != NULL){
-      const char *alertStr = roadmap_lang_get(str);
-      sprintf(message,"%s\n%s",roadmap_lang_get("Please confirm that the following alert is not relevant:"), alertStr);
-
-      ssd_confirm_dialog("Delete Alert", message,FALSE, delete_callback,  (void *)NULL);
-   }
+   success = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->cancel))(the_active_alert.active_alert_id);
+   alert_active = FALSE;
+   the_active_alert.active_alert_id = -1;
+   alert_should_be_visible = FALSE;
    return 1;
 }
 
@@ -688,11 +684,14 @@ void show_alert_dialog(){
    dialog =  ssd_popup_new("Alert_Dlg", TextStr, on_popup_close, SSD_MAX_SIZE, SSD_MIN_SIZE,NULL, SSD_PERSISTENT|SSD_ROUNDED_BLACK, DIALOG_ANIMATION_FROM_TOP);
 
    title = ssd_widget_get(dialog, "popuup_text");
-   ssd_widget_set_color(title,"#f6a201", "#f6a201");
+   if (title)
+      ssd_widget_set_color(title,"#f6a201", "#f6a201");
 
    box = ssd_container_new ("box", NULL, SSD_MIN_SIZE,SSD_MIN_SIZE,SSD_WIDGET_SPACE);
-   ssd_widget_set_color(box, NULL, NULL);
-   ssd_widget_add (box, space(1));
+   if (box){
+         ssd_widget_set_color(box, NULL, NULL);
+         ssd_widget_add (box, space(1));
+   }
 
    if (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->get_additional_string != NULL){
       const  char *additional_text = (* (RoadMapAlertProviders.provider[the_active_alert.alert_provider]->get_additional_string)) (alertId);
@@ -860,7 +859,7 @@ void roadmap_alerter_display(void){
          if (AlerterTimerCallback == NULL){
             SsdWidget text = ssd_widget_get(dialog, "Distance");
             ssd_text_set_text(text, " ");
-            g_seconds = 7;
+            g_seconds = 12;
             AlerterTimerCallback = hide_alert_timeout;
             roadmap_main_set_periodic (1000, AlerterTimerCallback);
          }

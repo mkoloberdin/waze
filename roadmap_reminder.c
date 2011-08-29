@@ -88,7 +88,8 @@ static int  get_id(const char *id);
 static void remider_add_pin(int iID, const RoadMapPosition *position);
 static void OnReminderShortClick (const char *name,
                                   const char *sprite,
-                                  const char *image,
+                                  RoadMapDynamicString *images,
+                                  int  image_count,
                                   const RoadMapGpsPosition *gps_position,
                                   const RoadMapGuiPoint    *offset,
                                   BOOL is_visible,
@@ -96,7 +97,9 @@ static void OnReminderShortClick (const char *name,
                                   int opacity,
                                   int scale_y,
                                   const char *id,
-                                  const char *text);
+                                  ObjectText *texts,
+                                  int        text_count,
+                                  int rotation);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // Reminder
@@ -440,7 +443,8 @@ static void show_reminder(int id, int distance){
 //////////////////////////////////////////////////////////////////
 static void OnReminderShortClick (const char *name,
                                   const char *sprite,
-                                  const char *image,
+                                  RoadMapDynamicString *images,
+                                  int  image_count,
                                   const RoadMapGpsPosition *gps_position,
                                   const RoadMapGuiPoint    *offset,
                                   BOOL is_visible,
@@ -448,7 +452,9 @@ static void OnReminderShortClick (const char *name,
                                   int opacity,
                                   int scale_y,
                                   const char *id,
-                                  const char *text){
+                                  ObjectText *texts,
+                                  int        text_count,
+                                  int rotation){
 
    SsdWidget button;
    SsdWidget spacer;

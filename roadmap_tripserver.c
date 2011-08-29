@@ -320,6 +320,14 @@ const char* on_get_pois_res(int NumParams,const char*  pData){
 
    roadmap_messagebox_timeout("Favorites", msg, 5);
    roadmap_history_save();
+
+   /*
+    * Request refresh of widget upon saving the favorites
+    */
+#ifdef ANDROID_WIDGET
+      roadmap_appwidget_request_refresh();
+#endif
+
    return pData;
 }
 

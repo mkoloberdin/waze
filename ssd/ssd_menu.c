@@ -499,7 +499,7 @@ SsdWidget ssd_menu_new_grid (const char           *name,
 
     int width  = ssd_container_get_width();
     container = ssd_container_new (name, NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
-                                SSD_ROUNDED_WHITE|SSD_ROUNDED_CORNERS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                                   SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
     //ssd_widget_set_color (dialog, NULL, NULL);
     ssd_widget_set_color (container, NULL, NULL);
    //add additional container
@@ -611,6 +611,8 @@ SsdWidget ssd_menu_new_cb (const char           *name,
                                int                   flags,
                                PFN_ON_DIALOG_CLOSED on_dialog_closed) {
 
+   const char *edit_button_r[] = {"edit_right", "edit_right"};
+   const char *edit_button_l[] = {"edit_left", "edit_left"};
    SsdWidget container;
    int i;
    int next_item_flags = 0;
@@ -661,7 +663,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
    	SsdWidget space;
       int width  = ssd_container_get_width();
       container = ssd_container_new (name, NULL, width, SSD_MIN_SIZE,
-                                  SSD_ROUNDED_WHITE|SSD_ROUNDED_CORNERS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                                     SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
       //ssd_widget_set_color (dialog, NULL, NULL);
       ssd_widget_set_color (container, NULL, NULL);
 	  //add additional container
@@ -744,7 +746,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
                                          SSD_MIN_SIZE,
                                          SSD_ALIGN_VCENTER|SSD_END_ROW);
 
-            ssd_widget_set_color (text_box, "#000000", NULL);
+            ssd_widget_set_color (text_box, NULL, NULL);
 
             text = ssd_text_new ("label_long",
                                 roadmap_lang_get (this_action->label_long),
@@ -757,12 +759,15 @@ SsdWidget ssd_menu_new_cb (const char           *name,
             ssd_widget_add (w, text_box);
 
 	         ssd_widget_add (container, w);
-	         ssd_widget_add(container, ssd_separator_new("Separator",0));
+            if (menu_items[i+1] != NULL)
+               ssd_widget_add(container, ssd_separator_new("Separator",0));
 
+#ifndef ANDROID
             if (menu_items[i+1] == NULL){
                SsdWidget w = ssd_container_new ("cancel", NULL,
                                  SSD_MAX_SIZE, row_height,
                                  SSD_WS_TABSTOP|next_item_flags);
+               ssd_widget_add(container, ssd_separator_new("Separator",0));
                ssd_widget_set_color (w, NULL, NULL);
                w->short_click = on_cancel;
                w->pointer_down = on_pointer_down;
@@ -770,11 +775,11 @@ SsdWidget ssd_menu_new_cb (const char           *name,
                ssd_widget_set_pointer_force_click(w);
                text = ssd_text_new("cancel", roadmap_lang_get("Cancel"), SSD_MAIN_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
                ssd_widget_set_color(text, "#ffffff","#ffffff");
-			      ssd_widget_set_pointer_force_click(w);
+               ssd_widget_set_pointer_force_click(w);
                ssd_widget_add(w, text);
                ssd_widget_add (container, w);
             }
-
+#endif
       	 }
       	 else{
          SsdWidget text_box,button_container,button;
@@ -825,7 +830,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
            text = ssd_text_new ("label_long",
                                 roadmap_lang_get (this_action->label_long),
                                 SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT);
-           ssd_widget_set_color(text, "#000000","#ffffff");
+           ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
            ssd_widget_add (text_box, text);
            text = ssd_text_new ("right_text",
                           "",
@@ -837,6 +842,18 @@ SsdWidget ssd_menu_new_cb (const char           *name,
            ssd_widget_set_color(text, "#206892","#ffffff");
            ssd_widget_add (w, text);
            ssd_widget_add (w, text_box);
+           if (!ssd_widget_rtl(NULL))
+              button = ssd_button_new ("edit_button", "", &edit_button_r[0], 2,
+                       SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL);
+           else
+              button = ssd_button_new ("edit_button", "", &edit_button_l[0], 2,
+                       SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL);
+           if (!ssd_widget_rtl(NULL))
+              ssd_widget_set_offset(button, -10, 0);
+           else
+              ssd_widget_set_offset(button, 11, 0);
+           ssd_widget_add(w, button);
+
          ssd_widget_add (container, w);
          if (menu_items[i+1] != NULL){
             ssd_widget_add(container, ssd_separator_new("Separator",SSD_END_ROW));

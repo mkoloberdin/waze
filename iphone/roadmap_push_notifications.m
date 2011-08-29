@@ -45,8 +45,6 @@ static RoadMapConfigDescriptor RoadMapConfigPushUpdates =
 static RoadMapConfigDescriptor RoadMapConfigPushFriends =
       ROADMAP_CONFIG_ITEM("Push Notifications", "Friends");
 
-extern RoadMapConfigDescriptor NavigateConfigNavigationGuidance;
-
 enum IDs {
 	ID_SCORE,
 	ID_UPDATES,

@@ -44,7 +44,7 @@ int ssd_button_change_icon( SsdWidget widget, const char **bitmap_names, int num
 int ssd_button_change_images( SsdWidget widget, RoadMapImage* bitmap_images, const char **bitmap_names, int num_bitmaps );
 void ssd_button_change_text(SsdWidget this, const char * newText); // sets the text of the label
 const char *ssd_button_get_name(SsdWidget widget);
-
+void ssd_button_set_selected (SsdWidget widget);
 void ssd_button_enable(SsdWidget widget);
 void ssd_button_disable(SsdWidget widget);
 #endif // __SSD_WIDGET_BUTTON_H_

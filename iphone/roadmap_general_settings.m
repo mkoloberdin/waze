@@ -44,7 +44,8 @@
 #include "Realtime.h"
 #include "roadmap_push_notifications.h"
 #include "roadmap_messagebox.h"
-
+#include "tts.h"
+#include "tts_ui.h"
 
 #define CLOCK_SETTINGS_12_HOUR "12 hr."
 #define CLOCK_SETTINGS_24_HOUR "24 hr."
@@ -70,6 +71,8 @@ RoadMapConfigDescriptor RoadMapConfigEventsRadius =
 RoadMapConfigDescriptor RoadMapConfigClockFormat = 
       ROADMAP_CONFIG_ITEM("Clock","Format");
 
+extern RoadMapConfigDescriptor NavigateConfigNavigationGuidanceType;
+
 
 
 enum IDs {
@@ -81,6 +84,7 @@ enum IDs {
    ID_SHOW_ICONS,
    ID_LANGUAGES,
    ID_PROMPTS,
+   ID_TTS_VOICES,
    ID_CLOCK_FORMAT,
    ID_SUGGEST_ROUTES,
    ID_REDIRECT_SPEAKER,
@@ -237,6 +241,47 @@ static void show_prompts() {
                   activateWithTitle:text andData:dataArray andHeaders:NULL
                   andCallback:prompts_callback andHeight:60 andFlags:0];
    
+}
+
+static void tts_callback (int value, int group) {
+   const void ** tts_values = tts_ui_voices_values();
+   tts_set_voice( tts_values[value] );
+   roadmap_main_pop_view(YES);
+}
+
+static void show_tts_voices() {
+   const void ** tts_values = tts_ui_voices_values();
+   const char ** tts_labels = tts_ui_voices_labels();
+   int tts_count = tts_ui_count();   
+   int i;
+   
+   NSMutableArray *dataArray = [NSMutableArray arrayWithCapacity:1];
+	NSMutableArray *groupArray = NULL;
+   NSMutableDictionary *dict = NULL;
+   NSString *text;
+   NSNumber *accessoryType = [NSNumber numberWithInt:UITableViewCellAccessoryCheckmark];
+   RoadMapChecklist *ttsView;
+   
+   groupArray = [NSMutableArray arrayWithCapacity:1];
+   
+   for (i = 0; i < tts_count; ++i) {
+      dict = [NSMutableDictionary dictionaryWithCapacity:1];
+      text = [NSString stringWithUTF8String:roadmap_lang_get(tts_labels[i])];
+      [dict setValue:text forKey:@"text"];
+      if (tts_enabled()) {
+         if (strcmp(tts_values[i], tts_ui_voice_value( tts_voice_id() )) == 0) {
+            [dict setObject:accessoryType forKey:@"accessory"];
+         }
+      }
+      [dict setValue:[NSNumber numberWithInt:1] forKey:@"selectable"];
+      [groupArray addObject:dict];
+   }
+   [dataArray addObject:groupArray];
+   
+   text = [NSString stringWithUTF8String:roadmap_lang_get ("Prompts")];
+	ttsView = [[RoadMapChecklist alloc] 
+              activateWithTitle:text andData:dataArray andHeaders:NULL
+              andCallback:tts_callback andHeight:60 andFlags:0];
 }
 
 static void zoom_callback (int value, int group) {
@@ -441,7 +486,13 @@ void roadmap_general_settings_show (void) {
                                       (roadmap_prompts_get_label(roadmap_prompts_get_name()))];
       [cell setNeedsLayout];
    }
-      
+   
+   cell = (iphoneCell *)[tableView viewWithTag:ID_TTS_VOICES];
+   if (cell && tts_enabled()){
+      cell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                              (tts_ui_voice_label( tts_voice_id() ))];
+      [cell setNeedsLayout];
+   }
 }
 
 - (void) viewDidLoad
@@ -476,6 +527,7 @@ void roadmap_general_settings_show (void) {
 	
    int lang_count = roadmap_lang_get_available_langs_count();
    int prompts_count = roadmap_prompts_get_count();
+   int tts_voices_count = tts_ui_count();
    
    //Group #1
    groupArray = [NSMutableArray arrayWithCapacity:1];
@@ -492,16 +544,31 @@ void roadmap_general_settings_show (void) {
       [groupArray addObject:callbackCell];
    }
    
-   //Prompts
-   if (prompts_count > 0){
-      callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
-      [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
-      [callbackCell setTag:ID_PROMPTS];
-      id_callbacks[ID_PROMPTS] = show_prompts;
-      callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Prompts")];
-      callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
-                                      (roadmap_prompts_get_label(roadmap_prompts_get_name()))];
-      [groupArray addObject:callbackCell];
+   if (roadmap_config_match(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_NATURAL)) {
+      //Prompts
+      if (prompts_count > 0){
+         callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+         [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+         [callbackCell setTag:ID_PROMPTS];
+         id_callbacks[ID_PROMPTS] = show_prompts;
+         callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Prompts")];
+         callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                         (roadmap_prompts_get_label(roadmap_prompts_get_name()))];
+         [groupArray addObject:callbackCell];
+      }
+   } else if (roadmap_config_match(&NavigateConfigNavigationGuidanceType, NAV_CFG_GUIDANCE_TYPE_TTS)) {
+      //TTS Voices
+      if (tts_voices_count > 0){
+         callbackCell = [[[iphoneCell alloc] initWithFrame:CGRectZero reuseIdentifier:@"actionCell"] autorelease];
+         [callbackCell setAccessoryType:UITableViewCellAccessoryDisclosureIndicator];
+         [callbackCell setTag:ID_TTS_VOICES];
+         id_callbacks[ID_TTS_VOICES] = show_tts_voices;
+         callbackCell.textLabel.text = [NSString stringWithUTF8String:roadmap_lang_get ("Prompts")];
+         if (tts_enabled())
+            callbackCell.rightLabel.text = [NSString stringWithUTF8String:roadmap_lang_get 
+                                            (tts_ui_voice_label( tts_voice_id() ))];
+         [groupArray addObject:callbackCell];
+      }
    }
    
    //Units

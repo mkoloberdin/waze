@@ -34,6 +34,8 @@
 
 #define DECLARE_ROADMAP_MATH
 
+//#define USE_SERVER_ZOOM
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -65,11 +67,19 @@
 
 static zoom_t overide_min_zoom = -1;
 
-static RoadMapConfigDescriptor RoadMapConfigGeneralDefaultZoom =
-                        ROADMAP_CONFIG_ITEM("General", "Default Zoom");
 
 static RoadMapConfigDescriptor RoadMapConfigGeneralZoom =
                         ROADMAP_CONFIG_ITEM("General", "Zoom");
+
+#ifdef USE_SERVER_ZOOM
+static RoadMapConfigDescriptor RoadMapConfigGeneralDefaultZoom =
+                        ROADMAP_CONFIG_ITEM("General", "Default Zoom");
+#else
+
+static RoadMapConfigDescriptor RoadMapConfigGeneralDefaultZoom =
+                        ROADMAP_CONFIG_ITEM("General", "Primary Zoom");
+#endif
+
 
 static RoadMapUnitChangeCallback sUnitChangeCb = NULL;
 
@@ -888,8 +898,9 @@ void roadmap_math_initialize (void) {
     memset(&RoadMapContext, 0, sizeof(RoadMapContext));
 
     roadmap_config_declare ("session", &RoadMapConfigGeneralZoom, "100", NULL);
+
     roadmap_config_declare
-        ("preferences", &RoadMapConfigGeneralDefaultZoom, "20", NULL);
+        ("preferences", &RoadMapConfigGeneralDefaultZoom, "100", NULL);
 
     roadmap_state_add ("zoom_reset", &roadmap_math_zoom_state);
 
@@ -1034,10 +1045,15 @@ int roadmap_math_get_visible_coordinates (const RoadMapPosition *from,
    return 1;
 }
 
-void roadmap_math_restore_zoom (void) {
+void roadmap_math_restore_zoom ( BOOL use_saved ) {
 
-    RoadMapContext.zoom =
-        roadmap_config_get_integer (&RoadMapConfigGeneralZoom);
+   RoadMapContext.zoom = 0;
+
+   if ( use_saved )
+   {
+      RoadMapContext.zoom = roadmap_config_get_integer (&RoadMapConfigGeneralZoom);
+   }
+
     if (RoadMapContext.zoom == 0) {
          RoadMapContext.zoom =
             roadmap_config_get_integer (&RoadMapConfigGeneralDefaultZoom);

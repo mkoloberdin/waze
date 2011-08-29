@@ -114,9 +114,17 @@ static void *load_resource (unsigned int type, unsigned int flags,
          switch (type) {
             case RES_BITMAP:
                *mem = 0;
-
+#ifdef ANDROID
+               data = roadmap_canvas_load_image ( NULL, name );
+#else
                data = roadmap_canvas_load_image (cursor, name);
+#endif
                break;
+#ifdef OGL_TILE
+            case RES_PATTERN:
+               data = roadmap_canvas_load_image_pattern (cursor, name);
+               break;
+#endif //OGL_TILE
             case RES_SOUND:
                data = roadmap_sound_load (cursor, name, mem);
                break;
@@ -237,6 +245,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
 
    switch (type) {
    case RES_BITMAP:
+   case RES_PATTERN:
    case RES_NATIVE_IMAGE:
       if ( strchr (name, '.') )
       {

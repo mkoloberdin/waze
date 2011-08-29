@@ -23,7 +23,9 @@
  */
 
 #include <string.h>
+#include "roadmap_main.h"
 #include "navigate_route_trans.h"
+#include "navigate_route_events.h"
 #include "roadmap_time.h"
 #include "navigate_instr.h"
 #include "navigate_cost.h"
@@ -34,10 +36,19 @@
 #include "roadmap_tile_status.h"
 #include "roadmap_messagebox.h"
 #include "roadmap_social.h"
+#include "roadmap_math.h"
+#ifdef IPHONE
+#include "roadmap_location.h"
+#endif
+#include "roadmap_navigate.h"
 #include "roadmap_analytics.h"
 #include "Realtime/Realtime.h"
+#include "Realtime/RealtimeAlerts.h"
 
-#define	MAX_RESULTS		10
+#define	MAX_RESULTS          10
+#define  MAX_ROUTING_RETRIES  3
+
+static int NavigateRetryTime[] = {1000, 3000, 6000}; //Must be size of MAX_ROUTING_RETRIES
 
 typedef struct {
 
@@ -52,10 +63,23 @@ typedef struct {
 	NavigateRouteRC					route_rc;
 	NavigateRouteResult				result[MAX_RESULTS];
 	NavigateRouteSegments			route;
-	RoadMapPosition					pos_src;
-	RoadMapPosition					pos_dst;
+	RoadMapPosition					from_pos;
+	RoadMapPosition					to_pos;
 	const NavigateRouteCallbacks	*callbacks;
 	uint32_t                      request_time;
+   int                           num_retries;
+   PluginLine                    from_line;
+   int                           from_point;
+   PluginLine                    *to_line;
+   char                          *to_street;
+   char                          *to_street_number;
+   char                          *to_city;
+   char                          *to_state;
+   int                           twitter_mode;
+   int                           facebook_mode;
+   int                           trip_id;
+   int                           max_routes;
+   int									num_events;
 } NavigateRoutingContext;
 
 
@@ -101,6 +125,9 @@ enum RoutingAttributes {
 
 static void instrument_segments_cb (int tile_id);
 
+extern RoadMapGpsPosition NavigateLatestGpsPosition;
+extern int                NavigateLatestCompass;
+
 
 static void free_result (int iresult)
 {
@@ -125,21 +152,46 @@ static void clear_result (int iresult)
    RoutingContext.result[iresult].alt_id = 0;
 }
 
-
-static void navigate_route_free_context (void)
+static void clear_old_results (void)
 {
-	int i;
-
+   int i;
+   
 	if (RoutingContext.route.segments) {
       for (i = 0; i < RoutingContext.route.num_received; i++) {
          free (RoutingContext.route.segments[i].dest_name);
       }
 	   free (RoutingContext.route.segments);
-	   RoutingContext.route.segments = NULL;
+	   RoutingContext.route.segments = NULL;      
 	}
 	for (i = 0; i < MAX_RESULTS; i++) {
 		free_result (i);
+      RoutingContext.result[i].geometry.num_points = 0;
 	}
+   
+   
+   memset (&RoutingContext.route, 0, sizeof (RoutingContext.route));
+   RoutingContext.num_received = 0;
+   RoutingContext.num_results = 0;
+   RoutingContext.num_geometries = 0;
+   
+}
+
+static void navigate_route_free_context (void)
+{
+	clear_old_results();
+   
+   if (!(RoutingContext.flags & RETRY_ROUTE_REQUEST)) {
+      if (RoutingContext.to_street)
+         free(RoutingContext.to_street);
+      if (RoutingContext.to_street_number)
+         free(RoutingContext.to_street_number);
+      if (RoutingContext.to_city)
+         free(RoutingContext.to_city);
+      if (RoutingContext.to_state)
+         free(RoutingContext.to_state);
+      if (RoutingContext.to_line)
+         free(RoutingContext.to_line);
+   }
 }
 
 static void navigate_route_init_context (void)
@@ -165,6 +217,18 @@ static void navigate_route_clear_context (void)
 
 	memset (&RoutingContext, 0, sizeof (RoutingContext));
 	RoutingContext.route_id = last_route_id;
+}
+
+static void navigate_route_set_retry (void)
+{
+	int last_route_id = RoutingContext.route_id;
+   
+	if (last_route_id > 0) {
+		navigate_route_free_context ();
+	}
+   
+	RoutingContext.route_id = last_route_id;
+   RoutingContext.route_rc = route_succeeded;
 }
 
 static void assign_group_ids (void)
@@ -259,7 +323,7 @@ static void instrument_segments (int initial)
       roadmap_log (ROADMAP_DEBUG, "Skipping segment instrumentation because not all segments have been received yet");
       return;
    }
-
+   
 	if (initial) {
 		request_first_tiles ();
 	}
@@ -425,9 +489,9 @@ static void instrument_segments (int initial)
 			 (next_segment == NULL || next_segment->distance == 0)) {
 
 		   if (segment->line_direction == ROUTE_DIRECTION_WITH_LINE) {
-		      navigate_instr_fix_line_end (&RoutingContext.pos_src, segment, LINE_START);
+		      navigate_instr_fix_line_end (&RoutingContext.from_pos, segment, LINE_START);
 		   } else {
-		      navigate_instr_fix_line_end (&RoutingContext.pos_src, segment, LINE_END);
+		      navigate_instr_fix_line_end (&RoutingContext.from_pos, segment, LINE_END);
 		   }
 		}
 
@@ -435,9 +499,9 @@ static void instrument_segments (int initial)
 			 (next_segment == NULL || next_segment->distance == 0)) {
 
 		   if (segment->line_direction == ROUTE_DIRECTION_WITH_LINE) {
-		      navigate_instr_fix_line_end (&RoutingContext.pos_dst, segment, LINE_END);
+		      navigate_instr_fix_line_end (&RoutingContext.to_pos, segment, LINE_END);
 		   } else {
-		      navigate_instr_fix_line_end (&RoutingContext.pos_dst, segment, LINE_START);
+		      navigate_instr_fix_line_end (&RoutingContext.to_pos, segment, LINE_START);
 		   }
 		}
 
@@ -450,6 +514,10 @@ static void instrument_segments (int initial)
 		if (i == RoutingContext.route.next_to_instrument) {
 			RoutingContext.route.next_to_instrument++;
 		}
+
+		if( RoutingContext.callbacks->on_instrumented_segment )
+		   RoutingContext.callbacks->on_instrumented_segment( segment );
+
 	}
 	roadmap_log (ROADMAP_INFO, "done: total %d/%d instrumented", RoutingContext.route.num_instrumented, RoutingContext.route.num_segments);
 
@@ -595,18 +663,57 @@ static int verify_alt_id (const char **data, roadmap_result *rc)
 	return i;
 }
 
-
-static void routing_error (const char *description)
-{
-	roadmap_messagebox_timeout("Oops", description, 5);
-	roadmap_analytics_log_event (ANALYTICS_EVENT_ROUTE_ERROR, ANALYTICS_EVENT_INFO_ERROR,  description);
+static void navigate_route_retry_periodic(void) {
+   roadmap_main_remove_periodic(navigate_route_retry_periodic);
    
-	if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_results) {
-		RoutingContext.callbacks->on_results (RoutingContext.route_rc, 0, NULL);
+   if (RoutingContext.flags & RETRY_ROUTE_REQUEST) {
+      RoutingContext.num_retries++;
+      roadmap_log(ROADMAP_WARNING, "navigate_route - retrying route request (retry #%d)", RoutingContext.num_retries);
+      
+      navigate_route_request (&RoutingContext.from_line,
+                              RoutingContext.from_point,
+                              RoutingContext.to_line,
+                              &RoutingContext.from_pos,
+                              &RoutingContext.to_pos,
+                              RoutingContext.to_street,
+                              RoutingContext.to_street_number,
+                              RoutingContext.to_city,
+                              RoutingContext.to_state,
+                              RoutingContext.twitter_mode,
+                              RoutingContext.facebook_mode,
+                              RoutingContext.flags,
+                              RoutingContext.trip_id,
+                              RoutingContext.max_routes,
+                              RoutingContext.callbacks);
    }
-	else if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_segments) {
-		RoutingContext.callbacks->on_segments (RoutingContext.route_rc, NULL, NULL);
-	}
+}
+
+static void routing_error (const char *description, int error_code)
+{
+   int request_interval_ms = roadmap_time_get_millis() - RoutingContext.request_time;
+   int retry_timer;
+   
+   roadmap_log(ROADMAP_WARNING, "routing_error - '%s' (%d)", description, error_code);
+   
+   if (RoutingContext.num_retries < MAX_ROUTING_RETRIES &&
+       error_code >= 500 &&
+       request_interval_ms < 30000) {
+      RoutingContext.flags |= RETRY_ROUTE_REQUEST;
+      retry_timer = NavigateRetryTime[RoutingContext.num_retries] - request_interval_ms;
+      if (retry_timer < 1000)
+         retry_timer = 1000;
+      roadmap_main_set_periodic(retry_timer, navigate_route_retry_periodic);
+   } else {
+      roadmap_messagebox_timeout("Oops", description, 5);
+      roadmap_analytics_log_event (ANALYTICS_EVENT_ROUTE_ERROR, ANALYTICS_EVENT_INFO_ERROR,  description);
+      
+      if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_results) {
+         RoutingContext.callbacks->on_results (RoutingContext.route_rc, 0, NULL);
+      }
+      else if (RoutingContext.callbacks && RoutingContext.callbacks && RoutingContext.callbacks->on_segments) {
+         RoutingContext.callbacks->on_segments (RoutingContext.route_rc, NULL, NULL);
+      }
+   }
 }
 
 
@@ -617,6 +724,8 @@ const char *on_routing_response_code (/* IN  */   const char*       data,
 {
 	char description[1000];
 	int size = sizeof (description);
+
+   clear_old_results(); //In case request was restarted by web service
 
    // Default error for early exit:
    (*rc) = err_parser_unexpected_data;
@@ -673,7 +782,7 @@ const char *on_routing_response_code (/* IN  */   const char*       data,
 
 		if (RoutingContext.rc != 200) {
 	      //TODO move all error handling to RoutingContext.callbacks->on_rc
-	      routing_error (description);
+	      routing_error (description, RoutingContext.rc);
 	   }
 		else{
 		    roadmap_analytics_log_int_event (ANALYTICS_EVENT_ROUTE_RESULT, ANALYTICS_EVENT_INFO_TIME, ((roadmap_time_get_millis() - RoutingContext.request_time) /500)*500);
@@ -728,6 +837,7 @@ const char *on_routing_response (/* IN  */   const char*       data,
    		// override original result
    		RoutingContext.next_result = 0;
    		RoutingContext.num_received = 1;
+   		navigate_main_save_eta();
    		break;
    	case ROUTE_ALTERNATIVE:
    		// create second alternative
@@ -867,6 +977,18 @@ const char *on_routing_response (/* IN  */   const char*       data,
       roadmap_log (ROADMAP_ERROR, "on_routing_response() - Failed to read 'Origin'");
       return NULL;
    }
+
+   	// num_responses
+   	data = ReadIntFromString(  data,          					//   [in]      Source string
+                              ",\r\n",           					//   [in,opt]  Value termination
+                              NULL,          					//   [in,opt]  Allowed padding
+                              &RoutingContext.num_events,	//   [out]     Output value
+                              TRIM_ALL_CHARS);            					//   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   	if (!data) {
+   		roadmap_log (ROADMAP_ERROR, "on_routing_response() - Failed to read 'num_events'");
+   		return NULL;
+   	}
 
    // Fix [out] param:
    (*rc) = succeeded;
@@ -1055,6 +1177,203 @@ static void adjust_segment_times (int i_segment, int length, int cross_time)
 	}
 }
 
+const char *on_route_events (/* IN  */   const char*       data,
+                               /* IN  */   void*             context,
+                               /* OUT */   BOOL*             more_data_needed,
+                               /* OUT */   roadmap_result*   rc)
+{
+	event_on_route_info event;
+	int iBufferSize;
+
+   // Default error for early exit:
+   (*rc) = err_parser_unexpected_data;
+
+	events_on_route_clear_record(&event);
+
+
+//   // route_id
+//   if (!verify_route_id (&data, rc)){
+//   	roadmap_log (ROADMAP_ERROR, "on_route_events() -verify_route_id failed!");
+//   	return data;
+//   }
+//TEMP_AVI
+   // TEMP_AVI
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iAltRouteID,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'alt route ID'");
+      return NULL;
+   }
+
+
+   // Alt ID
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iAltRouteID,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'alt route ID'");
+      return NULL;
+   }
+
+   // Alert ID
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iAlertId,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'alt route ID'");
+      return NULL;
+   }
+
+   // Type
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                              ",",     //   [in,opt]  Value termination
+                              NULL,    //   [in,opt]  Allowed padding
+                              &event.iType,	//   [out]     Output value
+                              1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'type'");
+      return NULL;
+   }
+
+   // Sub-Type
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                               ",",     //   [in,opt]  Value termination
+                               NULL,    //   [in,opt]  Allowed padding
+                               &event.iSubType,	//   [out]     Output value
+                               1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+       roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'sub-type'");
+       return NULL;
+   }
+
+   //   addon Name
+   iBufferSize = RT_ALERTS_MAX_ADD_ON_NAME;
+   data       = ExtractNetworkString(
+               data,               // [in]     Source string
+               event.sAddOnName,  // [out,opt]Output buffer
+               &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+               ",",                 // [in]     Array of chars to terminate the copy operation
+               1);                  // [in]     Remove additional termination chars
+
+   if( !data)
+   {
+      roadmap_log( ROADMAP_ERROR, "on_route_events - Failed to read AddonName");
+      return NULL;
+   }
+
+   // Severity
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iSeverity,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'severity'");
+      return NULL;
+   }
+
+   // positionStart Longitude
+     data = ReadIntFromString(
+     					data,            //   [in]      Source string
+                    ",",              //   [in,opt]   Value termination
+                    NULL,             //   [in,opt]   Allowed padding
+                    &event.positionStart.longitude,      //   [out]      Put it here
+                    1);               //   [in]      Remove additional termination CHARS
+
+     if( !data || !(*data))
+     {
+        roadmap_log( ROADMAP_ERROR, "on_route_events()  Failed to read positionStart longitude");
+        return NULL;
+     }
+
+     //  positionStart Latitude
+     data = ReadIntFromString(
+     				  data,             //   [in]      Source string
+                 ",",              //   [in,opt]   Value termination
+                 NULL,             //   [in,opt]   Allowed padding
+                 &event.positionStart.latitude,        //   [out]      Put it here
+                 1);               //   [in]      Remove additional termination CHARS
+
+     if( !data || !(*data))
+     {
+        roadmap_log( ROADMAP_ERROR, "on_route_events - Failed to read positionStart latitude");
+        return NULL;
+     }
+
+     // positionEnd Longitude
+     data = ReadIntFromString(
+       					data,            //   [in]      Source string
+                      ",",              //   [in,opt]   Value termination
+                      NULL,             //   [in,opt]   Allowed padding
+                      &event.positionEnd.longitude,      //   [out]      Put it here
+                      1);               //   [in]      Remove additional termination CHARS
+
+     if( !data || !(*data))
+     {
+        roadmap_log( ROADMAP_ERROR, "on_route_events()  Failed to read positionEnd longitude");
+        return NULL;
+     }
+
+     //  positionEnd Latitude
+     data = ReadIntFromString(
+     				data,            //   [in]      Source string
+                 ",",              //   [in,opt]   Value termination
+                 NULL,             //   [in,opt]   Allowed padding
+                 &event.positionEnd.latitude,        //   [out]      Put it here
+                 1);               //   [in]      Remove additional termination CHARS
+
+     if( !data || !(*data))
+     {
+        roadmap_log( ROADMAP_ERROR, "on_route_events - Failed to read positionEnd latitude");
+        return NULL;
+     }
+
+   // PromilleStart
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iStart,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'PromilleStart'");
+      return NULL;
+   }
+   event.iStart = event.iStart / 10;
+
+   // PromilleEnd
+   data = ReadIntFromString(  data,    //   [in]      Source string
+                                ",\r\n",     //   [in,opt]  Value termination
+                                NULL,    //   [in,opt]  Allowed padding
+                                &event.iEnd,	//   [out]     Output value
+                                1);      //   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   if (!data) {
+      roadmap_log (ROADMAP_ERROR, "on_route_events() - Failed to read 'PromilleStart'");
+      return NULL;
+   }
+   event.iEnd = event.iEnd / 10;
+
+
+   (*rc) = succeeded;
+
+
+   //events_on_route_add(&event);
+   return data;
+}
 
 const char *on_route_segments (/* IN  */   const char*       data,
                                /* IN  */   void*             context,
@@ -1379,6 +1698,7 @@ const char *on_route_segments (/* IN  */   const char*       data,
       return NULL;
    }
 
+   roadmap_main_remove_periodic(navigate_route_retry_periodic);
 	on_route_complete ();
 
    // Fix [out] param:
@@ -1414,18 +1734,61 @@ void navigate_route_request (const PluginLine *from_line,
 	int num_options = 0;
 	int route_type;
 	BOOL bRes;
+   BOOL bFrAllowBidi = FALSE;
+   NavigateLocationInfo location_info;
+   RoadMapGpsPosition *last_pos;
+   
+	//events_on_route_clear();
 
-	if (flags & RECALC_ROUTE) {
-		navigate_route_clear_context ();
-	} else {
 
-		roadmap_log(ROADMAP_DEBUG, "calling navigate_route_init_context from navigate_route_request()");
-		navigate_route_init_context ();
-	}
+   if (!(flags & RETRY_ROUTE_REQUEST)) {
+      roadmap_main_remove_periodic(navigate_route_retry_periodic); //in case we have retries in progress
+      
+      if (flags & RECALC_ROUTE) {
+         navigate_route_clear_context ();
+      } else {
+         
+         roadmap_log(ROADMAP_DEBUG, "calling navigate_route_init_context from navigate_route_request()");
+         navigate_route_init_context ();
+      }
+      
+      RoutingContext.from_line = *from_line;
+      RoutingContext.from_point = from_point;
+      if (to_line) {
+         RoutingContext.to_line = malloc(sizeof(PluginLine));
+         *RoutingContext.to_line = *to_line;
+      } else {
+         RoutingContext.to_line = NULL;
+      }
+      RoutingContext.from_pos = *from_pos;
+      RoutingContext.to_pos = *to_pos;
+      if (to_street)
+         RoutingContext.to_street = strdup(to_street);
+      else
+         RoutingContext.to_street = NULL;
+      if (to_street_number)
+         RoutingContext.to_street_number = strdup(to_street_number);
+      else
+         RoutingContext.to_street_number = NULL;
+      if (to_city)
+         RoutingContext.to_city = strdup(to_city);
+      else
+         RoutingContext.to_city = NULL;
+      if (to_state)
+         RoutingContext.to_state = strdup(to_state);
+      else
+         RoutingContext.to_state = NULL;
+      RoutingContext.twitter_mode = twitter_mode;
+      RoutingContext.facebook_mode = facebook_mode;
+      RoutingContext.flags = flags;
+      RoutingContext.trip_id = trip_id;
+      RoutingContext.max_routes = max_routes;
+      RoutingContext.callbacks = cb;
+   } else {
+      navigate_route_set_retry();
+   }
 
-	RoutingContext.callbacks = cb;
-	RoutingContext.pos_src = *from_pos;
-	RoutingContext.pos_dst = *to_pos;
+	
 
 	if (from_line && (from_line->line_id != -1)){
 	   roadmap_square_set_current (from_line->square);
@@ -1445,6 +1808,7 @@ void navigate_route_request (const PluginLine *from_line,
 	   from_point_ids[0] = -1;
 	   from_point_ids[1] = -1;
 	   from_street = "";
+      bFrAllowBidi = TRUE;
 	}
 	roadmap_log (ROADMAP_DEBUG, "Fr: %d - %d (%s)", from_point_ids[0], from_point_ids[1], from_street);
 
@@ -1540,49 +1904,83 @@ void navigate_route_request (const PluginLine *from_line,
    	max_routes = MAX_RESULTS - 1;
    }
 
-   RoutingContext.flags = flags;
    RoutingContext.request_time = roadmap_time_get_millis();
+   
+   //Location and heading info
+   location_info.cur_satellites = roadmap_gps_get_satellites();
+   location_info.cur_accuracy = NavigateLatestGpsPosition.accuracy;
+   location_info.cur_heading = NavigateLatestGpsPosition.steering;
+   if (location_info.cur_heading == INVALID_STEERING)
+      location_info.cur_heading = -1;
+   else
+      roadmap_math_normalize_orientation(&location_info.cur_heading);
+   //todo: normalize heading
+   location_info.cur_compass = NavigateLatestCompass;
+#ifdef IPHONE
+   if (roadmap_location_is_accelerometer_available()) {
+      roadmap_location_get_acceleration(&location_info.cur_gyro_x, &location_info.cur_gyro_y, &location_info.cur_gyro_z);
+   } else {
+      location_info.cur_gyro_x = location_info.cur_gyro_y = location_info.cur_gyro_z = -1;
+   }
+#else
+   location_info.cur_gyro_x = location_info.cur_gyro_y = location_info.cur_gyro_z = -1;
+#endif
 
-   bRes = Realtime_RequestRoute (RoutingContext.route_id,	 //iRoute
-								  route_type,						       //iType
-								  trip_id,							       //iTripId
-								  RoutingContext.alt_id,		       //iAltId
-								  max_routes,						       //nMaxRoutes
-								  -1,									       //nMaxSegments
-								  1000,								       //nMaxPoints
-								  *from_pos,						       //posFrom
-								  -1,									       //iFrSegmentId
-								  from_point_ids,					       //iFrNodeId[2]
-								  from_street,						       //szFrStreet
-								  FALSE,								       //bFrAllowBidi
-								  *to_pos,							       //posTo
-								  -1,									       //iToSegmentId
-								  to_point_ids,					       //iToNodeId[2]
-								  to_street,						       //szToStreet
-								  to_street_number,                  //szToStreetNumber
-								  to_city,                           //szToCity
-								  to_state,                          //szToState
-								  TRUE,								       //bToAllowBidi
-								  num_options,						       //nOptions
-								  option_types,				          //iOptionNumeral
-								  option_values,					       //bOptionValue
-								  twitter_mode,                      //iTwitterLevel
-								  facebook_mode,                     //iFacebookLevel
-								  (flags & RECALC_ROUTE) ? TRUE : FALSE	//bReRoute
-								  );
+   last_pos = roadmap_navigate_get_last_valid_pos();
+
+   if (last_pos) {
+      location_info.last_pos_lon = last_pos->longitude;
+      location_info.last_pos_lat = last_pos->latitude;
+      location_info.last_heading = last_pos->steering;
+      roadmap_math_normalize_orientation(&location_info.last_heading);
+   } else {
+      location_info.last_pos_lon = location_info.last_pos_lat = last_pos->steering = -1;
+   }
+
+   bRes = Realtime_RequestRoute (RoutingContext.route_id,	       //iRoute
+                                 route_type,						       //iType
+                                 trip_id,							       //iTripId
+                                 RoutingContext.alt_id,		       //iAltId
+                                 max_routes,						       //nMaxRoutes
+                                 -1,									       //nMaxSegments
+                                 1000,								       //nMaxPoints
+                                 *from_pos,						       //posFrom
+                                 -1,									       //iFrSegmentId
+                                 from_point_ids,					       //iFrNodeId[2]
+                                 from_street,						       //szFrStreet
+                                 bFrAllowBidi,                      //bFrAllowBidi
+                                 *to_pos,							       //posTo
+                                 -1,									       //iToSegmentId
+                                 to_point_ids,					       //iToNodeId[2]
+                                 to_street,						       //szToStreet
+                                 to_street_number,                  //szToStreetNumber
+                                 to_city,                           //szToCity
+                                 to_state,                          //szToState
+                                 TRUE,								       //bToAllowBidi
+                                 num_options,						       //nOptions
+                                 option_types,				          //iOptionNumeral
+                                 option_values,					       //bOptionValue
+                                 twitter_mode,                      //iTwitterLevel
+                                 facebook_mode,                     //iFacebookLevel
+                                 (flags & RECALC_ROUTE) ? TRUE : FALSE,	//bReRoute
+                                 location_info,
+                                 (RoutingContext.num_retries > 0) ? TRUE : FALSE);
 
 	if (!bRes) {
-		RoutingContext.rc = 500;
+		RoutingContext.rc = 520;
 		RoutingContext.route_rc = route_server_error;
-		routing_error ("Failed to Communicate with Routing Server");
-	}
+		routing_error ("Failed to Communicate with Routing Server", RoutingContext.rc);
+	}/*AviR: debug else if (RoutingContext.num_retries == 0) {
+      RoutingContext.flags |= RETRY_ROUTE_REQUEST;
+      roadmap_main_set_periodic(1200, navigate_route_retry_periodic);
+   }/*AviR: end_debug*/
 }
 
 void navigate_route_on_response_error (void) {
    //AviR: this is a patch, need to use callback when calling Realtime_RequestRoute()
-   RoutingContext.rc = 500;
+   RoutingContext.rc = 520;
    RoutingContext.route_rc = route_server_error;
-   routing_error ("Failed to Communicate with Routing Server");
+   routing_error ("Failed to Communicate with Routing Server", RoutingContext.rc);
 }
 
 void navigate_route_select (int alt_id)
@@ -1615,6 +2013,7 @@ void navigate_route_select (int alt_id)
 
 void navigate_route_cancel_request (void)
 {
+   roadmap_main_remove_periodic(navigate_route_retry_periodic);
 	roadmap_log(ROADMAP_DEBUG, "calling navigate_route_init_context from navigate_route_cancel_request()");
 	navigate_route_init_context ();
 }

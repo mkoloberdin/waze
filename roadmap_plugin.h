@@ -61,6 +61,8 @@ typedef struct {
    const char *street_t2s;
    const char *city;
    PluginStreet plugin_street;
+   const char *shield_text;
+   const char *shield_type;
 } PluginStreetProperties;
 
 #define PLUGIN_LINE_NULL {-1, -1, -1, -1, -1}

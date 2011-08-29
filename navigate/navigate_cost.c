@@ -44,7 +44,7 @@
 #include "navigate_main.h"
 #include "navigate_graph.h"
 #include "navigate_cost.h"
-
+#include "navigate_route.h"
 #include "ssd/ssd_checkbox.h"
 #include "ssd/ssd_contextmenu.h"
 #include "ssd/ssd_bitmap.h"
@@ -520,7 +520,7 @@ static void on_close_dialog (int exit_code, void* context){
 	if (exit_code == dec_ok){
 		save_changes();
 		if (navigate_main_state() == 0)
-		   navigate_main_calc_route ();
+		   navigate_main_calc_route ( NAV_ROUTE_FLAGS_NONE );
 	}
 #endif
 }
@@ -534,7 +534,7 @@ static const char *trails_value[3];
 
 static void create_ssd_dialog (void) {
 
-   SsdWidget box, box2;
+   SsdWidget box, box2, text;
    SsdWidget container;
 	int tab_flag = SSD_WS_TABSTOP;
 	int width = ssd_container_get_width();
@@ -567,18 +567,18 @@ static void create_ssd_dialog (void) {
 
    //First group
    container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
-                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
    //route preferences
    box = ssd_container_new ("type group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
 
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_set_color (box, NULL, NULL);
 
-   ssd_widget_add (box,
-      ssd_text_new ("type_label",
-                     roadmap_lang_get ("Route preference"),
-                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   text = ssd_text_new ("type_label", roadmap_lang_get ("Route preference"),
+                        SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box,text);
 
     ssd_widget_add (box,
          ssd_choice_new ("type", roadmap_lang_get ("Route preference"), 2,
@@ -592,16 +592,15 @@ static void create_ssd_dialog (void) {
    //dirt roads
    box = ssd_container_new ("avoidtrails group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_set_color (box, NULL, NULL);
 
    box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                              SSD_ALIGN_VCENTER);
    ssd_widget_set_color (box2, NULL, NULL);
-
-   ssd_widget_add (box2,
-      ssd_text_new ("avoidtrails_label",
-                     roadmap_lang_get ("Dirt roads"),
-                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   text = ssd_text_new ("avoidtrails_label", roadmap_lang_get ("Dirt roads"),
+                        SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box2,text);
    ssd_widget_add(box, box2);
 
    ssd_widget_add (box,
@@ -614,7 +613,7 @@ static void create_ssd_dialog (void) {
 
    //Second group
    container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
-                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
    //Minimize turns
    box = ssd_checkbox_row_new("samestreet", roadmap_lang_get ("Minimize turns"),
@@ -744,14 +743,14 @@ static void on_option_selected(  BOOL              made_selection,
       	save_changes();
       	ssd_dialog_hide_current(dec_close);
       	 if (navigate_main_state() == 0)
-      	    navigate_main_calc_route ();
+      	    navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
          break;
 
       case nc_cm_save:
          save_changes();
          ssd_dialog_hide_all(dec_close);
          if (navigate_main_state() == 0)
-            navigate_main_calc_route ();
+            navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
          break;
 
 
@@ -770,7 +769,7 @@ static int on_save(SsdWidget widget, const char *new_value, void *context){
    save_changes();
    ssd_dialog_hide_all(dec_close);
    if (navigate_main_state() == 0)
-      navigate_main_calc_route ();
+      navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
 
 }
 ///////////////////////////////////////////////////////////////////////////////////////////

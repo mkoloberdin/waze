@@ -140,6 +140,7 @@ static SsdWidget create_widget ( const char *name, const char* label_text, int l
 
    label = ssd_text_new( SSD_ENTRY_LABEL_LBL, label_text, label_font,
                                                          SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_TEXT_NORMAL_FONT );
+   ssd_text_set_color(label, SSD_CONTAINER_TEXT_COLOR);
    ssd_widget_add( label_cnt, label );
    ssd_widget_add( group, label_cnt );
 

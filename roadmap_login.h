@@ -81,10 +81,11 @@ void roadmap_login_details_dialog_show( void );
 void roadmap_login_details_dialog_show_un_pw(void);
 BOOL roadmap_login_details_dialog_active( void );
 void roadmap_login_profile_dialog_show( void );
-
+void roadmap_login_get_social_show( void);
 BOOL roadmap_login_validate_email( const char* email );
 BOOL roadmap_login_validate_password( const char* password, const char* confirm_password );
 BOOL roadmap_login_validate_username( const char* username );
+BOOL roadmap_login_validate_nickname( const char* nickname );
 
 BOOL roadmap_login_empty();
 
@@ -107,6 +108,7 @@ void roadmap_login_set_show_function( RoadmapLoginDlgShowFn callback );
 void roadmap_login_on_signup_skip( void );
 int roadmap_login_get_referrers_count (void);
 char *roadmap_login_get_referrer_name (int index);
+int roadmap_login_skip_button_enabled (void);
 
 #ifdef IPHONE
 void roadmap_welcome_wizard_set_first_time_no (void);

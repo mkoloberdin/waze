@@ -41,7 +41,7 @@ BOOL  RTNet_TransactionQueue_ProcessSingleItem( BOOL* pTransactionStarted);
 void  RTNet_TransactionQueue_Clear();
 
 ETransactionStatus   RTNet_GetTransactionState();
-void                 RTNet_AbortTransaction( ETransactionStatus* new_state);
+void                 RTNet_AbortTransaction( ETransactionStatus* new_state, BOOL bStopNow);
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -288,6 +288,8 @@ BOOL RTNet_RequestRoute(LPRTConnectionInfo   pCI,
 								int                  iTwitterLevel,
 								int                  iFacebookLevel,
 								BOOL						bReRoute,
+                        NavigateLocationInfo locationInfo,
+                        BOOL                 bRetry,
                         CB_OnWSTCompleted		pfnOnCompleted);
 
 BOOL	RTNet_SelectRoute	(LPRTConnectionInfo   	pCI,

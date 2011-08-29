@@ -93,6 +93,9 @@ static RoadMapConfigDescriptor RoadMapConfigExternalPoisNumberOfSeconds =
 static RoadMapConfigDescriptor RoadMapConfigExternalPoisMyCouponsURL =
       ROADMAP_CONFIG_ITEM("ExternalPOI", "My Coupons URL");
 
+static RoadMapConfigDescriptor RoadMapConfigExternalPoisNearbyCouponsAndGamesURL =
+      ROADMAP_CONFIG_ITEM("ExternalPOI", "Nearby Coupons and Games URL");
+
 static RoadMapConfigDescriptor RoadMapConfigExternalPoisMyCouponsEnabled =
       ROADMAP_CONFIG_ITEM("ExternalPOI", "My Coupons Enabled");
 
@@ -147,16 +150,18 @@ static int gPromoScrolling = FALSE;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeExternalPoi_FeatureEnabled (void) {
-#ifndef ANDROID
    if (0 == strcmp (roadmap_config_get (&RoadMapConfigExternalPoisFeatureEnabled), "yes")){
       return TRUE;
    }
-#endif
-   return FALSE;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL RealtimeExternalPoi_PopupEnabled (void) {
+
+   // Temporary disabled on ANDROID until caching enabled
+#ifdef ANDROID
+   return FALSE;
+#endif
 
    if (RealtimeExternalPoi_FeatureEnabled() && !strcmp (roadmap_config_get (&RoadMapConfigPopUpPromotionEnabled), "yes"))
       return TRUE;
@@ -343,8 +348,13 @@ const char *RealtimeExternalPoi_GetUrl(void){
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-const char *RealtimeExternalPoi_MyCouponsURL(void){
+static const char *RealtimeExternalPoi_MyCouponsURL(void){
    return roadmap_config_get(&RoadMapConfigExternalPoisMyCouponsURL);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+static const char *RealtimeExternalPoi_NearbyCouponsAndGamesURL(void){
+   return roadmap_config_get(&RoadMapConfigExternalPoisNearbyCouponsAndGamesURL);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -387,11 +397,13 @@ void RealtimeExternalPoi_Init(void){
 
    roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNumberOfSeconds, "15", NULL);
 
-   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbyDisplayTime, "30", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbyDisplayTime, "300", NULL);
 
-   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbySleepTime, "3600", NULL);
+   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbySleepTime, "36000", NULL);
 
    roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisMyCouponsURL, "", NULL);
+
+   roadmap_config_declare ("preferences", &RoadMapConfigExternalPoisNearbyCouponsAndGamesURL, "", NULL);
 
    roadmap_config_declare_enumeration ("preferences", &RoadMapConfigExternalPoisMyCouponsEnabled, NULL, "no", "yes", NULL);
 
@@ -919,16 +931,19 @@ int RealtimeExternalPoi_ExternalPoi_GetIndexById(int iID)
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static void OnPoiShortClick (const char *name,
-                              const char *sprite,
-                              const char *image,
-                              const RoadMapGpsPosition *gps_position,
-                              const RoadMapGuiPoint    *offset,
-                              BOOL is_visible,
-                              int scale,
-                              int opacity,
-                              int scale_y,
-                              const char *id,
-                              const char *text) {
+                             const char *sprite,
+                             RoadMapDynamicString *images,
+                             int  image_count,
+                             const RoadMapGpsPosition *gps_position,
+                             const RoadMapGuiPoint    *offset,
+                             BOOL is_visible,
+                             int scale,
+                             int opacity,
+                             int scale_y,
+                             const char *id,
+                             ObjectText *texts,
+                             int        text_count,
+                             int rotation) {
 
    RTExternalPoi * externalPoi;
    int PoiID = atoi(name);
@@ -1375,8 +1390,29 @@ static void append_current_location( char* buffer)
 static const char *create_my_coupons_url() {
    static char url[1024];
 
-   snprintf(url, sizeof(url),"%s?sessionid=%d&cookie=%s&deviceid=%d&client_version=%s&web_version=%s&lang=%s",
+   snprintf(url, sizeof(url),"%s?sessionid=%d&cookie=%s&deviceid=%d&client_version=%s&web_version=%s&lang=%s&width=%d&height=%d",
             RealtimeExternalPoi_MyCouponsURL(),
+            Realtime_GetServerId(),
+            Realtime_GetServerCookie(),
+            RT_DEVICE_ID,
+            roadmap_start_version(),
+            BROWSER_WEB_VERSION,
+            roadmap_lang_get_system_lang(),
+            roadmap_canvas_width(),
+            roadmap_canvas_height() - roadmap_bar_bottom_height()
+            );
+
+   append_current_location(url + strlen(url));
+
+   return &url[0];
+}
+
+///////////////////////////////////////////////////////////////
+static const char *create_nearby_coupons_and_games_url() {
+   static char url[1024];
+
+   snprintf(url, sizeof(url),"%s?sessionid=%d&cookie=%s&deviceid=%d&client_version=%s&web_version=%s&lang=%s",
+         RealtimeExternalPoi_NearbyCouponsAndGamesURL(),
             Realtime_GetServerId(),
             Realtime_GetServerCookie(),
             RT_DEVICE_ID,
@@ -1409,6 +1445,16 @@ void RealtimeExternalPoi_MyCouponsDlg(void){
 
 
    roadmap_browser_show( "My Coupons", create_my_coupons_url(), NULL, NULL, NULL, BROWSER_BAR_NORMAL );
+
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeExternalPoi_NearbyCouponsAndGamesDlg(void){
+
+
+   roadmap_browser_show( "Nearby Coupons", create_nearby_coupons_and_games_url(), NULL, NULL, NULL, BROWSER_BAR_NORMAL );
 
 
 }

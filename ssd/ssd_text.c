@@ -288,12 +288,30 @@ static int format_text (SsdWidget widget, int draw,
                 }
                 else
                 {
-                   // Truncate from right
-                   line[new_len] = '\0';
-                   if ( new_len>2 )
-                   {
-                     line[new_len-1] = '.';
-                     line[new_len-2] = '.';
+                   int utf8Len = utf8_strlen(line);
+                   int iLen = strlen(line);
+                   if (utf8Len != iLen){
+                         while (utf8Len > new_len/2){
+                               utf8_remove_last_char(line);
+                               utf8Len--;
+                         }
+
+                         if ( (new_len/2)>2 )
+                         {
+                           utf8_remove_last_char(line);
+                           utf8_remove_last_char(line);
+                           strcat(line,"..");
+                         }
+
+                   }
+                   else{
+                      //Truncate from right
+                      line[new_len] = '\0';
+                      if ( new_len>2 )
+                      {
+                        line[new_len-1] = '.';
+                        line[new_len-2] = '.';
+                      }
                    }
                 }
 

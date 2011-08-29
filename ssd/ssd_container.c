@@ -225,9 +225,15 @@ static void draw_bg(RoadMapGuiRect *rect){
 }
 
 static void draw_title (SsdWidget widget, RoadMapGuiRect *rect, int flags){
+#ifdef TOUCH_SCREEN
+   rect->maxy = (rect->maxy - rect->miny);
+   rect->miny = 0;
+   widget->position.y = 0;
+#endif
 	if (!flags & SSD_GET_SIZE)
 		draw_title_bar(rect);
 	draw(widget, rect, flags);
+
 }
 
 
@@ -891,7 +897,7 @@ SsdWidget ssd_container_new (const char *name, const char *title,
    w->pointer_down = on_pointer_down;
 
    if (flags & SSD_CONTAINER_TITLE) {
-       add_title (w, flags);
+         add_title (w, flags);
    }
 
    if ((flags & SSD_CONTAINER_TITLE) || ((flags & SSD_DIALOG_TRANSPARENT) && (flags & SSD_DIALOG_FLOAT))){

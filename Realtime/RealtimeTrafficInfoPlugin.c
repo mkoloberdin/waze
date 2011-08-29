@@ -41,20 +41,25 @@
 #include "roadmap_tile_status.h"
 #include "roadmap_tile_manager.h"
 #include "roadmap_tile.h"
-
+#include "animation/roadmap_animation.h"
 #include "Realtime.h"
 #include "RealtimeTrafficInfo.h"
+#include "roadmap_line_route.h"
 
 static void RealtimeTrafficInfoScreenRepaint (int max_pen);
 static void RealtimeTrafficInfoPaintGeoms (void);
 
-#define TRAFFIC_PEN_WIDTH_BASE 4
+#define TRAFFIC_PEN_WIDTH_BASE 8
 #define TRAFFIC_PEN_WIDTH ( ADJ_SCALE( (TRAFFIC_PEN_WIDTH_BASE) ) )
 #define MAX_SEGEMENTS 2500
 
 static int plugId;
 static  RoadMapPen pens[6];
 static  RoadMapPen speed_text_pen;
+static  int        gDirectionOffset = 0;
+static  BOOL       gIsAnimating = FALSE;
+static const char* TRAFFIC_INFO_OBJECT = "realtime_traffic_info_arrow";
+
 static  RoadMapConfigDescriptor RouteInfoConfigRouteColorBad =
                     ROADMAP_CONFIG_ITEM("TrafficInfo", "RouteColorBad");
 static  RoadMapConfigDescriptor RouteInfoConfigRouteColorMild =
@@ -190,11 +195,75 @@ static void RealtimeTrafficInfoOutlineIterator (int shape, RoadMapPosition *posi
 }
 
 
+#ifdef OPENGL
+static void start_arrow_animation ();
+
+static void animation_set_callback (void *context) {
+   
+   RoadMapAnimation *animation = (RoadMapAnimation *)context;
+   int i;
+   
+   for (i = 0; i < animation->properties_count; i++) {
+      switch (animation->properties[i].type) {
+         case ANIMATION_PROPERTY_POSITION_Y:
+            gDirectionOffset = animation->properties[i].current;
+            break;
+         default:
+            break;
+      }
+   }
+}
+
+static void animation_ended_callback (void *context) {
+   start_arrow_animation();
+}
+
+static RoadMapAnimationCallbacks gTrafficInfoAnimationCallbacks =
+{
+   animation_set_callback,
+   animation_ended_callback
+};
+
+static void stop_arrow_animation (void) {
+   RoadMapAnimation *animation;
+   
+   animation = roadmap_animation_create();
+   if (animation) {
+      snprintf(animation->object_id, ANIMATION_MAX_OBJECT_LENGTH, "%s", TRAFFIC_INFO_OBJECT);
+      roadmap_animation_cancel(animation);
+      gDirectionOffset = 0;
+   }
+}
+
+static void start_arrow_animation () {
+
+#ifdef IPHONE
+   RoadMapAnimation *animation = NULL;
+   animation = roadmap_animation_create();
+   if (animation) {
+      snprintf(animation->object_id, ANIMATION_MAX_OBJECT_LENGTH, "%s", TRAFFIC_INFO_OBJECT);
+      animation->properties_count = 1;
+      
+      //y offset of arrow
+      animation->properties[0].type = ANIMATION_PROPERTY_POSITION_Y;
+      animation->properties[0].from = 0;
+      animation->properties[0].to = 99;
+      animation->duration = 3500;
+      animation->loops = 100; //we will start over when reaching num of loops
+      animation->callbacks = &gTrafficInfoAnimationCallbacks;
+      roadmap_animation_register(animation);
+   }
+#endif
+
+}
+#endif //OPENGL
+
 static void RealtimeTrafficInfoPaintGeoms (void) {
 	
 	int i;
 	int iNumInfo = RTTrafficInfo_Count ();
    int previous_type = -1;
+   BOOL drawn = FALSE;
 	
 	for (i = 0; i < iNumInfo; i++) {
 		RoadMapPen previous_pen;
@@ -231,9 +300,38 @@ static void RealtimeTrafficInfoPaintGeoms (void) {
 	                                 NULL,
 	                                 NULL,
 	                                 NULL);
-	   spCurrentPaintingLine =  NULL;
       
-	}
+#ifdef OPENGL
+      if (roadmap_math_get_zoom () < 1000) {
+         static const char *direction_colors[4] = {"#fd9f0b", "#FFF380", "#FFFFFF", "#FFFFFF"};
+         //static const char *direction_colors[4] = {"#eade55", "#ffbf8c", "#fd7979", "#bd0000"};
+         //static const char *direction_colors[4] = {"#6f6836", "#904101", "#520009", "#c9bebe"};
+	 		roadmap_screen_draw_line_direction (pTrafficInfo->geometry,
+                                             pTrafficInfo->geometry + pTrafficInfo->iNumGeometryPoints - 1,
+                                             pTrafficInfo->geometry,
+                  									1,
+                  									pTrafficInfo->iNumGeometryPoints - 2,
+                  									RealtimeTrafficInfoOutlineIterator,
+		                  							//width,
+                                             8,
+      		            							ROUTE_DIRECTION_WITH_LINE,
+      		            							direction_colors[pTrafficInfo->iType],
+                                             gDirectionOffset);
+         drawn = TRUE;
+      }
+#endif
+      spCurrentPaintingLine =  NULL;
+   }
+   roadmap_screen_draw_flush();
+#ifdef OPENGL
+   if (drawn && !gIsAnimating) {
+      start_arrow_animation();
+      gIsAnimating = TRUE;
+   } else if (!drawn && gIsAnimating) {
+      stop_arrow_animation();
+      gIsAnimating = FALSE;
+   }
+#endif
 }
 
 static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
@@ -243,6 +341,7 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
    int previous_with = -1;
    int previous_type = -1;
    int lastRequestedTile = -1;
+   BOOL drawn = FALSE;
 
    if (!isDisplayingTrafficInfoOn())
    	return;
@@ -250,7 +349,7 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
    	 return;
 	if (RTTrafficInfo_IsEmpty()) return;
 
-	if (roadmap_square_current_scale_factor() > 4/*roadmap_math_get_zoom () >= 100*/) {
+	if (roadmap_square_current_scale_factor() > 3/*roadmap_math_get_zoom () >= 100*/) {
 		RealtimeTrafficInfoPaintGeoms();
 		return;
 	}
@@ -338,18 +437,37 @@ static void RealtimeTrafficInfoScreenRepaint (int max_pen) {
                               	    &seg_middle,
                                  	NULL);
 
-      	if ((width >= 4) && !roadmap_screen_fast_refresh()) {
+      	if ((width >= 4)
+#ifndef OPENGL
+             && !roadmap_screen_fast_refresh()
+#endif
+             ) {
       			static const char *direction_colors[4] = {"#fd9f0b", "#FFF380", "#FFFFFF", "#FFFFFF"};
+            //static const char *direction_colors[4] = {"#eade55", "#ffbf8c", "#fd7979", "#bd0000"};
+            //static const char *direction_colors[4] = {"#6f6836", "#904101", "#520009", "#c9bebe"};
 	 		roadmap_screen_draw_line_direction (&pTrafficLine->positionFrom,
    												&pTrafficLine->positionTo,
    												&pTrafficLine->positionFrom,
                   									pTrafficLine->iFirstShape,
                   									pTrafficLine->iLastShape,
                   									NULL,
-		                  							width,
+		                  							//width,
+                                             8,
       		            							pTrafficLine->iDirection,
-      		            							direction_colors[pTrafficLine->iType]);
+      		            							direction_colors[pTrafficLine->iType],
+                                             gDirectionOffset);
+            drawn = TRUE;
        }
    }
+   roadmap_screen_draw_flush();
+#ifdef OPENGL
+   if (drawn && !gIsAnimating) {
+      start_arrow_animation();
+      gIsAnimating = TRUE;
+   } else if (!drawn && gIsAnimating) {
+      stop_arrow_animation();
+      gIsAnimating = FALSE;
+   }
+#endif
 }
 

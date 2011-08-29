@@ -125,7 +125,7 @@ static int on_alt_routes_btn_cb(SsdWidget widget, const char *new_value){
    roadmap_trip_set_point ("Destination", &route.destPosition);
    roadmap_trip_set_point ("Departure", &route.srcPosition);
    RealtimeAltRoutes_Add_Route(&route);
-   RealtimeAltRoutes_Route_Request (-1, from, &to, MAX_ROUTES);
+   RealtimeAltRoutes_Route_Request (-1, from, &to, MAX_ROUTES, TRUE);
    return 1;
 }
 
@@ -324,6 +324,7 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    char *icon[3];
    int inner_width;
    int font_size;
+   int font_factor = 0;
    int width = SSD_MAX_SIZE;
 
 #ifdef IPHONE_NATIVE
@@ -332,6 +333,11 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    width = roadmap_canvas_width() - ADJ_SCALE(40);
    if (roadmap_canvas_height() < roadmap_canvas_width())
       width = roadmap_canvas_height() - ADJ_SCALE(40);
+
+   if (roadmap_screen_get_screen_scale() <= 100)
+      width += ADJ_SCALE(20);
+   if (width < 240)
+      font_factor = 4;
 #endif
 
 
@@ -349,9 +355,9 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    text = ssd_text_new ("ETA_W_VIA_Text", "", 18, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_CENTER);
    ssd_text_set_color(text,"#b6b6b6");
    ssd_widget_add (inner_container, text);
-   ssd_dialog_add_vspace(inner_container,5,0);
+   ssd_dialog_add_vspace(inner_container,2,0);
 
-   time_dist_container= ssd_container_new ("time_dist_container", NULL, inner_width-10, SSD_MIN_SIZE,
+   time_dist_container= ssd_container_new ("time_dist_container", NULL, inner_width-10, ADJ_SCALE(50),
          SSD_WIDGET_SPACE | SSD_END_ROW |SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER );
    ssd_widget_set_color(time_dist_container,"#00000087", "#00000087");
    ssd_widget_set_offset(time_dist_container, ADJ_SCALE(-2),0);
@@ -381,11 +387,11 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
    container = ssd_container_new ("container__", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
                SSD_WIDGET_SPACE | SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER  );
    ssd_widget_set_color(container, NULL, NULL);
-   font_size = 40;
+   font_size = 40 - font_factor;
    text = ssd_text_new ("ETA_W_Minutes_Text", "", font_size, SSD_ALIGN_VCENTER);
    ssd_text_set_color(text,"#ffffff");
    ssd_text_set_use_height_factor(text, FALSE);
-   ssd_widget_set_offset(text, 0, ADJ_SCALE(-4));
+   ssd_widget_set_offset(text, 0, ADJ_SCALE(-4+font_factor));
    ssd_widget_add (container, text);
    ssd_dialog_add_hspace(container,ADJ_SCALE(3), 0);
    font_size = 16;
@@ -399,10 +405,11 @@ SsdWidget navigate_res_ETA_widget(int iRouteDistance, int iRouteLenght, const ch
       container = ssd_container_new ("container__", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
                      SSD_WIDGET_SPACE | SSD_ALIGN_CENTER | SSD_ALIGN_VCENTER  );
       ssd_widget_set_color(container, NULL, NULL);
-      text = ssd_text_new ("ETA_W_Distance_Text", "", 40, SSD_ALIGN_VCENTER);
+      font_size = 40 - font_factor;
+      text = ssd_text_new ("ETA_W_Distance_Text", "", font_size, SSD_ALIGN_VCENTER);
       ssd_text_set_color(text,"#ffffff");
       ssd_text_set_use_height_factor(text, FALSE);
-      ssd_widget_set_offset(text, 0, ADJ_SCALE(-4));
+      ssd_widget_set_offset(text, 0, ADJ_SCALE(-4+font_factor));
       ssd_widget_add (container, text);
       ssd_dialog_add_hspace(container,ADJ_SCALE(3), 0);
       text = ssd_text_new ("ETA_W_Distance_Unit_Text", "", 16, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
@@ -494,17 +501,13 @@ void navigate_res_dlg (int NavigateFlags, const char *pTitleText, int iRouteDist
    dialog = ssd_dialog_new (NAVIAGTE_RES_DLG_NAME, "", navigate_res_dlg_close, SSD_DIALOG_FLOAT
                   | SSD_ALIGN_CENTER | SSD_ROUNDED_CORNERS | SSD_ROUNDED_BLACK | SSD_ALIGN_VCENTER | SSD_CONTAINER_BORDER);
 
-#ifdef TOUCH_SCREEN
-   ssd_widget_add (dialog, space (3));
    if (pTitleText && !is_screen_wide()){
       text = ssd_text_new ("Title TXT", pTitleText, 22, SSD_ALIGN_CENTER);
       ssd_text_set_color(text, "#f7a200");
       ssd_widget_add (dialog, text);
-      ssd_widget_add (dialog, space (5));
-      ssd_widget_add(dialog, ssd_separator_new("sep", 0));
       ssd_widget_add (dialog, space (3));
+      ssd_widget_add(dialog, ssd_separator_new("sep", 0));
    }
-#endif
 
    ssd_widget_add(dialog, navigate_res_ETA_widget(iRouteDistance, iRouteLenght, via, TRUE, FALSE, NULL));
    if ((NavigateFlags & CHANGED_DESTINATION) && !is_screen_wide()) {

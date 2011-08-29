@@ -166,7 +166,7 @@ BOOL address_search_init()
    }
 
    address  = get_webservice_address();
-   s_websvc = wst_init( get_webservice_address(), NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( get_webservice_address(), NULL, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {
@@ -409,6 +409,11 @@ roadmap_result address_search_report_wrong_address(const char* user_input)
 {
    transaction_state tstate;
    const char* report = NULL;
+   static int type = WEBSVC_NO_TYPE;
+   
+   if (type == WEBSVC_NO_TYPE)
+      type = wst_get_unique_type();
+   
    if( INVALID_WEBSVC_HANDLE == s_websvc)
    {
       roadmap_log( ROADMAP_ERROR, "address_search_report_wrong_address() - MODULE NOT INITIALIZED");
@@ -428,6 +433,7 @@ roadmap_result address_search_report_wrong_address(const char* user_input)
    if( wst_start_trans( s_websvc,
                         0,
                         "mozi_stat",
+                        type,
                         data_parser,
                         sizeof(data_parser)/sizeof(wst_parser),
                         on_completed_reporting_bad_address,

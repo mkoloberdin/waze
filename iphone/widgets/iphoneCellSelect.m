@@ -50,30 +50,36 @@
 
 - (void) layoutSubviews {
 	[super layoutSubviews];
+   CGRect frame = [[self contentView] bounds];
+   CGRect rect;
 	
 	if (!segmentedView || !labelView)
 		return;
 	
-	CGRect frame = [[self contentView] bounds];
-	CGRect rect;
-	CGFloat height = frame.size.height - Y_MARGIN*2;
-   if (height > MAX_CONTROL_HEIGHT)
-      height = MAX_CONTROL_HEIGHT;
+   if (labelView.text && [labelView.text length] > 0) {
+      CGFloat height = frame.size.height - Y_MARGIN*2;
+      if (height > MAX_CONTROL_HEIGHT)
+         height = MAX_CONTROL_HEIGHT;
+      
+      CGFloat width = (frame.size.width/2) - X_MARGIN*1.5;
+      if (width > MAX_CONTROL_WIDTH)
+         width = MAX_CONTROL_WIDTH;
+      
+      rect = CGRectMake(X_MARGIN,
+                        Y_MARGIN,
+                        frame.size.width - width - X_MARGIN*3,
+                        frame.size.height - Y_MARGIN*2);
+      [labelView setFrame:rect];
+      
+      rect = CGRectMake(labelView.frame.origin.x + labelView.frame.size.width + X_MARGIN,
+                        (frame.size.height - height)/2,
+                        width,
+                        height);
+   } else {
+      //[segmentedView setSegmentedControlStyle:UISegmentedControlStylePlain];
+      rect = frame;
+   }
    
-   CGFloat width = (frame.size.width/2) - X_MARGIN*1.5;
-   if (width > MAX_CONTROL_WIDTH)
-      width = MAX_CONTROL_WIDTH;
-   
-	rect = CGRectMake(X_MARGIN,
-                     Y_MARGIN,
-                     frame.size.width - width - X_MARGIN*3,
-                     frame.size.height - Y_MARGIN*2);
-	[labelView setFrame:rect];
-	
-   rect = CGRectMake(labelView.frame.origin.x + labelView.frame.size.width + X_MARGIN,
-                     (frame.size.height - height)/2,
-                     width,
-                     height);
 	[segmentedView setFrame:rect];
 }
 

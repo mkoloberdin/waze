@@ -413,7 +413,7 @@ void roadmap_layer_adjust (void) {
 
 #ifdef VIEW_MODE_3D_OGL
             if (roadmap_screen_get_view_mode() == VIEW_MODE_3D) {
-               thickness *= 2;
+               thickness *= 1.5;
                if (thickness > ADJ_SCALE(50)) thickness = ADJ_SCALE(50);
             }
 #endif //VIEW_MODE_3D_OGL

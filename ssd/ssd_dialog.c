@@ -418,7 +418,16 @@ static int ssd_dialog_short_click (RoadMapGuiPoint *point) {
    if ( !res &&  ( ssd_widget_find_by_pos ( RoadMapDialogCurrent->container,  &LastPointerPoint, TRUE ) ||
 		   ssd_widget_find_by_pos ( RoadMapDialogCurrent->scroll_container,  &LastPointerPoint, TRUE ) ) )
    {
-	   res = 1;
+         SsdWidget w;
+         w = ssd_widget_find_by_pos ( RoadMapDialogCurrent->container,  &LastPointerPoint, TRUE );
+         if (!w){
+               w = ssd_widget_find_by_pos ( RoadMapDialogCurrent->scroll_container,  &LastPointerPoint, TRUE );
+         }
+
+         if (w && (w->flags & SSD_DIALOG_TRANSPARENT))
+            res = 0;
+         else
+            res = 1;
    }
 
 
@@ -717,10 +726,9 @@ SsdWidget ssd_dialog_new (const char *name, const char *title,
    dialog->use_gui_tab_order     = (SSD_DIALOG_GUI_TAB_ORDER & flags)? TRUE: FALSE;
    dialog->ntv_kb_action = _ntv_kb_action_hide;
    dialog->animation = 0;
-   dialog->scale_y = 100;
    dialog->scale_x = 100;
-   dialog->scale   = 100;
-
+   dialog->scale_y = 100;
+   dialog->scale = 100;
    memset( &dialog->ntv_kb_params, 0, sizeof( RMNativeKBParams ) );
 
    if (flags & SSD_DIALOG_FLOAT) {
@@ -1005,7 +1013,7 @@ static void draw_dialog (SsdDialog dialog) {
       RoadMapGuiRect rect;
       rect.minx = 0;
 #ifndef TOUCH_SCREEN
-      if (is_screen_wide())
+      if (is_screen_wide() && (roadmap_softkeys_orientation() == SOFT_KEYS_ON_BOTTOM))
          rect.miny = 1;
       else
          rect.miny = roadmap_bar_top_height()+1;
@@ -1034,8 +1042,7 @@ static void draw_dialog (SsdDialog dialog) {
 	   rect.minx = (rect.minx*dialog->scale_x/100);//  + (width/2)*(100 -dialog->scale)/100;
 	   rect.maxy = (rect.maxy*dialog->scale_y/100);//  - (height/2)*(100 -dialog->scale)/100;
 	   rect.miny = (rect.miny*dialog->scale_y/100);//  + (height/2)*(100 -dialog->scale)/100;
-
-      ssd_widget_draw (dialog->container, &rect, 0);
+       ssd_widget_draw (dialog->container, &rect, 0);
 
       if ((dialog->container->flags & SSD_CONTAINER_TITLE) && (dialog->scroll_container != NULL) && (dialog->scroll_container->offset_y < 0)){
          SsdWidget title;

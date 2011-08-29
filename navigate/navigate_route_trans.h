@@ -81,13 +81,17 @@ typedef void (*NavigateOnRouteRC) (NavigateRouteRC rc, int protocol_rc, const ch
 typedef void (*NavigateOnRouteResults) (NavigateRouteRC rc, int num_res, const NavigateRouteResult *res);
 typedef void (*NavigateOnRouteSegments) (NavigateRouteRC rc, const NavigateRouteResult *res, const NavigateRouteSegments *segments); 
 typedef void (*NavigateOnRouteInstrumented) (int num_instrumented);
+typedef void (*NavigateOnRouteInstrSegment) ( const NavigateSegment *segment );
 typedef void (*NavigateOnSuggestReroute) (int reroute_segment, int time_before, int time_after);
 typedef void (*NavigateOnSquareVerMismatch) ();
+
+
 typedef struct {
 	NavigateOnRouteRC					on_rc;
 	NavigateOnRouteResults			on_results;
 	NavigateOnRouteSegments			on_segments;
 	NavigateOnRouteInstrumented	on_instrumented;
+	NavigateOnRouteInstrSegment   on_instrumented_segment;
 	NavigateOnSuggestReroute		on_reroute;
 	NavigateOnSquareVerMismatch   on_square_ver_mismatch;
 } NavigateRouteCallbacks;
@@ -116,6 +120,11 @@ const char *on_suggest_reroute (/* IN  */   const char*       data,
                           		  /* IN  */   void*             context,
                                 /* OUT */   BOOL*             more_data_needed,
                                 /* OUT */   roadmap_result*   rc);
+
+const char *on_route_events (/* IN  */   const char*       data,
+                             /* IN  */   void*             context,
+                             /* OUT */   BOOL*             more_data_needed,
+                             /* OUT */   roadmap_result*   rc);
                                  	  
 void navigate_route_request (const PluginLine *from_line,
                              int from_point,

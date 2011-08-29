@@ -427,10 +427,17 @@ static void roadmap_bar_decode_fixed_text
                          int argc, const char **argv, int *argl) {
 
    char arg[255];
+   char temp[255];
+   int i;
+  // argc -= 1;
+   arg[0] = 0;
 
-   argc -= 1;
-
-   roadmap_bar_decode_arg (arg, sizeof(arg), argv[1], argl[1]);
+   for (i=1; i< argc; i++){
+         roadmap_bar_decode_arg (temp, sizeof(arg), argv[i], argl[i]);
+         strcat(arg, temp);
+         if (i != argc-1)
+            strcat(arg, " ");
+   }
 
    object->fixed_text = strdup(roadmap_lang_get(arg));
 

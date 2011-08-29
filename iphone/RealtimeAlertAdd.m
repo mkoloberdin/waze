@@ -57,7 +57,7 @@
 
 static CGRect gRectCategory = {25.0f, 110.0f, 270.0f, 20.0f};
 static CGRect gRectEditbox = {25.0f, 135.0f, 215.0f, 40.0f};
-static CGRect gRectEditboxNoSelect = {25.0f, 25.0f, 215.0f, 145.0f};
+static CGRect gRectEditboxNoSelect = {25.0f, 25.0f, 215.0f, 110.0f};
 static CGRect gRectImage = {15.0f, 245.0f, 290.0f, 40.0f};
 static CGRect gRectImageLs = {320.0f, 20.0f, 145.0f, 40.0f};
 static CGRect gRectGroupNote = {15.0f, 295.0f, 290.0f, 20.0f};
@@ -68,8 +68,6 @@ static CGRect gRectSend = {63.0f, 365.0f, 193.0f, 41.0f};
 static CGRect gRectSendLs = {63.0f, 220.0f, 193.0f, 41.0f};
 static CGRect gRectCameraText1 = {15.0f, 190.0f, 290.0f, 60.0f};
 static CGRect gRectCameraText2 = {15.0f, 270.0f, 290.0f, 60.0f};
-//static CGRect gRectCameraText1Ls = {300.0f, 10.0f, 160.0f, 135.0f};
-//static CGRect gRectCameraText2Ls = {300.0f, 150.0f, 160.0f, 135.0f};
 
 static float   gDirectionControlY = 180;
 static float   gDirectionControlCameraY = 130;
@@ -1450,11 +1448,33 @@ void add_cam_dlg(void){
 
 - (BOOL)textFieldShouldReturn:(UITextField *)textField {
 	[textField resignFirstResponder];
+   
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
+   
+   if (!roadmap_horizontal_screen_orientation())
+      rect.size.height += 215;
+   else
+      rect.size.height += 162;   
+   view.frame = rect;
+   [view scrollRectToVisible:textField.frame animated:YES];
+   
 	return NO;
 }
 
 - (BOOL)textFieldShouldBeginEditing:(UITextField *)textField
 {
+   UIScrollView *view = (UIScrollView *) self.view;
+   CGRect rect = view.frame;
+   
+   if (!roadmap_horizontal_screen_orientation())
+      rect.size.height -= 215;
+   else
+      rect.size.height -= 162;
+   view.frame = rect;
+   [view scrollRectToVisible:textField.frame animated:YES];
+   
+   
 	[self onCancelHide];
 	
 	return YES;

@@ -44,6 +44,7 @@
 #include "roadmap_screen.h"
 #include "roadmap_alert.h"
 #include "roadmap_alerter.h"
+#include "tts_apptext.h"
 
 #define ALERT_AUDIO_SPEED_CAM		"ApproachSpeedCam"
 #define ALERT_AUDIO_RED_LIGHT    "ApproachRedLightCam"
@@ -395,19 +396,34 @@ const char *roadmap_alert_get_warning_icon(int Id){
 
 RoadMapSoundList roadmap_alert_get_alert_sound (int Id) {
 
-   RoadMapSoundList sound_list;
+   RoadMapSoundList sound_list = NULL;
    RoadMapAlert *alert_st = roadmap_alert_get_alert_by_id (Id);
    if (alert_st == NULL)
       return NULL;
-   sound_list = roadmap_sound_list_create (0);
+
    switch (alert_st->category) {
       case ALERT_CATEGORY_SPEED_CAM:
-         roadmap_sound_list_add (sound_list, ALERT_AUDIO_SPEED_CAM);
+      {
+         if ( tts_apptext_available( TTS_APPTEXT_APPROACH_SPEED_CAM ) ) {
+            sound_list = tts_apptext_get_sound( TTS_APPTEXT_APPROACH_SPEED_CAM );
+         }
+         else {
+            sound_list = roadmap_sound_list_create (0);
+            roadmap_sound_list_add (sound_list, ALERT_AUDIO_SPEED_CAM);
+         }
          break;
-
+      }
       case ALERT_CATEGORY_RED_LIGHT_CAM:
-         roadmap_sound_list_add (sound_list, ALERT_AUDIO_RED_LIGHT);
+      {
+         if ( tts_apptext_available( TTS_APPTEXT_APPROACH_REDLIGHT_CAM ) ) {
+            sound_list = tts_apptext_get_sound( TTS_APPTEXT_APPROACH_REDLIGHT_CAM );
+         }
+         else {
+            sound_list = roadmap_sound_list_create (0);
+            roadmap_sound_list_add (sound_list, ALERT_AUDIO_RED_LIGHT);
+         }
          break;
+      }
 
       default:
          break;

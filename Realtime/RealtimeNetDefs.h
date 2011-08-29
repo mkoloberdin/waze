@@ -35,7 +35,7 @@
 #define  RTNET_SESSION_TIME                     (75)  /* seconds */
 #define  RTNET_SERVERCOOKIE_MAXSIZE             (63)
 #define  RTNET_WEBSERVICE_ADDRESS               ("")
-#define  RTNET_PROTOCOL_VERSION                 (144)
+#define  RTNET_PROTOCOL_VERSION                 (150)
 #define  RTNET_PACKET_MAXSIZE                   MESSAGE_MAX_SIZE__AllTogether
 #define  RTNET_PACKET_MAXSIZE__dynamic(_GPSPointsCount_,_NodesPointsCount_)      \
                MESSAGE_MAX_SIZE__AllTogether__dynamic(_GPSPointsCount_,_NodesPointsCount_)
@@ -237,6 +237,7 @@ typedef struct tagRTConnectionInfo
 /*19*/   BOOL                 bIsNewbie;
 /*20*/   int                  iServerMaxProtocol;
 /*21*/   char                 serverVersion[MAX_SERVER_VERSION];
+/*22*/   int                  iInboxCount;
 }  RTConnectionInfo, *LPRTConnectionInfo;
 
 void RTConnectionInfo_Init             ( LPRTConnectionInfo this, PFN_ONUSER pfnOnAddUser, PFN_ONUSER pfnOnMoveUser, PFN_ONUSER pfnOnRemoveUser);
@@ -303,7 +304,7 @@ void RTConnectionInfo_ResetParser      ( LPRTConnectionInfo this);
 #define  RTNET_FORMAT_NETPACKET_0TripServerGetPOIs          ("BridgeTo,TRIPSERVER,GetPOIs,0\n")
 #define  RTNET_FORMAT_NETPACKET_0TripServerGetNumPOIs       ("BridgeTo,TRIPSERVER,GetNumPOIs,0\n")
 #define  RTNET_FORMAT_NETPACKET_4ReportMapError             ("BridgeTo,UPDATEMAP,send_update_request_mobile,8,lon,%d,lat,%d,type,%s,description,%s\n")
-#define  RTNET_FORMAT_NETPACKET_5GetGeoConfig               ("GetGeoServerConfig,%d,%s,%d,%s,%s")
+#define  RTNET_FORMAT_NETPACKET_6GetGeoConfig               ("GetGeoServerConfig,%d,%s,%d,%s,%s,%s")
 #define  RTNET_FORMAT_NETPACKET_4ScoreboardGetPoints        ("BridgeTo,SCOREBOARD,getPoints,8,period,%s,geography,%s,from_rank,%s,count,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4PushNotificationsSet       ("BridgeTo,PUSHNOTIFICATIONS,setService,8,token,%s,score,%s,updates,%s,friends,%s\n")
 #define  RTNET_FORMAT_NETPACKET_4FacebookPermissions        ("BridgeTo,FACEBOOKPERMISSIONS,facebook_permissions,8,show_name,%s,show_picture,%s,show_facebook_profile,%s,show_twitter_profile,%s\n")
@@ -349,6 +350,7 @@ DECLARE_WEBSVC_PARSER(RmExternalPoi)
 DECLARE_WEBSVC_PARSER(SetExternalPoiDrawOrder)
 DECLARE_WEBSVC_PARSER(ThumbsUpRes)
 DECLARE_WEBSVC_PARSER(UpdateAlert)
+DECLARE_WEBSVC_PARSER(UpdateInboxCount)
 DECLARE_WEBSVC_PARSER(ThumbsUpReceived)
 DECLARE_WEBSVC_PARSER(ReportTrafficRes)
 DECLARE_WEBSVC_PARSER(AddBonusTemplate)

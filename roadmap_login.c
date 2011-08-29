@@ -86,6 +86,12 @@ RoadMapConfigDescriptor RT_CFG_PRM_PASSWORD_Var =
                                     RT_CFG_TAB,
                                     RT_CFG_PRM_PASSWORD_Name);
 
+//   Password
+RoadMapConfigDescriptor RT_CFG_PRM_SKIPBTN_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_SKIPBTN_Name);
+
 //======= Local interface ========
 extern void roadmap_login_ssd_on_signup_skip( messagebox_closed cb );
 extern BOOL roadmap_login_ssd_new_existing_in_process();
@@ -103,6 +109,8 @@ void roadmap_login_initialize()
     roadmap_config_declare ("user", &RT_CFG_PRM_NAME_Var, "", NULL);
     roadmap_config_declare_password ("user", &RT_CFG_PRM_PASSWORD_Var, "");
     roadmap_config_declare ("user", &RT_CFG_PRM_NKNM_Var, "", NULL);
+
+   roadmap_config_declare_enumeration("preferences", &RT_CFG_PRM_SKIPBTN_Var, NULL, RT_CFG_PRM_SKIPBTN_Enabled, RT_CFG_PRM_SKIPBTN_Disabled, NULL);
 
 #ifdef IPHONE
    if (roadmap_welcome_wizard_is_first_time()){
@@ -213,18 +221,25 @@ int roadmap_login_on_login( SsdWidget this, const char *new_value )
 
    if (!*username || !*password )
    {
-      roadmap_messagebox( "Login details are missing", "You must have a valid username and password.");
+      roadmap_messagebox( "Login details are missing", "You must have a valid username and password." );
       return 0;
    }
-
+#ifndef IPHONE
+   if( !nickname || !*nickname )
+   {
+      roadmap_messagebox( "Login details are missing", "Nickname field must be non-empty." );
+      return 0;
+   }
+#endif
    // ssd_dialog_hide_current(dec_cancel);
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Signing in..." ) );
 
    Realtime_SetLoginUsername( username );
    Realtime_SetLoginPassword( password );
-
+#ifdef IPHONE
    if( !nickname || !*nickname )
       nickname = username;
+#endif
    Realtime_SetLoginNickname( nickname );
 
    Realtime_VerifyLoginDetails( roadmap_login_on_login_cb );
@@ -244,8 +259,10 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    username = roadmap_login_dlg_get_username();
    password = roadmap_login_dlg_get_password();
    nickname = roadmap_login_dlg_get_nickname();
+#ifdef IPHONE
    if( !nickname || !*nickname )
          nickname = username;
+#endif
    if ( strcmp( roadmap_config_get( &RT_CFG_PRM_NAME_Var), username ) ||
         strcmp( roadmap_config_get( &RT_CFG_PRM_PASSWORD_Var), password ) ||
     		   !Realtime_IsLoggedIn() )
@@ -255,9 +272,14 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    }
    else{
       if (strcmp( roadmap_config_get( &RT_CFG_PRM_NKNM_Var), nickname )){
-         roadmap_config_set( &RT_CFG_PRM_NKNM_Var, nickname );
-         roadmap_config_save(TRUE);
-         Realtime_Relogin();
+#ifndef IPHONE
+         if ( roadmap_login_validate_nickname( nickname ) )
+#endif
+         {
+            roadmap_config_set( &RT_CFG_PRM_NKNM_Var, nickname );
+            roadmap_config_save(TRUE);
+            Realtime_Relogin();
+         }
       }
    }
 
@@ -313,7 +335,7 @@ BOOL check_alphanumeric(const char *str){
 #ifndef IPHONE
 void on_signup_skip_msgbox_closed( int exit_code )
 {
-   roadmap_welcome_guided_tour();
+   roadmap_welcome_guided_tour_start();
 }
 #endif //IPHONE
 
@@ -459,13 +481,21 @@ BOOL roadmap_login_validate_email( const char* email )
 
 BOOL roadmap_login_validate_nickname( const char* nickname )
 {
-	if ( strlen( nickname ) < 4 )
+#ifdef IPHONE
+   if ( strlen( nickname ) < 4 )
 	{
       roadmap_messagebox("Error", "Nickname should have at least 4 characters");
       return FALSE;
 	}
-
-	if (nickname[0] == ' ' ){
+#else
+   if ( !nickname || !*nickname )
+   {
+      roadmap_messagebox("Error", "Nickname field must be non-empty." );
+      return FALSE;
+   }
+#endif
+   
+	if ( nickname[0] == ' ' ){
       roadmap_messagebox("Error", "Nickname must not begin with a space");
       return FALSE;
 	}
@@ -525,7 +555,7 @@ void roadmap_login_update_details_on_response( roadmap_result rc )
       }
       case err_upd_account_email_exists://Email address already exist
       {
-         roadmap_messagebox ("Oops", "Email address already exist");
+         roadmap_messagebox ("Oops", "Email address already exists");
          break;
       }
       case err_upd_account_cannot_complete_request://internal server error cannot complete request
@@ -632,6 +662,13 @@ char *roadmap_login_get_referrer_name (int index) {
    }
 
    return strdup(text);
+}
+
+int roadmap_login_skip_button_enabled (void) {
+   if (roadmap_config_match(&RT_CFG_PRM_SKIPBTN_Var, RT_CFG_PRM_SKIPBTN_Enabled))
+      return 1;
+   else
+      return 0;
 }
 
 

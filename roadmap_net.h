@@ -64,15 +64,16 @@ typedef void (*RoadMapNetConnectCallback) (RoadMapSocket socket, void *context, 
 typedef void (*RoadMapNetSslConnectCallback) (RoadMapSocket s, void *data, void *context, roadmap_result res);
 
 RoadMapSocket roadmap_net_connect(  const char*       protocol,
-                                    const char*       name, 
-                                    time_t            update_time, 
+                                    const char*       name,
+                                    time_t            update_time,
                                     int               default_port,
                                     int               flags,
                                     roadmap_result*   res); // Optional, can be NULL
 
 // A-syncronious receive:
-int roadmap_net_connect_async (const char *protocol,
+void *roadmap_net_connect_async (const char *protocol,
                                 const char *name, 
+                               const char *resolved_name,
                                 time_t update_time,
                                 int default_port,
                                 int flags,
@@ -85,6 +86,7 @@ int roadmap_net_connect_async (const char *protocol,
 int roadmap_net_receive (RoadMapSocket s, void *data, int size);
 int roadmap_net_send    (RoadMapSocket s, const void *data, int length,
                          int wait);
+int roadmap_net_send_async (RoadMapSocket s, const void *data, int length);
 
 RoadMapSocket roadmap_net_listen(int port);
 RoadMapSocket roadmap_net_accept(RoadMapSocket server_socket);

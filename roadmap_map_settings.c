@@ -249,7 +249,7 @@ void roadmap_map_settings_show(void){
        ssd_widget_add (dialog, box);
 
        container = ssd_container_new ("General prefs", NULL, width, SSD_MIN_SIZE,
-              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
 
       if (roadmap_skin_auto_night_feature_enabled()){
@@ -282,16 +282,15 @@ void roadmap_map_settings_show(void){
       //ssd_widget_add(box, space(1));
       box = ssd_container_new ("map schem group", NULL, SSD_MAX_SIZE, row_height,
                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
+      ssd_widget_set_color (box, NULL, NULL);
 
       box2 = ssd_container_new ("map_schem box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                                   SSD_ALIGN_VCENTER);
       ssd_widget_set_color (box2, NULL, NULL);
-
-      ssd_widget_add (box2,
-              ssd_text_new ("map_scheme_label",
-                            roadmap_lang_get ("Map color scheme"),
-                            SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+      text =  ssd_text_new ("map_scheme_label", roadmap_lang_get ("Map color scheme"),
+                            SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
+      ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+      ssd_widget_add (box2, text);
 
       ssd_widget_add(box, box2);
       if (!ssd_widget_rtl(NULL)){
@@ -324,7 +323,7 @@ void roadmap_map_settings_show(void){
 
 
 	   container = ssd_container_new ("Map GUI prefs", NULL, width, SSD_MIN_SIZE,
-              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
 
 

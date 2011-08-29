@@ -28,6 +28,7 @@
 #include "roadmap_iphonemain.h"
 #include "iphoneLabel.h"
 #include "roadmap_lang.h"
+#include "roadmap_res.h"
 #include "iphoneTableHeader.h"
 
 #define X_MARGIN 20
@@ -39,6 +40,7 @@
 - (id)initWithFrame:(CGRect)aRect
 {
    iphoneLabel *label;
+   UIImageView *imageView;
    CGRect      rect;
    
 	self = [super initWithFrame:aRect];
@@ -68,6 +70,11 @@
       
       [self addSubview:label];
       [label release];
+      
+      imageView = [[UIImageView alloc] initWithFrame:CGRectZero];
+      imageView.tag = 2;
+      [self addSubview:imageView];
+      [imageView release];
 	}
 	
 	return self;
@@ -79,13 +86,26 @@
    CGRect viewRect = self.frame;
    CGRect rect = self.bounds;
    iphoneLabel *label = (iphoneLabel *)[self viewWithTag:1];
+   UIImageView *imageView = (UIImageView *)[self viewWithTag:2];
+   
+   [imageView sizeToFit];
+   rect = imageView.frame;
+   rect.origin.y = Y_MARGIN;
+   rect.origin.x = X_MARGIN;
+   imageView.frame = rect;
    
    roadmap_main_get_bounds(&mainRect);
-   rect.origin.x = X_MARGIN;
-   rect.size.width = mainRect.size.width - X_MARGIN *2;
+   rect.origin.x = X_MARGIN + 10 + imageView.bounds.size.width;
+   rect.size.width = mainRect.size.width - imageView.bounds.size.width - X_MARGIN *2 - 10;
    rect.origin.y = Y_MARGIN;
    label.frame = rect;
    [label sizeToFit];
+   
+   if (label.bounds.size.height < imageView.bounds.size.height) {
+      rect = label.frame;
+      rect.size.height = imageView.bounds.size.height;
+      label.frame = rect;
+   }
    
    viewRect.size.height = label.bounds.size.height + Y_MARGIN *2;
    
@@ -103,6 +123,15 @@
 {
    iphoneLabel *label = (iphoneLabel *)[self viewWithTag:1];
    return label.text;
+}
+
+- (void)setImage:(const char *)image
+{
+   UIImage *img = NULL;
+   UIImageView *imageView = (UIImageView *)[self viewWithTag:2];
+   
+   img = roadmap_res_get(RES_NATIVE_IMAGE, RES_SKIN, image);
+   imageView.image = img;
 }
 
 @end

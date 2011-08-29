@@ -41,7 +41,7 @@
 #include "roadmap_lang.h"
 #include "roadmap_analytics.h"
 
-
+static BOOL gShowListFirst = TRUE;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 typedef struct {
@@ -162,7 +162,7 @@ void RealtimeAltRoutes_OnRouteResults (NavigateRouteRC rc, int num_res, const Na
 
    altRoutesTrips.altRoutTrip[0].iTripLenght = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_time;
    altRoutesTrips.altRoutTrip[0].iTripDistance = altRoutesTrips.altRoutTrip[0].pRouteResults[0].total_length;
-   roadmap_alternative_routes_routes_dialog();
+   roadmap_alternative_routes_routes_dialog(gShowListFirst);
 
    roadmap_screen_refresh();
 }
@@ -279,12 +279,13 @@ static void route_request_timeout(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
-BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes){
+BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_pos, const RoadMapPosition *to_pos, int max_routes, BOOL showListFirst){
 	static NavigateRouteCallbacks cb = {
 		RealtimeAltRoutes_OnRouteRC,
 		RealtimeAltRoutes_OnRouteResults,
       RealtimeAltRoutes_OnRouteSegments,
       navigate_main_update_route,
+      navigate_main_on_instrumented_segment,
       navigate_main_on_suggest_reroute,
       navigate_main_on_segment_ver_mismatch
 	};
@@ -293,6 +294,7 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
    int fromPoint;
    cancelled = FALSE;
 
+   gShowListFirst = showListFirst;
    if (navigate_main_get_follow_gps()){
       if (RealtimeAltRoutes_GetOrigin (&position, &fromLine, &fromPoint)){
          from_pos = (RoadMapPosition*)&position;
@@ -311,7 +313,7 @@ BOOL RealtimeAltRoutes_Route_Request(int iTripId, const RoadMapPosition *from_po
    roadmap_analytics_log_event(ANALYTICS_EVENT_ALT_ROUTES, NULL, NULL);
 
    CalculatingAltRoutes = TRUE;
-   roadmap_main_set_periodic( 50000, route_request_timeout );
+   //roadmap_main_set_periodic( 50000, route_request_timeout );
 
    navigate_main_prepare_for_request();
    navigate_route_request (&fromLine,
@@ -352,6 +354,7 @@ BOOL RealtimeAltRoutes_TripRoute_Request(int iTripId, const RoadMapPosition *fro
       RealtimeAltRoutes_OnTripRouteResults,
       RealtimeAltRoutes_OnRouteSegments,
       navigate_main_update_route,
+      navigate_main_on_instrumented_segment,
       navigate_main_on_suggest_reroute,
       navigate_main_on_segment_ver_mismatch
    };

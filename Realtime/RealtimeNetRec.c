@@ -407,10 +407,10 @@ const char* OnLoginResponse(  /* IN  */   const char*       pNext,
    }
 
    pNext = ReadIntFromString( pNext,            //   [in]      Source string
-                              ",\r\n",              //   [in,opt]  Value termination
+                              ",",              //   [in,opt]  Value termination
                               NULL,             //   [in,opt]  Allowed padding
                               &pCI->iPointsTimeStamp,  //   [out]     Put it here
-                              TRIM_ALL_CHARS);  //   [in]      Remove additional termination chars
+                              1);  //   [in]      Remove additional termination chars
    if( !pNext)
    {
          roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse() - Failed to read my points time stamp (%s)", pLast);
@@ -423,7 +423,7 @@ const char* OnLoginResponse(  /* IN  */   const char*       pNext,
                              ",\r\n",              //   [in,opt]  Value termination
                              NULL,             //   [in,opt]  Allowed padding
                              &pCI->iExclusiveMoods,  //   [out]     Put it here
-                             TRIM_ALL_CHARS);  //   [in]      Remove additional termination chars
+                             1);  //   [in]      Remove additional termination chars
    if( !pNext )
    {
       roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse() - Failed to read iExclusiveMoods (%s)", pLast);
@@ -432,32 +432,33 @@ const char* OnLoginResponse(  /* IN  */   const char*       pNext,
    }
 
    roadmap_mood_set_exclusive_moods(pCI->iExclusiveMoods);
-//TEMP_AVI
-//   pNext = ReadIntFromString( pNext,            //   [in]      Source string
-//                              ",",              //   [in,opt]  Value termination
-//                              NULL,             //   [in,opt]  Allowed padding
-//                              &pCI->iServerMaxProtocol,  //   [out]     Put it here
-//                              1);  //   [in]      Remove additional termination chars
-//   if( !pNext)
-//   {
-//      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse() - Failed to read ServerMaxProtocol", pLast);
-//      (*rc) = err_parser_unexpected_data;
-//      return NULL;   //   Quit the 'receive' loop
-//   }
 
-//   iBufferSize = MAX_SERVER_VERSION;
-//   pNext       = ExtractNetworkString(
-//               pNext,               // [in]     Source string
-//               pCI->serverVersion,   // [out,opt]Output buffer
-//               &iBufferSize,        // [in,out] Buffer size / Size of extracted string
-//               ",\r\n",              // [in]     Array of chars to terminate the copy operation
-//               TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
-//   if( !pNext)
-//   {
-//      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse(case 2) - Did not find server-version");
-//      (*rc) = err_parser_unexpected_data;
-//      return NULL;   //   Quit the 'receive' loop
-//   }
+   pNext = ReadIntFromString( pNext,            //   [in]      Source string
+                              ",",              //   [in,opt]  Value termination
+                              NULL,             //   [in,opt]  Allowed padding
+                              &pCI->iServerMaxProtocol,  //   [out]     Put it here
+                              1);  //   [in]      Remove additional termination chars
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse() - Failed to read ServerMaxProtocol", pLast);
+      (*rc) = err_parser_unexpected_data;
+      return NULL;   //   Quit the 'receive' loop
+   }
+
+   iBufferSize = MAX_SERVER_VERSION;
+   pNext       = ExtractNetworkString(
+               pNext,               // [in]     Source string
+               pCI->serverVersion,   // [out,opt]Output buffer
+               &iBufferSize,        // [in,out] Buffer size / Size of extracted string
+               ",\r\n",              // [in]     Array of chars to terminate the copy operation
+               TRIM_ALL_CHARS);     // [in]     Remove additional termination chars
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnLoginResponse(case 2) - Did not find server-version");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;   //   Quit the 'receive' loop
+   }
+
    //   Done
    editor_points_set_old_points(pCI->iMyTotalPoints, pCI->iPointsTimeStamp);
 
@@ -880,11 +881,29 @@ const char* AddUser( /* IN  */   const char*       pNext,
 
    if( !pNext)
    {
-      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to  group relevance ");
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read group relevance.");
       (*rc) = err_parser_unexpected_data;
       return NULL;
    }
-
+   
+   
+   //   VIP flags
+   pNext = ReadIntFromString(
+                             pNext,            //   [in]      Source string
+                             ",\r\n",              //   [in,opt]   Value termination
+                             NULL,             //   [in,opt]   Allowed padding
+                             &UL.iVipFlags,  //   [out]      Put it here
+                             1);               //   [in]      Remove additional termination CHARS
+   
+   
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddUser() - Failed to read VIP flags.");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+   
+   
 
    //   Create unique ID for the GUI object-system:
    RTUserLocation_CreateGUIID( &UL);
@@ -1800,6 +1819,18 @@ const char* AddAlert(   /* IN  */   const char*       pNext,
       (*rc) = err_parser_unexpected_data;
       return NULL;
    }
+
+   	// num viewed
+   	pNext = ReadIntFromString(pNext,          					//   [in]      Source string
+                                ",\r\n",           					//   [in,opt]  Value termination
+                                NULL,          					//   [in,opt]  Allowed padding
+                                &alert.iNumViewed,	//   [out]     Output value
+                                TRIM_ALL_CHARS);            					//   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+   	if (!pNext) {
+   		roadmap_log (ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read num viewed");
+   		return NULL;
+   	}
 
    //   Add the Alert
    if( !RTAlerts_Add(&alert))
@@ -3131,6 +3162,36 @@ const char* ThumbsUpRes( /* IN  */   const char*       pNext,
    return pNext;
 }
 
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+const char* UpdateInboxCount(/* IN  */   const char*       pNext,
+                             /* IN  */   void*             pContext,
+                             /* OUT */   BOOL*             more_data_needed,
+                             /* OUT */   roadmap_result*   rc)
+{
+   LPRTConnectionInfo   pCI = (LPRTConnectionInfo)pContext;
+
+   //   Count
+   pNext = ReadIntFromString( pNext,         // [in]     Source string
+                              ",\r\n",       // [in,opt] Value termination
+                              NULL,          // [in,opt] Allowed padding
+                              &pCI->iInboxCount,          // [out]    Put it here
+                              TRIM_ALL_CHARS);  // [in]     Remove additional termination CHARS
+
+   if( !pNext)
+   {
+      roadmap_log( ROADMAP_ERROR, "RTNet::OnGeneralResponse::UpdateInboxCount() - Failed to read  count");
+      (*rc) = err_parser_unexpected_data;
+      return NULL;
+   }
+
+   (*rc) = succeeded;
+
+   return pNext;
+
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 const char* UpdateAlert(/* IN  */   const char*       pNext,
                         /* IN  */   void*             pContext,
@@ -3143,6 +3204,7 @@ const char* UpdateAlert(/* IN  */   const char*       pNext,
    BOOL  bIsArchive;
    int   iBufferSize;
    char  tempBuff[5];
+   int   iNumViewed;
 
    //   Alert ID
    pNext = ReadIntFromString( pNext,         // [in]     Source string
@@ -3216,8 +3278,21 @@ const char* UpdateAlert(/* IN  */   const char*       pNext,
     else
        bIsArchive = FALSE;
 
+    	// num viewed
+    	pNext = ReadIntFromString(pNext,          					//   [in]      Source string
+                                 ",\r\n",           					//   [in,opt]  Value termination
+                                 NULL,          					//   [in,opt]  Allowed padding
+                                 &iNumViewed,	//   [out]     Output value
+                                 TRIM_ALL_CHARS);            					//   [in]      TRIM_ALL_CHARS, DO_NOT_TRIM, or 'n'
+
+    	if (!pNext) {
+    		roadmap_log (ROADMAP_ERROR, "RTNet::OnGeneralResponse::AddAlert() - Failed to read num viewed");
+    		return NULL;
+    	}
+
+    //TEMP_AVI
    //   Update the alert
-   RTAlerts_Update(iID, iNumThumbsUp, bIsOnRoute, bIsArchive);
+   RTAlerts_Update(iID, iNumThumbsUp, bIsOnRoute, bIsArchive, iNumViewed);
 
    return pNext;
 }

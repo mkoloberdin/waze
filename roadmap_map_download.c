@@ -172,9 +172,9 @@ void DlMapCallbackProgress (void *context, char *data, size_t size) {
 			dlmap_close (0);
 		}
 		DlMapProgress += written;
-		if (DlMapProgress * 10 / DlMapTotalSize > (DlMapProgress - (int)written) * 10 / DlMapTotalSize) {
-			roadmap_screen_refresh ();
-		}
+		//if (DlMapProgress * 10 / DlMapTotalSize > (DlMapProgress - (int)written) * 10 / DlMapTotalSize) {
+//			roadmap_screen_refresh ();
+//		}
 	}
 }
 
@@ -193,7 +193,7 @@ void DlMapCallbackError (void *context, int connection_failure, const char *form
 }
 
 
-void DlMapCallbackDone (void *context, char *last_modified) {
+void DlMapCallbackDone (void *context, char *last_modified, const char *format, ... ) {
 
 	dlmap_close (1);	
 }

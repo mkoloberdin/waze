@@ -264,7 +264,7 @@ RTBonus *RealtimeBonus_Get (int iID) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeBonus_RemoveFromTable (int iID) {
-   int i;
+   int i,j;
    for (i = 0; i < MAX_ADD_ONS; i++) {
       if (gBonusTable.bonus[i] && gBonusTable.bonus[i]->iID == iID) {
          if (gBonusTable.bonus[i]->bIsCustomeBonus && !gBonusTable.bonus[i]->displayed){
@@ -274,6 +274,9 @@ void RealtimeBonus_RemoveFromTable (int iID) {
          free (gBonusTable.bonus[i]);
          gBonusTable.bonus[i] = NULL;
          gBonusTable.iCount--;
+         for (j = i; j < MAX_ADD_ONS-1; j++) {
+               gBonusTable.bonus[j] = gBonusTable.bonus[j+1];
+         }
          return;
       }
    }
@@ -313,21 +316,17 @@ static char *build_url(RTBonus *pbonus, int iHeight, int iWidth){
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static int get_browser_height(){
-   if (roadmap_screen_is_hd_screen())
-      return 235;
-   else{
 #ifndef TOUCH_SCREEN
       if (!is_screen_wide())
-         return 240;
+         return ADJ_SCALE(240);
 #endif
-      return 155;
-   }
+      return ADJ_SCALE(155);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 static void on_dialog_close  (int exit_code, void* context){
    old_rect.minx = old_rect.maxx = old_rect.miny = old_rect.maxy = -1;
-   roadmap_browser_hide();
+   roadmap_browser_close_embedded();
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -373,7 +372,7 @@ static void draw_browser_rect(SsdWidget widget, RoadMapGuiRect *rect, int flags)
 
    if ( (old_rect.minx != rect->minx) || (old_rect.maxx != rect->maxx) || (old_rect.miny != rect->miny) || (old_rect.maxy != rect->maxy)){
       if ( (old_rect.minx != -1) && (old_rect.maxx != -1) && (old_rect.miny != -1) && (old_rect.maxy != -1))
-         roadmap_browser_hide();
+         roadmap_browser_close_embedded();
       old_rect = *rect;
       context.flags = BROWSER_FLAG_WINDOW_TYPE_TRANSPARENT|BROWSER_FLAG_WINDOW_TYPE_NO_SCROLL;
       context.rect = *rect;
@@ -382,7 +381,8 @@ static void draw_browser_rect(SsdWidget widget, RoadMapGuiRect *rect, int flags)
       strncpy_safe( context.url, build_url( pbonus, height, width ), WEB_VIEW_URL_MAXSIZE );
       context.attrs.on_close_cb = NULL;
       context.attrs.title_attrs.title = NULL;
-      roadmap_browser_show_embeded(&context);
+      context.attrs.on_load_cb = NULL;
+      roadmap_browser_show_embedded(&context);
    }
 
 }
@@ -615,16 +615,19 @@ void RealtimeBonus_PopUp (int iID) {
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////
 static void OnbonusShortClick (const char *name,
-               const char *sprite,
-               const char *image,
-               const RoadMapGpsPosition *gps_position,
-               const RoadMapGuiPoint    *offset,
-               BOOL is_visible,
-               int scale,
-               int opacity,
-               int scale_y,
-               const char *id,
-               const char *text) {
+                               const char *sprite,
+                               RoadMapDynamicString *images,
+                               int  image_count,
+                               const RoadMapGpsPosition *gps_position,
+                               const RoadMapGuiPoint    *offset,
+                               BOOL is_visible,
+                               int scale,
+                               int opacity,
+                               int scale_y,
+                               const char *id,
+                               ObjectText *texts,
+                               int        text_count,
+                               int rotation) {
    RealtimeBonus_PopUp (extract_id (id));
 }
 

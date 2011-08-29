@@ -753,6 +753,26 @@ int roadmap_config_get_integer(RoadMapConfigDescriptor *descriptor) {
     return 0;
 }
 
+int roadmap_config_get_list (RoadMapConfigDescriptor *descriptor, const char* delimiters, const char* list_out[], int list_size ) {
+
+   int count = 0;
+   const char* value = roadmap_config_get( descriptor );
+   char* list_copy = strdup( value );
+   const char* pCh;
+
+   pCh  = strtok( list_copy, delimiters );
+   while ( pCh != NULL && *pCh != 0 && count < list_size )
+   {
+      list_out[count] = strdup( pCh );
+      pCh = strtok( NULL, delimiters );
+      count++;
+   }
+   free( list_copy );
+
+   return count;
+}
+
+
 
 void  roadmap_config_set (RoadMapConfigDescriptor *descriptor, const char *value) {
 

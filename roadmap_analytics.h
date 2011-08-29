@@ -61,9 +61,11 @@
 #define ANALYTICS_EVENT_SETTINGS             "SETTINGS"
 
 //QuickSettings events
-#define ANALYTICS_EVENT_MUTE                 "TOGGLE_MUTE"
+#define ANALYTICS_EVENT_NAVGUIDANCE          "NAV_GUIDANCE"
 #define ANALYTICS_EVENT_VIEWMODESET          "TOGGLE_VIEW"
 #define ANALYTICS_EVENT_DAYNIGHTSET          "TOGGLE_DAY_NIGHT"
+
+#define ANALYTICS_EVENT_ORIENTATION          "TOGGLE_ORIENTATION"
 
 #define ANALYTICS_EVENT_CAR                  "TOGGLE_CAR_AVATAR"
 #define ANALYTICS_EVENT_MOOD                 "TOGGLE_MOOD"
@@ -127,6 +129,12 @@
 #define ANALYTICS_EVENT_NIGHT   "NIGHT"
 #define ANALYTICS_EVENT_2D      "2D"
 #define ANALYTICS_EVENT_3D      "3D"
+
+#define ANALYTICS_EVENT_PORTRATE  "PORTRATE"
+#define ANALYTICS_EVENT_LANDSCAPE "LANDSCAPE"
+
+#define ANALYTICS_EVENT_NAV_GUIDANCE_NATURAL      "NATURAL"
+#define ANALYTICS_EVENT_NAV_GUIDANCE_TTS          "TTS"
 
 void roadmap_analytics_log_event (const char *event_name, const char *info_name, const char *info_val);
 void roadmap_analytics_log_int_event (const char *event_name, const char *info_name, int info_val);

@@ -35,7 +35,9 @@
 #define  WST_RESPONSE_BUFFER_SIZE            (32768)   // 32K
 #endif
 #define  WST_SESSION_TIMEOUT                 (75)  /* seconds */
-#define  WST_ACK_TIMEOUT                     (3)  /* seconds */
+#define  WST_ACK_TIMEOUT                     (5)  /* seconds */
+#define  WST_ACK_HEADER_TIMEOUT              (25)  /* seconds */
+#define  WST_RECEIVE_TIMEOUT                 (5)  /* seconds */
 #define  HTTP_HEADER_MAX_SIZE                (400)
 #define  WST_WEBSERVICE_METHOD_MAX_SIZE      (0xFF)
 #define  WST_MIN_PARSERS_COUNT               ( 1)
@@ -60,6 +62,7 @@ typedef enum tag_transaction_state
    trans_idle,
    trans_active,
    trans_stopping,
+   trans_canceled,
 
 }  transaction_state;
 
@@ -140,6 +143,7 @@ typedef struct tag_wst_context
 /* General:       */
 /* 1*/   const char*          service;
          const char*          secured_service;
+         const char*          secured_service_resolved;
          const char*          service_v2_suffix;
 /* 2*/   const char*          content_type;
 /* 3*/   int                  port;
@@ -147,7 +151,7 @@ typedef struct tag_wst_context
 /* 4*/   RoadMapSocket        Socket;
 /* 5*/   transaction_state    state;
 /* 6*/   BOOL                 async_receive_started;
-/* 7*/   time_t               starting_time;
+/* 7*/   time_t               last_receive_time;
 /* 8*/   wst_queue            queue;
 /* 9*/   //void*                context;
          wstq_item            active_item;
@@ -167,6 +171,7 @@ typedef struct tag_wst_context
 /*16*/   transaction_result   result;
 /*17*/   roadmap_result       rc;
 /*18*/   BOOL                 delete_on_idle;
+         void                 *connect_context;
 
 }     wst_context, *wst_context_ptr;
 void  wst_context_init  (  wst_context_ptr      this);

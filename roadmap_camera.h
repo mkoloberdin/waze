@@ -36,6 +36,8 @@ extern "C" {
 //    The pointer to the buffer is passed back in the image_thumbnail ( see roadmap_camera_defs.h
 BOOL roadmap_camera_take_picture( CameraImageFile* image_file, CameraImageBuf* image_thumbnail );
 
+BOOL roadmap_camera_take_picture_async( CameraImageCaptureCallback callback, CameraImageCaptureContext* context );
+
 #ifdef __cplusplus
 }
 #endif

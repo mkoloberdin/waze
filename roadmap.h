@@ -30,6 +30,7 @@
 
 #include <assert.h>
 #include <stdio.h>
+#include <string.h>
 #ifdef __SYMBIAN32__
 typedef   unsigned int      uint32_t;
 typedef unsigned short      uint16_t;
@@ -56,7 +57,7 @@ typedef unsigned short      uint16_t;
 #endif
 
 #define  CLIENT_VERSION_MAJOR       (2)
-#define  CLIENT_VERSION_MINOR       (2)
+#define  CLIENT_VERSION_MINOR       (4)
 #define  CLIENT_VERSION_SUB         (0)
 #define  CLIENT_VERSION_CFG         (0)	/* Build number for internal use only */
 
@@ -151,11 +152,17 @@ static inline void do_assert(char *text) {
 #define ROADMAP_MESSAGE_ERROR      4
 #define ROADMAP_MESSAGE_FATAL      5
 
-#define ROADMAP_DEBUG   ROADMAP_MESSAGE_DEBUG,__FILE__,__LINE__
-#define ROADMAP_INFO    ROADMAP_MESSAGE_INFO,__FILE__,__LINE__
-#define ROADMAP_WARNING ROADMAP_MESSAGE_WARNING,__FILE__,__LINE__
-#define ROADMAP_ERROR   ROADMAP_MESSAGE_ERROR,__FILE__,__LINE__
-#define ROADMAP_FATAL   ROADMAP_MESSAGE_FATAL,__FILE__,__LINE__
+#if defined (ANDROID) || defined (IPHONE) || defined(GTK)
+#define __FILE_NAME__      (strrchr(__FILE__, '/') ? strrchr(__FILE__, '/') + 1 : __FILE__)
+#else
+#define __FILE_NAME__      __FILE__
+#endif
+
+#define ROADMAP_DEBUG   ROADMAP_MESSAGE_DEBUG,__FILE_NAME__,__LINE__
+#define ROADMAP_INFO    ROADMAP_MESSAGE_INFO,__FILE_NAME__,__LINE__
+#define ROADMAP_WARNING ROADMAP_MESSAGE_WARNING,__FILE_NAME__,__LINE__
+#define ROADMAP_ERROR   ROADMAP_MESSAGE_ERROR,__FILE_NAME__,__LINE__
+#define ROADMAP_FATAL   ROADMAP_MESSAGE_FATAL,__FILE_NAME__,__LINE__
 
 #if(defined _DEBUG || defined DEBUG)
    ///[BOOKMARK]:[NOTE] -  Enable logs in debug build:

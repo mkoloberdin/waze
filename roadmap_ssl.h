@@ -25,13 +25,11 @@
 #ifndef INCLUDE__ROADMAP_SSL__H
 #define INCLUDE__ROADMAP_SSL__H
 
+#include "roadmap_net.h"
+
 struct roadmap_ssl_io_t;
 typedef struct roadmap_ssl_io_t *RoadMapSslIO;
 
-#if 0
-
-//void roadmap_ssl_set_secured_input (RoadMapIO *io, RoadMapInput callback, void *ssl_context);
-#endif
 
 int roadmap_ssl_read (void *context, void *buffer, int buffer_size);
 int roadmap_ssl_send (RoadMapSslIO io, const void *data, int length);

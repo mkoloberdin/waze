@@ -174,7 +174,7 @@ void roadmap_canvas_draw_multiple_lines
          (int count, int *lines, RoadMapGuiPoint *points, int fast_draw);
 
 void roadmap_canvas_draw_multiple_tex_lines (int count, int *lines, RoadMapGuiPoint *points, int fast_draw,
-                                             RoadMapImage image, int opposite);
+                                             RoadMapImage image, int opposite, int offset);
 
 void roadmap_canvas_draw_multiple_polygons
          (int count, int *polygons, RoadMapGuiPoint *points, int filled,
@@ -215,6 +215,9 @@ void roadmap_canvas_draw_image_stretch( RoadMapImage image, const RoadMapGuiPoin
 
 void roadmap_canvas_draw_image_middle_stretch( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
                                 int opacity, int mode );
+
+void roadmap_canvas_draw_image_scaled_angle ( RoadMapImage image, const RoadMapGuiPoint *top_left_pos, const RoadMapGuiPoint *bottom_right_pos,
+                                             int opacity, int angle, int mode );
 
 RoadMapImage roadmap_canvas_new_image (int width, int height);
 

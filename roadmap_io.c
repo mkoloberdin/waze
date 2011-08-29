@@ -79,6 +79,27 @@ int roadmap_io_write (RoadMapIO *io, const void *data, int length, int wait) {
    return -1;
 }
 
+int roadmap_io_write_async (RoadMapIO *io, const void *data, int length) {
+   
+   switch (io->subsystem) {
+      case ROADMAP_IO_NET:
+#if defined(IPHONE_NATIVE) || defined(GTK) || defined(ANDROID)
+         return roadmap_net_send_async( io->os.socket, data, length );
+#else
+         return roadmap_net_send (io->os.socket, data, length, 0); //Change this to async once implemented
+#endif
+      
+      case ROADMAP_IO_FILE:
+      case ROADMAP_IO_SERIAL:
+      case ROADMAP_IO_PIPE:
+         return -1;
+         
+      case ROADMAP_IO_NULL:
+         return length; /* It's all done, since there is nothing to do. */
+   }
+   return -1;
+}
+
 
 void  roadmap_io_close (RoadMapIO *io) {
 

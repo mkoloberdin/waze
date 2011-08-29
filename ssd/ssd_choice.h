@@ -34,4 +34,7 @@ SsdWidget ssd_choice_new (const char *name, const char *title, int count,
                           SsdCallback callback);
 
 
+void ssd_choice_update_values ( SsdWidget choice, int count, const char **labels, const void **values );
+
+
 #endif // __SSD_CHOICE_LIST_H_

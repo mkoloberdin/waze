@@ -190,11 +190,11 @@ static void button_callback (void) {
 
    roadmap_main_remove_periodic (button_callback);
 	delayed_widget->in_focus = FALSE;
+   data->state = BUTTON_STATE_NORMAL;
    if (delayed_widget->callback) {
       (*delayed_widget->callback) (delayed_widget, SSD_BUTTON_SHORT_CLICK);
-	   }
+   }
 
-		data->state = BUTTON_STATE_NORMAL;
 	roadmap_screen_redraw ();
 }
 

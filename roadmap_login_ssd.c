@@ -74,7 +74,7 @@
 #define RM_SIGNUP_DLG_NAME			"Create Account Dialog"
 #define RM_SIGNUP_DLG_BTN   "SignUp"
 #define RM_NEW_EXISTING_NAME  "New Existing"
-#define RM_SIGNUP_DLG_TITLE		"Profile"
+#define RM_SIGNUP_DLG_TITLE		"My profile"
 #define RM_SIGNUP_ENTRY_TITLE	RM_SIGNUP_DLG_TITLE
 
 
@@ -120,11 +120,13 @@ static RoadMapConfigDescriptor RoadMapConfigCarName =
 //======= Local interface ========
 static void create_dialog();
 static BOOL next_btn_callback( int         exit_code, const char* value, void*       context );
-static BOOL validate_login_data( const char *username, const char* password, const char* confirm_password, const char* email );
+static BOOL validate_login_data( const char *username, const char* password, const char* confirm_password, const char* nickname, const char* email );
 static int on_update( SsdWidget this, const char *new_value );
 static int on_create( SsdWidget this, const char *new_value );
 static void OnDeviceEvent( device_event event, void* context );
 static int on_signup_skip( SsdWidget this, const char *new_value);
+static BOOL user_post_done_cb( int exit_code, const char* value, void* context );
+
 /***********************************************************
  *  Name        : roadmap_login_update_dlg_show
  *  Purpose     : Shows the update account dialog. Used for the create/update account forms
@@ -250,7 +252,7 @@ static void create_dialog()
     ssd_dialog_add_vspace( sgSignUpDlg, ADJ_SCALE( 5 ), 0 );
 
     box = ssd_container_new ( "Sign Up Box", NULL, SSD_MAX_SIZE,
-          SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE );
+          SSD_MIN_SIZE, SSD_END_ROW | SSD_ALIGN_CENTER | SSD_CONTAINER_BORDER | SSD_CONTAINER_FLAGS );
 
     // Space before detail title
     ssd_dialog_add_vspace( box, ADJ_SCALE( 16 ), 0 );
@@ -272,31 +274,31 @@ static void create_dialog()
     ssd_dialog_add_vspace( box, ADJ_SCALE( 18 ), 0 );
 
     // Username
-    group = get_signup_entry( "Username", "Username", "User name", next_btn_callback );
+    group = get_signup_entry( "Username", "Username", "User name", user_post_done_cb );
     ssd_widget_add ( box, group );
 
     ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
     // Password
-    group = get_signup_entry( "Password", "Password", "Password", next_btn_callback );
+    group = get_signup_entry( "Password", "Password", "Password", NULL );
     ssd_widget_add ( box, group );
 
     ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
     // Confirm Password
-    group = get_signup_entry( "Confirm password", "ConfirmPassword", "Confirm password", next_btn_callback );
+    group = get_signup_entry( "Confirm password", "ConfirmPassword", "Confirm password", NULL );
     ssd_widget_add ( box, group );
 
     ssd_dialog_add_vspace( box, ADJ_SCALE( 18 ), 0 );
 
     // Nickname
-    group = get_signup_entry( "Nickname", "Nickname", "Nickname", next_btn_callback );
+    group = get_signup_entry( "Nickname", "Nickname", "Nickname", NULL );
     ssd_widget_add ( box, group );
 
     ssd_dialog_add_vspace( box, ADJ_SCALE( 8 ), 0 );
 
     // Email
-    group = get_signup_entry( "Email", "Email", "Email", next_btn_callback );
+    group = get_signup_entry( "Email", "Email", "Email", NULL );
     ssd_widget_add ( box, group );
 
     ssd_dialog_add_vspace( box, ADJ_SCALE( 14 ), 0 );
@@ -814,12 +816,12 @@ void roadmap_login_details_dialog_show_un_pw (void) {
       ssd_dialog_add_vspace( dialog, ADJ_SCALE( 10 ), SSD_END_ROW );
 #endif
 
-      box = ssd_container_new ("box group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | SSD_ROUNDED_CORNERS |
-                                                                           SSD_ROUNDED_WHITE | SSD_POINTER_NONE | SSD_CONTAINER_BORDER );
+      box = ssd_container_new ("box group", NULL, SSD_MAX_SIZE, SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_END_ROW | SSD_CONTAINER_FLAGS
+                                                                  | SSD_POINTER_NONE | SSD_CONTAINER_BORDER );
 
       ssd_dialog_add_vspace( box, ADJ_SCALE( 28 ), SSD_END_ROW );
       // Username
-      entry_label = get_signup_entry( "Username", "Username", "Username", NULL );
+      entry_label = get_signup_entry( "Username", "Username", "Username", user_post_done_cb );
       ssd_widget_add ( box, entry_label );
 
       ssd_dialog_add_vspace( box, ADJ_SCALE( 24 ), SSD_END_ROW );
@@ -882,8 +884,23 @@ void roadmap_login_details_dialog_show_un_pw (void) {
    }
 
    sgLastLoginDlg = sUnPwDlg;
-   ssd_dialog_draw ();
    ssd_dialog_activate( sDlgName, NULL );
+   ssd_dialog_draw ();
+}
+
+static BOOL user_post_done_cb( int exit_code, const char* value, void* context )
+{
+   SsdWidget entry_label_nickname = ssd_widget_get( sgLastLoginDlg, "Nickname" );
+   SsdWidget entry_label_user = ssd_widget_get( sgLastLoginDlg, "Username" );
+   SsdWidget entry_user = ssd_entry_label_get_entry( entry_label_user );
+   SsdWidget entry_nickname = ssd_entry_label_get_entry( entry_label_nickname );
+   const char* nickname = entry_nickname->get_value( entry_nickname );
+   const char* user = entry_user->get_value( entry_user );
+   if ( (!nickname || !nickname[0]) && user && user[0] )
+   {
+      entry_nickname->set_value( entry_nickname, user );
+   }
+   return 1;
 }
 
 static SsdWidget create_button_group (const char* group_name,
@@ -895,25 +912,37 @@ static SsdWidget create_button_group (const char* group_name,
    const char *icon[2];
    SsdWidget button;
    SsdWidget container;
+   SsdWidget icon_container;
+   SsdWidget text_w;
    const char *buttons[2];
    int tab_flag = SSD_WS_TABSTOP;
 
    SsdWidget group = ssd_container_new (group_name, NULL,
                                         SSD_MAX_SIZE,ssd_container_get_row_height(),
                                         SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
+   ssd_widget_set_color(group, NULL, NULL);
    icon[0] = logo;
    icon[1] = NULL;
    container =  ssd_container_new ("space", NULL, 47,
                                    SSD_MIN_SIZE, SSD_ALIGN_VCENTER);
    ssd_widget_set_color(container, NULL, NULL);
-   ssd_widget_add (container,
+   icon_container = ssd_container_new ("Button_con", NULL,
+                              ADJ_SCALE(60), SSD_MAX_SIZE,
+                              0);
+   ssd_widget_set_color(icon_container,NULL, NULL);
+
+   ssd_widget_add (icon_container,
                    ssd_button_new (text, text, (const char **)&icon[0], 1,
-                                   SSD_START_NEW_ROW|SSD_ALIGN_VCENTER,
+                                   SSD_START_NEW_ROW|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER,
                                    callback));
+
+   ssd_widget_add (group, icon_container);
+
    group->callback = callback;
    ssd_widget_add (group, container);
-   ssd_widget_add (group,
-                   ssd_text_new (text, text, SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER));
+   text_w = ssd_text_new (text, text, SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
+   ssd_text_set_color(text_w, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (group,text_w);
 
 #ifdef TOUCH_SCREEN
    if (!ssd_widget_rtl(NULL)){
@@ -934,7 +963,7 @@ static SsdWidget create_button_group (const char* group_name,
 void roadmap_login_profile_dialog_show( void )
 {
    static SsdWidget sProfileDlg = NULL;
-   static const char* sDlgName = "Profile";
+   static const char* sDlgName = "My Profile";
    char *car_name;
    const char *config_car;
    char *icon[2];
@@ -957,6 +986,7 @@ void roadmap_login_profile_dialog_show( void )
       SsdWidget box;
       SsdWidget button;
       SsdWidget space;
+      SsdWidget text;
       SsdWidget entry_label;
       const char *edit_button[] = {"edit_right", "edit_left"};
       const char *buttons[2];
@@ -972,17 +1002,17 @@ void roadmap_login_profile_dialog_show( void )
 
       box = ssd_container_new ("box group", NULL,
                                total_width,SSD_MIN_SIZE,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
       //Username
       group = ssd_container_new ("Name group", NULL,
                                  SSD_MAX_SIZE,row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
+      ssd_widget_set_color (group, NULL, NULL);
       entry_label = ssd_entry_label_new_confirmed( "Username", roadmap_lang_get("Username"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
                                                    SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Username"),
                                                    roadmap_lang_get("Change of username and password should be done on www.waze.com, and only then entered here. Continue?") );
-      ssd_entry_label_set_kb_params( entry_label, roadmap_lang_get( "User name" ), NULL, NULL, NULL, SSD_KB_DLG_INPUT_ENGLISH );
+      ssd_entry_label_set_kb_params( entry_label, roadmap_lang_get( "User name" ), NULL, NULL, user_post_done_cb, SSD_KB_DLG_INPUT_ENGLISH );
       ssd_entry_label_set_editbox_title( entry_label, roadmap_lang_get( "User name" ) );
       ssd_widget_add( group, entry_label );
 
@@ -994,7 +1024,7 @@ void roadmap_login_profile_dialog_show( void )
       group = ssd_container_new ("PW group", NULL,
                                  SSD_MAX_SIZE,row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
+      ssd_widget_set_color (group, NULL, NULL);
       entry_label = ssd_entry_label_new( "Password", roadmap_lang_get("Password"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
                                                    SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Password") );
       ssd_entry_label_set_text_flags( entry_label, SSD_TEXT_PASSWORD );
@@ -1008,7 +1038,7 @@ void roadmap_login_profile_dialog_show( void )
       group = ssd_container_new ("Nick group", NULL,
                                  SSD_MAX_SIZE, row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
+      ssd_widget_set_color (group, NULL, NULL);
 
       entry_label = ssd_entry_label_new( "Nickname", roadmap_lang_get("Nickname"), SSD_MAIN_TEXT_SIZE, RM_SIGNUP_DLG_LABEL_CNT_WIDTH,
                                                    SSD_ROW_HEIGHT/2, SSD_ALIGN_VCENTER, roadmap_lang_get("Nickname") );
@@ -1023,15 +1053,14 @@ void roadmap_login_profile_dialog_show( void )
 
       box = ssd_container_new ("Privacy section", NULL,
                                  total_width,SSD_MIN_SIZE,
-                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|
-                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
       ssd_widget_set_color (box, "#000000", "#ffffff");
 
       //Privacy
       group = ssd_container_new ("Privacy group", NULL,
                                  SSD_MAX_SIZE, row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
+      ssd_widget_set_color (group, NULL, NULL);
 
 #ifdef TOUCH_SCREEN
       if (!ssd_widget_rtl(NULL)){
@@ -1052,9 +1081,10 @@ void roadmap_login_profile_dialog_show( void )
                                       0,
                                       NULL));
 
-      ssd_widget_add (group,
-                      ssd_text_new ("Privacy Text", roadmap_lang_get("Privacy settings"), SSD_MAIN_TEXT_SIZE,
-                            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+      text = ssd_text_new ("Privacy Text", roadmap_lang_get("Privacy settings"), SSD_MAIN_TEXT_SIZE,
+            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
+      ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+      ssd_widget_add (group,text);
       group->callback = RealtimePrivacySettingsWidgetCallBack;
 
 
@@ -1071,8 +1101,7 @@ void roadmap_login_profile_dialog_show( void )
 #ifndef TOUCH_SCREEN
       group = ssd_container_new ("Car group", NULL,
                                  total_width, row_height,
-                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_ROUNDED_CORNERS
-                                 |SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
       ssd_widget_set_color (group, "#000000", "#ffffff");
       icon[0] = (char *)roadmap_mood_get();
       icon[1] = NULL;
@@ -1088,11 +1117,11 @@ void roadmap_login_profile_dialog_show( void )
 
 #endif
 
+#if 0
       //Social networks
       box = ssd_container_new ("social group", NULL,
                                total_width,SSD_MIN_SIZE,
-                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS
-                               |SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
       //Twitter
       group = create_button_group ("Twitter group",
@@ -1122,18 +1151,17 @@ void roadmap_login_profile_dialog_show( void )
       }
 
       ssd_widget_add (dialog, box);
-
+#endif
       //Avatar
       box = ssd_container_new ("Car group", NULL,
                                  total_width,SSD_MIN_SIZE,
-                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|
-                                 SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
+                                 SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+      ssd_widget_set_color (box, NULL, NULL);
 
       group = ssd_container_new ("Privacy group", NULL,
                                  SSD_MAX_SIZE, row_height,
                                  SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (group, "#000000", "#ffffff");
+      ssd_widget_set_color (group, NULL, NULL);
 
       config_car = roadmap_config_get (&RoadMapConfigCarName);
       car_name = roadmap_path_join("cars", config_car);
@@ -1159,9 +1187,10 @@ void roadmap_login_profile_dialog_show( void )
 #endif
       //ssd_dialog_add_hspace(group, 10, 0);
       //ssd_dialog_add_hspace(group, 10, 0);
-      ssd_widget_add (group,
-                      ssd_text_new ("Car Text", roadmap_lang_get("Car"), SSD_MAIN_TEXT_SIZE,
-                                    SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+      text = ssd_text_new ("Car Text", roadmap_lang_get("Car"), SSD_MAIN_TEXT_SIZE,
+            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
+      ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+      ssd_widget_add (group, text);
       group->callback = on_car_select;
       ssd_widget_add (box, group);
       ssd_widget_add (dialog, box);
@@ -1197,6 +1226,94 @@ void roadmap_login_profile_dialog_show( void )
    ssd_dialog_activate ( sDlgName, NULL);
 }
 
+void roadmap_login_get_social_show( void )
+{
+   static SsdWidget sProfileDlg = NULL;
+   static const char* sDlgName = "Get Social";
+   char *car_name;
+   const char *config_car;
+   char *icon[2];
+   int row_height = ssd_container_get_row_height();
+   int total_width = ssd_container_get_width();
+   int width;
+   int tab_flag = SSD_WS_TABSTOP;
+
+   /* Current shown login function for the
+    * further processing in callbacks
+    */
+
+   width = total_width/2;
+
+   if ( !ssd_dialog_exists( sDlgName ) ) {
+
+      SsdWidget dialog;
+      SsdWidget group;
+      SsdWidget box;
+      SsdWidget button;
+      SsdWidget text;
+      SsdWidget space;
+      SsdWidget entry_label;
+      const char *edit_button[] = {"edit_right", "edit_left"};
+      const char *buttons[2];
+
+      dialog = ssd_dialog_new ( sDlgName, roadmap_lang_get(sDlgName), NULL,
+                               SSD_CONTAINER_TITLE);
+
+#ifdef TOUCH_SCREEN
+      space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE|SSD_END_ROW);
+      ssd_widget_set_color (space, NULL,NULL);
+      ssd_widget_add(dialog, space);
+#endif
+
+      ssd_dialog_add_vspace(dialog, ADJ_SCALE(5),0);
+      ssd_dialog_add_hspace(dialog, ADJ_SCALE(10),0);
+      text = ssd_text_new("SocialTitleTxt", roadmap_lang_get("Connect your social universe to waze for the full social driving experience"), 14, SSD_TEXT_NORMAL_FONT);
+      ssd_widget_add(dialog,text);
+      ssd_dialog_add_vspace(dialog, ADJ_SCALE(10),0);
+      //Social networks
+      box = ssd_container_new ("social group", NULL,
+                               total_width,SSD_MIN_SIZE,
+                               SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+
+      //Twitter
+      group = create_button_group ("Twitter group",
+                                   "twitter_logo",
+                                   "Twitter",
+                                   twitter_button_cb);
+      ssd_widget_add (box, group);
+
+#if 1 //enable when facebook is supported
+      //Facebook
+      ssd_widget_add (box, ssd_separator_new ("separator", 0));
+      group = create_button_group ("Facebook group",
+                                   "facebook_settings",
+                                   "Facebook",
+                                   facebook_button_cb);
+      ssd_widget_add (box, group);
+#endif
+
+      //Foursquare
+      if (roadmap_foursquare_is_enabled()) {
+         ssd_widget_add (box, ssd_separator_new ("separator", 0));
+         group = create_button_group ("Foursquare group",
+                                      "foursquare",
+                                      "Foursquare",
+                                      foursquare_button_cb);
+         ssd_widget_add (box, group);
+      }
+
+      ssd_widget_add (dialog, box);
+
+#ifndef TOUCH_SCREEN
+      ssd_widget_set_left_softkey_text       ( dialog, roadmap_lang_get("Ok"));
+      ssd_widget_set_left_softkey_callback   ( dialog, on_ok_softkey);
+#endif
+
+   }
+
+   ssd_dialog_activate ( sDlgName, NULL);
+}
+
 
 static int on_create( SsdWidget this, const char *new_value )
 {
@@ -1204,11 +1321,12 @@ static int on_create( SsdWidget this, const char *new_value )
    const char *confirm_password   	= ssd_dialog_get_value( "ConfirmPassword" );
    const char *password       		= ssd_dialog_get_value( "Password" );
    const char *email          		= ssd_dialog_get_value( "Email" );
+   const char *nickname                = ssd_dialog_get_value( "Nickname" );
    const char *send_updates   = ssd_dialog_get_data( "send_updates" );
    BOOL  bSendUpdates = !strcmp( send_updates, "yes" );
 
 
-   if ( !validate_login_data( username, password, confirm_password, email ) )
+   if ( !validate_login_data( username, password, confirm_password, nickname, email ) )
    {
 	   return 1;
    }
@@ -1227,10 +1345,11 @@ static int on_update( SsdWidget this, const char *new_value )
    const char *confirm_password   	= ssd_dialog_get_value("ConfirmPassword");
    const char *password       		= ssd_dialog_get_value("Password");
    const char *email          		= ssd_dialog_get_value("Email");
+   const char *nickname             = ssd_dialog_get_value( "Nickname" );
    const char *send_updates   		= ssd_dialog_get_data("send_updates");
    BOOL  bSendUpdates				= !strcmp( send_updates, "yes" );
 
-   if ( !validate_login_data( username, password, confirm_password, email ) )
+   if ( !validate_login_data( username, password, confirm_password, nickname, email ) )
    {
 	   return 1;
    }
@@ -1246,13 +1365,16 @@ static int on_update( SsdWidget this, const char *new_value )
  * Checks if all the user entries are ok. Returns TRUE in case of all valid fields, FALSE otherwise
  *
  */
-static BOOL validate_login_data( const char *username, const char* password, const char* confirm_password, const char* email )
+static BOOL validate_login_data( const char *username, const char* password, const char* confirm_password, const char* nickname, const char* email )
 {
-	if ( !roadmap_login_validate_username( username ) )
-		return FALSE;
+   if ( !roadmap_login_validate_username( username ) )
+      return FALSE;
 
 	if ( !roadmap_login_validate_password( password, confirm_password ) )
 		return FALSE;
+
+   if ( !roadmap_login_validate_nickname( nickname ) )
+      return FALSE;
 
 	if ( !roadmap_login_validate_email( email ) )
 		return FALSE;
