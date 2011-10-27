@@ -34,8 +34,13 @@
 package com.waze;
 
 import android.content.Context;
+import android.text.Editable;
 import android.text.InputType;
+import android.util.AttributeSet;
+import android.text.TextWatcher;
+import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -52,6 +57,12 @@ public class WazeEditBox extends EditText
     {
         super( aContext );
         
+        Init( aContext );
+    }
+    
+    public WazeEditBox( Context aContext, AttributeSet aAttrs )
+    {
+        super( aContext, aAttrs );
         Init( aContext );
     }
     
@@ -106,6 +117,10 @@ public class WazeEditBox extends EditText
     	if ( ( mFlags & WAZE_EDITBOX_FLAG_PASSWORD ) > 0 )
     	{
         	 inputType = inputType | InputType.TYPE_TEXT_VARIATION_PASSWORD;
+    	}
+    	if ( ( mFlags & WAZE_EDITBOX_FLAG_SPEECHTT ) > 0 )
+    	{
+    		PrepareSpeechTTHandler();
     	}
     	this.setInputType( inputType );
     }
@@ -177,7 +192,7 @@ public class WazeEditBox extends EditText
     }
 
     /*************************************************************************************************
-     * dispatchKeyEventPreIme - Overrides "ENTER" and "BACK" ev 
+     * dispatchKeyEventPreIme - Overrides "ENTER" and "BACK" events 
      * @param  
      */
     @Override public boolean  dispatchKeyEventPreIme( KeyEvent aEvent )
@@ -255,7 +270,7 @@ public class WazeEditBox extends EditText
         setFocusableInTouchMode( true );
     	int inputType = InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_AUTO_COMPLETE;
     	this.setInputType( inputType ); 
-    	
+    	this.setTag( WAZE_EDITBOX_TAG );
     	/*
     	 * Editor action listener
     	 */
@@ -276,6 +291,25 @@ public class WazeEditBox extends EditText
     		}
     	};
     	setOnEditorActionListener( editorActionListener );
+    	/*
+    	 * Key listener 
+    	 */
+    	TextWatcher textWatcher = new TextWatcher() {
+			public void onTextChanged( CharSequence aSeq, int aStart, int aBefore, int aCount ) {
+				if ( aSeq.length() == 1 )
+				{
+					final FreeMapNativeManager lMgr = FreeMapAppService.getNativeManager();
+					lMgr.EditBoxCheckTypingLock( WazeEditBox.this );
+				}
+			}
+			
+			public void beforeTextChanged( CharSequence arg0, int arg1, int arg2, int arg3 ) {
+			}
+			
+			public void afterTextChanged( Editable arg0 ) {
+			}
+		};
+		addTextChangedListener( textWatcher );
     }
     
     
@@ -292,6 +326,37 @@ public class WazeEditBox extends EditText
 			layoutMgr.HideEditBox();    				
 		}
     }
+    /*************************************************************************************************
+     * ActionHandler - Auxiliary. Prepares the handler for the voice recognition 
+     * @param None  
+     */
+    protected void PrepareSpeechTTHandler()
+    {
+    	final WazeSpeechttManagerBase.Callback speechTTCb= new WazeSpeechttManagerBase.Callback() {
+			@Override
+			protected void onResults( long aCbContext, String aResult, int aStatus ) {
+				if ( aStatus == WazeSpeechttManagerBase.SPEECHTT_RES_STATUS_SUCCESS )
+					setText( aResult );
+				else
+					Log.e( WazeLog.TAG, "Got error result from the speech to text manager" );
+				ShowSoftInput();				
+			}
+		};
+    	final View.OnClickListener voiceBtnListener = new View.OnClickListener() {
+			public void onClick( View aView ) {
+				FreeMapNativeManager nativeMgr = FreeMapAppService.getNativeManager();
+				WazeSpeechttManagerBase speechTTManager = nativeMgr.getSpeechttManager();
+				HideSoftInput();
+				speechTTManager.Start( speechTTCb, speechTTCb.CONTEXT_NULL, 5, null, null, 0 );
+			}
+		};
+		View btn = this.getRootView().findViewById( R.id.VoiceButton );
+		if ( btn != null )
+		{
+			btn.setOnClickListener( voiceBtnListener );
+		}
+    }
+    
     
     private InputMethodManager getInputMethodManager()
     {
@@ -313,6 +378,9 @@ public class WazeEditBox extends EditText
     private String mValue = null;									// Initial string value
     private int mFlags = 0;											// Custom flags
     
+    public static String WAZE_EDITBOX_TAG = "@WazeEditBox";  
+    
     /* Custom flags values */
     public static final int WAZE_EDITBOX_FLAG_PASSWORD = 0x00000001;
+    public static final int WAZE_EDITBOX_FLAG_SPEECHTT = 0x00000002;
 }

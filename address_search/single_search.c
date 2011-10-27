@@ -85,8 +85,7 @@ BOOL single_search_init()
    }
 
    address  = get_webservice_address();
-   //address = "http://212.150.51.91:80/WAS/";//TODO: remove this
-   s_websvc = wst_init( address, "application/x-www-form-urlencoded; charset=utf-8");
+   s_websvc = wst_init( address, NULL, NULL, NULL, "application/x-www-form-urlencoded; charset=utf-8");
 
    if( INVALID_WEBSVC_HANDLE != s_websvc)
    {

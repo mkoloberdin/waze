@@ -26,11 +26,11 @@ public class WazeStandbyManager extends BroadcastReceiver {
 		WazeLog.w( "Screen broadcast receiver got action: " + action );
 		if ( Intent.ACTION_SCREEN_ON.equals( action ) )
 		{
-			mScreenManager.ForegroundRequest();
+			mScreenManager.onPause();
 		}
 		if ( Intent.ACTION_SCREEN_OFF.equals( action ) )
 		{
-			mScreenManager.BackgroundRequest();
+			mScreenManager.onResume();
 		}
 	}
 

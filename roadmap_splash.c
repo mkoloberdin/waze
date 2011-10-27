@@ -44,7 +44,9 @@ static BOOL initialized = FALSE;
 static RoadMapCallback SplashNextLoginCb = NULL;
 static void download_wide_splash(void);
 
-#define START_DOWNLOAD_DELAY 30000
+#define START_DOWNLOAD_DELAY  30000
+#define SPLASH_CHECK_INTERVAL 6 * 3600
+
 
 typedef struct {
    const char   *name;
@@ -55,14 +57,17 @@ typedef struct {
 
 static SplashFiles RoadMapSplashFiles[] = {
 #ifdef IPHONE
-   {"welcome_768_1004", 500, -1,FALSE},
+   {"welcome_768_1004", 700, -1,FALSE},
+   {"welcome_640_960", 500, -1,FALSE},
    {"welcome_320_480", 200, -1,FALSE},
    {"welcome_wide_480_320", 200,-1, TRUE},
 #else
    {"welcome_480_816", 480, -1,FALSE},
+   {"welcome_480_816", 400, -1,FALSE},    // Android splash shown only in portrait. Download can be done in landscape (442px)
    {"welcome_360_640", 360, -1,FALSE},
    {"welcome_320_480", 320, 480,FALSE},
    {"welcome_320_455", 320, 455,FALSE},
+   {"welcome_320_455", 295, 480,FALSE},   // Android splash shown only in portrait. Download can be done in landscape (295px)
    {"welcome_240_320", 240, -1,FALSE},
    {"welcome_wide_854_442", 800,-1, TRUE},
    {"welcome_wide_640_360", 640,-1, TRUE},
@@ -87,6 +92,12 @@ static void roadmap_splash_init_params (void) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 BOOL roadmap_splash_feature_enabled (void) {
+
+   #ifdef ANDROID
+   if ( roadmap_main_is_widget_mode() )
+      return FALSE;
+#endif
+
    if (0 == strcmp (roadmap_config_get (&RoadMapConfigSplashFeatureEnabled), "yes"))
       return TRUE;
    return FALSE;
@@ -135,7 +146,7 @@ static BOOL should_check_for_new_file(){
 
    now = time(NULL);
 
-   if ((now - last_check_time) > (24 * 3600))
+   if ((now - last_check_time) > SPLASH_CHECK_INTERVAL)
       return TRUE;
    else
       return FALSE;
@@ -190,6 +201,10 @@ static const char *roadmap_splash_get_splash_name(BOOL wide){
 
    }
 
+   // Remove this when splash bug will be fixed
+   roadmap_log( ROADMAP_WARNING, "Downloading splash file: %s. Canvas: (%d, %d)", SAFE_STR( splash_file ),
+                        roadmap_canvas_width(), roadmap_canvas_height() );
+
    return splash_file;
 }
 
@@ -200,11 +215,14 @@ static void on_splash_downloaded (const char* res_name, int success, void *conte
    if (success){
        if (last_modified && *last_modified)
           roadmap_splash_set_update_time(last_modified);
-#ifndef IPHONE
+#if ( !defined(IPHONE) && !defined(ANDROID) )
        download_wide_splash();
 #endif
+       roadmap_splash_set_check_time();
    }
-   roadmap_splash_set_check_time();
+   else{
+      roadmap_splash_set_update_time("");
+   }
 }
 
 //////////////////////////////////////////////////////////////////
@@ -223,6 +241,9 @@ static void download_splash(void){
    time_t update_time;
    const char *file_name = roadmap_splash_get_splash_name(FALSE);
    const char* last_save_time = roadmap_splash_get_update_time();
+
+   // TODO:: Remove this when the splash bug will be fixed
+   roadmap_log( ROADMAP_WARNING, "Downloading splash: %s, Canvas: (%d, %d)", file_name, roadmap_canvas_width(), roadmap_canvas_height() );
 
    if (!file_name)
       return;
@@ -255,7 +276,8 @@ static void roadmap_splash_delayed_start_download(void){
 
 //////////////////////////////////////////////////////////////////
 void roadmap_splash_login_cb(void){
-   roadmap_main_set_periodic(START_DOWNLOAD_DELAY,roadmap_splash_delayed_start_download);
+   if (should_check_for_new_file())
+      roadmap_main_set_periodic(START_DOWNLOAD_DELAY,roadmap_splash_delayed_start_download);
 
    Realtime_NotifySplashUpdateTime(roadmap_splash_get_update_time());
 
@@ -270,15 +292,15 @@ void roadmap_splash_download_init(void){
    if (!initialized)
       roadmap_splash_init_params();
 
-   if (roadmap_splash_feature_enabled() && should_check_for_new_file())
+   if (roadmap_splash_feature_enabled())
       SplashNextLoginCb = Realtime_NotifyOnLogin (roadmap_splash_login_cb);
    else
-      roadmap_log (ROADMAP_DEBUG, "Splash download disabled or check time < 24 hr");
+      roadmap_log (ROADMAP_DEBUG, "Splash download disabled");
 }
 
 //////////////////////////////////////////////////////////////////
 void roadmap_splash_display (void) {
-#if !defined(ANDROID) && !defined(IPHONE)
+#if !defined(ANDROID) && !defined(IPHONE) && !defined(GTK2_OGL)
    int height, width;
    RoadMapImage image;
    RoadMapGuiPoint pos;

@@ -27,5 +27,6 @@ void address_search_dlg_show( PFN_ON_DIALOG_CLOSED cbOnClosed,
                               void*                context);
 
 BOOL address_search_auto_search( const char* address);
+BOOL address_search_auto_nav( const char* address);
 
 #endif   // __ADDRESS_SEARCH_DLG_H__

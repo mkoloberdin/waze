@@ -179,7 +179,17 @@ static void roadmap_androidmenu_load( const char* data, int size )
 			  }
 			  case 'L':
 			  {
-				  GET_MENU_PARAM( item->label, argv[1], argl[1] );
+			     int i;
+			     char temp[255];
+			     item->label[0] = 0;
+			     for (i=1; i< argc; i++){
+			           GET_MENU_PARAM (temp, argv[i], argl[i]);
+			           strcat(item->label, temp);
+			           if (i != argc-1)
+			              strcat(item->label, " ");
+			     }
+
+//				  /GET_MENU_PARAM( item->label, argv[1], argl[1] );
 				  break;
 			  }
 			  case 'A':
@@ -208,13 +218,14 @@ static void roadmap_androidmenu_update()
 {
 	int i;
 	android_menu_item* item;
-
+	WazeMenuManager_ResetOptionsMenu();
 	for ( i=0; i < sgMenuItemsCount; ++i )
 	{
 		item = &sgMenuItems[i];
 		WazeMenuManager_AddOptionsMenuItem( item->item_id, roadmap_lang_get( item->label ),
 											item->icon_name, item->is_icon_native, item->portrait_order, item->landscape_order, item->item_type  );
 	}
+	WazeMenuManager_SubmitOptionsMenu();
 }
 
 

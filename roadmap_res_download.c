@@ -100,7 +100,7 @@ static void download_error_callback (void *context_cb,
                int connection_failure,
                const char *format,
                ...);
-static void download_done_callback (void *context_cb, char *last_modified);
+static void download_done_callback (void *context_cb, char *last_modified, const char *format, ... );
 
 static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks = { download_size_callback,
       download_progress_callback, download_error_callback, download_done_callback };
@@ -249,7 +249,11 @@ static char* get_download_url (int type, const char *lang, const char* name) {
 
    if (roadmap_screen_is_hd_screen()){
      if (( type == RES_DOWNLOAD_IMAGE ) || ( type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES )){
+#ifndef IPHONE_NATIVE
       	strcat (url, "HD");
+#else
+        strcat (url, "2x");
+#endif
 	    strcat (url, "/");
       }
    }
@@ -458,14 +462,21 @@ static void roadmap_download_start (void) {
    }
    downloading = TRUE;
    // Target file name from the resources target name
-   res_file = malloc (strlen (resData.target_name) + 5);
+   res_file = malloc (strlen (resData.target_name) + 8);
    strcpy (res_file, resData.target_name);
    if ((resData.type == RES_DOWNLOAD_IMAGE) || (resData.type == RES_DOWNLOAD_COUNTRY_SPECIFIC_IMAGES)){
+
+#ifdef IPHONE_NATIVE
+      if (roadmap_screen_is_hd_screen())
+         strcat (res_file, "@2x");
+#endif //IPHONE_NATIVE
+      
 #ifdef ANDROID
       strcat (res_file, ".bin");
 #else
       strcat (res_file, ".png");
 #endif
+      
       res_path = get_images_output_path (res_file);
    }
    else if (resData.type == RES_DOWNLOAD_SOUND) {
@@ -639,7 +650,7 @@ static void download_error_callback (void *context_cb,
 }
 
 //////////////////////////////////////////////////////////////////
-static void download_done_callback (void *context_cb, char *last_modified) {
+static void download_done_callback (void *context_cb, char *last_modified, const char *format, ... ) {
    DownloadContext* context = (DownloadContext*) context_cb;
    const char* path = context->res_path;
    RoadMapFile file;

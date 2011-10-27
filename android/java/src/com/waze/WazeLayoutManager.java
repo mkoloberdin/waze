@@ -68,7 +68,12 @@ public final class WazeLayoutManager
 
 	public WazeEditBox getEditBox()
 	{
-		return mEditBox;
+		WazeEditBox editBox = null;
+		
+		if ( mEditBoxView != null )
+			editBox = (WazeEditBox) mEditBoxView.findViewWithTag( WazeEditBox.WAZE_EDITBOX_TAG );
+		
+		return editBox;
 	}
 
 	public WazeWebView CreateWebView( int aFlags )
@@ -115,6 +120,24 @@ public final class WazeLayoutManager
 		mWebView.requestFocus();	
 	}
 	
+	public void ResizeWebView( WazeRect aRect )
+	{		
+		if ( mWebView == null )
+		{
+			return;
+		}
+		
+		int width = aRect.maxx - aRect.minx + 1;
+		int height = aRect.maxy - aRect.miny + 1;
+		RelativeLayout.LayoutParams webParams = (RelativeLayout.LayoutParams) mWebView.getLayoutParams();
+		webParams.width = width;
+		webParams.height = height;
+		webParams.leftMargin = aRect.minx;
+		webParams.topMargin = aRect.miny;
+		
+		mWebView.setLayoutParams( webParams );
+		mMainLayout.requestLayout();
+	}
 
 	public void HideWebView()
 	{
@@ -148,48 +171,60 @@ public final class WazeLayoutManager
 		}
 	}
 	
-	public WazeEditBox CreateEditBox()
+	public WazeEditBox CreateEditBox( int aType )
 	{
-		mEditBox = new WazeEditBox( mContext );
-		return mEditBox;
+		switch( aType )
+		{
+			case WAZE_LAYOUT_EDIT_TYPE_SIMPLE:
+				mEditBoxView = new WazeEditBox( mContext );
+				break;
+			case WAZE_LAYOUT_EDIT_TYPE_VOICE:
+				mEditBoxView = ( View ) View.inflate( mContext, R.layout.editbox_voice, null );
+				break;
+			default:
+				mEditBoxView = new WazeEditBox( mContext );
+		}		
+		return getEditBox();
 	}
 
-	public void ShowEditBox( int aTopMargin )
+	public void ShowEditBox( int aTopMargin, int aType )
 	{		
 		final float scale = mContext.getResources().getDisplayMetrics().density;
-		
-		if ( mEditBox == null )
-			CreateEditBox();
+
+		if ( mEditBoxView == null )
+			CreateEditBox( aType );
 
 		RelativeLayout.LayoutParams textParams = new RelativeLayout.LayoutParams( FILL_PARENT, WRAP_CONTENT );
 		textParams.leftMargin = (int) ( WAZE_LAYOUT_EDIT_SIDE_MARGIN * scale );
 		textParams.rightMargin = textParams.leftMargin;
 		textParams.topMargin = aTopMargin;
 
-		mMainLayout.addView( mEditBox, textParams );		
+		mMainLayout.addView( mEditBoxView, textParams );		
 
-		mEditBox.setVisibility( View.VISIBLE );
-		mMainLayout.bringChildToFront( mEditBox );
+		mEditBoxView.setVisibility( View.VISIBLE );
+		mMainLayout.bringChildToFront( mEditBoxView );
 		mMainLayout.requestLayout();
 		
-		mEditBox.requestFocus();
+		mEditBoxView.requestFocus();
 		
 		final Runnable showSoftInput = new Runnable() {
 			public void run() {
-				ShowSoftInput( mEditBox );		
+				final WazeEditBox editBox = getEditBox();
+				if ( editBox != null )
+					ShowSoftInput( editBox );		
 			}
 		};
-		mEditBox.postDelayed( showSoftInput, 100L );
+		mEditBoxView.postDelayed( showSoftInput, 100L );
 	}
 	
 	public void HideEditBox()
 	{
-		if ( mEditBox != null )
+		if ( mEditBoxView != null )
 		{
-			mEditBox.HideSoftInput();
-			mMainLayout.removeView( mEditBox );			
+			getEditBox().HideSoftInput();
+			mMainLayout.removeView( mEditBoxView );			
 			mMainLayout.requestLayout();			
-			mEditBox = null;
+			mEditBoxView = null;
 		}
 	}
 	public void ShowProgressView()
@@ -307,16 +342,18 @@ public final class WazeLayoutManager
      *================================= Data members section =================================
      * 
      */
-	RelativeLayout mMainLayout = null;
-	WazeMainView mAppView = null;			// Main Application view
-	WazeWebView	   mWebView = null;
-	WazeEditBox    mEditBox = null;
-    Context 	   mContext = null;
-    View 		   mProgressView = null;
+    private RelativeLayout mMainLayout = null;
+    private WazeMainView mAppView = null;			// Main Application view
+    private WazeWebView	   mWebView = null;
+    private View	       mEditBoxView = null;
+    private Context 	   mContext = null;
+    private View 		   mProgressView = null;
     
 	/*************************************************************************************************
      *================================= Constants section =================================
      */
+    public static final int WAZE_LAYOUT_EDIT_TYPE_SIMPLE = 0; // Simple editbox
+    public static final int WAZE_LAYOUT_EDIT_TYPE_VOICE = 1; // Voice to text edit box style
     public static final float WAZE_LAYOUT_EDIT_HEIGHT = 50; // Apporx 0.3 inch relative to the base 160dpi
     public static final float WAZE_LAYOUT_EDIT_SIDE_MARGIN = 2; // Apporx 1/80 inch relative to the base 160dpi
     

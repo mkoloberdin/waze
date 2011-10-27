@@ -35,10 +35,17 @@
 #define  WST_RESPONSE_BUFFER_SIZE            (32768)   // 32K
 #endif
 #define  WST_SESSION_TIMEOUT                 (75)  /* seconds */
+#define  WST_ACK_TIMEOUT                     (5)  /* seconds */
+#define  WST_ACK_HEADER_TIMEOUT              (25)  /* seconds */
+#define  WST_RECEIVE_TIMEOUT                 (5)  /* seconds */
 #define  HTTP_HEADER_MAX_SIZE                (400)
 #define  WST_WEBSERVICE_METHOD_MAX_SIZE      (0xFF)
 #define  WST_MIN_PARSERS_COUNT               ( 1)
-#define  WST_MAX_PARSERS_COUNT               (40)
+#define  WST_MAX_PARSERS_COUNT               (45)
+
+#define WEBSVC_FLAG_SECURED                  0x0001
+#define WEBSVC_FLAG_V2                       0x0002
+
 
 typedef void*  wst_handle;
 
@@ -55,12 +62,14 @@ typedef enum tag_transaction_state
    trans_idle,
    trans_active,
    trans_stopping,
+   trans_canceled,
 
 }  transaction_state;
 
 //   Response Parser State
 typedef enum tag_http_parsing_state
 {
+   http_not_acked,
    http_not_parsed,
 
    http_status_verified,
@@ -133,14 +142,20 @@ typedef struct tag_wst_context
 {
 /* General:       */
 /* 1*/   const char*          service;
+         const char*          secured_service;
+         const char*          secured_service_resolved;
+         const char*          service_v2_suffix;
 /* 2*/   const char*          content_type;
 /* 3*/   int                  port;
+         int                  secured_port;
 /* 4*/   RoadMapSocket        Socket;
 /* 5*/   transaction_state    state;
 /* 6*/   BOOL                 async_receive_started;
-/* 7*/   time_t               starting_time;
+/* 7*/   time_t               last_receive_time;
 /* 8*/   wst_queue            queue;
-/* 9*/   void*                context;
+/* 9*/   //void*                context;
+         wstq_item            active_item;
+         int                  retries;
 
 /* Send:          */
 /*10*/   ebuffer              packet;
@@ -148,24 +163,19 @@ typedef struct tag_wst_context
 /* Receive:       */
 /*11*/   cyclic_buffer        CB;
 /*12*/   http_parsing_state   http_parser_state;
-/*13*/   wst_parser_ptr       parsers;
-/*14*/   int                  parsers_count;
+/*13*/   //wst_parser_ptr       parsers;
+/*14*/   //int                  parsers_count;
 
 /* Completion:    */
-/*15*/   CB_OnWSTCompleted    cbOnWSTCompleted;
+/*15*/   //CB_OnWSTCompleted    cbOnWSTCompleted;
 /*16*/   transaction_result   result;
 /*17*/   roadmap_result       rc;
-/*18*/   BOOL                 delete_on_idle;   // Object should be deleted after transaction
+/*18*/   BOOL                 delete_on_idle;
+         void                 *connect_context;
 
 }     wst_context, *wst_context_ptr;
 void  wst_context_init  (  wst_context_ptr      this);
 void  wst_context_free  (  wst_context_ptr      this);
-void  wst_context_reset (  wst_context_ptr      this);
-void  wst_context_load  (  wst_context_ptr      this,
-                           const wst_parser_ptr parsers,
-                           int                  parsers_count,
-                           CB_OnWSTCompleted   cbOnCompleted,
-                           void*                context);
 
 // Same function, but buffer is ready formatted:
 BOOL RTNet_HttpAsyncTransaction_FormattedBuffer(

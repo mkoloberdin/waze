@@ -34,7 +34,8 @@ void ssd_menu_activate (const char           *name,
                         SsdWidget 			 addition_conatiner,
                         PFN_ON_DIALOG_CLOSED on_dialog_closed,
                         const RoadMapAction  *actions,
-                        int                   flags);
+                        int                   flags,
+                        int                   animation);
 
 void ssd_list_menu_activate (const char      *name,
                         const char           *items_file,

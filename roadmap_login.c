@@ -50,9 +50,10 @@
 #include "roadmap_welcome_wizard.h"
 #include "roadmap_login.h"
 #include "roadmap_device_events.h"
+#include "roadmap_analytics.h"
 
 #ifdef IPHONE
-#include "roadmap_introduction.h"
+#include "roadmap_help.h"
 #endif //IPHONE
 
 //======== Local Types ========
@@ -85,6 +86,12 @@ RoadMapConfigDescriptor RT_CFG_PRM_PASSWORD_Var =
                                     RT_CFG_TAB,
                                     RT_CFG_PRM_PASSWORD_Name);
 
+//   Password
+RoadMapConfigDescriptor RT_CFG_PRM_SKIPBTN_Var =
+                           ROADMAP_CONFIG_ITEM(
+                                    RT_CFG_TAB,
+                                    RT_CFG_PRM_SKIPBTN_Name);
+
 //======= Local interface ========
 extern void roadmap_login_ssd_on_signup_skip( messagebox_closed cb );
 extern BOOL roadmap_login_ssd_new_existing_in_process();
@@ -102,7 +109,9 @@ void roadmap_login_initialize()
     roadmap_config_declare ("user", &RT_CFG_PRM_NAME_Var, "", NULL);
     roadmap_config_declare_password ("user", &RT_CFG_PRM_PASSWORD_Var, "");
     roadmap_config_declare ("user", &RT_CFG_PRM_NKNM_Var, "", NULL);
-   
+
+   roadmap_config_declare_enumeration("preferences", &RT_CFG_PRM_SKIPBTN_Var, NULL, RT_CFG_PRM_SKIPBTN_Enabled, RT_CFG_PRM_SKIPBTN_Disabled, NULL);
+
 #ifdef IPHONE
    if (roadmap_welcome_wizard_is_first_time()){
       roadmap_config_set( &RT_CFG_PRM_NAME_Var, "" );
@@ -126,6 +135,8 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
    roadmap_login_ssd_on_login_cb( bDetailsVerified, rc );
 #endif //IPHONE
 
+   roadmap_analytics_log_event (ANALYTICS_EVENT_NEW_USER_LOGIN, NULL, NULL);
+
 	/*
 	 * General flow related post-processing
 	 */
@@ -135,7 +146,7 @@ void roadmap_login_on_login_cb( BOOL bDetailsVerified, roadmap_result rc )
 #ifdef IPHONE
       roadmap_welcome_wizard_set_first_time_no();
       roadmap_main_show_root(0);
-#endif //IPHONE   
+#endif //IPHONE
    }
    else
    {
@@ -210,18 +221,25 @@ int roadmap_login_on_login( SsdWidget this, const char *new_value )
 
    if (!*username || !*password )
    {
-      roadmap_messagebox( "Login details are missing", "You must have a valid username and password.");
+      roadmap_messagebox( "Login details are missing", "You must have a valid username and password." );
       return 0;
    }
-
+#ifndef IPHONE
+   if( !nickname || !*nickname )
+   {
+      roadmap_messagebox( "Login details are missing", "Nickname field must be non-empty." );
+      return 0;
+   }
+#endif
    // ssd_dialog_hide_current(dec_cancel);
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Signing in..." ) );
 
    Realtime_SetLoginUsername( username );
    Realtime_SetLoginPassword( password );
-
+#ifdef IPHONE
    if( !nickname || !*nickname )
       nickname = username;
+#endif
    Realtime_SetLoginNickname( nickname );
 
    Realtime_VerifyLoginDetails( roadmap_login_on_login_cb );
@@ -241,8 +259,10 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    username = roadmap_login_dlg_get_username();
    password = roadmap_login_dlg_get_password();
    nickname = roadmap_login_dlg_get_nickname();
+#ifdef IPHONE
    if( !nickname || !*nickname )
          nickname = username;
+#endif
    if ( strcmp( roadmap_config_get( &RT_CFG_PRM_NAME_Var), username ) ||
         strcmp( roadmap_config_get( &RT_CFG_PRM_PASSWORD_Var), password ) ||
     		   !Realtime_IsLoggedIn() )
@@ -252,17 +272,27 @@ int roadmap_login_on_ok( SsdWidget this, const char *new_value)
    }
    else{
       if (strcmp( roadmap_config_get( &RT_CFG_PRM_NKNM_Var), nickname )){
-         roadmap_config_set( &RT_CFG_PRM_NKNM_Var, nickname );
-         roadmap_config_save(TRUE);
-         Realtime_Relogin();
+#ifndef IPHONE
+         if ( roadmap_login_validate_nickname( nickname ) )
+#endif
+         {
+            roadmap_config_set( &RT_CFG_PRM_NKNM_Var, nickname );
+            roadmap_config_save(TRUE);
+            Realtime_Relogin();
+         }
       }
    }
 
    if (allowPing){
-      if(!strcasecmp( allowPing, "Yes" ))
+      if(!strcasecmp( allowPing, "Yes" )){
+         if (!Realtime_AllowPing())
+            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
          Realtime_Set_AllowPing(TRUE);
-      else
+      }else{
+         if (Realtime_AllowPing())
+            roadmap_analytics_log_event(ANALYTICS_EVENT_ALLOWPING, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
          Realtime_Set_AllowPing(FALSE);
+      }
    }
    return 0;
 }
@@ -305,35 +335,33 @@ BOOL check_alphanumeric(const char *str){
 #ifndef IPHONE
 void on_signup_skip_msgbox_closed( int exit_code )
 {
-   roadmap_welcome_guided_tour();
+   roadmap_welcome_guided_tour_start();
 }
 #endif //IPHONE
 
 void roadmap_login_on_signup_skip( void )
 {
+   messagebox_closed cb = NULL;
+
    /*
     * Create the random account just in case that there was no successful login before
     */
-   
+   roadmap_analytics_log_event (ANALYTICS_EVENT_NEW_USER_SIGNUP, ANALYTICS_EVENT_INFO_ACTION, "Skip");
 #ifdef IPHONE
+   roadmap_main_show_root(0);
    if ( !Realtime_IsLoggedIn() )
    {
       Realtime_RandomUserRegister();
-      roadmap_introduction_show_auto();
+      roadmap_help_nutshell();
    }
-   else 
-   {
-      roadmap_main_show_root(0);
-   }
-   
+
 #else
-   messagebox_closed cb = NULL;
    if ( !Realtime_IsLoggedIn() )
    {
       Realtime_RandomUserRegister();
       cb = on_signup_skip_msgbox_closed;
    }
-   
+
    roadmap_login_ssd_on_signup_skip( cb );
 #endif //IPHONE
 }
@@ -348,15 +376,15 @@ void roadmap_login_on_signup_skip( void )
  *              : [out]
  *  Notes       :
  */
-int roadmap_login_on_create( const char *username, const char* password, const char* email, BOOL send_updates )
+int roadmap_login_on_create( const char *username, const char* password, const char* email, BOOL send_updates, int referrer )
 {
 #ifdef IPHONE
    sgIsCreateAccount = 1;
 #endif //IPHONE
-   
+
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Creating account..." ) );
 
-   if ( !Realtime_CreateAccount( username, password, email, send_updates ) )
+   if ( !Realtime_CreateAccount( username, password, email, send_updates, referrer ) )
    {
 	  ssd_progress_msg_dialog_hide();
 	  roadmap_messagebox("Oops", "Network connection problems, please try again later.");
@@ -377,12 +405,12 @@ int roadmap_login_on_create( const char *username, const char* password, const c
  *              : [out]
  *  Notes       :
  */
-int roadmap_login_on_update( const char *username, const char* password, const char* email, BOOL send_updates )
+int roadmap_login_on_update( const char *username, const char* password, const char* email, BOOL send_updates, int referrer )
 {
 
    ssd_progress_msg_dialog_show( roadmap_lang_get( "Updating account..." ) );
 
-   if (!Realtime_UpdateProfile( username, password, email, send_updates ) )
+   if (!Realtime_UpdateProfile( username, password, email, send_updates, referrer ) )
    {
 	  ssd_progress_msg_dialog_hide();
       roadmap_messagebox("Oops", "Network connection problems, please try again later.");
@@ -453,17 +481,25 @@ BOOL roadmap_login_validate_email( const char* email )
 
 BOOL roadmap_login_validate_nickname( const char* nickname )
 {
-	if ( strlen( nickname ) < 4 )
+#ifdef IPHONE
+   if ( strlen( nickname ) < 4 )
 	{
       roadmap_messagebox("Error", "Nickname should have at least 4 characters");
       return FALSE;
 	}
+#else
+   if ( !nickname || !*nickname )
+   {
+      roadmap_messagebox("Error", "Nickname field must be non-empty." );
+      return FALSE;
+   }
+#endif
    
-	if (nickname[0] == ' ' ){
+	if ( nickname[0] == ' ' ){
       roadmap_messagebox("Error", "Nickname must not begin with a space");
       return FALSE;
 	}
-   
+
 	return TRUE;
 }
 
@@ -519,7 +555,7 @@ void roadmap_login_update_details_on_response( roadmap_result rc )
       }
       case err_upd_account_email_exists://Email address already exist
       {
-         roadmap_messagebox ("Oops", "Email address already exist");
+         roadmap_messagebox ("Oops", "Email address already exists");
          break;
       }
       case err_upd_account_cannot_complete_request://internal server error cannot complete request
@@ -582,6 +618,58 @@ BOOL roadmap_login_empty()
 	return bRes;
 }
 
+int roadmap_login_get_referrers_count (void) {
+   return login_referrer_count;
+}
+
+char *roadmap_login_get_referrer_name (int index) {
+//Caller must free the returned string
+   char text[256];
+#ifdef IPHONE
+   const char *device = "iPhone";
+   const char *category = "Navigation";
+   const char *store = "Appstore";
+#else
+   const char *device = "Android";
+   const char *category = "Travel";
+   const char *store = "Market";
+#endif
+   switch (index) {
+      case login_referrer_friend:
+         strncpy_safe (text, roadmap_lang_get("Friend told me (in person)"), sizeof(text));
+         break;
+      case login_referrer_friend_tweet:
+         strncpy_safe (text, roadmap_lang_get("Friend tweeted"), sizeof(text));
+         break;
+      case login_referrer_friend_fb:
+         strncpy_safe (text, roadmap_lang_get("Friend shared on Facebook"), sizeof(text));
+         break;
+      case login_referrer_appstore:
+         snprintf (text, sizeof(text), roadmap_lang_get("Found it in '%s' in the %s"), roadmap_lang_get(category), roadmap_lang_get(store));
+         break;
+      case login_referrer_appstore_promo:
+         snprintf (text, sizeof(text), roadmap_lang_get("It was promoted in the %s %s"), device, store);
+         break;
+      case login_referrer_media:
+         strncpy_safe (text, roadmap_lang_get("Blog / newspaper / TV  / Radio"), sizeof(text));
+         break;
+      case login_referrer_adv:
+         strncpy_safe (text, roadmap_lang_get("A waze advertisement"), sizeof(text));
+         break;
+      default:
+         strncpy_safe (text, roadmap_lang_get("Other"), sizeof(text));
+         break;
+   }
+
+   return strdup(text);
+}
+
+int roadmap_login_skip_button_enabled (void) {
+   if (roadmap_config_match(&RT_CFG_PRM_SKIPBTN_Var, RT_CFG_PRM_SKIPBTN_Enabled))
+      return 1;
+   else
+      return 0;
+}
 
 
 

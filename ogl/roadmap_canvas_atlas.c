@@ -204,6 +204,7 @@ BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image, int min
    AtlasRoot *root = NULL;
    AtlasNode *node = NULL;
    RoadMapImage img = (*image);
+   int first_image = 0;
    
    while (node == NULL && root_index != -1) {
       root_index = get_root_index(hint, root_index, min_filter, mag_filter);
@@ -226,9 +227,15 @@ BOOL roadmap_canvas_atlas_insert (const char* hint, RoadMapImage *image, int min
                    GL_RGBA, GL_UNSIGNED_BYTE, img->buf);
    check_gl_error();
 
+   first_image = ( ( node->rect.minx == 0 ) && ( node->rect.miny == 0 ) );
+
 #ifdef ANDROID
-   if ( roadmap_main_get_build_sdk_version() >= ANDROID_OS_VER_FROYO )
+   if ( ( roadmap_main_get_build_sdk_version() == ANDROID_OS_VER_FROYO ) &&
+         ( first_image || !strcasecmp( roadmap_main_get_device_manufacturer(), "HTC" ) ) )
+   {
+//      roadmap_log( ROADMAP_WARNING, "First Node - Apply glFinish" );
       glFinish();
+   }
 #endif
    
    img->offset.x = node->rect.minx;

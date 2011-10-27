@@ -44,7 +44,8 @@ static android_jni_obj_type gJniObj;
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeLocListener_LocListenerCallbackNTV
   (JNIEnv *aJNIEnv, jobject aJObj, jbyte aStatus, jint aGpsTime, jint aLatitude,
-					  jint aLongitude, jint aAltitude, jint aSpeed, jint aSteering, jint aIsCellData )
+					  jint aLongitude, jint aAltitude, jint aSpeed, jint aSteering,
+					  jint aAccuracy, jint aIsCellData )
 {
 	static int location_set = 0;
 
@@ -54,7 +55,7 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeLocListener_LocListenerCallbac
 
     AndroidPositionMode mode = aIsCellData ? _andr_pos_cell : _andr_pos_gps;
 
-    roadmap_gpsandroid_set_position( mode, aStatus, aGpsTime, aLatitude, aLongitude, aAltitude, aSpeed, aSteering );
+    roadmap_gpsandroid_set_position( mode, aStatus, aGpsTime, aLatitude, aLongitude, aAltitude, aSpeed, aSteering, aAccuracy );
 }
 
 /*************************************************************************************************

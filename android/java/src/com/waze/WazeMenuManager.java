@@ -57,49 +57,48 @@ public final class WazeMenuManager
     /*************************************************************************************************
      * Builds the options menu layout
      */
-	public void BuildOptionsMenu( Menu aMenu, boolean aIsPortrait )
+	public synchronized boolean BuildOptionsMenu( Menu aMenu, boolean aIsPortrait )
 	{
 		SubMenu subMenuMore = null;
 		MenuItem item = null;		
 		int order = 0;
 		aMenu.clear();
 		
+		if ( !mIsInitialized || mMenuItemCount == 0 )
+			return false;
+		
 		try 
 		{
-			if ( ( mMenuItemCount > 0 ) /* && !mIsInitialized */ )
+			int i;
+			for ( i = 0; i < mMenuItemCount; ++i )
 			{
-				int i;
-				for ( i = 0; i < mMenuItemCount; ++i )
+				// If exceeding the max front items add to the more sub menu
+				order = aIsPortrait ? mMenuItems[i].portrait_order : mMenuItems[i].landscape_order;
+				// Special handling for the "More" button
+				if ( mMenuItems[i].is_more_button )
 				{
-					// If exceeding the max front items add to the more sub menu
-					order = aIsPortrait ? mMenuItems[i].portrait_order : mMenuItems[i].landscape_order;
-					// Special handling for the "More" button
-					if ( mMenuItems[i].is_more_button )
-					{
-						mMoreItemId = mMenuItems[i].item_id;
-						subMenuMore = aMenu.addSubMenu( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );						
+					mMoreItemId = mMenuItems[i].item_id;
+					subMenuMore = aMenu.addSubMenu( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );						
 //						subMenuMore.clearHeader();
-						item = subMenuMore.getItem();
+					item = subMenuMore.getItem();
+				}
+				else
+				{
+					// Check if the item goes to the more menu
+					if ( i >= WAZE_OPT_MENU_MAX_FRONT_ITEMS )
+					{
+						item = subMenuMore.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
 					}
 					else
 					{
-						// Check if the item goes to the more menu
-						if ( i >= WAZE_OPT_MENU_MAX_FRONT_ITEMS )
-						{
-							item = subMenuMore.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
-						}
-						else
-						{
-							item = aMenu.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
-						}
-					}
-					if ( mMenuItems[i].icon_name != null )					
-					{
-						item.setIcon( mMenuItems[i].icon_id );
+						item = aMenu.add( 0, mMenuItems[i].item_id, order, mMenuItems[i].item_label );
 					}
 				}
-				mIsInitialized = true;	
-			}	
+				if ( mMenuItems[i].icon_name != null )					
+				{
+					item.setIcon( mMenuItems[i].icon_id );
+				}
+			}
 			
 		}
 		catch( Exception ex )
@@ -107,12 +106,18 @@ public final class WazeMenuManager
 			Log.w( "WAZE", "Error while building the menu" + ex.getMessage() );
 			ex.printStackTrace();
 		}
+		
+		return true;
 	}
 	
+	public synchronized boolean getInitialized()
+	{
+		return mIsInitialized;		
+	}
     /*************************************************************************************************
      * Handles the button pressed event
      */
-	public boolean OnMenuButtonPressed( int aButtonId )
+	public synchronized boolean OnMenuButtonPressed( int aButtonId )
 	{
 		if ( aButtonId == mMoreItemId )
 			return false;
@@ -123,9 +128,26 @@ public final class WazeMenuManager
 	}
 
     /*************************************************************************************************
+     * Resets the menu to be not ready
+     */
+	public synchronized void ResetOptionsMenu()
+	{
+		mIsInitialized = false;
+		mMenuItemCount = 0;
+	}
+	
+    /*************************************************************************************************
+     * After this call the menu is ready
+     */
+	public synchronized void SubmitOptionsMenu()
+	{
+		mIsInitialized = true;
+	}
+	
+    /*************************************************************************************************
      * Adds a new item to menu 
      */
-	public void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native, int portrait_order, int landscape_order, int item_type )
+	public synchronized void AddOptionsMenuItem( int aItemId, byte[] aLabel, byte[] aIcon, int is_icon_native, int portrait_order, int landscape_order, int item_type )
 	{
 		WazeMenuItem item = new WazeMenuItem();
 		

@@ -86,6 +86,11 @@ void get_state (SsdWidget widget, int *state, RoadMapImage *image, int *image_st
    *image_state = i;
 }
 
+void ssd_button_set_selected (SsdWidget widget) {
+
+   struct ssd_button_data *data = (struct ssd_button_data *) widget->data;
+   data->state = BUTTON_STATE_SELECTED;
+}
 static void set_bitmap_name( struct ssd_button_data *data, int state, const char* name )
 {
 	if ( strlen( name ) <= SSD_BUTTON_BMP_NAME_MAXLEN )
@@ -185,11 +190,11 @@ static void button_callback (void) {
 
    roadmap_main_remove_periodic (button_callback);
 	delayed_widget->in_focus = FALSE;
+   data->state = BUTTON_STATE_NORMAL;
    if (delayed_widget->callback) {
       (*delayed_widget->callback) (delayed_widget, SSD_BUTTON_SHORT_CLICK);
-	   }
+   }
 
-		data->state = BUTTON_STATE_NORMAL;
 	roadmap_screen_redraw ();
 }
 
@@ -474,14 +479,14 @@ SsdWidget ssd_button_label (const char *name, const char *label,
 
 
 SsdWidget ssd_button_label_custom (const char *name, const char *label,
-                            int flags, SsdCallback callback, const char **button_icon, const char *txt_color, const char *txt_focus_color) {
+                            int flags, SsdCallback callback, const char **button_icon, int num_bitmaps, const char *txt_color, const char *txt_focus_color, int txt_size) {
 
    SsdWidget text;
-   SsdWidget button = ssd_button_new (name, "", button_icon, 2,
+   SsdWidget button = ssd_button_new (name, "", button_icon, num_bitmaps,
                                       flags, callback);
    int y_offset = ADJ_SCALE( -2 );
 
-   text = ssd_text_new ("label", label, 14, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
+   text = ssd_text_new ("label", label, txt_size, SSD_ALIGN_VCENTER| SSD_ALIGN_CENTER) ;
    ssd_widget_set_color(text, txt_color, txt_focus_color);
    ssd_widget_set_offset( text, 0, y_offset );
    ssd_widget_add (button,text);

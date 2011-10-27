@@ -40,11 +40,12 @@ import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Looper;
 import android.os.SystemClock;
 import android.provider.Contacts;
 import android.util.Log;
-
+import android.provider.*;
+import android.provider.ContactsContract.CommonDataKinds;
+import android.provider.ContactsContract.CommonDataKinds.StructuredPostal;
 
 public final class WazeIntentManager 
 {
@@ -80,7 +81,7 @@ public final class WazeIntentManager
     	String scheme = aUrl.getScheme();
     	if ( scheme.equals( "waze" ) )
     	{
-    		resUrl = aUrl.toString();;
+    		resUrl = aUrl.toString();
     	}
 
     	if ( scheme.equals( "geo" ) )
@@ -138,8 +139,8 @@ public final class WazeIntentManager
 	        if ( Intent.ACTION_MEDIA_REMOVED.equals( action ) || 
 	        		Intent.ACTION_MEDIA_UNMOUNTED.equals( action ) ) 
 	        {
-	        	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
-	        	mgr.CheckSDCardAvailable();
+	        	Log.e( WazeLog.TAG, "Received media removed/unmounted event. WAZE cannot continue!");
+	        	FreeMapNativeManager.CheckSDCardAvailable();
 	        }
 	    }
 	}
@@ -166,39 +167,48 @@ public final class WazeIntentManager
     private static String FetchContactAddress( Uri aUri, Activity aContext )
     {
     	String address = null;
-    	/* Prepare the projection to extract from the database */
-        String[] projection = new String[] {                        
-                Contacts.ContactMethods._ID,
-                Contacts.ContactMethods.KIND,
-                Contacts.ContactMethods.DATA };
-        /* Run the query 
-         * Note: where clause is not working in this case
-         * */
-        Cursor cur = aContext.managedQuery( Contacts.ContactMethods.CONTENT_URI, projection, null, null, null );
-        if ( cur == null )
-        {
-        	Log.w("WAZE", "No data for uri: " + aUri.toString() );
-        }
-        else
-        {
-        	if (cur.moveToFirst()) 
-        	{
-        		long personId = ContentUris.parseId( aUri );	
-        		int indexID = cur.getColumnIndex( Contacts.ContactMethods._ID );
-        		int indexDATA = cur.getColumnIndex( Contacts.ContactMethods.DATA );
-        		int indexKIND = cur.getColumnIndex( Contacts.ContactMethods.KIND );
-	            do 
-	            {
-	            	long nextId = cur.getLong( indexID );
-	            	int kind = cur.getInt( indexKIND );
-	            	if ( nextId == personId && kind == Contacts.KIND_POSTAL )
-	            	{
-	            		address = cur.getString( indexDATA );
-	            		break;
-	            	}
-	            } while (cur.moveToNext());
-        	}
-        }
+    	final int sdkBuildVersion = Integer.parseInt( android.os.Build.VERSION.SDK );
+    	
+    	if ( sdkBuildVersion >= android.os.Build.VERSION_CODES.ECLAIR )
+    	{
+    		address = CompatabilityWrapper.FetchContactAddress( aUri, aContext );
+    	}
+    	else
+    	{
+	    	/* Prepare the projection to extract from the database */
+	        String[] projection = new String[] {                        
+	                Contacts.ContactMethods._ID,
+	                Contacts.ContactMethods.KIND,
+	                Contacts.ContactMethods.DATA };
+	        /* Run the query 
+	         * Note: where clause is not working in this case
+	         * */
+	        Cursor cur = aContext.managedQuery( Contacts.ContactMethods.CONTENT_URI, projection, null, null, null );
+	        if ( cur == null )
+	        {
+	        	Log.w("WAZE", "No data for uri: " + aUri.toString() );
+	        }
+	        else
+	        {
+	        	if (cur.moveToFirst()) 
+	        	{
+	        		long personId = ContentUris.parseId( aUri );	
+	        		int indexID = cur.getColumnIndex( Contacts.ContactMethods._ID );
+	        		int indexDATA = cur.getColumnIndex( Contacts.ContactMethods.DATA );
+	        		int indexKIND = cur.getColumnIndex( Contacts.ContactMethods.KIND );
+		            do 
+		            {
+		            	long nextId = cur.getLong( indexID );
+		            	int kind = cur.getInt( indexKIND );
+		            	if ( nextId == personId && kind == Contacts.KIND_POSTAL )
+		            	{
+		            		address = cur.getString( indexDATA );
+		            		break;
+		            	}
+		            } while (cur.moveToNext());
+	        	}
+	        }
+    	}
         return address;
     }
 		
@@ -232,10 +242,70 @@ public final class WazeIntentManager
     			token = token.replace( '?', '&' );
     			res = waze_prefix + ll_prefix + token;
     		}
-    	}
-//    	Log.w( "WAZE DEBUG", "res : " + res );
+    	}   	
         return res;
     }
+    
+    /*************************************************************************************************
+     * CompatabilityWrapper the compatability wrapper class used to overcome dalvik delayed  
+     * class loading. Supposed to be loaded only for android 2.0+.  
+     */
+    private static final class CompatabilityWrapper
+    {
+    	/*************************************************************************************************
+         * FetchContactAddress - Extracts the address from the database
+         * 
+         * @param aUri - uri from the intent
+         * @return Address if found or null otherwise
+         * TODO:: Check if the scheme is content           
+         */
+        private static String FetchContactAddress( Uri aUri, Activity aContext )
+        {
+        	String address = null;
+        	long personId = ContentUris.parseId( aUri );
+
+        	/* Prepare the projection to extract from the database */
+        	String[] projection = new String[] {
+    		StructuredPostal.FORMATTED_ADDRESS,
+        	StructuredPostal.STREET, StructuredPostal.CITY,
+        	StructuredPostal.POSTCODE, StructuredPostal.STREET,
+        	StructuredPostal.REGION, StructuredPostal.COUNTRY, StructuredPostal.TYPE
+        	};
+        	/* Where clause format */
+        	String where= ContactsContract.Data._ID
+        	+ " = "
+        	+ personId
+        	+ " AND ContactsContract.Data.MIMETYPE = '"
+        	+ StructuredPostal.CONTENT_ITEM_TYPE
+        	+ "'"; 
+        	
+        	/* Query the content provider */
+           Cursor cur = aContext.managedQuery( ContactsContract.Data.CONTENT_URI, projection,
+        		   									where, null, StructuredPostal.COUNTRY + " asc" );
+        	
+            if ( cur == null )
+            {
+            	Log.w("WAZE", "No data for uri: " + aUri.toString() );
+            }
+            else
+            {
+            	if (cur.moveToFirst()) 
+            	{
+            		int postFormattedIdx = cur.getColumnIndex( CommonDataKinds.StructuredPostal.FORMATTED_ADDRESS );
+        	        do  
+        	        {
+        	            address = cur.getString( postFormattedIdx );
+        	            if ( address != null && ( address.length() > 0 ) )
+        	            	break;
+        	        }
+    	            while ( cur.moveToNext() );
+            	}
+            }
+            return address;
+        }
+
+    }
+    
 	/*************************************************************************************************
      *================================= Members section =================================
      */

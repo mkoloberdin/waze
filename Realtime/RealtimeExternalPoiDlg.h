@@ -26,6 +26,9 @@
 #ifndef REALTIMEEXTERNALPOIDLG_H_
 #define REALTIMEEXTERNALPOIDLG_H_
 
-void RealtimeExternalPoiDlg(RTExternalPoi *externalPoi);
+#define EXTERNAL_POI_DLG_NAME "RealtimeExternalPoiDlg"
 
+void RealtimeExternalPoiDlg(RTExternalPoi *externalPoi);
+void RealtimeExternalPoiDlg_Timed(RTExternalPoi *externalPoi, int seconds);
+char *RealtimeExternalPoiDlg_GetPromotionUrl(RTExternalPoi *externalPoi);
 #endif /* REALTIMEEXTERNALPOIDLG_H_ */

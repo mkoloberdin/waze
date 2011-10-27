@@ -121,9 +121,10 @@ INLINE_DEC RoadMapPen roadmap_layer_get_pen (int layer, int pen_type, int area) 
 
    if (!roadmap_layer_is_visible (layer, proj)) return NULL;
 
+#ifndef OGL_TILE
    // Do not draw city polygons while in fast draw mode
-
    if ((layer == ROADMAP_AREA_CITY) && roadmap_screen_fast_refresh()) return NULL;
+#endif
    
    if (pen_type == -1) {
 

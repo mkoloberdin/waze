@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/splash_layout_root"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"
+              android:orientation="vertical"
+              >
+    <ImageView android:id="@+id/splash_image"
+	 android:layout_width="fill_parent"
+	 android:layout_height="fill_parent"
+	 android:scaleType="fitXY"
+    />
+    <!--  Progress spin in the center of the splash window. Invisible by default. -->
+	<ProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
+	  	android:id="@+android:id/splash_progress_large"
+	      style="?android:attr/progressBarStyleLarge"
+	      android:layout_width="wrap_content"
+	      android:layout_height="wrap_content"
+	      android:orientation="vertical"      
+	      android:layout_centerInParent="true"
+	      android:visibility="invisible"      
+	/>
+</RelativeLayout>

@@ -11,14 +11,16 @@ extern "C" {
 #define com_waze_FreeMapNativeManager_NATIVE_THREAD_PRIORITY -18L
 #undef com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT
 #define com_waze_FreeMapNativeManager_CAMERA_PREVIEW_TIMEOUT 60000LL
+#undef com_waze_FreeMapNativeManager_WAZE_WIDGET_ENABLED
+#define com_waze_FreeMapNativeManager_WAZE_WIDGET_ENABLED 0L
 #undef com_waze_FreeMapNativeManager_MEMORY_PROFILER_ENABLED
 #define com_waze_FreeMapNativeManager_MEMORY_PROFILER_ENABLED 1L
 #undef com_waze_FreeMapNativeManager_CPU_PROFILER_ENABLED
 #define com_waze_FreeMapNativeManager_CPU_PROFILER_ENABLED 1L
 #undef com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_ENABLED
-#define com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_ENABLED 1L
+#define com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_ENABLED 0L
 #undef com_waze_FreeMapNativeManager_MEMORY_PROFILER_PERIOD
-#define com_waze_FreeMapNativeManager_MEMORY_PROFILER_PERIOD 120000LL
+#define com_waze_FreeMapNativeManager_MEMORY_PROFILER_PERIOD 600000LL
 #undef com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_PERIOD
 #define com_waze_FreeMapNativeManager_TEMPERATURE_PROFILER_PERIOD 120000LL
 #undef com_waze_FreeMapNativeManager_STORAGE_SPACE_LOW_BOUND
@@ -50,10 +52,10 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_InitNativeManagerNTV
 /*
  * Class:     com_waze_FreeMapNativeManager
  * Method:    AppStartNTV
- * Signature: (Ljava/lang/String;)V
+ * Signature: (Ljava/lang/String;I)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_AppStartNTV
-  (JNIEnv *, jobject, jstring);
+  (JNIEnv *, jobject, jstring, jint);
 
 /*
  * Class:     com_waze_FreeMapNativeManager
@@ -102,6 +104,30 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_SetBackgroundRunNTV
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_EditBoxCallbackNTV
   (JNIEnv *, jobject, jint, jstring, jlong);
+
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    TakePictureCallbackNTV
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_TakePictureCallbackNTV
+  (JNIEnv *, jobject, jint);
+
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    EditBoxCheckTypingLockNTV
+ * Signature: ()Z
+ */
+JNIEXPORT jboolean JNICALL Java_com_waze_FreeMapNativeManager_EditBoxCheckTypingLockNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeManager
+ * Method:    ConnectivityChangedNTV
+ * Signature: (ZILjava/lang/String;)V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeManager_ConnectivityChangedNTV
+  (JNIEnv *, jobject, jboolean, jint, jstring);
 
 #ifdef __cplusplus
 }

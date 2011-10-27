@@ -53,13 +53,16 @@
 #include "../editor_main.h"
 #include "editor_sync.h"
 #include "editor_upload.h"
+#include "roadmap_httpcopy_async.h"
 
 #include "navigate/navigate_graph.h"
+#include "Realtime/Realtime.h"
 #include "Realtime/RealtimeOffline.h"
 
 #define MAX_MSGS 10
 #define MAX_SIZEOF_RESPONSE_MSG 100
 #define MIN_FREE_SPACE 5000 //Free space in KB
+#define DEFAULT_CONTENT_TYPE        ("application/octet-stream")
 
 static int SyncProgressItems;
 static int SyncProgressCurrentItem;
@@ -70,10 +73,10 @@ static char SyncUploadMessages[MAX_MSGS][MAX_SIZEOF_RESPONSE_MSG];
 
 static char SyncProgressLabel[100];
 
-static int upload_file_size_callback( void *context, int aSize );
-static void upload_progress_callback( void *context, int aLoaded );
-static void upload_error_callback( void *context);
-static void upload_done( void *context, const char *format, ... );
+static int upload_file_size_callback( void *context, size_t aSize );
+static void upload_progress_callback(void *context, char *data, size_t size);
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...);
+static void upload_done( void *context, char *last_modified, const char *format, ... );
 
 
 typedef struct tag_upload_context{
@@ -150,7 +153,7 @@ static RoadMapDownloadCallbacks SyncDownloadCallbackFunctions = {
    roadmap_download_error
 };
 
-static EditorUploadCallbacks gUploadCallbackFunctions =
+static RoadMapHttpAsyncCallbacks gUploadCallbackFunctions =
 {
 upload_file_size_callback,
 upload_progress_callback,
@@ -221,6 +224,8 @@ static int sync_do_upload () {
    int count;
    upload_context *  context;
    char * full_path;
+   int size;
+   const char *header;
 
    files = roadmap_path_list (directory, ".wud");
 
@@ -247,12 +252,14 @@ static int sync_do_upload () {
    SyncUploadNumMessages = 0;
 
    // this starts the async sending sequence. Further progress is done through the callbacks.
-	if (  editor_upload_auto( full_path, &gUploadCallbackFunctions, NULL, NULL ,(void *)context) )
+   size = roadmap_file_length (NULL, full_path);
+   header = roadmap_http_async_get_upload_header(DEFAULT_CONTENT_TYPE, full_path, size, RealTime_GetUserName(), Realtime_GetPassword());
+   if (!roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)context, editor_upload_get_url(), header, full_path, size))
 	{
 	  roadmap_log( ROADMAP_ERROR, "File upload error, couldn't start sync socket connect. for file %s ", full_path);
-	  roadmap_path_free(full_path);
-	  roadmap_path_list_free (files);
-	  free(context);
+//	  roadmap_path_free(full_path);
+//	  roadmap_path_list_free (files);
+//	  free(context);
 	  return 0;
 	}
 
@@ -262,7 +269,6 @@ static int sync_do_upload () {
 
 void editor_sync_upload (void) {
    int res;
-   int num_msgs = 0;
    
    if (count_upload_files() == 0)
       return;
@@ -387,32 +393,18 @@ int export_sync (void) {
 }
 
 
-static int upload_file_size_callback( void *context, int aSize ) {
+static int upload_file_size_callback( void *context, size_t aSize ) {
 	SyncProgressTarget = aSize;
+   SyncProgressLoaded = 0;
 	return 1;
 }
 
-static void upload_progress_callback( void *context, int aLoaded ){
-	//upload_context *  uContext = (upload_context *)context;
-	//roadmap_log(ROADMAP_ERROR,"sent %d bytes of file %s",aLoaded,uContext->full_path);
-	if ((SyncProgressLoaded > aLoaded) || !aLoaded || !SyncProgressItems) {
-	      SyncProgressLoaded = aLoaded;
-	} else {
-
-		if (SyncProgressLoaded == aLoaded) {
-			return;
-
-		} else if ((aLoaded < SyncProgressTarget) &&
-				(100 * (aLoaded - SyncProgressLoaded) / SyncProgressTarget) < 5) {
-			return;
-		}
-
-		SyncProgressLoaded = aLoaded;
-	}
+static void upload_progress_callback(void *context, char *data, size_t size) {
+   SyncProgressLoaded += size;
 }
 
 
-static void upload_error_callback( void *context) {
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...) {
 	upload_context *  uContext = (upload_context *)context;
 	roadmap_path_list_free(uContext->files);
 	roadmap_path_free(uContext->full_path);
@@ -422,7 +414,7 @@ static void upload_error_callback( void *context) {
 /*
  * Called once one file was sent successfully. Starts the sending of the next file, if there is one.
  */
-static void upload_done( void *context, const char *format, ... ) {
+static void upload_done( void *context, char *last_modified, const char *format, ... ) {
 	upload_context *  uContext = (upload_context *)context;
 	char msg[MAX_SIZEOF_RESPONSE_MSG];
 	va_list ap;
@@ -449,13 +441,18 @@ static void upload_done( void *context, const char *format, ... ) {
 		roadmap_log(ROADMAP_DEBUG, "finished uploading editor_sync files");
 
 	}else{
+      int size;
+      const char *header;
+      
 		upload_context * new_context;
 		new_full_path = roadmap_path_join( editor_sync_get_export_path(), *new_cursor );
 		new_context= malloc(sizeof(upload_context));
 		new_context->cursor = new_cursor;
 		new_context->files = uContext->files;
 		new_context->full_path = new_full_path;
-		if ( editor_upload_auto( new_full_path, &gUploadCallbackFunctions, NULL, NULL ,(void *)new_context) )
+      size = roadmap_file_length (NULL, new_full_path);
+      header = roadmap_http_async_get_upload_header(DEFAULT_CONTENT_TYPE, new_full_path, size, RealTime_GetUserName(), Realtime_GetPassword());
+      if (!roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)new_context, editor_upload_get_url(), header, new_full_path, size))
 		{
 		  roadmap_log( ROADMAP_ERROR, "File upload error, couldn't start sync socket connect. for file %s ", new_full_path);
 		  roadmap_path_free(new_full_path);

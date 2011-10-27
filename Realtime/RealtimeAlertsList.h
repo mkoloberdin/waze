@@ -49,6 +49,7 @@ typedef enum real_time_list_context_menu_items
    rtl_cm_filter_group,
    rtl_cm_show_group,
    rtl_cm_show_all,
+   rtl_cm_send_thumbs_up,
    rtl_cm__count,
    rtl_cm__invalid
 

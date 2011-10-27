@@ -49,3 +49,14 @@ extern "C" {
 }
 #endif
 #endif
+/* Header for class com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_ErrorListener */
+
+#ifndef _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_ErrorListener
+#define _Included_com_waze_FreeMapNativeSoundManager_WazeAudioPlayer_ErrorListener
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif

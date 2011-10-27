@@ -38,6 +38,9 @@ struct RoadMapFactoryKeyMap;
 
 typedef void (* RoadMapKeyInput) (char *key);
 typedef void (* RoadMapInput)    (RoadMapIO *io);
+#ifdef IPHONE
+typedef void (* RoadMapMainIoCb) (RoadMapSocket socket);
+#endif
 
 typedef void *RoadMapMenu;
 
@@ -68,7 +71,7 @@ void roadmap_main_add_status     (void);
 void roadmap_main_show (void);
 
 void roadmap_main_set_input    (RoadMapIO *io, RoadMapInput callback);
-void roadmap_main_set_output   (RoadMapIO *io, RoadMapInput callback);
+void roadmap_main_set_output   (RoadMapIO *io, RoadMapInput callback, BOOL is_connect);
 void roadmap_main_remove_input (RoadMapIO *io);
 
 RoadMapIO *roadmap_main_output_timedout(time_t timeout);
@@ -84,6 +87,9 @@ void roadmap_main_flush (void);
 
 void roadmap_main_exit (void);
 
+int roadmap_main_is_widget_mode( void );
+
+void roadmap_main_set_app_mode( int mode );
 
 void roadmap_main_set_cursor (int cursor);
 
@@ -91,6 +97,9 @@ void roadmap_gui_minimize();
 void roadmap_gui_maximize();
 void roadmap_main_minimize (void);
 BOOL roadmap_horizontal_screen_orientation();
+void roadmap_main_open_url (const char* url);
+void roadmap_main_post_resolver_result( int entry_id );
+
 #ifdef IPHONE
 
 int roadmap_main_should_mute ();
@@ -110,7 +119,6 @@ void roadmap_main_show_root (int animated);
 int roadmap_main_is_root (void);
 int roadmap_main_get_mainbox_height (void);
 void roadmap_main_pop_view(int animated);
-void roadmap_main_open_url (const char* url);
 void roadmap_main_set_backlight(int isAlwaysOn);
 void roadmap_main_refresh_backlight (void);
 void roadmap_main_play_movie (const char* url);
@@ -128,6 +136,9 @@ void roadmap_main_free_image (RoadMapNativeImage image);
 #define ROADMAP_MAIN_OS_30             1
 #define ROADMAP_MAIN_OS_31             2
 #define ROADMAP_MAIN_OS_4              3
+#define ROADMAP_MAIN_OS_5              4
+
+BOOL roadmap_horizontal_screen_orientation();
 
 #endif //IPHONE
 

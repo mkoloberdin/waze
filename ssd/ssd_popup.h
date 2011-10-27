@@ -24,15 +24,41 @@
 
 #ifndef __SSD_POP_UP_H_
 #define __SSD_POP_UP_H_
-  
-#include "ssd_widget.h" 
 
-SsdWidget ssd_popup_new (const char *name, 
-						 const char *title,
-						 PFN_ON_DIALOG_CLOSED on_popup_closed,
-						 int width, 
-						 int height, 
-						 const RoadMapPosition *position,
+#include "ssd_widget.h"
+#include "ssd_dialog.h"
+
+SsdWidget ssd_popup_new (const char *name,
+                         const char *title,
+                         PFN_ON_DIALOG_CLOSED on_popup_closed,
+                         int width,
+                         int height,
+                         const RoadMapPosition *position,
+                         int flags,
+		         int animation);
+
+SsdWidget ssd_popup_new_float (const char *name,
+                         const char *title,
+                         PFN_ON_DIALOG_CLOSED on_popup_closed,
+                         int width,
+                         int height,
+                         const RoadMapPosition *position,
                          int flags);
+
+void ssd_popup_show_float(const char *name,
+                         const char *title,
+                         const char *title_color,
+                         const char *additional_text,
+                         const char *additional_text_color,
+                         const char *image,
+                         const RoadMapPosition *position,
+                         int position_offset_y,
+                         PFN_ON_DIALOG_CLOSED on_popup_closed,
+                         SsdCallback on_next,
+                         const char *more_label,
+                         void *context);
+
+
 void ssd_popup_update_location(SsdWidget popup, const RoadMapPosition *position);
+
 #endif // __SSD_POP_UP_H_

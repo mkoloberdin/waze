@@ -67,12 +67,15 @@ typedef enum
       // If empty input is forbidden
       EEditBoxEmptyForbidden = 0x00020000,
       // If editbox should be shown without drawing new dialog
-      EEditBoxEmbedded = 0x00040000
+      EEditBoxEmbedded = 0x00040000,
+      // Speech to text enabled type
+      EEditBoxSTTEnabled = 0x00080000
 } TEditBoxType;
 
 void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, SsdKeyboardCallback callback, void *context, TEditBoxType aBoxType );
 
 void roadmap_editbox_dlg_hide( void );
+void roadmap_editbox_confirm_warning_hide( void );
 
 #ifdef __cplusplus
 }

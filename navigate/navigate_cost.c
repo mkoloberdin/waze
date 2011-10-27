@@ -44,7 +44,7 @@
 #include "navigate_main.h"
 #include "navigate_graph.h"
 #include "navigate_cost.h"
-
+#include "navigate_route.h"
 #include "ssd/ssd_checkbox.h"
 #include "ssd/ssd_contextmenu.h"
 #include "ssd/ssd_bitmap.h"
@@ -80,7 +80,7 @@ static RoadMapConfigDescriptor CostAvoidTrailCfg =
 
 static RoadMapConfigDescriptor CostAllowUnknownsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Allow unknown directions");
-                  
+
 static RoadMapConfigDescriptor CostAvoidPalestinianRoadsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Avoid Palestinian Roads");
 
@@ -96,8 +96,8 @@ static RoadMapConfigDescriptor UnknownRoadsCfg =
                   ROADMAP_CONFIG_ITEM("Routing", "Unknown roads");
 
 
-                  
-                  
+
+
 static void cost_preferences (void);
 
 #ifndef TOUCH_SCREEN
@@ -350,7 +350,6 @@ static int cost_fastest_traffic (int line_id, int is_reversed, int cur_cost,
 
    if (!cross_time) cross_time =
          roadmap_line_speed_get_avg_cross_time (line_id, is_reversed);
-
    if (node_id != -1) {
 
 	   cross_time += RTAlerts_Penalty(line_id, is_reversed);
@@ -405,7 +404,7 @@ NavigateCostFn navigate_cost_get (void) {
 
    if (navigate_cost_type () == COST_FASTEST) {
       if (navigate_cost_use_traffic ()) {
-         return &cost_fastest_traffic;
+         return &cost_fastest;
       } else {
          return &cost_fastest;
       }
@@ -418,10 +417,10 @@ int navigate_cost_time (int line_id, int is_revesred, int cur_cost,
                         int prev_line_id, int is_prev_reversed) {
 
      if (navigate_cost_use_traffic ()) {
-					return cost_fastest_traffic (line_id, is_revesred, cur_cost,
+					return cost_fastest (line_id, is_revesred, cur_cost,
                					                 prev_line_id, is_prev_reversed, -1);
       } else {
-					return cost_fastest_no_traffic (line_id, is_revesred, cur_cost,
+					return cost_fastest (line_id, is_revesred, cur_cost,
                					                 prev_line_id, is_prev_reversed, -1);
      }
 
@@ -437,7 +436,7 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
       ("user", &CostAvoidTollRoadsCfg, NULL, "no", "yes", NULL);
-   
+
    roadmap_config_declare_enumeration
       ("user", &CostPreferUnknownDirectionsCfg, NULL, "no", "yes", NULL);
 
@@ -449,16 +448,16 @@ void navigate_cost_initialize (void) {
 
    roadmap_config_declare_enumeration
        ("preferences", &TollRoadsCfg, NULL, "no", "yes",  NULL);
-       
+
    roadmap_config_declare_enumeration
        ("preferences", &PalestinianRoadsCfg, NULL, "no", "yes",  NULL);
 
    roadmap_config_declare_enumeration
       ("user", &CostAllowUnknownsCfg, NULL, "yes", "no", NULL);
-   
+
    roadmap_config_declare_enumeration
       ("preferences", &UnknownRoadsCfg, NULL, "no", "yes",  NULL);
-      
+
    roadmap_config_declare_enumeration
       ("user", &CostAvoidPalestinianRoadsCfg, NULL, "yes", "no",  NULL);
 
@@ -486,29 +485,29 @@ int navigate_cost_type (void) {
 static void save_changes(){
    roadmap_config_set (&CostTypeCfg,
                            (const char *)ssd_dialog_get_data ("type"));
-      
+
    if (roadmap_config_match(&TollRoadsCfg, "yes")){
          roadmap_config_set (&CostAvoidTollRoadsCfg,
                      (const char *)ssd_dialog_get_data ("avoidtolls"));
    }
-      
+
    if (roadmap_config_match(&UnknownRoadsCfg, "yes")){
       roadmap_config_set (&CostPreferUnknownDirectionsCfg,
                           (const char *)ssd_dialog_get_data ("preferunknowndir"));
    }
-   
+
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
       roadmap_config_set (&CostAvoidPalestinianRoadsCfg,
-                           (const char *)ssd_dialog_get_data ("avoidPalestinianRoads")); 
+                           (const char *)ssd_dialog_get_data ("avoidPalestinianRoads"));
    }
-   
+
    roadmap_config_set (&CostAvoidPrimaryCfg,
                            (const char *)ssd_dialog_get_data ("avoidprime"));
    roadmap_config_set (&PreferSameStreetCfg,
                            (const char *)ssd_dialog_get_data ("samestreet"));
    roadmap_config_set (&CostAvoidTrailCfg,
                            (const char *)ssd_dialog_get_data ("avoidtrails"));
-	                            
+
 }
 
 int navigate_cost_isPalestinianOptionEnabled(){
@@ -521,7 +520,7 @@ static void on_close_dialog (int exit_code, void* context){
 	if (exit_code == dec_ok){
 		save_changes();
 		if (navigate_main_state() == 0)
-		   navigate_main_calc_route ();
+		   navigate_main_calc_route ( NAV_ROUTE_FLAGS_NONE );
 	}
 #endif
 }
@@ -532,17 +531,10 @@ static const char *type_value[2];
 static const char *trails_label[3];
 static const char *trails_value[3];
 
-/////////////////////////////////////////////////////////////////////
-static SsdWidget space(int height){
-	SsdWidget space;
-	space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, height, SSD_WIDGET_SPACE|SSD_END_ROW);
-	ssd_widget_set_color (space, NULL,NULL);
-	return space;
-}
 
 static void create_ssd_dialog (void) {
 
-   SsdWidget box, box2;
+   SsdWidget box, box2, text;
    SsdWidget container;
 	int tab_flag = SSD_WS_TABSTOP;
 	int width = ssd_container_get_width();
@@ -575,18 +567,18 @@ static void create_ssd_dialog (void) {
 
    //First group
    container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
-                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
    //route preferences
    box = ssd_container_new ("type group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
 
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_set_color (box, NULL, NULL);
 
-   ssd_widget_add (box,
-      ssd_text_new ("type_label",
-                     roadmap_lang_get ("Route preference"),
-                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   text = ssd_text_new ("type_label", roadmap_lang_get ("Route preference"),
+                        SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box,text);
 
     ssd_widget_add (box,
          ssd_choice_new ("type", roadmap_lang_get ("Route preference"), 2,
@@ -600,16 +592,15 @@ static void create_ssd_dialog (void) {
    //dirt roads
    box = ssd_container_new ("avoidtrails group", NULL, SSD_MAX_SIZE, row_height,
                             SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-   ssd_widget_set_color (box, "#000000", "#ffffff");
+   ssd_widget_set_color (box, NULL, NULL);
 
    box2 = ssd_container_new ("box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                              SSD_ALIGN_VCENTER);
    ssd_widget_set_color (box2, NULL, NULL);
-   
-   ssd_widget_add (box2,
-      ssd_text_new ("avoidtrails_label",
-                     roadmap_lang_get ("Dirt roads"),
-                     SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE));
+   text = ssd_text_new ("avoidtrails_label", roadmap_lang_get ("Dirt roads"),
+                        SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER|SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box2,text);
    ssd_widget_add(box, box2);
 
    ssd_widget_add (box,
@@ -619,10 +610,10 @@ static void create_ssd_dialog (void) {
                          SSD_ALIGN_RIGHT, NULL));
    ssd_widget_add (container, box);
    ssd_widget_add (dialog, container);
-   
+
    //Second group
    container = ssd_container_new ("conatiner", NULL, width, SSD_MIN_SIZE,
-                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
+                            SSD_ALIGN_CENTER|SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_POINTER_NONE);
 
    //Minimize turns
    box = ssd_checkbox_row_new("samestreet", roadmap_lang_get ("Minimize turns"),
@@ -646,7 +637,7 @@ static void create_ssd_dialog (void) {
 
       ssd_widget_add (container, box);
    }
-   
+
    //Avoid Palestinian
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
       ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
@@ -656,7 +647,7 @@ static void create_ssd_dialog (void) {
 
       ssd_widget_add (container, box);
    }
-   
+
    //Prefer munching
    if (roadmap_config_match(&UnknownRoadsCfg, "yes")){
       ssd_widget_add(container, ssd_separator_new("separator", SSD_END_ROW));
@@ -667,7 +658,7 @@ static void create_ssd_dialog (void) {
       ssd_widget_add (container, box);
    }
 
-   
+
    ssd_widget_add (dialog, container);
 #ifndef TOUCH_SCREEN
 	set_softkeys(dialog);
@@ -699,7 +690,7 @@ void cost_preferences (void) {
    if (navigate_cost_avoid_toll_roads()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("avoidtolls", (void *) value);
-   
+
    if (navigate_cost_prefer_unknown_directions()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("preferunknowndir", (void *) value);
@@ -707,7 +698,7 @@ void cost_preferences (void) {
    if (navigate_cost_prefer_same_street ()) value = yesno[0];
    else value = yesno[1];
    ssd_dialog_set_data ("samestreet", (void *) value);
-  
+
    if (roadmap_config_match(&PalestinianRoadsCfg, "yes")){
 	   if (navigate_cost_avoid_palestinian_roads()) value = yesno[0];
 	   else value = yesno[1];
@@ -752,14 +743,14 @@ static void on_option_selected(  BOOL              made_selection,
       	save_changes();
       	ssd_dialog_hide_current(dec_close);
       	 if (navigate_main_state() == 0)
-      	    navigate_main_calc_route ();
+      	    navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
          break;
 
       case nc_cm_save:
          save_changes();
          ssd_dialog_hide_all(dec_close);
          if (navigate_main_state() == 0)
-            navigate_main_calc_route ();
+            navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
          break;
 
 
@@ -778,7 +769,7 @@ static int on_save(SsdWidget widget, const char *new_value, void *context){
    save_changes();
    ssd_dialog_hide_all(dec_close);
    if (navigate_main_state() == 0)
-      navigate_main_calc_route ();
+      navigate_main_calc_route (NAV_ROUTE_FLAGS_NONE);
 
 }
 ///////////////////////////////////////////////////////////////////////////////////////////

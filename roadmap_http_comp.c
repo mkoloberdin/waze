@@ -33,6 +33,7 @@
 #define STATE_NO_COMPRESSION_FLOW 3
 #define STATE_DEFLATE_READ_HEADER 4
 #define STATE_COMPRESSION_FLOW    5
+#define STATE_SEND_ACK            6
 
 static const char deflate_magic[2] = {'\037', '\213' };
 
@@ -72,7 +73,13 @@ static void process_headers (RoadMapHttpCompCtx ctx) {
       if (strstr(ctx->buffer, "Content-Encoding: gzip") != NULL) {
          ctx->flags |= FLAG_COMPRESSED;
       }
+   } else if ((ptr = strstr(ctx->buffer, "ack\r\n")) != NULL) {
+      
+      /* We got ack so we can now send to the consumer */
+      ctx->state = STATE_SEND_ACK;
+      ctx->read_size = ptr - ctx->buffer + strlen("ack\r\n");
    }
+
 }
 
 RoadMapHttpCompCtx roadmap_http_comp_init (void) {
@@ -146,6 +153,20 @@ int roadmap_http_comp_read (RoadMapHttpCompCtx ctx, void *data, int size) {
             } else {
                ctx->state = STATE_DEFLATE_READ_HEADER;
             }
+         }
+         return size;
+         
+      case STATE_SEND_ACK:
+         if (size > (ctx->read_size - ctx->read_ptr)) {
+            size = ctx->read_size - ctx->read_ptr;
+         }
+         
+         memcpy(data, ctx->buffer + ctx->read_ptr, size);
+         ctx->read_ptr += size;
+         if (ctx->read_ptr == ctx->read_size) {
+            ctx->read_size = ctx->buffer_ptr;
+            
+            ctx->state = STATE_READ_HEADERS;
          }
          return size;
 

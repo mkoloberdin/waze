@@ -123,7 +123,16 @@ static int set_data (SsdWidget widget, const void *value) {
    return ssd_widget_set_value (widget, "Label", data->labels[i]);
 }
 
-
+void ssd_choice_update_values ( SsdWidget choice, int count, const char **labels, const void **values )
+{
+   struct ssd_choice_data *data = choice->data;
+   if ( data )
+   {
+      data->labels = labels;
+      data->values = values;
+      data->num_values = count;
+   }
+}
 SsdWidget ssd_choice_new (const char *name, const char *title, int count,
                           const char **labels,
                           const void **values,
@@ -140,7 +149,7 @@ SsdWidget ssd_choice_new (const char *name, const char *title, int count,
       (struct ssd_choice_data *)calloc (1, sizeof(*data));
 
    SsdWidget button;
-   
+
 #ifndef TOUCH_SCREEN
    txt_box_height = 23;
 #endif
@@ -174,8 +183,8 @@ SsdWidget ssd_choice_new (const char *name, const char *title, int count,
    if (!ssd_widget_rtl(NULL))
    	rtl_flag = SSD_ALIGN_RIGHT;
 
-   text = ssd_text_new ("Label", labels[0], SSD_SECONDARY_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER);
-   ssd_text_set_color(text, "#4c4c4c");
+   text = ssd_text_new ("Label", labels[0], SSD_SECONDARY_TEXT_SIZE, SSD_ALIGN_VCENTER);
+   ssd_text_set_color(text, "#206892");
    ssd_widget_add (text_box, text);
    if (!ssd_widget_rtl(NULL)){
    	   buttons[0] = edit_button[0];

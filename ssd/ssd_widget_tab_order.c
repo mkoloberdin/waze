@@ -243,6 +243,7 @@ roadmap_input_type ssd_widget_get_input_type( SsdWidget this)
 
 BOOL ssd_widget_set_focus( SsdWidget w)
 {
+
    if( w->tab_stop)
    {
       roadmap_input_type input_type;
@@ -269,7 +270,7 @@ void ssd_widget_loose_focus( SsdWidget w)
 
 static SsdWidget ssd_widget_focus_backward( SsdWidget w)
 {
-   
+
    if( !w->prev_tabstop || (w->prev_tabstop == w))
       return w;   // Only one tab-stop in w dialog. Nothing changed.
 
@@ -807,7 +808,7 @@ SsdWidget ssd_widget_sort_gui_tab_order( SsdWidget first)
 
          if(!new_focus)
              new_focus = w;
-         if (next){         
+         if (next){
             do
             {
 #if 0
@@ -859,8 +860,9 @@ void ssd_widget_reset_tab_order_recursive( SsdWidget w)
    w->tabstop_right  = NULL;
    w->tabstop_above  = NULL;
    w->tabstop_below  = NULL;
+#ifndef TOUCH_SCREEN  // Avi
    w->in_focus       = FALSE;
-
+#endif
    next = w->children;
    while( next)
    {

@@ -107,8 +107,11 @@ public class FreeMapCameraPreView extends SurfaceView implements
             // Return to the application
             mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
             mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
-            // This will call the surfaceDestroy
-            FreeMapNativeManager.Notify(0);
+            if ( mCaptureParams.mCallback == null)
+	            // This will call the surfaceDestroy
+	            FreeMapNativeManager.Notify(0);
+            else
+            	mCaptureParams.mCallback.run( false );
         }
     }
 
@@ -130,12 +133,15 @@ public class FreeMapCameraPreView extends SurfaceView implements
         catch( Exception ex )
         {
             WazeLog.e( "Error in destroying the surface", ex );
+        	if ( mCaptureParams.mCallback != null )
+        		mCaptureParams.mCallback.run( false );
         }
         finally
         {
         	mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
-        	// In case of manager waiting - release to continue
-            FreeMapNativeManager.Notify(0);
+        	if ( mCaptureParams.mCallback == null )
+	        	// In case of manager waiting - release to continue
+	            FreeMapNativeManager.Notify(0);        		
         }                
     }
 
@@ -196,8 +202,11 @@ public class FreeMapCameraPreView extends SurfaceView implements
             // Return to the application
             mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
             mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
-            // This will call the surfaceDestroy
-            FreeMapNativeManager.Notify(0);
+            if ( mCaptureParams.mCallback == null )
+	            // This will call the surfaceDestroy
+	            FreeMapNativeManager.Notify(0);
+            else
+            	mCaptureParams.mCallback.run( false );
         }
     }
     
@@ -222,8 +231,12 @@ public class FreeMapCameraPreView extends SurfaceView implements
     		}
     		case KeyEvent.KEYCODE_BACK:
     		{
-                // This will call the surfaceDestroy
-                FreeMapNativeManager.Notify(0);
+    			if ( mCaptureParams.mCallback == null )
+	                // This will call the surfaceDestroy
+	                FreeMapNativeManager.Notify(0);
+    			else
+    				mCaptureParams.mCallback.run( false );
+    			
                 res = true;
     			break;
     		}
@@ -249,8 +262,11 @@ public class FreeMapCameraPreView extends SurfaceView implements
             // Return to the application
             mPreviewStatus = CAMERA_PREVIEW_STATUS_NOT_READY;
             mCaptureStatus = CAMERA_CAPTURE_STATUS_NONE;
-            // This will call the surfaceDestroy
-            FreeMapNativeManager.Notify(0);
+            if ( mCaptureParams.mCallback == null )
+	            // This will call the surfaceDestroy
+	            FreeMapNativeManager.Notify(0);
+            else
+            	mCaptureParams.mCallback.run( false );
         }
     }
     /*************************************************************************************************
@@ -302,14 +318,42 @@ public class FreeMapCameraPreView extends SurfaceView implements
         {
             mImageFile = aVal;
         }
+        public void setCallback( CallbackNative aVal )
+        {
+            mCallback = aVal;
+        }
 
+        
         private int    mImageWidth   = 256;
         private int    mImageHeight  = 256;
         private int    mImageQuality = 50;
         private String mImageFolder  = "./";
-        private String mImageFile    = "temp.jpg";
+        private String mImageFile    = "temp.jpg";    
+        private CallbackNative mCallback = null;
     }
-
+    
+    
+    public static abstract class CallbackNative
+    {
+    	public abstract void onCapture( int aRes );
+    	private void run( final boolean aRes )
+    	{
+    		if ( mActive )
+			{
+				final Runnable captureEvent =  new Runnable() {
+	    			public void run() {
+	    				int res = aRes ? 1 : 0;
+						
+							onCapture( res );
+						}
+				};
+				FreeMapNativeManager.Post( captureEvent );
+                mActive = false;
+			}
+    	}    	
+    	private boolean mActive = true;
+    }
+    
     /*************************************************************************************************
      * CaptureConfig - Capture parameters configurator
      * 
@@ -325,7 +369,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
      *            - the file name for the target file
      */
     public static void CaptureConfig( int aImageWidth, int aImageHeight,
-            int aImageQuality, String aImageFolder, String aImageFile )
+            int aImageQuality, String aImageFolder, String aImageFile, CallbackNative aCb )
     {
 //        Log.d(LOG_TAG, "CaptureConfig. Width: " + aImageWidth + ". Height: "
 //                + aImageHeight);
@@ -334,6 +378,7 @@ public class FreeMapCameraPreView extends SurfaceView implements
         mCaptureParams.setImageQuality(aImageQuality);
         mCaptureParams.setImageFolder(aImageFolder);
         mCaptureParams.setImageFile(aImageFile);
+        mCaptureParams.setCallback( aCb );
     }
 
     /*************************************************************************************************
@@ -382,9 +427,12 @@ public class FreeMapCameraPreView extends SurfaceView implements
         		mCaptureStatus = CAMERA_CAPTURE_STATUS_FAILURE;
         	}
         	
-            // Release the camera (surface destroyed) and return to the main
-            // activity
-            FreeMapNativeManager.Notify(MainScreenShowDelay);
+        	if ( mCaptureParams.mCallback == null )
+	        	// Release the camera (surface destroyed) and return to the main
+	            // activity
+	            FreeMapNativeManager.Notify(MainScreenShowDelay);
+        	else
+        		mCaptureParams.mCallback.run( mCaptureStatus == CAMERA_CAPTURE_STATUS_SUCCESS );
         }
     }
 

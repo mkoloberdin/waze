@@ -10,10 +10,10 @@ extern "C" {
 /*
  * Class:     com_waze_FreeMapNativeLocListener
  * Method:    LocListenerCallbackNTV
- * Signature: (BIIIIIII)V
+ * Signature: (BIIIIIIII)V
  */
 JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeLocListener_LocListenerCallbackNTV
-  (JNIEnv *, jobject, jbyte, jint, jint, jint, jint, jint, jint, jint);
+  (JNIEnv *, jobject, jbyte, jint, jint, jint, jint, jint, jint, jint, jint);
 
 /*
  * Class:     com_waze_FreeMapNativeLocListener
@@ -39,6 +39,17 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeLocListener_DilutionListenerCa
 
 #ifndef _Included_com_waze_FreeMapNativeLocListener_GpsStatusListener
 #define _Included_com_waze_FreeMapNativeLocListener_GpsStatusListener
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+#endif
+/* Header for class com_waze_FreeMapNativeLocListener_ListenerThread */
+
+#ifndef _Included_com_waze_FreeMapNativeLocListener_ListenerThread
+#define _Included_com_waze_FreeMapNativeLocListener_ListenerThread
 #ifdef __cplusplus
 extern "C" {
 #endif

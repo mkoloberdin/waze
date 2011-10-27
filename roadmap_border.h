@@ -49,10 +49,6 @@ typedef enum border_images
    border_black_left,
    border_black_right,
 
-   border_heading_black_left,
-   border_heading_black_middle,
-   border_heading_black_right,
-
    border_pointer_menu,
    border_pointer_comment,
 
@@ -67,13 +63,13 @@ typedef enum border_images
 #define STYLE_WHITE   border_white_top
 #define STYLE_BLACK   border_black_top
 
-#define POINTER_NONE 	 -1
-#define POINTER_POSITION 0
+#define POINTER_NONE 	       -1
+#define POINTER_POSITION       0
+#define POINTER_FIXED_POSITION 1
 #define POINTER_MENU  	 border_pointer_menu
 #define POINTER_COMMENT  border_pointer_comment
 
 #define HEADER_NONE		 -1
-#define HEADER_BLACK	    border_heading_black_left
 
 typedef struct broder_image{
 	RoadMapImage image;
@@ -81,7 +77,7 @@ typedef struct broder_image{
 	int width;
 }border_image;
 
-int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position);
+int roadmap_display_border(int style, int header, int pointer_type, RoadMapGuiPoint *bottom, RoadMapGuiPoint *top, const char* background, RoadMapPosition *position, int position_offset_y);
 int get_heading_height(int header_type);
 
 BOOL roadmap_border_initialize();

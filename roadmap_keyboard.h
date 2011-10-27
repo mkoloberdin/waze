@@ -92,10 +92,12 @@ BOOL roadmap_keyboard_get_typing_lock_enable( void );
 /////////////////////////////////////////////////////////////////////////////////////////////////
 // Callback type for 'key pressed':
 typedef BOOL(*CB_OnKeyPressed)( const char* utf8char, uint32_t flags);
+typedef void(*ConfirmTypingLockCallback)(int exit_code, void *context);
 
 // Register to 'key pressed' events:
 BOOL  roadmap_keyboard_register_to_event__key_pressed    ( CB_OnKeyPressed cbOnKeyPressed);
 BOOL  roadmap_keyboard_unregister_from_event__key_pressed( CB_OnKeyPressed cbOnKeyPressed);
+void roadmap_keyboard_register_typing_lock_confirm_cb( ConfirmTypingLockCallback cb );
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 

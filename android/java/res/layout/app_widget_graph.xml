@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+	*	Application widget. Graph activity definitions and layout
+	*	Copyright 2011, Waze Ltd      Alex Agranovich (AGA)
+	*		
+ -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/graph_root"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"              
+              >
+  
+	<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	            android:id="@+id/graph_image"
+	            android:layout_width="wrap_content"
+	            android:layout_height="wrap_content"
+	            android:orientation="vertical"
+	            android:background="@drawable/widget_graph"
+	            >
+	</LinearLayout> <!--   -->
+    <!--========================================================================
+   		* Buttons layout - contains all the texts 
+    	======================================================================== -->
+	<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	              android:id="@+id/layout_graph_buttons"
+	              android:layout_width="wrap_content"
+	              android:layout_height="wrap_content"
+	              android:orientation="horizontal"	
+	              android:layout_gravity="center_horizontal"  
+	              android:layout_marginTop="-13dp">            
+	              
+
+  	              <ImageButton
+  	              android:id="@+id/btn_graph_close"
+	              android:layout_width="wrap_content"
+    			  android:layout_height="wrap_content"
+    			  android:background="@color/transparent_full"
+    			  android:src="@drawable/widget_btn_close"
+  	              android:layout_gravity="center_horizontal"  
+    			  android:gravity="center_horizontal"
+    			  />
+	              
+	</LinearLayout> <!--   -->
+			
+</LinearLayout>

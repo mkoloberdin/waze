@@ -28,15 +28,20 @@
 
 #include "websvc_trans/string_parser.h"
 
+
+typedef void (* GeoConfigCompletedCb) ( void* context );
+
+int roadmap_geo_register_completed_cb( GeoConfigCompletedCb cb, void* cb_context );
+
 void roadmap_geo_config(RoadMapCallback callback);
 
 void roadmap_geo_config_transaction_failed();
-const char *on_geo_server_config (/* IN  */   const char*       data, 
+const char *on_geo_server_config (/* IN  */   const char*       data,
                                   /* IN  */   void*             context,
                                   /* OUT */   BOOL*             more_data_needed,
                                   /* OUT */   roadmap_result*   rc);
 
-const char *on_server_config      (/* IN  */   const char*       data, 
+const char *on_server_config      (/* IN  */   const char*       data,
                                   /* IN  */   void*             context,
                                   /* OUT */   BOOL*             more_data_needed,
                                   /* OUT */   roadmap_result*   rc);
@@ -50,6 +55,7 @@ void roadmap_geo_config_il(RoadMapCallback callback);
 void roadmap_geo_config_usa(RoadMapCallback callback);
 void roadmap_geo_config_other(RoadMapCallback callback);
 void roadmap_geo_config_stg(RoadMapCallback callback);
+void roadmap_geo_config_generic(char * name);
 const char *roadmap_geo_config_get_version(void);
 const char *roadmap_geo_config_get_server_id(void);
 #endif /* ROADMAP_GEO_CONFIG_H_ */

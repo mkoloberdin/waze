@@ -46,8 +46,8 @@
 #include "JNI/FreeMapJNI.h"
 #include "ssd/ssd_dialog.h"
 
-static int sgOGLWidth = 320;
-static int sgOGLHeight = 455;
+static int sgOGLWidth = -1;
+static int sgOGLHeight = -1;
 static int sgOGLPixelFormat = 0;
 static const int sgcCordingPointInvalid[2] = {-1, -1 };
 static int sgCordingPointsXY[2*MAX_CORDING_POINTS];
@@ -59,6 +59,7 @@ static int sgCordingPointsCount = 0;
 
 #define ANDROID_LD_FONT_FACTOR         0.9F
 #define ANDROID_SD_FONT_FACTOR         1.2F
+#define ANDROID_HD_FONT_FACTOR         1.8F
 #define ANDROID_MIN_LINE_THICKNESS		3.0F
 
 EGLContextPack sgMainEGLContextPack = EGL_CONTEXT_INITIALIZER;
@@ -105,6 +106,7 @@ const char* TEX_UNITS_UNSUPPORTED_MODEL_LIST[] =  { "U8100", "U8110", "sdk"    ,
 
 	sgOGLHeight = aHeight;
 	sgOGLWidth = aWidth;
+
 	sgOGLPixelFormat = aPixelFormat;
 
 	/*
@@ -112,7 +114,7 @@ const char* TEX_UNITS_UNSUPPORTED_MODEL_LIST[] =  { "U8100", "U8110", "sdk"    ,
      */
 	roadmap_screen_set_screen_type( sgOGLWidth, sgOGLHeight );
 
-	roadmap_canvas_prepare_main_context();
+//	roadmap_canvas_prepare_main_context();
 
 	roadmap_canvas_prepare();
 
@@ -181,10 +183,9 @@ void roadmap_canvas_prepare_main_context( void )
 	 * Enable the menu if the map is shown ( no dialogs on it )
 	 */
 //	FreeMapNativeManager_SetIsMenuEnabled( !ssd_dialog_is_currently_active() );
-
 	if ( !roadmap_screen_get_background_run() )
 	{
-		roadmap_canvas_swap_buffers();
+	   roadmap_canvas_swap_buffers();
 	}
 }
 
@@ -337,7 +338,6 @@ void roadmap_canvas_mouse_moved( int aXY[], int aCount )
 
  int roadmap_canvas_is_landscape()
 {
-
    return ( roadmap_canvas_width() > roadmap_canvas_height() );
 }
 
@@ -389,6 +389,7 @@ void roadmap_canvas_prepare()
 {
 	float aa_factor, font_factor = ANDROID_SD_FONT_FACTOR;
 	const char* renderer_name = get_renderer();
+	static BOOL initialized = FALSE;
 
 	glMatrixMode( GL_PROJECTION );
 	glLoadIdentity();
@@ -405,15 +406,17 @@ void roadmap_canvas_prepare()
 
 	glEnable( GL_BLEND );
 
+	glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
 	glDisable(GL_DEPTH_TEST);
 
 	glDisable( GL_DITHER );
 
 	glDisable( GL_LIGHTING );
 
-    glDisableClientState( GL_COLOR_ARRAY );
+   glDisableClientState( GL_COLOR_ARRAY );
 
-    glDisableClientState( GL_NORMAL_ARRAY );
+   glDisableClientState( GL_NORMAL_ARRAY );
 
 	glEnableClientState( GL_VERTEX_ARRAY );
 
@@ -422,24 +425,31 @@ void roadmap_canvas_prepare()
 	aa_factor = ( roadmap_main_get_build_sdk_version() <= ANDROID_OS_VER_DONUT ) ? 0.5F : 0.0F;
 
 
-   font_factor = ADJ_SCALE( font_factor );
+	if ( roadmap_screen_is_hd_screen() )
+	   font_factor = ANDROID_HD_FONT_FACTOR;
+	if ( roadmap_screen_is_ld_screen() )
+      font_factor = ANDROID_LD_FONT_FACTOR;
 
-   roadmap_log( ROADMAP_WARNING, "Device Data. Device name: %s. Device model: %s. Renderer: %s ( Software: %s )",
-         roadmap_main_get_device_name(), roadmap_main_get_device_model(),
-         renderer_name, BOOL_STR( roadmap_canvas_is_sw_renderer() ) );
-
-   if ( check_tex_units_unsupported_list( roadmap_main_get_device_name(), roadmap_main_get_device_model() ) )
+   if ( !initialized )
    {
-      roadmap_log( ROADMAP_WARNING, "The Device : %s ( model: %s ) is in the unsupported texture units " \
-            "devices list!\nSetting number of texture units to 1.",
-            roadmap_main_get_device_name(), roadmap_main_get_device_model() );
+      roadmap_log( ROADMAP_WARNING, "Device Data. Device name: %s. Device model: %s. Renderer: %s ( Software: %s )",
+            roadmap_main_get_device_name(), roadmap_main_get_device_model(),
+            renderer_name, BOOL_STR( roadmap_canvas_is_sw_renderer() ) );
 
-      roadmap_canvas_set_max_tex_units( 1 );
-   }
+      if ( check_tex_units_unsupported_list( roadmap_main_get_device_name(), roadmap_main_get_device_model() ) )
+      {
+         roadmap_log( ROADMAP_WARNING, "The Device : %s ( model: %s ) is in the unsupported texture units " \
+               "devices list!\nSetting number of texture units to 1.",
+               roadmap_main_get_device_name(), roadmap_main_get_device_model() );
 
-   if ( !strcasecmp( roadmap_main_get_device_manufacturer(), "HTC" ) )
-   {
-      roadmap_screen_set_cording_rotation_enabled( FALSE );
+         roadmap_canvas_set_max_tex_units( 1 );
+      }
+
+      if ( !strcasecmp( roadmap_main_get_device_manufacturer(), "HTC" ) )
+      {
+         roadmap_screen_set_cording_rotation_enabled( FALSE );
+      }
+      initialized = TRUE;
    }
 
 	roadmap_canvas_ogl_configure( aa_factor, font_factor, ANDROID_MIN_LINE_THICKNESS );

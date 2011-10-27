@@ -56,7 +56,7 @@ typedef struct image_slot {
 static int  download_size_callback( void *context_cb, size_t size );
 static void download_progress_callback( void *context_cb, char *data, size_t size );
 static void download_error_callback( void *context_cb, int connection_failure, const char *format, ... );
-static void download_done_callback( void *context_cb,char *last_modified );
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  );
 
 static RoadMapHttpAsyncCallbacks gHttpAsyncCallbacks =
 {
@@ -191,7 +191,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
-static void download_done_callback( void *context_cb, char *last_modified )
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  )
 {
    ImageDownloadContext* context = (ImageDownloadContext*) context_cb;
    RoadMapImage image;
@@ -232,7 +232,9 @@ static char* get_download_url(int id_type, int id, int id2, int size)
 
     switch (size){
        case SOCIAL_IMAGE_SIZE_SQUARE:
-          if (roadmap_screen_is_hd_screen())
+          if (roadmap_screen_get_screen_scale() == 200)
+             strcpy (type, "square100");
+          else if (roadmap_screen_is_hd_screen())
              strcpy(type, "square75");
           else
              strcpy(type, "square");

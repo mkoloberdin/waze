@@ -25,6 +25,7 @@
 #include "roadmap_lang.h"
 #include "roadmap_screen.h"
 #include "roadmap_skin.h"
+#include "roadmap_analytics.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_button.h"
 #include "ssd/ssd_container.h"
@@ -174,6 +175,7 @@ BOOL roadmap_map_settings_isEnabled(RoadMapConfigDescriptor descriptor){
 ///////////////////////////////////////////////////////////////////////////////////////////
 static int map_scheme_callback (SsdWidget widget, const char *new_value, const void *value, void *context) {
 
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSCHEME, ANALYTICS_EVENT_INFO_CHANGED_TO, value);
    roadmap_skin_set_scheme((const char *)value);
    ssd_dialog_hide_all(dec_close);
    return 1;
@@ -215,6 +217,8 @@ void roadmap_map_settings_show(void){
    int row_height = ssd_container_get_row_height();
    int width = ssd_container_get_width();
 
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MAPSETTINGS, NULL, NULL);
+
     roadmap_log (ROADMAP_DEBUG, "create map settings menu");
    if (!initialized) {
       roadmap_map_settings_init();
@@ -245,7 +249,7 @@ void roadmap_map_settings_show(void){
        ssd_widget_add (dialog, box);
 
        container = ssd_container_new ("General prefs", NULL, width, SSD_MIN_SIZE,
-              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
 
       if (roadmap_skin_auto_night_feature_enabled()){
@@ -278,16 +282,15 @@ void roadmap_map_settings_show(void){
       //ssd_widget_add(box, space(1));
       box = ssd_container_new ("map schem group", NULL, SSD_MAX_SIZE, row_height,
                                 SSD_WIDGET_SPACE|SSD_END_ROW|tab_flag);
-      ssd_widget_set_color (box, "#000000", "#ffffff");
+      ssd_widget_set_color (box, NULL, NULL);
 
       box2 = ssd_container_new ("map_schem box2", NULL, roadmap_canvas_width()/3, SSD_MIN_SIZE,
                                   SSD_ALIGN_VCENTER);
       ssd_widget_set_color (box2, NULL, NULL);
-
-      ssd_widget_add (box2,
-              ssd_text_new ("map_scheme_label",
-                            roadmap_lang_get ("Map color scheme"),
-                            SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER));
+      text =  ssd_text_new ("map_scheme_label", roadmap_lang_get ("Map color scheme"),
+                            SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL|SSD_ALIGN_VCENTER);
+      ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+      ssd_widget_add (box2, text);
 
       ssd_widget_add(box, box2);
       if (!ssd_widget_rtl(NULL)){
@@ -299,8 +302,8 @@ void roadmap_map_settings_show(void){
       }
 
 
-      text = ssd_text_new ("map_schem_label_value",roadmap_lang_get(map_labels[roadmap_skin_get_scheme()]) , SSD_SECONDARY_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
-      ssd_text_set_color(text, "#4c4c4c");
+      text = ssd_text_new ("map_schem_label_value",roadmap_lang_get(map_labels[roadmap_skin_get_scheme()]) , SSD_SECONDARY_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
+      ssd_text_set_color(text, "#206892");
       ssd_widget_add (box, text);
 
 #ifdef TOUCH_SCREEN
@@ -320,7 +323,7 @@ void roadmap_map_settings_show(void){
 
 
 	   container = ssd_container_new ("Map GUI prefs", NULL, width, SSD_MIN_SIZE,
-              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+              SSD_WIDGET_SPACE|SSD_END_ROW|SSD_CONTAINER_FLAGS|SSD_POINTER_NONE|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
 
 
 
@@ -471,20 +474,40 @@ static void on_close_dialog (int exit_code, void* context){
 
 static int on_ok( SsdWidget this, const char *new_value){
 	const char * data;
+	BOOL prev_show_icons;
     roadmap_log (ROADMAP_DEBUG, "exitting map settings");
 #ifdef TOUCH_SCREEN
+
+    prev_show_icons = roadmap_config_match(&RoadMapConfigShowScreenIconsOnTap, "yes");
+
+    if (prev_show_icons){
+       if(strcasecmp( ( const char* ) ssd_dialog_get_data("show_icons"), yesno[0] ))
+          roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
+    }
+    else{
+       if(!strcasecmp( ( const char* ) ssd_dialog_get_data("show_icons"), yesno[0] ))
+          roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROLSSET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
+    }
     roadmap_config_set (&RoadMapConfigShowScreenIconsOnTap,
                            (const char *)ssd_dialog_get_data ("show_icons"));
+
+
     roadmap_config_set (&RoadMapConfigShowTopBarOnTap,
                            (const char *)ssd_dialog_get_data ("show_top_bar"));
 #endif
     if (roadmap_skin_auto_night_feature_enabled()){
+       BOOL prev_on = roadmap_config_match(&RoadMapConfigAutoNightMode, "yes");
+
        roadmap_config_set (&RoadMapConfigAutoNightMode,
                               (const char *)ssd_dialog_get_data ("auto_night_mode"));
        if(!strcasecmp( ( const char* ) ssd_dialog_get_data("auto_night_mode"), yesno[0] )){
+          if (!prev_on)
+             roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_ON);
           roadmap_skin_auto_night_mode();
        }
        else{
+          if (prev_on)
+             roadmap_analytics_log_event(ANALYTICS_EVENT_NIGHTMODESET, ANALYTICS_EVENT_INFO_CHANGED_TO, ANALYTICS_EVENT_OFF);
           roadmap_skin_auto_night_mode_kill_timer();
        }
     }

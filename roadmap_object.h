@@ -53,17 +53,39 @@
 
 #include "roadmap_string.h"
 #include "roadmap_gps.h"
+#include "roadmap_gui.h"
 
-#define OBJECT_ANIMATION_POP_IN        0x1
-#define OBJECT_ANIMATION_POP_OUT       0x2
-#define OBJECT_ANIMATION_FADE_IN       0x4
-#define OBJECT_ANIMATION_FADE_OUT      0x8
-#define OBJECT_ANIMATION_WHEN_VISIBLE  0x10
+#define OBJECT_ANIMATION_POP_IN              0x0000001
+#define OBJECT_ANIMATION_POP_OUT             0x0000002
+#define OBJECT_ANIMATION_FADE_IN             0x0000004
+#define OBJECT_ANIMATION_FADE_OUT            0x0000008
+#define OBJECT_ANIMATION_WHEN_VISIBLE        0x0000010
+#define OBJECT_ANIMATION_DROP_IN             0x0000020
+#define OBJECT_ANIMATION_VIP                 0x0000040
+#define OBJECT_ANIMATION_VIP_STAR            0x0000080
+#define OBJECT_ANIMATION_VIP_TEXT            0x0000100
+#define OBJECT_ANIMATION_WHEN_FULLY_VISIBLE  0x0000200
+#define OBJECT_VIP_MEGA_MAPPER               0x0010000
+#define OBJECT_VIP_MEGA_DRIVER               0x0020000
+#define OBJECT_VIP_MEGA_REPORTER             0x0040000
+#define OBJECT_VIP_BETA_TESTER               0x0080000
+#define OBJECT_VIP_WAZE_HERO                 0x0100000
+#define OBJECT_VIP_1M_POINTS                 0x0200000
 
 #define OBJECT_PRIORITY_DEFAULT 0
 #define OBJECT_PRIORITY_NORMAL  1
 #define OBJECT_PRIORITY_HIGH    2
 #define OBJECT_PRIORITY_HIGHEST 3
+
+
+typedef struct {
+   RoadMapDynamicString text;
+   int                  size;
+   int                  font_flags;
+   RoadMapGuiPoint      offset;
+   char                 fg_color[10];
+   char                 bg_color[10];
+} ObjectText;
 
 void roadmap_object_add (RoadMapDynamicString origin,
                          RoadMapDynamicString id,
@@ -72,7 +94,7 @@ void roadmap_object_add (RoadMapDynamicString origin,
                          RoadMapDynamicString      image,
                          const RoadMapGpsPosition *position,
                          const RoadMapGuiPoint    *offset,
-                         int                       animation,
+                         long                     animation,
                          RoadMapDynamicString text);
 
 void roadmap_object_add_with_priority (RoadMapDynamicString origin,
@@ -82,27 +104,42 @@ void roadmap_object_add_with_priority (RoadMapDynamicString origin,
                          RoadMapDynamicString      image,
                          const RoadMapGpsPosition *position,
                          const RoadMapGuiPoint    *offset,
-                         int                       animation,
+                         long                      animation,
                          RoadMapDynamicString text,
                          int priority);
+void roadmap_object_add_image (RoadMapDynamicString id, RoadMapDynamicString image);
+void roadmap_object_add_text (RoadMapDynamicString id,
+                              RoadMapDynamicString text,
+                              int                  size,
+                              int                  font_flags,
+                              RoadMapGuiPoint      *offset,
+                              const char           *fg_color,
+                              const char           *bg_color);
 void roadmap_object_move (RoadMapDynamicString id,
                           const RoadMapGpsPosition *position);
 
 void roadmap_object_remove (RoadMapDynamicString id);
+
+void roadmap_object_start_glow (RoadMapDynamicString id, int max_duraiton);
+void roadmap_object_stop_glow (RoadMapDynamicString id);
 
 void roadmap_object_cleanup (RoadMapDynamicString origin);
 
 
 typedef void (*RoadMapObjectAction) (const char *name,
                                      const char *sprite,
-                                     const char *image,
+                                     RoadMapDynamicString *images,
+                                     int  image_count,
                                      const RoadMapGpsPosition *gps_position,
                                      const RoadMapGuiPoint    *offset,
                                      BOOL       is_visible,
                                      int        scale,
                                      int        opacity,
+                                     int        scale_y,
                                      const char *id,
-                                     const char *text);
+                                     ObjectText *texts,
+                                     int        text_count,
+                                     int        rotation);
 
 void roadmap_object_set_action (RoadMapDynamicString id,
                                 RoadMapObjectAction action);
@@ -129,5 +166,10 @@ void roadmap_object_enable_short_click(void);
 BOOL roadmap_object_short_ckick_enabled(void);
 void roadmap_object_set_zoom (RoadMapDynamicString id, int min_zoom, int max_zoom);
 BOOL roadmap_object_exists(RoadMapDynamicString id);
+
+void roadmap_object_set_no_overlapping (RoadMapDynamicString id);
+BOOL roadmap_object_overlapped(RoadMapDynamicString origin, RoadMapDynamicString   image, const RoadMapGpsPosition *position, const RoadMapGuiPoint    *offset);
+
+void roadmap_object_set_scale_factor (RoadMapDynamicString id, int min_zoom, int scale);
 #endif // INCLUDE__ROADMAP_OBJECT__H
 

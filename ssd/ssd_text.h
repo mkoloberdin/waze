@@ -48,4 +48,5 @@ void        ssd_text_set_auto_trim  ( SsdWidget this);
 void        ssd_text_set_color      ( SsdWidget this, const char* color);
 void        ssd_text_set_lines_space_padding( SsdWidget this, int space );
 void        ssd_text_set_font_normal( SsdWidget this);
+void        ssd_text_set_use_height_factor( SsdWidget this, BOOL use_height_factor );
 #endif // __SSD_WIDGET_TEXT_H_

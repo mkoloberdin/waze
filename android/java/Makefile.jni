@@ -18,7 +18,10 @@ JAVAOBJS=FreeMapNativeManager \
 			WazeLog \
 			WazeMenuManager \
 			WazeEditBox \
-			WazeMsgBox
+			WazeMsgBox \
+			WazeSpeechttManagerBase \
+			WazeSpeechttManager \
+			WazeSoundRecorder
 			
 # Suffix of the JNI output files
 JNI_SUFFIX = '_JNI.h'

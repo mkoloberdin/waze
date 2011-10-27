@@ -55,12 +55,22 @@ static RoadMapConfigDescriptor RoadMapConfigFeatureEnabled =
 
 RoadMapConfigDescriptor RoadMapConfigMapScheme =
                         ROADMAP_CONFIG_ITEM("Display", "Map scheme");
+
+RoadMapConfigDescriptor RoadMapConfigMapSubSkin =
+                        ROADMAP_CONFIG_ITEM("Display", "Map sub_skin");
+
 static BOOL  ToggleToNightMode = TRUE;
 
 static void toggle_skin_timer(void);
+static int auto_night_mode_cfg_on (void);
+
 
 static const char *get_map_schema(void){
    return (const char *) roadmap_config_get(&RoadMapConfigMapScheme);
+}
+
+static const char *get_map_sub_skin(void){
+   return (const char *) roadmap_config_get(&RoadMapConfigMapSubSkin);
 }
 
 
@@ -90,7 +100,7 @@ void roadmap_skin_register (RoadMapCallback listener) {
 }
 
 
-void roadmap_skin_set_subskin (const char *sub_skin) {
+static void roadmap_skin_set_subskin_int (const char *sub_skin, BOOL save) {
    const char *base_path = roadmap_path_preferred ("skin");
    char path[1024];
    char *skin_path = NULL;
@@ -129,6 +139,14 @@ void roadmap_skin_set_subskin (const char *sub_skin) {
 
    roadmap_path_free (subskin_path);
    roadmap_path_free (skin_path);
+   
+   if (save && !auto_night_mode_cfg_on()) {
+      roadmap_config_set(&RoadMapConfigMapSubSkin,sub_skin );
+   }
+
+   if (save && !auto_night_mode_cfg_on()) {
+      roadmap_config_set(&RoadMapConfigMapSubSkin,sub_skin );
+   }
 
    roadmap_config_reload ("schema");
    notify_listeners ();
@@ -137,6 +155,9 @@ void roadmap_skin_set_subskin (const char *sub_skin) {
 
 }
 
+void roadmap_skin_set_subskin (const char *sub_skin) {
+   roadmap_skin_set_subskin_int (sub_skin, TRUE);
+}
 
 void roadmap_skin_toggle (void) {
    if (!strcmp (CurrentSubSkin, "day")) {
@@ -177,9 +198,9 @@ void roadmap_skin_auto_night_mode_kill_timer(void){
 
 static void toggle_skin_timer(void){
    if (ToggleToNightMode)
-      roadmap_skin_set_subskin ("night");
+      roadmap_skin_set_subskin_int ("night", FALSE);
    else
-      roadmap_skin_set_subskin ("day");
+      roadmap_skin_set_subskin_int ("day", FALSE);
    roadmap_skin_auto_night_mode_kill_timer();
 }
 
@@ -239,7 +260,7 @@ static void roadmap_skin_gps_listener
    //printf("%s\n", msg);
 
    if (rawtime_sunset > rawtime_sunrise){
-      roadmap_skin_set_subskin ("night");
+      roadmap_skin_set_subskin_int ("night", FALSE);
       timer_t = rawtime_sunrise - now;
       if ((timer_t > 0) && (timer_t < 1800))
          roadmap_main_set_periodic (timer_t*1000, toggle_skin_timer);
@@ -256,20 +277,32 @@ static void roadmap_skin_gps_listener
 
 void roadmap_skin_init(void){
    const char *map_scheme;
+   const char *map_sub_skin;
 
    roadmap_config_declare
       ("user", &RoadMapConfigMapScheme, "", NULL);
+   
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigMapSubSkin, NULL, "day", "night", NULL);
+
+   roadmap_config_declare_enumeration
+      ("user", &RoadMapConfigMapSubSkin, NULL, "day", "night", NULL);
 
    map_scheme = get_map_schema();
-   if (map_scheme[0] != 0){
-      roadmap_skin_set_subskin ("day");
-   }
+   map_sub_skin = get_map_sub_skin();
+   
    roadmap_skin_auto_night_mode();
+   
+   if (!auto_night_mode_cfg_on() && !strcmp(map_sub_skin, "night")){
+      roadmap_skin_set_subskin_int (map_sub_skin, FALSE);
+   } else if (map_scheme[0] != 0){
+      roadmap_skin_set_subskin_int ("day", FALSE);
+   }
 }
 
 void roadmap_skin_set_scheme(const char *new_scheme){
    roadmap_config_set(&RoadMapConfigMapScheme,new_scheme );
-   roadmap_skin_set_subskin (CurrentSubSkin);
+   roadmap_skin_set_subskin_int (CurrentSubSkin, FALSE);
 }
 
 int roadmap_skin_get_scheme(void){

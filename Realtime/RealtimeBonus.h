@@ -29,11 +29,36 @@
 #define MAX_ADD_ONS 250
 #define MAX_GUID_ID 30
 
+#define MAX_BONUS_TEMPLATES   30
 #define BONUS_TYPE_POINTS     0
 #define BONUS_TYPE_TREASURE   1
 
 #define MAX_SUCCESS_TEXT 250
 #define MAX_BONUS_TEXT   250
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// bonus template
+typedef struct
+{
+    int  iID;
+    int  iRadius;    //   Radius to collect
+    int  iNumPoints; // Number of bonus points
+    char *pIconName; // Name of the icon
+    char *pTitle;
+    char *pTitleColor;
+    char *pText;
+    char *pTextColor;
+    char *pWebDlgExtraParams;
+} RTBonusTemplate;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Runtime Bonus Table
+typedef struct
+{
+   RTBonusTemplate *template[MAX_BONUS_TEMPLATES];
+   int iCount;
+} RTBonusTemplatesTable;
+
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 // bonus
@@ -50,11 +75,17 @@ typedef struct
     BOOL collected;
     roadmap_alerter_location_info location_info;
     char *pBonusText;
+    char *pBonusTextColor;
+    char *pBonusTitle;
+    char *pBonusTitleColor;
     BOOL bIsCustomeBonus;
     BOOL displayed;
     char *pCollectText;
     char *pCollectTitle;
     char *pCollectIcon;
+    BOOL bHasWebDlg;
+    char *pWebDlgExtraParams;
+    int  iTemplateID;
 } RTBonus;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,7 +102,7 @@ void RealtimeBonus_Term (void);
 BOOL RealtimeBonus_Add (RTBonus *pbonus);
 BOOL RealtimeBonus_Delete (int iId);
 
-int RealtimeBonus_CollectedPointsConfirmed(int iID, int iType, int iPoints, BOOL bHasGift, BOOL bIsBigPrize, const char *gift);
+int RealtimeBonus_CollectedPointsConfirmed(int iID, int iType, int iPoints, BOOL bHasGift, BOOL bIsBigPrize, const char *gift, const char *title, const char *msg);
 int RealtimeBonus_OpenMessageTicker(int iPoints,  const char *text, const char *title, const char *icon);
 void RealtimeBonus_Record_Init (RTBonus *pbonus);
 int   RealtimeBonus_Count (void);
@@ -91,4 +122,8 @@ int RealtimeBonus_get_priority(void);
 roadmap_alerter_location_info *  RealtimeBonus_get_location_info(int index);
 BOOL RealtimeBonus_distance_check(RoadMapPosition gps_pos);
 
+
+RTBonusTemplate *RealtimeBonus_BonusTemplate_Get (int iID);
+void RealtimeBonus_BonusTemplate_Init (RTBonusTemplate *pbonusTemplate);
+BOOL RealtimeBonus_BonusTemplate_Add (RTBonusTemplate *pTemplate);
 #endif /* __REALTIMEBONUS_H__ */

@@ -42,6 +42,6 @@ void roadmap_gpsandroid_subscribe_to_satellites (RoadMapGpsdSatellite satellite)
 void roadmap_gpsandroid_subscribe_to_dilution   (RoadMapGpsdDilution dilution);
 
 void roadmap_gpsandroid_set_position( AndroidPositionMode mode, char status, int gps_time, int latitude, int longitude,
-					int altitude, int speed, int steering );
+               int altitude, int speed, int steering, int accuracy );
 
 #endif // INCLUDE__ROADMAP_ANDROIDGPS__H

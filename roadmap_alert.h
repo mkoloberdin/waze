@@ -44,6 +44,9 @@ const char *  roadmap_alert_get_warning_icon(int alert);
 const char *  roadmap_alert_get_alert_icon(int alert);
 int roadmap_alert_get_distance(int record);
 int roadmap_alert_get_priority(void);
+int roadmap_alert_start_handling(int alert);
+int roadmap_alert_stop_handling(int alert);
+
 RoadMapSoundList  roadmap_alert_get_alert_sound(int Id);
 const char *  roadmap_alert_get_string(int alert);
 extern roadmap_db_handler RoadMapAlertHandler;

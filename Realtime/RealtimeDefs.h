@@ -34,7 +34,7 @@
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_NETWORK_ERRORS                  (1000)
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_NETWORK_ERRORS_SUCCESSIVE       (100)
 #define  RT_THRESHOLD_TO_DISABLE_SERVICE__MAX_SECONDS_FROM_LAST_SESSION       (20*60)
-#define  RT_THRESHOLD_TO_ENTER_SILENT_MODE__MAX_NETWORK_ERRORS_SUCCESSIVE     (3)
+#define  RT_THRESHOLD_TO_ENTER_SILENT_MODE__MAX_NETWORK_ERRORS_SUCCESSIVE     (5)
 
 // Warning initialization timeout in milli-seconds
 #define  RT_WARNING_INIT_TO			(30000)
@@ -63,6 +63,19 @@
 #define  RT_CFG_PRM_NKNM_Name          ("Nickname")
 #define  RT_CFG_PRM_NKNM_Default       ("")
 
+//   Enable skip button on first signup screen
+#define  RT_CFG_PRM_SKIPBTN_Var        RTPrm_SkipButton
+#define  RT_CFG_PRM_SKIPBTN_Name       ("Signup skip button")
+#define  RT_CFG_PRM_SKIPBTN_Enabled    ("Enabled")
+#define  RT_CFG_PRM_SKIPBTN_Disabled   ("Disabled")
+
+
+//   Small Wazers scale factor
+#define  RT_CFG_PRM_WAZERS_SCALE_Var      RTPrm_WazersScaleFactor
+#define  RT_CFG_PRM_WAZERS_SCALE_Name     ("Wazers scale factor")
+#define  RT_CFG_PRM_WAZERS_SCALE_Default  ("80")
+
+
 //   Enable / Disable:
 #define  RT_CFG_PRM_STATUS_Var         RTPrm_Status
 #define  RT_CFG_PRM_STATUS_Name        ("Status")
@@ -79,6 +92,16 @@
 #define  RT_CFG_PRM_RANDOM_USER_Var     RTPrm_RandomUser
 #define  RT_CFG_PRM_RANDOM_USER_Name   ("Random user")
 #define  RT_CFG_PRM_RANDOM_USERT_Default ("0")
+
+//   My Inbox URL
+#define  RT_CFG_PRM_INBOX_URL_Var       RTPrm_InboxUrl
+#define  RT_CFG_PRM_INBOX_URL_Name     ("Inbox URL")
+#define  RT_CFG_PRM_INBOX_URL_Default  ("")
+
+//   My Inbox Enabled
+#define  RT_CFG_PRM_INOBX_ENABLED_Var       RTPrm_InboxFeatureEnabled
+#define  RT_CFG_PRM_INOBX_ENABLED_Name     ("Inbox Enabled")
+#define  RT_CFG_PRM_INOBX_ENABLED_Default  ("no")
 
 //   Refresh rate
 #define  RT_CFG_PRM_REFRAT_Var         	RTPrm_RefreshRate
@@ -117,9 +140,26 @@
 #define  RT_CFG_PRM_REFRAT_iWD         	(15.F)   //   Watchdog
 
 //   Remote web-service address
-#define  RT_CFG_PRM_WEBSRV_Var         RTPrm_WebServiceAddress
-#define  RT_CFG_PRM_WEBSRV_Name        ("Web-Service Address")
-#define  RT_CFG_PRM_WEBSRV_Default     ("")
+#define  RT_CFG_PRM_WEBSRV_Var            RTPrm_WebServiceAddress
+#define  RT_CFG_PRM_WEBSRV_Name           ("Web-Service Address")
+#define  RT_CFG_PRM_WEBSRV_Default        ("")
+#define  RT_CFG_PRM_WEBSRVSSL_Var         RTPrm_WebServiceSecuredAddress
+#define  RT_CFG_PRM_WEBSRVSSL_Name        ("Web-Service Secured Address")
+#define  RT_CFG_PRM_WEBSRVSSL_Default     ("")
+#define  RT_CFG_PRM_WEBSRVSSLRes_Var      RTPrm_WebServiceSecuredAddressRes
+#define  RT_CFG_PRM_WEBSRVSSLRes_Name     ("Web-Service Secured Address Resolved")
+#define  RT_CFG_PRM_WEBSRVSSLRes_Default  ("")
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Var      RTPrm_WebServiceSecuredCommands
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Name     ("Web-Service Secured Commands")
+#define  RT_CFG_PRM_WEBSRVSSLCMD_Default  ("Login-BridgeTo-RoutingRequest")
+#define  RT_CFG_PRM_WEBSRVSSLEnabled_Var  RTPrm_WebServiceSecureEnabled
+#define  RT_CFG_PRM_WEBSRVSSLEnabled_Name ("Web-Service Secure Enabled Client_2_3")
+#define  RT_CFG_PRM_WEBSRVV2SFX_Var       RTPrm_WebServiceV2Suffix
+#define  RT_CFG_PRM_WEBSRVV2SFX_Name      ("Web-Service V2 Suffix")
+#define  RT_CFG_PRM_WEBSRVV2SFX_Default   ("_v2")
+#define  RT_CFG_PRM_WEBSRVV2CMD_Var       RTPrm_WebServiceV2Commands
+#define  RT_CFG_PRM_WEBSRVV2CMD_Name      ("Web-Service V2 Commands")
+#define  RT_CFG_PRM_WEBSRVV2CMD_Default   ("RoutingRequest")
 
 const char*  RT_CFG_GetWebServiceAddress();
 

@@ -594,6 +594,7 @@ static int navigate_route_calc_segments (PluginLine *from_line,
 
 		roadmap_square_set_current (square);
 		curr_segment->is_instrumented = 0;
+      curr_segment->dest_name = NULL;
       curr_segment->square = square;
       curr_segment->line = line;
       //printf("%d, ", line);

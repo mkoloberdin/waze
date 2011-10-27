@@ -41,21 +41,18 @@
 
 static void draw (SsdWidget this, RoadMapGuiRect *rect, int flags)
 {
-   static RoadMapPen pen = NULL;
+   RoadMapPen pen = NULL;
 
-   if (pen == NULL){
-      pen = roadmap_canvas_create_pen("separator");
-      //roadmap_canvas_set_foreground ("#d8dae0");
-      roadmap_canvas_set_foreground ("#ababab");
-      roadmap_canvas_set_thickness (1);
-   }
-   else{
-      roadmap_canvas_select_pen(pen);
-   }
    rect->maxy = rect->miny + 1;
 
    if( SSD_GET_SIZE & flags)
       return;
+
+   pen = roadmap_canvas_create_pen("separator");
+   //roadmap_canvas_set_foreground ("#d8dae0");
+   roadmap_canvas_set_foreground (this->bg_color);
+   roadmap_canvas_set_thickness (1);
+
    //rect->minx += 5;
    //rect->maxx -= 5;
 
@@ -78,7 +75,12 @@ SsdWidget ssd_separator_new(const char *name,
    w->_typeid     = "Bitmap";
    w->draw        = draw;
    w->flags       = flags;
-
+   w->bg_color    = "#747474";
    return w;
 }
 
+SsdWidget ssd_vseparator_new(const char *name, int height, int flags){
+   SsdWidget spacer = ssd_container_new(name, "",1, height, flags);
+   ssd_widget_set_color(spacer,"#747474", "#747474");
+   return spacer;
+}

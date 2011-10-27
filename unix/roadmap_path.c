@@ -756,6 +756,30 @@ const char *roadmap_path_images( void )
    return RoadMapPathImages;
 }
 
+const char *roadmap_path_voices( void )
+{
+   static char *RoadMapPathVoices = NULL;
+   
+   if ( RoadMapPathVoices == NULL )
+   {
+      RoadMapPathVoices = roadmap_path_join( roadmap_path_user(), "voices" );
+      roadmap_path_create( RoadMapPathVoices );
+   }
+   return RoadMapPathVoices;
+}
+
+const char *roadmap_path_tts( void )
+{
+   static char *RoadMapPathTts = NULL;
+
+   if ( RoadMapPathTts == NULL )
+   {
+      RoadMapPathTts = roadmap_path_join( roadmap_path_user(), "tts" );
+      roadmap_path_create( RoadMapPathTts );
+   }
+   return RoadMapPathTts;
+}
+
 const char *roadmap_path_downloads( void )
 {
    return roadmap_path_user();

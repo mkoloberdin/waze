@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+	*	Application widget no data activity definitions
+	*	Copyright 2011, Waze Ltd      Alex Agranovich (AGA)
+	*		
+ -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/app_widget_nodata_root"
+              android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:orientation="vertical"
+              >
+    <!--========================================================================
+   		* Information layout - contains the explanation text on the background 
+   		======================================================================== -->
+	<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	              android:id="@+id/layout_info"
+	              android:layout_width="wrap_content"
+	              android:layout_height="wrap_content"
+	              android:orientation="vertical"
+	              android:background="@drawable/widget_bg_info"
+	              >
+	              <TextView
+					     android:id="@+id/text_title"
+						 android:layout_width="wrap_content"
+						 android:layout_height="wrap_content"
+				         android:textSize="22sp"				         
+						 android:textColor="@color/solid_white"				         
+				         android:text="@string/widget_nodata_title"
+				         android:paddingLeft="18dp"
+				         android:paddingTop="10dp"
+	 
+						android:gravity="center"/>
+				 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+						 android:id="@+id/layout_text_info"
+						 android:layout_width="wrap_content"
+						 android:layout_height="wrap_content"
+						 android:orientation="vertical"
+						 android:layout_below="@+id/text_title"
+						 >			
+				    <TextView
+						     android:id="@+id/text_info1"
+							 android:layout_width="wrap_content"
+							 android:layout_height="wrap_content"
+					         android:textSize="14sp"				         
+							 android:textColor="@color/solid_black"				         
+					         android:text="@string/widget_nodata_info1"
+					         android:layout_gravity="left"					         				 
+					         android:gravity="left"
+					         android:layout_marginTop="87dp"
+					         android:paddingLeft="18dp"
+					         android:paddingRight="15dp"					         
+	      					/>
+				   <TextView
+						     android:id="@+id/text_info2"
+							 android:layout_width="wrap_content"
+							 android:layout_height="wrap_content"
+					         android:textSize="14sp"				         
+							 android:textColor="@color/solid_black"				         
+					         android:text="@string/widget_nodata_info2"
+					         android:layout_gravity="left"				 
+					         android:gravity="left"
+					         android:layout_marginTop="10dp"
+					         android:paddingLeft="18dp"
+					         android:paddingRight="15dp"
+	      					/>      					
+				   <TextView
+						     android:id="@+id/text_info3"
+							 android:layout_width="wrap_content"
+							 android:layout_height="wrap_content"
+					         android:textSize="14sp"				         
+							 android:textColor="@color/solid_black"				         
+					         android:text="@string/widget_nodata_info3"
+					         android:layout_gravity="left"				 
+					         android:gravity="left"
+					         android:layout_marginTop="10dp"
+					         android:paddingLeft="18dp"
+					         android:paddingRight="15dp"
+	      					/>
+    			</LinearLayout>   					
+	</RelativeLayout> <!--   -->
+    <!--========================================================================
+   		* Buttons layout - contains all the texts 
+    	======================================================================== -->
+	<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	              android:id="@+id/layout_buttons"
+	              android:layout_width="wrap_content"
+	              android:layout_height="wrap_content"
+	              android:orientation="horizontal"	
+	              android:layout_gravity="center_horizontal"  
+	              android:layout_marginTop="-28dp"            
+	              >
+	              <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+	              android:id="@+id/layout_btn_enter"
+	              android:layout_width="wrap_content"
+	              android:layout_height="wrap_content"
+	              android:orientation="vertical"
+	              android:background="@drawable/widget_bt_enter_idle"
+	              >
+	    			  <TextView
+						     android:id="@+id/text_btn_enter"
+							 android:layout_width="fill_parent"
+							 android:layout_height="fill_parent"
+					         android:textSize="18sp"				         
+							 android:textColor="@drawable/widget_btn_enter"
+							 android:textStyle="bold"				         
+					         android:text="Enter"
+					         android:gravity="center"					         
+					         android:layout_gravity="center"
+					         android:paddingTop="6dp"			
+					         android:clickable="true"		         
+	      					/>
+	    	      </LinearLayout> <!--   -->
+    			  
+  	              <ImageButton
+  	              android:id="@+id/btn_nodata_close"
+	              android:layout_width="wrap_content"
+    			  android:layout_height="wrap_content"
+    			  android:paddingLeft="30dp"
+    			  android:background="@color/transparent_full"
+    			  android:src="@drawable/widget_btn_close" 
+    			  />
+    			  
+	              
+	</LinearLayout> <!--   -->
+			
+</LinearLayout>

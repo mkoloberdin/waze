@@ -123,7 +123,9 @@ static void roadmap_layer_reload_internal (void) {
         const char *class_name;
         const char *color[ROADMAP_LAYER_PENS];
         const char *label_color;
+#ifdef OPENGL
 		int bg_color;
+#endif
         int  thickness;
         int  other_pens_length = strlen(name) + 64;
         char *other_pens = malloc(other_pens_length);
@@ -166,7 +168,8 @@ static void roadmap_layer_reload_internal (void) {
 
         if ( roadmap_screen_is_hd_screen() )
         {
-           thickness = category->thickness = (int)(category->thickness * 2);
+         category->thickness = (int)(category->thickness * roadmap_screen_get_screen_scale() /100);
+         thickness = (int)(thickness * roadmap_screen_get_screen_scale() /100);
         }
 
         if (!initialized) {
@@ -226,7 +229,7 @@ static void roadmap_layer_reload_internal (void) {
 
            if ( roadmap_screen_is_hd_screen() )
            {
-            category->delta_thickness[j] = (int)(category->delta_thickness[j] * 2);
+            category->delta_thickness[j] = (int)(category->delta_thickness[j] * roadmap_screen_get_screen_scale() /100);
            }
 
            if (!is_new) free ((void *)descriptor.name);
@@ -380,12 +383,12 @@ void roadmap_layer_adjust (void) {
                      proj+1,
                      category->pen_count > 1);
 
-            if (thickness <= 0) thickness = 1;
-            if (thickness > 40) thickness = 40;
+            if (thickness <= 0) thickness = ADJ_SCALE(1);
+            if (thickness > ADJ_SCALE(40)) thickness = ADJ_SCALE(40);
 
 #ifndef OPENGL
             if (roadmap_screen_fast_refresh()) {
-               if (thickness && (thickness <= 4)) thickness = 1;
+               if (thickness && (thickness <= ADJ_SCALE(4))) thickness = ADJ_SCALE(1);
 
             } else {
 #endif
@@ -410,10 +413,10 @@ void roadmap_layer_adjust (void) {
 
 #ifdef VIEW_MODE_3D_OGL
             if (roadmap_screen_get_view_mode() == VIEW_MODE_3D) {
-               thickness *= 2;
-               if (thickness > 50) thickness = 50;
+               thickness *= 1.5;
+               if (thickness > ADJ_SCALE(50)) thickness = ADJ_SCALE(50);
             }
-#endif
+#endif //VIEW_MODE_3D_OGL
             if (k == 0) {
                roadmap_plugin_adjust_layer (i, thickness, category->pen_count);
             }

@@ -40,6 +40,7 @@
 #include "roadmap_file.h"
 #include "roadmap_path.h"
 #include "roadmap_config.h"
+#include "JNI/FreeMapJNI.h"
 
 typedef struct RoadMapPathRecord *RoadMapPathList;
 
@@ -73,6 +74,7 @@ static const char *RoadMapPathUserPreferred = "/data/data/com.waze";
 
 /* Skins directories */
 static const char *RoadMapPathSkin[] = {
+   "res:/skins/default",
    "/sdcard/waze/skins/default/day",
    "/sdcard/waze/skins/default",
    NULL
@@ -326,6 +328,17 @@ const char *roadmap_path_gps( void )
    }
    return RoadMapPathGps;
 }
+const char *roadmap_path_tts( void )
+{
+   static char *RoadMapPathTts = NULL;
+
+   if ( RoadMapPathTts == NULL )
+   {
+      RoadMapPathTts = roadmap_path_join( roadmap_path_user(), "tts" );
+      roadmap_path_create( RoadMapPathTts );
+   }
+   return RoadMapPathTts;
+}
 
 const char *roadmap_path_images( void )
 {
@@ -337,6 +350,18 @@ const char *roadmap_path_images( void )
 	  roadmap_path_create( RoadMapPathImages );
    }
    return RoadMapPathImages;
+}
+
+const char *roadmap_path_voices( void )
+{
+   static char *RoadMapPathVoices = NULL;
+
+   if ( RoadMapPathVoices == NULL )
+   {
+      RoadMapPathVoices = roadmap_path_join( roadmap_path_sdcard(), "voices" );
+      roadmap_path_create( RoadMapPathVoices );
+   }
+   return RoadMapPathVoices;
 }
 
 const char *roadmap_path_downloads( void )
@@ -459,11 +484,19 @@ void roadmap_path_set (const char *name, const char *path) {
             roadmap_path_expand (item, (size_t)(next_item - item));
       }
 
-      if (roadmap_file_exists(NULL, path_list->items[i])) {
-         ++i;
-      } else {
-         free (path_list->items[i]);
-         path_list->items[i] = NULL;
+       // TODO :: Check in resources also ???
+      if ( strncmp( path_list->items[i], "res:",  4 ) != 0 )
+      {
+         if ( roadmap_file_exists(NULL, path_list->items[i] ) ) {
+            ++i;
+         } else {
+            free (path_list->items[i]);
+            path_list->items[i] = NULL;
+         }
+      }
+      else
+      {
+         i++;
       }
    }
    path_list->count = i;
@@ -597,41 +630,46 @@ char **roadmap_path_list (const char *path, const char *extension) {
    DIR *directory;
    struct dirent *entry;
 
-
-   directory = opendir (path);
-   if (directory == NULL) return &RoadMapPathEmptyList;
-
-   count = 0;
-   while ((entry = readdir(directory)) != NULL) ++count;
-
-   cursor = result = calloc (count+1, sizeof(char *));
-   roadmap_check_allocated (result);
-
-   rewinddir (directory);
-   if (extension != NULL) {
-      length = strlen(extension);
-   } else {
-      length = 0;
+   if ( !strncmp( path, "res:",  4 ) )
+   {
+      result = WazeResManager_LoadResList( path + 4 );
    }
+   else
+   {
+      directory = opendir (path);
+      if (directory == NULL) return &RoadMapPathEmptyList;
 
-   while ((entry = readdir(directory)) != NULL) {
+      count = 0;
+      while ((entry = readdir(directory)) != NULL) ++count;
 
-      if (entry->d_name[0] == '.') continue;
+      cursor = result = calloc (count+1, sizeof(char *));
+      roadmap_check_allocated (result);
 
-      if (length > 0) {
+      rewinddir (directory);
+      if (extension != NULL) {
+         length = strlen(extension);
+      } else {
+         length = 0;
+      }
 
-         match = entry->d_name + strlen(entry->d_name) - length;
+      while ((entry = readdir(directory)) != NULL) {
 
-         if (! strcmp (match, extension)) {
+         if (entry->d_name[0] == '.') continue;
+
+         if (length > 0) {
+
+            match = entry->d_name + strlen(entry->d_name) - length;
+
+            if (! strcmp (match, extension)) {
+               *(cursor++) = strdup (entry->d_name);
+            }
+         } else {
             *(cursor++) = strdup (entry->d_name);
          }
-      } else {
-         *(cursor++) = strdup (entry->d_name);
       }
+      *cursor = NULL;
+      closedir(directory);
    }
-   *cursor = NULL;
-   closedir(directory);
-
    return result;
 }
 

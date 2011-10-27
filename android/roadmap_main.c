@@ -2,8 +2,8 @@
  *
  * LICENSE:
  *
- *   Copyright 2002 Pascal F. Martin
- *   Copyright 2008 Ehud Shabtai
+ *   Copyright 2009, Waze Ltd
+ *   Author: Alex Agranovich (AGA)
  *
  *   This file is part of RoadMap.
  *
@@ -44,11 +44,14 @@
 #include "roadmap_history.h"
 #include "roadmap_keyboard.h"
 #include "roadmap_screen.h"
+#include "roadmap_gps.h"
+#include "roadmap_trip.h"
 #include "../editor/editor_main.h"
 #include "roadmap_main.h"
 #include "roadmap_androidmain.h"
 #include "roadmap_androidcanvas.h"
 #include "roadmap_androidbrowser.h"
+#include "roadmap_androidspeechtt.h"
 #include "roadmap_messagebox.h"
 #include "JNI/FreeMapJNI.h"
 
@@ -62,6 +65,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/time.h>
+#include <sys/select.h>
 #include <roadmap_sound.h>
 #include "auto_hide_dlg.h"
 #include "roadmap_search.h"
@@ -70,10 +74,12 @@
 #include "roadmap_androidmenu.h"
 #include "roadmap_androidogl.h"
 #include "roadmap_browser.h"
+#include "roadmap_speechtt.h"
 // Crash handling
 #include <signal.h>
 #include <sigcontext.h>
-
+#include "tts_was_provider.h"
+#include "unix/resolver.h"
 
 int USING_PHONE_KEYPAD = 0;
 
@@ -88,14 +94,15 @@ static int sgAndroidBuildSdkVersion = -1;
 static char sgAndroidDeviceName[128] = {0};
 static char sgAndroidDeviceManufacturer[128] = {0};
 static char sgAndroidDeviceModel[128] = {0};
+static int sgAndroidAppMode = 0;
 
 //======= IO section ========
 typedef enum
 {
-	_IO_DIR_UNDEFINED = 0,
-	_IO_DIR_READ,
-	_IO_DIR_WRITE,
-	_IO_DIR_READWRITE
+	_IO_DIR_UNDEFINED = 0x0,
+	_IO_DIR_CONNECT = 0x1,
+	_IO_DIR_READ = 0x2,
+	_IO_DIR_WRITE = 0x4,
 } io_direction_type;
 
 #define IO_VALID( ioId ) ( ( ioId ) >= 0 )
@@ -158,6 +165,7 @@ static void roadmap_main_set_bottom_bar( BOOL force_hidden );
 static BOOL roadmap_main_is_pending_close( roadmap_main_io *data );
 
 extern void roadmap_androidrecommend_init( void );
+extern void roadmap_androideditbox_init( void );
 //===============================================================
 
 typedef enum
@@ -167,7 +175,7 @@ typedef enum
 } key_handling_status_type;
 
 //////// Timers section ////////////////
-#define ROADMAP_MAX_TIMER 24
+#define ROADMAP_MAX_TIMER 32
 
 typedef struct roadmap_main_timer {
    int id;
@@ -350,6 +358,26 @@ const char* roadmap_main_get_device_name( void )
 }
 
 /*************************************************************************************************
+ * void roadmap_main_set_app_mode( int mode )
+ * Sets the application mode
+ *
+ */
+void roadmap_main_set_app_mode( int mode )
+{
+   sgAndroidAppMode = mode;
+}
+
+/*************************************************************************************************
+ * int roadmap_main_is_widget_mode( void )
+ * Returns the widget mode
+ *
+ */
+int roadmap_main_is_widget_mode( void )
+{
+   return ( sgAndroidAppMode == 1 );
+}
+
+/*************************************************************************************************
  * void roadmap_main_show_contacts( void )
  * Requests the system to show the contacts activity
  *
@@ -359,6 +387,15 @@ void roadmap_main_show_contacts( void )
    FreeMapNativeManager_ShowContacts();
 }
 
+/*************************************************************************************************
+ * void roadmap_main_show_contacts( void )
+ * Requests the system to show the external browser with the requested url
+ *
+ */
+void roadmap_main_open_url( const char* url )
+{
+   FreeMapNativeManager_OpenExternalBrowser( url );
+}
 /*************************************************************************************************
  * int LogResult( int aVal, int aVerbose, const char *aStrPrefix)
  * Logs the system api call error if occurred
@@ -478,17 +515,16 @@ static void *roadmap_main_socket_handler( void* aParams )
 	RoadMapIO *io = &data->io;
 	int io_id = data->io_id;
 	// Sockets data
-	int fd = roadmap_net_get_fd(io->os.socket);
 	fd_set fdSet;
 	struct timeval selectReadTO = SOCKET_READ_SELECT_TIMEOUT;
 	struct timeval selectWriteTO = SOCKET_WRITE_SELECT_TIMEOUT;
-	int retVal, ioMsg;
-    const char *handler_dir;
+	int fd, retVal, ioMsg;
+   const char *handler_dir;
 
 	// Empty the set
 	FD_ZERO( &fdSet );
 
-	handler_dir = ( data->io_type == _IO_DIR_WRITE ) ? "WRITE" : "READ";
+	handler_dir = ( data->io_type & _IO_DIR_WRITE ) ? "WRITE" : "READ";
 //	roadmap_log( ROADMAP_INFO, "Starting the %s socket handler %d for socket %d IO ID %d", handler_dir, pthread_self(), io->os.socket, data->io_id );
 	// Polling loop
 	while( !roadmap_main_invalidate_pending_close( data ) &&
@@ -496,6 +532,8 @@ static void *roadmap_main_socket_handler( void* aParams )
 			( io->subsystem != ROADMAP_IO_INVALID ) &&
 			!ANDR_APP_SHUTDOWN_FLAG )
 	{
+	   fd = roadmap_net_get_fd(io->os.socket);
+
 		// Add the file descriptor to the set if necessary
 		if ( !FD_ISSET( fd, &fdSet ) )
 		{
@@ -504,7 +542,7 @@ static void *roadmap_main_socket_handler( void* aParams )
 		}
 		//selectTO = (struct timeval) SOCKET_SELECT_TIMEOUT;
 		// Try to read or write from the file descriptor. fd + 1 is the max + 1 of the fd-s set!
-		if ( data->io_type == _IO_DIR_WRITE )
+		if ( data->io_type & _IO_DIR_WRITE )
 		{
 		   selectWriteTO = SOCKET_WRITE_SELECT_TIMEOUT;
 			retVal = select( fd+1, NULL, &fdSet, NULL, &selectWriteTO );
@@ -789,7 +827,7 @@ static void roadmap_main_set_handler( roadmap_main_io* aIO )
 	   case ROADMAP_IO_NET:
        {
     	    const char *handler_dir;
-    		handler_dir = ( aIO->io_type == _IO_DIR_WRITE ) ? "WRITE" : "READ";
+    		handler_dir = ( aIO->io_type & _IO_DIR_WRITE ) ? "WRITE" : "READ";
 
 		   retVal = pthread_create( &aIO->handler_thread, NULL,
 										roadmap_main_socket_handler, aIO );
@@ -856,7 +894,7 @@ void roadmap_main_set_input ( RoadMapIO *io, RoadMapInput callback )
  * roadmap_main_set_output()
  * Allocates the entry for the io and creates the handler thread
  */
-void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback )
+void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback, BOOL is_connect )
 {
 
 	int i, retVal;
@@ -875,6 +913,10 @@ void roadmap_main_set_output ( RoadMapIO *io, RoadMapInput callback )
 			RoadMapMainIo[i].callback = callback;
 			RoadMapMainIo[i].io_id = i;
 			RoadMapMainIo[i].io_type = _IO_DIR_WRITE;
+
+			if ( is_connect )
+			   RoadMapMainIo[i].io_type |= _IO_DIR_CONNECT;
+
          RoadMapMainIo[i].start_time = time(NULL);
          retVal = pthread_mutex_init( &RoadMapMainIo[i].mutex, NULL );
          LogResult( retVal, "Mutex init. ", ROADMAP_ERROR );
@@ -900,9 +942,12 @@ RoadMapIO *roadmap_main_output_timedout(time_t timeout) {
    int i;
 
    for (i = 0; i < ROADMAP_MAX_IO; ++i) {
-      if ( IO_VALID( RoadMapMainIo[i].io_id ) ) {
-         if (RoadMapMainIo[i].start_time &&
-               (timeout > RoadMapMainIo[i].start_time)) {
+      if ( IO_VALID( RoadMapMainIo[i].io_id ) &&
+            ( RoadMapMainIo[i].io_type & _IO_DIR_CONNECT ) )
+      {
+         if ( RoadMapMainIo[i].start_time &&
+               ( timeout > RoadMapMainIo[i].start_time ) )
+         {
             return &RoadMapMainIo[i].io;
          }
       }
@@ -1119,6 +1164,12 @@ void roadmap_main_message_dispatcher( int aMsg )
 		int itemId = aMsg & ANDROID_MSG_ID_MASK;
 		roadmap_androidmenu_handler( itemId );
 	}
+   // DNS resolver message
+   if ( aMsg & ANDROID_MSG_CATEGORY_RESOLVER )
+   {
+      int itemId = aMsg & ANDROID_MSG_ID_MASK;
+//      resolver_handler( itemId );
+   }
 }
 
 void roadmap_main_set_status (const char *text) {}
@@ -1301,7 +1352,8 @@ static void on_auto_hide_dialog_close( int exit_code, void* context )
 void roadmap_main_minimize( void )
 {
 
-   auto_hide_dlg(on_auto_hide_dialog_close);
+   roadmap_start_about_exit();
+   //auto_hide_dlg(on_auto_hide_dialog_close);
 }
 
 /*************************************************************************************************
@@ -1314,9 +1366,18 @@ static EVirtualKey roadmap_main_back_btn_handler( void )
 	EVirtualKey vk = VK_None;
 	if ( !ssd_dialog_is_currently_active() )
 	{
-		roadmap_main_minimize();
-		if ( !roadmap_screen_refresh() )
-			roadmap_screen_redraw();
+      const char *focus;
+
+      focus = roadmap_trip_get_focus_name();
+      if ((focus &&  (!strcmp(focus, "GPS") || !strcmp(focus, "Location")) )){
+          roadmap_main_minimize();
+      }
+      else{
+         show_me_on_map();
+      }
+
+      if ( !roadmap_screen_refresh() )
+         roadmap_screen_redraw();
 	}
 	else
 	{
@@ -1342,6 +1403,9 @@ static void roadmap_start_event (int event) {
 		  roadmap_main_set_bottom_bar( TRUE );
 		  roadmap_androidbrowser_init();
 		  roadmap_androidrecommend_init();
+		  roadmap_androideditbox_init();
+		  roadmap_androidspeechtt_init();
+		  tts_was_provider_init();
 		  break;
 	   }
    }
@@ -1413,6 +1477,11 @@ void roadmap_main_show_gps_disabled_warning()
 	roadmap_messagebox_timeout( "Your phone's GPS is  turned OFF", "Waze requires GPS connection. Please turn on your GPS from Menu > Settings > Security & Location > Enable GPS satellites", 5 );
 }
 
+void roadmap_main_post_resolver_result( int entry_id )
+{
+   int msg = ( ANDROID_MSG_CATEGORY_RESOLVER | ( entry_id & ANDROID_MSG_ID_MASK ) );
+   FreeMapNativeManager_PostNativeMessage ( msg );
+}
 
 RoadMapMenu roadmap_main_new_menu (void) { return NULL; }
 

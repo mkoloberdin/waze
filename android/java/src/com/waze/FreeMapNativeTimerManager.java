@@ -81,7 +81,7 @@ public final class FreeMapNativeTimerManager
         // Check bounds
         
         // Don't handle the delayed requests while shutting down
-        if (  mNativeManager.getShutDownStatus() ) 
+        if (  mNativeManager.isShuttingDown() ) 
             return;
         
         if (aTaskId > FREMAP_MAX_TASK_COUNT - 1 || aTaskId < 0)
@@ -128,7 +128,7 @@ public final class FreeMapNativeTimerManager
         // String.valueOf( (new Date()).getTime() ) );
         
         // Don't handle the delayed requests while shutting down
-        if (  mNativeManager.getShutDownStatus() ) 
+        if (  mNativeManager.isShuttingDown() ) 
             return;
         
         if (aTaskId >= 0 && aTaskId < FREMAP_MAX_TASK_COUNT)
@@ -240,7 +240,7 @@ public final class FreeMapNativeTimerManager
      * =================================
      * 
      */
-    private final static int       FREMAP_MAX_TASK_COUNT = 24;
+    private final static int       FREMAP_MAX_TASK_COUNT = 32;
     private FreeMapNativeTimerTask mTasks[];
     private Timer                  mTimer;
     private FreeMapNativeManager   mNativeManager;

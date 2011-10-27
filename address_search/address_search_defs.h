@@ -89,6 +89,7 @@ typedef enum tag_search_type
 
 typedef struct tag_address_info
 {
+   const char* name;
    const char* state;
    const char* country;
    const char* city;
@@ -101,6 +102,7 @@ typedef struct tag_address_info
 typedef struct tag_address_candidate
 {
    int type;
+   int      offset;
    double   longtitude;
    double   latitude;
    char     state [ADSR_STATE_STRING_MAX_SIZE   + 1];

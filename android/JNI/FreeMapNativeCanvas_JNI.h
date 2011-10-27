@@ -63,6 +63,14 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasContextNTV
 
 /*
  * Class:     com_waze_FreeMapNativeCanvas
+ * Method:    CanvasRedrawNTV
+ * Signature: ()V
+ */
+JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeCanvas_CanvasRedrawNTV
+  (JNIEnv *, jobject);
+
+/*
+ * Class:     com_waze_FreeMapNativeCanvas
  * Method:    KeyDownHandlerNTV
  * Signature: (IZ[B)V
  */

@@ -36,6 +36,19 @@
 // Temporary file for the image capture
 static const char* gCaptureFileName = "capture_temp.jpg";
 
+/*
+ * JNI Callback context
+ */
+typedef struct
+{
+   CameraImageCaptureCallback capture_callback;
+   CameraImageCaptureContext* context;
+} AndrCameraCbContext;
+
+/*
+ * Only one camera capture can be done at a time. So can be assume singelton
+ */
+static AndrCameraCbContext sgCameraContext;
 
 /***********************************************************
  *  Name        : roadmap_camera_take_picture
@@ -73,5 +86,61 @@ BOOL roadmap_camera_take_picture( CameraImageFile* image_file, CameraImageBuf* i
         }
     }
     return ( retVal == 0 );
+}
+
+
+
+/***********************************************************
+ *  Name        : roadmap_camera_take_picture_async
+ *  Purpose     : Asynchronous function. Main thread still running.
+ *                Shows the camera preview, passes target image attributes
+ *                   and defines the target capture file location
+ *
+ */
+BOOL roadmap_camera_take_picture_async( CameraImageCaptureCallback callback, CameraImageCaptureContext* context )
+{
+    int image_quality_percent;  // Image quality in percents
+    int retVal, retValThumb = -1;
+    CameraImageBuf* image_thumbnail = &context->image_thumbnail;
+    CameraImageFile* image_file = &context->image_file;
+    // Transform to percent low - 34, medium - 67, high - 100
+    image_quality_percent = 34 + 33 * (int) image_file->quality;
+
+    // Set the target path
+    CAMERA_IMG_FILE_SET_PATH( *image_file, roadmap_path_user(), gCaptureFileName );
+
+    // Call the JNI for the file
+    retVal = FreeMapNativeManager_TakePictureAsync( image_file->width, image_file->height, image_quality_percent,
+            image_file->folder, image_file->file );
+
+    sgCameraContext.context = context;
+    sgCameraContext.capture_callback = callback;
+
+    return TRUE;
+}
+
+
+void roadmap_camera_take_picture_async_cb( int res )
+{
+   int retValThumb = -1;
+
+   // Call the JNI for the thumbnail if requested and the picture was taken successfully
+   if ( res )
+   {
+      CameraImageCaptureContext* context = sgCameraContext.context;
+      CameraImageBuf* image_thumbnail = &context->image_thumbnail;
+      int byte_per_pix = roadmap_camera_image_bytes_pp( image_thumbnail->pixfmt );
+     // Assume 4 byte per pixel
+     // Only int array can be accepted for the Android
+     // Malloc SHOULD preserve 4-byte alignment so further casting is possible !!!!!!!
+     image_thumbnail->buf = malloc( image_thumbnail->width * image_thumbnail->height * byte_per_pix );
+     retValThumb = FreeMapNativeManager_GetThumbnail( image_thumbnail->width, image_thumbnail->height,
+                                                                 byte_per_pix, (int*) image_thumbnail->buf );
+     if ( retValThumb != 0 )
+     {
+         roadmap_log( ROADMAP_WARNING, "Thumbnail request to Android is failed" );
+     }
+   }
+   sgCameraContext.capture_callback( sgCameraContext.context, res );
 }
 

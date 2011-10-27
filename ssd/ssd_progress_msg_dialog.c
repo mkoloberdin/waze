@@ -44,7 +44,7 @@
 #define SSD_PROGRESS_MSG_DLG_NAME 		     "SSD PROGRESS MESSAGE DIALOG"
 #define SSD_PROGRESS_MSG_TEXT_FLD 		     "Message Text"
 #define SSD_PROGRESS_MSG_FONT_SIZE 		     19
-#define SSD_PROGRESS_MSG_TXT_CNT_HEIGHT     70     /* The base height (SD resolution) of the text container */
+#define SSD_PROGRESS_MSG_TXT_CNT_HEIGHT     80     /* The base height (SD resolution) of the text container */
 
 //======== Globals ========
 static SsdWidget gProgressMsgDlg = NULL;
@@ -75,7 +75,9 @@ void ssd_progress_msg_dialog_show( const char* dlg_text )
 	   if ( !( gProgressMsgDlg = ssd_progress_msg_dialog_new() ) )
 		   return;
 	}
-
+#ifdef TOUCH_SCREEN
+	ssd_widget_show(ssd_widget_get(gProgressMsgDlg, "Hide Button" ));
+#endif
 	ssd_dialog_activate( SSD_PROGRESS_MSG_DLG_NAME, NULL );
 
 	ssd_dialog_set_value( SSD_PROGRESS_MSG_TEXT_FLD, dlg_text );
@@ -216,4 +218,5 @@ void ssd_progress_msg_dialog_show_timed( const char* dlg_text , int seconds)
 {
 	ssd_progress_msg_dialog_show(dlg_text);
 	roadmap_main_set_periodic (seconds * 1000, hide_timer);
+   ssd_widget_hide(ssd_widget_get(gProgressMsgDlg, "Hide Button" ));
 }

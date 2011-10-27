@@ -26,8 +26,9 @@
 #ifndef SSD_PROGRESS_H_
 #define SSD_PROGRESS_H_
 
-SsdWidget ssd_progress_new (const char *name, 
+SsdWidget ssd_progress_new (const char *name,
                             int percentage,
+                            BOOL show_wazer,
                             int flags);
 
 void ssd_progress_set_value (SsdWidget widget, int percentage);

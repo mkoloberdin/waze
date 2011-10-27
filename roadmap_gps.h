@@ -49,7 +49,7 @@ typedef struct {
    int altitude;   /* Using the selected unit system (metric or imperial) */
    int speed;      /* knots */
    int steering;   /* Degrees */
-
+   int accuracy;   /* Meters */
 } RoadMapGpsPosition;
 
 typedef struct {
@@ -61,7 +61,7 @@ typedef struct {
 
 } RoadMapGpsPrecision;
 
-#define ROADMAP_GPS_NULL_POSITION {0, 0, 0, 0, 0}
+#define ROADMAP_GPS_NULL_POSITION  {0, 0, 0, 0, 0, 0}
 
 typedef void (*roadmap_gps_listener)
                   (time_t gps_time,
@@ -153,12 +153,15 @@ void roadmap_gps_csv_tracker_initialize(void);
 void roadmap_gps_csv_tracker_set_enable( BOOL value );
 BOOL roadmap_gps_csv_tracker_get_enable( void );
 void roadmap_gps_csv_tracker_shutdown( void );
-void roadmap_gps_coarse_fix( int latitude, int longitude );
+void roadmap_gps_coarse_fix( int latitude, int longitude, int accuracy, time_t gps_time );
 void roadmap_gps_detect_receiver_callback(RoadMapCallback callback);
 int roadmap_gps_satelite_count(void);
 
 time_t roadmap_gps_get_received_time(void);
 void roadmap_gps_reset_show_coordinates(void);
+int roadmap_gps_get_satellites (void);
+void roadmap_gps_set_show_raw (BOOL is_show);
+int roadmap_gps_is_show_raw (void);
 
 /* Generic protocols */
 #define ROADMAP_NO_VALID_DATA    -512000000
@@ -169,7 +172,8 @@ typedef void (*RoadMapGpsdNavigation) (char status,
                                        int longitude,
                                        int altitude,
                                        int speed,
-                                       int steering);
+                                       int steering,
+                                       int accuracy );
 
 typedef void (*RoadMapGpsdSatellite)  (int sequence,
                                        int id,
@@ -182,6 +186,8 @@ typedef void (*RoadMapGpsdDilution )  (int dimension,
                                        double position,
                                        double horizontal,
                                        double vertical);
+
+typedef void (*RoadMapGpsCompass) (int magnetic_heading);
 
 
 #endif // INCLUDE__ROADMAP_GPS__H

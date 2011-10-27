@@ -655,8 +655,10 @@ void update_range_dialog(void) {
       return;
    }
 
+   roadmap_log_push("update_range_dialog");
    roadmap_plugin_line_from (&line, &from);
    roadmap_plugin_line_to   (&line, &to);
+   roadmap_log_pop();
 
    if (!roadmap_plugin_get_distance
         ((RoadMapPosition *)&CurrentGpsPoint, &line, &result)) {

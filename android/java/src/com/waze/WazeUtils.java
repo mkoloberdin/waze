@@ -31,11 +31,13 @@
 
 package com.waze;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -229,6 +231,26 @@ public class WazeUtils
              Delete( inputFile, exceptList );
          }
      }
+     /*************************************************************************************************
+      * Reads the stream to the byte array
+      */
+     public static byte[] ReadStream( InputStream input ) throws IOException
+     {
+     	final int DEFAULT_INIT_BUF_SIZE = 8192;
+         byte[] buffer = new byte[DEFAULT_INIT_BUF_SIZE];
+         byte[] arrayOut;
+         int bytesRead;
+         
+         ByteArrayOutputStream output = new ByteArrayOutputStream();
+         while ( (bytesRead = input.read(buffer)) != -1 )
+         {
+             output.write( buffer, 0, bytesRead );
+         }
+         arrayOut = output.toByteArray();
+         output.close();
+         
+         return arrayOut;
+     }
      
      public static class ExceptionEntry    
      {
@@ -284,6 +306,8 @@ public class WazeUtils
                  res = mEntry.startsWith( obj );
              if ( mCompareType == COMPARE_ENDS_WITH )
                  res = mEntry.endsWith( obj );
+             if ( mCompareType == COMPARE_END_OF )
+                 res = obj.endsWith( mEntry );
              
              return res;
          }
@@ -300,6 +324,7 @@ public class WazeUtils
          public final static int COMPARE_START_OF = 2;
          public final static int COMPARE_STARTS_WITH = 3;
          public final static int COMPARE_ENDS_WITH = 4;
+         public final static int COMPARE_END_OF = 5;
      }
      
      

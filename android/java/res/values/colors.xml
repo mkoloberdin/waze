@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+  
+    <color name="solid_white">#ffffffff</color>
+    <color name="solid_black">#ff000000</color>
+    <color name="transparent_full">#00000000</color>
+    <color name="disabled_white">#ff454545</color>
+    <color name="enter_btn_pressed">#ffd4d4d4</color>
+    <color name="black_alpha80">#CC000000</color>
+</resources>

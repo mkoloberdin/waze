@@ -43,7 +43,7 @@
 
 #if defined(__SYMBIAN32__) && !defined(TOUCH_SCREEN)
 #define RES_CACHE_SIZE 30	// Symbian non touch
-#elif defined(ANDROID)
+#elif defined(ANDROID) || defined(IPHONE)
 #define RES_CACHE_SIZE 600	// Default
 #else
 #define RES_CACHE_SIZE 150 // Default
@@ -114,9 +114,17 @@ static void *load_resource (unsigned int type, unsigned int flags,
          switch (type) {
             case RES_BITMAP:
                *mem = 0;
-
+#ifdef ANDROID
+               data = roadmap_canvas_load_image ( NULL, name );
+#else
                data = roadmap_canvas_load_image (cursor, name);
+#endif
                break;
+#ifdef OGL_TILE
+            case RES_PATTERN:
+               data = roadmap_canvas_load_image_pattern (cursor, name);
+               break;
+#endif //OGL_TILE
             case RES_SOUND:
                data = roadmap_sound_load (cursor, name, mem);
                break;
@@ -237,6 +245,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
 
    switch (type) {
    case RES_BITMAP:
+   case RES_PATTERN:
    case RES_NATIVE_IMAGE:
       if ( strchr (name, '.') )
       {
@@ -247,13 +256,21 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
       }
       else
       {
-    	 char *full_name = malloc (strlen (name) + 5);
+    	 char *full_name = malloc (strlen (name) + 8);
     	 data = NULL;
 #ifdef ANDROID
     	 /* Try BIN */
          if ( !data )
          {
             sprintf( full_name, "%s.bin", name );
+            data = load_resource (type, flags, full_name, &mem);
+         }
+#endif
+#ifdef IPHONE_NATIVE
+         /* Try @2x scale if required */
+         if ( !data && roadmap_screen_get_screen_scale() >= 200)
+         {
+            sprintf( full_name, "%s@2x.png", name );
             data = load_resource (type, flags, full_name, &mem);
          }
 #endif
@@ -273,7 +290,7 @@ void *roadmap_res_get (unsigned int type, unsigned int flags,
 
    if (!data) {
    	if (type != RES_SOUND)
-   		roadmap_log (ROADMAP_ERROR, "roadmap_res_get - resource %s type=%d not found.", name, type);
+   		roadmap_log (ROADMAP_DEBUG, "roadmap_res_get - resource %s type=%d not found.", name, type);
    	return NULL;
    }
 
@@ -380,7 +397,7 @@ static int roadmap_res_cache_add( RoadMapResource* res, int hash_key )
 		while ( res->slots[non_locked_lru].flags & RES_LOCK )
 		{
 			non_locked_lru = cache[non_locked_lru].prev;
-		} 
+		}
 		if ( non_locked_lru == res->cache_head )
 		{
 			roadmap_log( ROADMAP_ERROR, "Cannot find non-locked resource!!! Removing the locked LRU" );

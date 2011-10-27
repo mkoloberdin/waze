@@ -22,7 +22,7 @@
  */
 #include "roadmap_thread.h"
 #include <pthread.h>
-#include <utils/threads.h>
+#include "external/threads.h"
 #include "roadmap_androidmain.h"
 #include "errno.h"
 

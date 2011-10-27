@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+	*	Application widget configuration
+	*	Copyright 2011, Waze Ltd      Alex Agranovich (AGA)
+	*		
+ -->
+
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="312dp"
+    android:minHeight="72dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/app_widget"
+    >
+</appwidget-provider>

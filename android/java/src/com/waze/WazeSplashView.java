@@ -24,7 +24,7 @@ public final class WazeSplashView extends View {
      */
 	private void InitSplashBitmap()
 	{
-		mSplashBmp = FreeMapNativeCanvas.GetSplashBmp( mContext, this );
+		mSplashBmp = FreeMapNativeCanvas.GetSplashBmp( this );
 	}
     @Override
     protected void onMeasure( int aWidthMeasureSpec, int aHeightMeasureSpec )

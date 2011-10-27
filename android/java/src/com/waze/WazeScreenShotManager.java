@@ -120,7 +120,7 @@ public class WazeScreenShotManager extends Thread
     private static int GetMaxFileIndex()
     {
         int maxIndex = -1;
-        String dirName = FreeMapResources.mSDCardResDir + mScrnShotsDir;
+        String dirName = WazeResManager.mSDCardResDir + mScrnShotsDir;
         File dir = new File( dirName );
         // Pass through the list of files
         String[] fileNames = dir.list();
@@ -161,7 +161,7 @@ public class WazeScreenShotManager extends Thread
 	            mMaxIndex++;
 	             
 	            String fileName = mScrnShotsNamePrefix + String.valueOf( mMaxIndex ) + mScrnShotsNameSuffix;
-	            String fullPath = FreeMapResources.mSDCardResDir + mScrnShotsDir + fileName;
+	            String fullPath = WazeResManager.mSDCardResDir + mScrnShotsDir + fileName;
 	            File file = new File( fullPath );
 	            
 	            file.getParentFile().mkdirs();

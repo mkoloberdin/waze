@@ -77,6 +77,9 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     public void surfaceCreated( SurfaceHolder holder ) 
     {    	     	
 //    	Log.w( "WAZE", "Surface created" );
+    	final WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+    	if ( screenMgr != null )
+    		screenMgr.onSurfaceCreated( this );
     }
 
     /**
@@ -86,11 +89,10 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     {
     	// AGA DEBUG
 //    	Log.w( "WAZE", "Surface destroyed" );    	
-    	FreeMapNativeManager lNativeMgr = FreeMapAppService.getNativeManager();
-    	WazeScreenManager lScreenMgr = FreeMapAppService.getScreenManager();
-    	if ( lNativeMgr != null )
+    	final WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+    	if ( screenMgr != null )
     	{
-    		lScreenMgr.onSurfaceDestroyed();
+    		screenMgr.onSurfaceDestroyed();
     	}
     	mIsReady = false;
     }
@@ -98,35 +100,32 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     /**
      * This method is part of the SurfaceHolder.Callback interface 
      */
-    public void surfaceChanged( SurfaceHolder holder, int format, int w, int h ) 
+    public void surfaceChanged( SurfaceHolder holder, int format, final int w, final int h ) 
     {
     	// AGA DEBUG
 //    	Log.w( "WAZE", "Surface changed: " + w + ", " + h + "."  );
     	
     	final FreeMapNativeManager lNativeMgr = FreeMapAppService.getNativeManager();
-    	WazeScreenManager lScreenMgr = FreeMapAppService.getScreenManager();
+    	final WazeScreenManager lScreenMgr = FreeMapAppService.getScreenManager();
     	
     	mIsReady = true;
     	
-    	if ( mIsSplashShown /* already shown  and surface changed */ )
+    	if ( FreeMapAppActivity.mIsSplashShown /* already shown  and surface changed */ && lNativeMgr != null )
     	{
-	    	if ( ( lNativeMgr != null )  )
-	    	{	    		
-	    		if ( lNativeMgr.getInitializedStatus() )
-	    		{
-	    			lScreenMgr.onSurfaceChanged();
-	    		}
-	    		else
-	    		{
-	    			/*
-	    			 * Notify the manager that the surface is ready
-	    			 */
-	    			FreeMapNativeManager.Notify( 0 );
-	    		}
-	    	}
+    		if ( lNativeMgr.IsAppStarted() )
+    		{	    			
+    			lScreenMgr.onSurfaceChanged( this, w, h );
+    		}
+    		else
+    		{
+    			/*
+    			 * Notify the manager that the surface is ready
+    			 */
+    			FreeMapNativeManager.Notify( 0 );
+    			lScreenMgr.onSurfaceChanged( this, w, h );
+    		}
     	}
     }
-    
     /**
      * True if the view is ready for drawing and querying
      */
@@ -134,7 +133,6 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     {
     	return mIsReady;
     }
-
     
     /*************************************************************************************************
      *================================= Private interface section =================================
@@ -151,59 +149,6 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
         holder.setType( SurfaceHolder.SURFACE_TYPE_GPU );
         setFocusableInTouchMode(true);        
         Arrays.sort( mUnhandledKeys );  // Sort ascending 
-    }
-    /*************************************************************************************************
-     * Draws the splash on background
-     */    
-    public void DrawSplashBackground()
-    {
-    	try
-    	{
-            if ( mIsSplashShown == false )
-            {
-            	
-		    	Bitmap bmpSplash = FreeMapNativeCanvas.GetSplashBmp( FreeMapAppService.getAppContext(), 
-						this );
-		    	BitmapDrawable drawableSplash = new BitmapDrawable( bmpSplash );
-
-		    	this.setBackgroundDrawable( drawableSplash );
-		    	mSplashBitmap = bmpSplash;
-            }
-		}
-		catch( Exception ex )
-		{
-			Log.e( "WAZE", "Splash drawing problems." );
-			ex.printStackTrace();
-		}
-		finally
-		{
-			mIsSplashShown = true;
-		}
-	}
-    /*************************************************************************************************
-     * Remove the background splash if shown
-     * Blocks the calling thread until the request has been executed on the UI thread   
-     */
-    public void PostRemoveSplash()
-    {
-    	if ( !mIsSplashDestroyed )
-    	{
-			// The background drawing must be done on the UI thread
-	    	post( new Runnable() 
-			{
-					public void run()
-					{						
-						setBackgroundDrawable( null );
-						mIsSplashDestroyed = true;
-						if ( mSplashBitmap != null )
-						{
-							mSplashBitmap.recycle();
-							mSplashBitmap = null;
-						}						
-					}
-			} );
-	    	while( !mIsSplashDestroyed );
-    	}
     }
     
     /*************************************************************************************************
@@ -424,7 +369,6 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
         }   
     }
     
-    
     /*************************************************************************************************
      *================================= Data members section =================================
      */
@@ -433,11 +377,6 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     private final static float MOTION_RESOLUTION_VAL = 0.5F;
     private int mImeAction = EditorInfo.IME_ACTION_UNSPECIFIED;     // Customized action button in the soft keyboard
     private boolean mImeCloseOnAction = false;                      // Close keyboard when action button iks pressed
-    private int[] mUnhandledKeys = { KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
-									KeyEvent.KEYCODE_SPACE };
-    private int[] mUnhandledKeysMetaMask = { 0, 0, KeyEvent.META_ALT_ON };
-    public static volatile boolean mIsSplashShown = false;							// Indicates if the splash was already shown
-    public volatile boolean mIsSplashDestroyed = false;				// Indicates if the splash was already destroyed
     
     public Bitmap	mSplashBitmap = null;
     private volatile boolean mIsReady = false;
@@ -449,5 +388,25 @@ public final class WazeMainView extends SurfaceView implements SurfaceHolder.Cal
     
     private int 			mModifierState = MODIFIER_STATE_NONE;
     private int    			mModifierKeyCode 	= -1;				// Modifier key code 
+    
+    
+    private final static int[] mUnhandledKeys = { KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.KEYCODE_VOLUME_DOWN,
+									 			  KeyEvent.KEYCODE_SPACE, 
+									 			  KeyEvent.KEYCODE_MEDIA_FAST_FORWARD,
+									 			  KeyEvent.KEYCODE_MEDIA_NEXT,
+									 			  KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
+									 			  KeyEvent.KEYCODE_MEDIA_PREVIOUS,
+									 			  KeyEvent.KEYCODE_MEDIA_REWIND,
+									 			  KeyEvent.KEYCODE_MEDIA_STOP,
+									 			  /* API 11 
+									 			   * TODO:: Unmark these when working with API 11
+									 			    KeyEvent.KEYCODE_MEDIA_CLOSE,
+									 			    KeyEvent.KEYCODE_MEDIA_EJECT,
+									 			    KeyEvent.KEYCODE_MEDIA_PAUSE,
+									 			    KeyEvent.KEYCODE_MEDIA_PLAY,									 			    
+									 			    KeyEvent.KEYCODE_MEDIA_RECORD,
+									 			   */									 			  
+									 			  };
+    private final static int[] mUnhandledKeysMetaMask = { 0, 0, KeyEvent.META_ALT_ON, 0, 0, 0, 0, 0, 0 };
     
 }

@@ -119,9 +119,6 @@ static int OffsetX = 0;
 static int OffsetY = 0;
 static BOOL initialized = FALSE;
 
-//Map controls event
-static const char* ANALYTICS_EVENT_MAPCONTROL_NAME = "MAP_CONTROL";
-static const char* ANALYTICS_EVENT_MAPCONTROL_INFO = "ACTION_NAME";
 
 static char *roadmap_object_string (const char *data, int length) {
 
@@ -246,7 +243,8 @@ static void roadmap_screen_obj_decode_integer (int *value, int argc,
 
 static void roadmap_screen_obj_decode_bbox
                         (RoadMapScreenObj object,
-                         int argc, const char **argv, int *argl) {
+                         int argc, const char **argv, int *argl)
+{
 
    char arg[255];
 
@@ -265,12 +263,19 @@ static void roadmap_screen_obj_decode_bbox
    object->bbox.maxx = atoi(arg);
    roadmap_screen_obj_decode_arg (arg, sizeof(arg), argv[4], argl[4]);
    object->bbox.maxy = atoi(arg);
+#ifdef IPHONE_NATIVE
+   object->bbox.minx = ADJ_SCALE (object->bbox.minx);
+   object->bbox.miny = ADJ_SCALE (object->bbox.miny);
+   object->bbox.maxx = ADJ_SCALE (object->bbox.maxx);
+   object->bbox.maxy = ADJ_SCALE (object->bbox.maxy);
+#endif //IPHONE_NATIVE
 }
 
 
 static void roadmap_screen_obj_decode_position
                         (RoadMapScreenObj object,
-                         int argc, const char **argv, int *argl) {
+                         int argc, const char **argv, int *argl)
+{
 
    char arg[255];
    int pos;
@@ -291,6 +296,11 @@ static void roadmap_screen_obj_decode_position
    pos = atoi(arg);
    object->pos_y = pos;
    object->offset_y = 0;
+
+#ifdef IPHONE_NATIVE
+   object->pos_x = ADJ_SCALE (object->pos_x);
+   object->pos_y = ADJ_SCALE (object->pos_y);
+#endif //IPHONE_NATIVE
 }
 
 
@@ -563,10 +573,10 @@ static void roadmap_screen_obj_pos (RoadMapScreenObj object,
       pos->y += roadmap_canvas_height ();
    } else {
       pos->y += OffsetY;
-#ifdef IPHONE
+#ifdef IPHONE_NATIVE
       /* Apply top bar height offset */
       if (roadmap_map_settings_isShowTopBarOnTap())
-         pos->y += 40;
+         pos->y += ADJ_SCALE(40);
 #endif //IPHONE
    }
 
@@ -683,7 +693,7 @@ static int roadmap_screen_obj_pressed (RoadMapGuiPoint *point) {
 
    if (RoadMapScreenObjSelected->flags & OBJ_FLAG_REPEAT) {
       if (RoadMapScreenObjSelected->action) {
-         roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, RoadMapScreenObjSelected->action->label_long);
+         roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, RoadMapScreenObjSelected->action->label_long);
 
          (*(RoadMapScreenObjSelected->action->callback)) ();
       }
@@ -728,9 +738,9 @@ static int roadmap_screen_obj_short_click (RoadMapGuiPoint *point) {
       return 0;
 
    if (object->action) {
-      static RoadMapSoundList list;
 
 #ifdef PLAY_CLICK
+      static RoadMapSoundList list;
       if (!list) {
          list = roadmap_sound_list_create (SOUND_LIST_NO_FREE);
          roadmap_sound_list_add (list, "click");
@@ -738,7 +748,7 @@ static int roadmap_screen_obj_short_click (RoadMapGuiPoint *point) {
       }
       roadmap_sound_play_list (list);
 #endif //PLAY_CLICK
-      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
+      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, object->action->label_long);
 
       (*(object->action->callback)) ();
       roadmap_screen_touched();
@@ -772,18 +782,18 @@ static int roadmap_screen_obj_long_click (RoadMapGuiPoint *point) {
    }
 
    if (object->long_action) {
-#ifndef IPHONE
+#ifndef IPHONE_NATIVE
       roadmap_sound_play_list (list);
-#endif //IPHONE
-      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->long_action->label_long);
+#endif //IPHONE_NATIVE
+      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, object->long_action->label_long);
 
       (*(object->long_action->callback)) ();
 
    } else if (object->action) {
-#ifndef IPHONE
+#ifndef IPHONE_NATIVE
       roadmap_sound_play_list (list);
-#endif //IPHONE
-      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
+#endif //IPHONE_NATIVE
+      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, object->action->label_long);
 
       (*(object->action->callback)) ();
    }
@@ -813,18 +823,18 @@ static int roadmap_screen_obj_double_click (RoadMapGuiPoint *point) {
    }
 
    if (object->dt_action) {
-#ifndef IPHONE
+#ifndef IPHONE_NATIVE
       roadmap_sound_play_list (list);
-#endif //IPHONE
-      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->dt_action->label_long);
+#endif //IPHONE_NATIVE
+      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, object->dt_action->label_long);
 
       (*(object->dt_action->callback)) ();
 
    } else if (object->action) {
-#ifndef IPHONE
+#ifndef IPHONE_NATIVE
       roadmap_sound_play_list (list);
-#endif //IPHONE
-      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL_NAME, ANALYTICS_EVENT_MAPCONTROL_INFO, object->action->label_long);
+#endif //IPHONE_NATIVE
+      roadmap_analytics_log_event(ANALYTICS_EVENT_MAPCONTROL, ANALYTICS_EVENT_INFO_ACTION, object->action->label_long);
 
       (*(object->action->callback)) ();
    }
@@ -1010,5 +1020,73 @@ void roadmap_screen_obj_draw (void) {
    }
 }
 
+void
+roadmap_screen_object_add ( char * name,
+                            char **images,
+                            int num_images,
+                            const RoadMapGuiPoint *position,
+                            char *action) {
 
+   int i;
+   RoadMapImage image;
+   RoadMapScreenObj object = calloc(sizeof(*object), 1);
+   roadmap_check_allocated(object);
 
+   for (i=0; i<MAX_STATES; i++)
+   {
+        object->images[i] = NULL;
+   }
+
+   for (i=0; i<num_images; i++)
+   {
+        object->images[i] = strdup(images[i]);
+   }
+
+   object->pos_x = position->x;
+   object->pos_y = position->y;
+
+   image = roadmap_res_get( RES_BITMAP, RES_SKIN, object->images[0] );
+   if (image){
+      object->bbox.minx = -ADJ_SCALE(5);
+      object->bbox.maxx = roadmap_canvas_image_width(image) +ADJ_SCALE(5);
+      object->bbox.miny = -ADJ_SCALE(5) ;
+      object->bbox.maxy = roadmap_canvas_image_height(image) +ADJ_SCALE(5) ;
+      //object->pos_x -= roadmap_canvas_image_width(image)/2;
+      object->pos_y -= roadmap_canvas_image_height(image);
+   }
+
+   object->name = strdup(name);
+   object->action = roadmap_start_find_action (action);
+
+   object->next = RoadMapObjectList;
+   RoadMapObjectList = object;
+}
+
+void
+roadmap_screen_object_remove (char * name){
+   RoadMapScreenObj cursor;
+   RoadMapScreenObj prev = NULL;
+   int i;
+   for (cursor = RoadMapObjectList; cursor != NULL; cursor = cursor->next) {
+      if (cursor->name && !strcmp(name, cursor->name)){
+         if (prev == NULL){
+            RoadMapObjectList = cursor->next;
+         }
+         else{
+          prev->next = cursor->next;
+         }
+
+         free(cursor->name);
+         for (i=0; i<MAX_STATES; i++)
+         {
+            if (cursor->images[i] != NULL){
+               free(cursor->images[i]);
+               cursor->images[i] = NULL;
+            }
+         }
+         free(cursor);
+         return;
+      }
+      prev = cursor;
+   }
+}

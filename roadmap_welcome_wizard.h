@@ -62,10 +62,12 @@ BOOL roadmap_welcome_on_preferences( void );
 #ifndef IPHONE
 void welcome_wizard_twitter_dialog(void);
 void welcome_wizard_ping_dialog(void);
+void welcome_wizard_way_to_go( void );
 #endif //!IPHONE
 void roadmap_welcome_personalize_dialog();
 void roadmap_term_of_use(RoadMapCallback callback);
 void roadmap_welcome_guided_tour( void );
+void roadmap_welcome_guided_tour_start( void );
 
 #ifdef IPHONE
 void roadmap_welcome_personalize_later_dialog();

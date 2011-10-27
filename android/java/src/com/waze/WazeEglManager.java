@@ -288,11 +288,11 @@ public final class WazeEglManager {
         /*
          * Destroy if not destroyed before 
          */
-    	if ( mEglSurface != null && mEglSurface == EGL10.EGL_NO_SURFACE )
+    	if ( mEglSurface != null )
     	{
     		DestroyEglSurface();
     	}
-        mEglSurface = mEgl.eglCreateWindowSurface( mEglDisplay, mEglConfig, mSurfaceView, null );
+        mEglSurface = mEgl.eglCreateWindowSurface( mEglDisplay, mEglConfig, mSurfaceView.getHolder(), null );
         if ( EglCheck( "CreateEglSurface eglCreateWindowSurface" ) != EGL10.EGL_SUCCESS )
         {
         	return false;

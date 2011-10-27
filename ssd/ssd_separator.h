@@ -29,5 +29,6 @@
 SsdWidget ssd_separator_new(  const char *name, 
                            	  int         flags);
                            
+SsdWidget ssd_vseparator_new(const char *name, int height, int flags);
 #endif // __SSD_WIDGET_SEPARATOR_H__
 

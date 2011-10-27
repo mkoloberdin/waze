@@ -2,4 +2,35 @@
 <resources>
 	<string name="hello">Waze</string>
 	<string name="app_name">Waze</string>
+	<string name="widget_nodata_title">Your commuting widget</string>
+	
+	<string name="widget_nodata_info1">This widget displays your commute time to work, or 
+	back home, at any given moment and shows you 
+	the optimal time to hit the road. 
+	</string>
+	<string name="widget_nodata_info2">
+	In order for the widget to work, you need to add 
+	\'Home\' and \'Work\' to your waze Favorites.
+	</string>
+	<string name="widget_nodata_info3">
+	To do so, click \'Drive to\' and search for your home 
+	address. Then click the arrow to the right of the accurate 
+	search result and select \'Save to Favorites\',	entering 
+	\'Home\' in the text box provided. Do the same thing 
+	for \'Work\' and you\'re good to go! 
+	</string>
+	<!-- 
+	<string name="widget_nodata_info">This widget displays your commute time to work, or \n
+	back home, at any given moment and shows you \n
+	the optimal time to hit the road. \n\n
+	In order for the widget to work, you need to add \n
+	\'Home\' and \'Work\' to your waze Favorites. \n\n
+	To do so, click \'Drive to\' and search for your home \n
+	address. \n
+	Then click the arrow to the right of the accurate \n
+	search result and select \'Save to Favorites\',	entering \n
+	\'Home\' in the text box provided. Do the same thing \n
+	for \'Work\' and you\'re good to go! 
+	</string>
+	 -->
 </resources>

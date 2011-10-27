@@ -9,6 +9,8 @@ extern "C" {
 #endif
 #undef com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_PASSWORD
 #define com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_PASSWORD 1L
+#undef com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_SPEECHTT
+#define com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_SPEECHTT 2L
 #ifdef __cplusplus
 }
 #endif

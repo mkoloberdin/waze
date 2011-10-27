@@ -107,7 +107,7 @@ RoadMapFuzzy roadmap_fuzzy_direction
 
     if (delta >= 90) return 0;
 
-    return (FUZZY_TRUTH_MAX * (100 - delta)) / 100;
+    return (FUZZY_TRUTH_MAX * (200 - delta)) / 200;
 }
 
 
@@ -116,92 +116,157 @@ RoadMapFuzzy roadmap_fuzzy_direction
  * constant slope in between.
  */
 RoadMapFuzzy roadmap_fuzzy_distance  (int distance) {
+   
+   distance -= RoadMapError;
 
     if (distance >= RoadMapAccuracyStreet) return 0;
 
-    if (distance <= RoadMapError) return FUZZY_TRUTH_MAX;
+    if (distance <= 0) return FUZZY_TRUTH_MAX;
 
-    distance *= 2;
+    //distance *= 2;
+//
+//    if (distance >= RoadMapAccuracyStreet) return FUZZY_TRUTH_MAX / 3;
+//
+//    return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance)) /
+//                                  RoadMapAccuracyStreet - RoadMapError;
+   
+   
+   return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance) /
+           (RoadMapAccuracyStreet));
+}
 
-    if (distance >= RoadMapAccuracyStreet) return FUZZY_TRUTH_MAX / 3;
-
-    return (FUZZY_TRUTH_MAX * (RoadMapAccuracyStreet - distance)) /
-                                  RoadMapAccuracyStreet - RoadMapError;
+static BOOL allowed_turn (const RoadMapNeighbour *from_street, int from_direction,
+                          const RoadMapNeighbour *to_street, int to_direction) {
+   // -1 = shared node; 0 = not shared; 1 = shared node and turn allowed
+   
+   int from_id1, to_id1, from_id2, to_id2;
+   int shared_node = -1;
+   
+   if (from_street->line.square != to_street->line.square)
+      return 0; //TODO: same line on different squares?
+   
+   roadmap_square_set_current(from_street->line.square);
+   roadmap_line_point_ids (from_street->line.line_id, &from_id1, &to_id1);
+   roadmap_line_point_ids (to_street->line.line_id, &from_id2, &to_id2);
+   
+   if (from_direction == ROUTE_DIRECTION_WITH_LINE &&
+       to_direction == ROUTE_DIRECTION_WITH_LINE &&
+       to_id1 == from_id2)
+      shared_node = to_id1;
+   else if (from_direction == ROUTE_DIRECTION_WITH_LINE &&
+            to_direction == ROUTE_DIRECTION_AGAINST_LINE &&
+            to_id1 == to_id2)
+      shared_node = to_id1;
+   else if (from_direction == ROUTE_DIRECTION_AGAINST_LINE &&
+            to_direction == ROUTE_DIRECTION_WITH_LINE &&
+            from_id1 == from_id2)
+      shared_node = from_id1;
+   else if (from_direction == ROUTE_DIRECTION_AGAINST_LINE &&
+            to_direction == ROUTE_DIRECTION_AGAINST_LINE &&
+            from_id1 == to_id2)
+      shared_node = from_id1;
+   
+   
+   if (shared_node != -1) {
+      if (!roadmap_turns_find_restriction(shared_node, from_street->line.line_id, to_street->line.line_id))
+         return 1;
+      else
+         return -1;
+   }
+   
+   return 0;
 }
 
 
-RoadMapFuzzy roadmap_fuzzy_connected
-                 (const RoadMapNeighbour *street,
-                  const RoadMapNeighbour *reference,
-                        int               prev_direction,
-                        int               direction,
-                        RoadMapPosition  *connection) {
-
-    /* The logic for the connection membership function is that
-     * the line is the most connected to itself, is well connected
-     * to lines to which it share a common point and is not well
-     * connected to other lines.
-     * The weight of each state is a matter fine tuning.
-     */
-    RoadMapPosition line_point[2];
-    RoadMapPosition reference_point[2];
-
-    int i, j;
-
-
-    if (roadmap_plugin_same_db_line (&street->line, &reference->line))
-       return (FUZZY_TRUTH_MAX * 3) / 4;
-
-	 roadmap_street_extend_line_ends (&street->line,&(line_point[0]), &(line_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
-	 roadmap_street_extend_line_ends (&reference->line,&(reference_point[0]), &(reference_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
-
-    if (direction == ROUTE_DIRECTION_AGAINST_LINE) {
-       i = 1;
-    } else {
-       i = 0;
-    }
-
-    if (prev_direction == ROUTE_DIRECTION_AGAINST_LINE) {
-       j = 0;
-    } else {
-       j = 1;
-    }
-
-    if ((line_point[i].latitude == reference_point[j].latitude) &&
-         (line_point[i].longitude == reference_point[j].longitude)) {
-
-       *connection = line_point[i];
-
-       return (FUZZY_TRUTH_MAX * 2) / 3;
-    } else if ((line_point[i].latitude == reference_point[!j].latitude) &&
-         (line_point[i].longitude == reference_point[!j].longitude)) {
-
-       *connection = line_point[i];
-
-       return FUZZY_TRUTH_MAX / 2;
-
-    } else {
-       RoadMapPosition pos1;
-       RoadMapPosition pos2;
-       int d;
-
-       pos1 = line_point[i];
-       pos2 = reference_point[j];
-
-       d = roadmap_math_distance (&pos1, &pos2);
-
-       if (roadmap_math_distance (&pos1, &pos2) < 50) {
-          connection->latitude  = 0;
-          connection->longitude = 0;
-
-          return FUZZY_TRUTH_MAX * 2 / 3;
-       }
-    }
-
-    connection->latitude  = 0;
-    connection->longitude = 0;
-
-    return FUZZY_TRUTH_MAX / 3;
+RoadMapFuzzy roadmap_fuzzy_connected (const RoadMapNeighbour *street,
+                                      const RoadMapNeighbour *reference,
+                                      int               prev_direction,
+                                      int               direction,
+                                      RoadMapPosition  *connection) {
+   
+   /* The logic for the connection membership function is that
+    * the line is the most connected to itself, is well connected
+    * to lines to which it share a common point and is not well
+    * connected to other lines.
+    * The weight of each state is a matter fine tuning.
+    */
+   RoadMapPosition line_point[2];
+   RoadMapPosition reference_point[2];
+   int allowed;
+   int i, j;
+   
+   
+   if (roadmap_plugin_same_db_line (&street->line, &reference->line)) {
+      *connection = street->from;
+      return (FUZZY_TRUTH_MAX * 4) / 4;
+   }
+   
+   allowed = allowed_turn (reference, prev_direction, street, direction);
+   if (allowed == 1) {
+      //printf("==>found valid turn\n");
+      if (prev_direction == ROUTE_DIRECTION_AGAINST_LINE)
+         *connection = street->from;
+      else
+         *connection = street->to;
+      
+      return (FUZZY_TRUTH_MAX * 4) / 4;
+   } else if (allowed == -1) {
+      //printf("--> found shared node\n");
+      if (prev_direction == ROUTE_DIRECTION_AGAINST_LINE)
+         *connection = street->from;
+      else
+         *connection = street->to;
+      
+      return (FUZZY_TRUTH_MAX * 3) / 4;
+   }
+   
+   roadmap_street_extend_line_ends (&street->line,&(line_point[0]), &(line_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
+   roadmap_street_extend_line_ends (&reference->line,&(reference_point[0]), &(reference_point[1]), FLAG_EXTEND_BOTH, NULL, NULL); 
+   
+   if (direction == ROUTE_DIRECTION_AGAINST_LINE) {
+      i = 1;
+   } else {
+      i = 0;
+   }
+   
+   if (prev_direction == ROUTE_DIRECTION_AGAINST_LINE) {
+      j = 0;
+   } else {
+      j = 1;
+   }
+   
+   if ((line_point[i].latitude == reference_point[j].latitude) &&
+       (line_point[i].longitude == reference_point[j].longitude)) {
+      
+      *connection = line_point[i];
+      
+      return (FUZZY_TRUTH_MAX * 4) / 4;
+   } else if ((line_point[!i].latitude == reference_point[j].latitude) &&
+              (line_point[!i].longitude == reference_point[j].longitude)) {
+      
+      *connection = line_point[!i];
+      
+      return FUZZY_TRUTH_MAX / 2;
+      
+   } else {
+      RoadMapPosition pos1;
+      RoadMapPosition pos2;
+      
+      pos1 = line_point[i];
+      pos2 = reference_point[j];
+      
+      if (roadmap_math_distance (&pos1, &pos2) < 50) {
+         connection->latitude  = 0;
+         connection->longitude = 0;
+         
+         return FUZZY_TRUTH_MAX * 2 / 3;
+      }
+   }
+   
+   connection->latitude  = 0;
+   connection->longitude = 0;
+   
+   return FUZZY_TRUTH_MAX / 3;
 }
 
 
@@ -230,6 +295,10 @@ RoadMapFuzzy roadmap_fuzzy_not (RoadMapFuzzy a) {
 
 RoadMapFuzzy roadmap_fuzzy_false (void) {
     return 0;
+}
+
+RoadMapFuzzy roadmap_fuzzy_true (void) {
+   return FUZZY_TRUTH_MAX;
 }
 
 

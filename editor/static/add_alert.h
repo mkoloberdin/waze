@@ -33,7 +33,13 @@ void add_alert_initialize(void) ;
 void add_red_light_cam_alert(void);
 void add_speed_cam_alert(void);
 void request_speed_cam_delete(void);
-
+void add_cam_dlg(void);
+void add_speed_cam_my_direction(void);
+void add_speed_cam_opposite_direction(void);
+void add_red_light_cam_my_direction(void);
+void add_red_light_cam_opposite_direction(void);
+void add_dummy_cam_my_direction(void);
+void add_dummy_cam_opposite_direction(void);
 
 #endif // INCLUDE__ADD_ALERT__H
 

@@ -96,13 +96,13 @@
 // Facebook URLs
 #define  FACEBOOK_CFG_PRM_URL_Name                 ("Url")
 #define  FACEBOOK_CFG_PRM_URL_Default              ("")
-#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/connect") //TODO: change back to this
-//#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/oauth2_connect")
-#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect") //TODO: change back to this
-//#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect_oauth2")
-#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected") //TODO: change back to this
-//#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected_oauth2")
-#define  FACEBOOK_SHARE_SUFFIX                     ("/facebook/share")
+#define  FACEBOOK_CONNECT_SUFFIX                   ("/facebook/connect")
+#define  FACEBOOK_DISCONNECT_SUFFIX                ("/WAS/facebook_disconnect")
+#define  FACEBOOK_IS_CONNECTED_SUFFIX              ("/WAS/facebook_is_connected")
+#define  FACEBOOK_SHARE_SUFFIX                     ("/facebook/share") //FB invite - not implemented
+//Share on Facebook
+#define  FACEBOOK_CFG_PRM_ShareURL_Name            ("Share Url")
+#define  FACEBOOK_CFG_PRM_ShareURL_Default         ("http://m.facebook.com/sharer.php?u=http://www.waze.com/homepage")
 
 
 #define  TWITTER_DIALOG_NAME                      ("twitter_settings")
@@ -171,6 +171,7 @@ void roadmap_facebook_connect(BOOL preload);
 void roadmap_facebook_disconnect(void);
 void roadmap_facebook_refresh_connection (void);
 void roadmap_facebook_invite(void);
+void roadmap_facebook_share(void);
 void roadmap_social_send_permissions (void);
 
 

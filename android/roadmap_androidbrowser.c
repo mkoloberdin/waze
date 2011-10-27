@@ -27,6 +27,7 @@
 #include "ssd/ssd_dialog.h"
 
 static void roadmap_androidbrowser_launcher( RMBrowserContext* context );
+static void _resize( const RoadMapGuiRect* rect );
 
 /***********************************************************/
 /*  Name        : void roadmap_androidbrowser_init()
@@ -40,6 +41,7 @@ void roadmap_androidbrowser_init( void )
     */
    roadmap_browser_register_launcher( (RMBrowserLauncherCb) roadmap_androidbrowser_launcher );
    roadmap_browser_register_close( FreeMapNativeManager_HideWebView );
+   roadmap_browser_register_resize( _resize );
 }
 
 /*************************************************************************************************
@@ -72,4 +74,12 @@ void roadmap_groups_browser_btn_back_cb( void )
 {
    FreeMapNativeManager_LoadUrl( "javascript:back();" );
 }
-
+/*************************************************************************************************
+ * void _resize
+ * Browser resize wrapper
+ *
+ */
+static void _resize( const RoadMapGuiRect* rect )
+{
+   FreeMapNativeManager_ResizeWebView( rect->minx, rect->miny, rect->maxx, rect->maxy );
+}

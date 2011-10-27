@@ -71,7 +71,8 @@ int roadmap_start_add_action (const char *name, const char *label_long,
 void roadmap_start_popup_menu (const char *name,
                                const char *items[],
                                PFN_ON_DIALOG_CLOSED callback,
-                               const RoadMapGuiPoint *point);
+                               const RoadMapGuiPoint *point,
+                               int animation);
 #endif
 
 void roadmap_start_hide_menu (const char *name);
@@ -96,5 +97,10 @@ ssd_cm_item_ptr roadmap_start_get_menu_item( const char*          menu_name,
 void roadmap_start_app_run_fg( void );
 void roadmap_start_app_run_bg( void );
 void start_more_menu (void);
+void start_mywaze_menu(void);
+
+const char * roadmap_start_get_map_credit(void);
+RoadMapAction *roadmap_start_find_action_un_const (const char *name) ;
+BOOL roadmap_start_is_first_use(void);
 #endif /* INCLUDE__ROADMAP_START__H */
 

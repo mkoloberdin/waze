@@ -26,11 +26,13 @@
 typedef struct tag_wstq_item
 {
    const char*       action;        // (/<service_name>/)<ACTION>
+   int               type;          // Type of request
    wst_parser_ptr    parsers;       // Array of 1..n data parsers
    int               parsers_count; // Parsers count
    CB_OnWSTCompleted cbOnCompleted; // Callback for transaction completion
    void*             context;       // Caller context
    char*             packet;        // Custom data for the HTTP request
+   int               flags;         // Flags for server type
 
 }  wstq_item, *wstq_item_ptr;
 
@@ -54,5 +56,6 @@ BOOL  wstq_is_empty  ( wst_queue_ptr this);
 // Shallow copy: Caller has to alloc/free packet buffer
 BOOL  wstq_enqueue   ( wst_queue_ptr this, wstq_item_ptr item);
 BOOL  wstq_dequeue   ( wst_queue_ptr this, wstq_item_ptr item);
+void wstq_remove_type( wst_queue_ptr this, int type);
 
 #endif	//	__HTTPTRANSQUEUE_H__

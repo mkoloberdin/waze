@@ -71,7 +71,12 @@ static SsdWidget GenericList = NULL;
 
 static void on_dialog_closed( int type, void *context)
 {
+   SsdWidget button;
 	ssd_widget_set_left_softkey_callback(GenericList,NULL);
+   button = ssd_dialog_right_title_button();
+   if (button)
+      ssd_widget_hide(button);
+
 }
 
 
@@ -91,13 +96,7 @@ void ssd_generic_list_dialog_show(const char*            title,
    SsdWidget list;
    int flags = 0;
 
-#if defined (OPENGL)
-
-   /*
-    * Borders are fast in OPENGL
-    */
-   flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
-#endif // OPENGL
+   flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_CONTAINER_FLAGS;
 
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
@@ -151,15 +150,11 @@ void ssd_generic_icon_list_dialog_show(
 
    SsdWidget list;
    int list_flags = 0;
-
-#if defined (OPENGL)
-
    /*
     * Borders are fast in OPENGL
-    */
-   list_flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
-#endif // OPENGL
 
+    */
+   list_flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_CONTAINER_FLAGS;
    list_context.on_item_selected= on_item_selected;
    list_context.on_item_deleted = on_item_deleted;
    list_context.context         = context;
@@ -172,7 +167,6 @@ void ssd_generic_icon_list_dialog_show(
       ssd_widget_add (GenericList, list);
    }
    else{
-     GenericList->flags &= ~SSD_HEADER_BLACK;
      GenericList->flags |= dialog_flags;
    }
    ssd_widget_set_offset(GenericList,0,0);

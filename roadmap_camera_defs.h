@@ -78,6 +78,17 @@ typedef struct
     unsigned char* buf;         // The buffer pointer. Pay attention to the 1-byte alignment
 } CameraImageBuf;
 
+// Asynchronous capture callback context
+typedef struct
+{
+   CameraImageFile image_file;
+   CameraImageBuf image_thumbnail;
+   const void* callback_data;    // Data provided by the callback supplier
+} CameraImageCaptureContext;
+
+// Asynchronous capture callback
+typedef int (* CameraImageCaptureCallback) ( CameraImageCaptureContext* context, int res );
+
 // Configuration entries
 #define CFG_CATEGORY_CAMERA_IMG         ( "Camera Image" )
 #define CFG_ENTRY_CAMERA_IMG_WIDTH      ( "Width" )

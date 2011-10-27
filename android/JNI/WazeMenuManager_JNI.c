@@ -35,6 +35,11 @@ static android_jni_obj_type gJniObj;
 #define JNI_CALL_WazeMenuManager_AddOptionsMenuItem 		"AddOptionsMenuItem"
 #define JNI_CALL_WazeMenuManager_AddOptionsMenuItem_Sig 	"(I[B[BIIII)V"
 
+#define JNI_CALL_WazeMenuManager_ResetOptionsMenu      "ResetOptionsMenu"
+#define JNI_CALL_WazeMenuManager_ResetOptionsMenu_Sig  "()V"
+
+#define JNI_CALL_WazeMenuManager_SubmitOptionsMenu      "SubmitOptionsMenu"
+#define JNI_CALL_WazeMenuManager_SubmitOptionsMenu_Sig  "()V"
 
 /*************************************************************************************************
  * Java_com_waze_WazeMenuManager_InitTimerManagerNTV()
@@ -90,6 +95,50 @@ void WazeMenuManager_AddOptionsMenuItem( int aItemId, const char* aLabel, const 
 			aItemId, label, icon, aIsNative, aPortraitOrder, aLandscapeOrder, aItemType );
 }
 
+/*************************************************************************************************
+ * WazeMenuManager_ResetOptionsMenu()
+ * Resets the options menu to be rebuild
+ */
+void WazeMenuManager_ResetOptionsMenu( void )
+{
+   JNIEnv *env;
+   jmethodID mid;
+   android_method_context_type lMthdContext;
+
+   JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_WazeMenuManager_ResetOptionsMenu );
+   mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_WazeMenuManager_ResetOptionsMenu,
+         JNI_CALL_WazeMenuManager_ResetOptionsMenu_Sig );
+   if ( !mid || !lMthdContext.env )
+   {
+      roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+      return;
+   }
+
+   // Call the method
+   (*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
+}
+/*************************************************************************************************
+ * WazeMenuManager_SubmitOptionsMenu()
+ * Submits the options menu to be ready
+ */
+void WazeMenuManager_SubmitOptionsMenu( void )
+{
+   JNIEnv *env;
+   jmethodID mid;
+   android_method_context_type lMthdContext;
+
+   JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_WazeMenuManager_SubmitOptionsMenu );
+   mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_WazeMenuManager_SubmitOptionsMenu,
+         JNI_CALL_WazeMenuManager_SubmitOptionsMenu_Sig );
+   if ( !mid || !lMthdContext.env )
+   {
+      roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+      return;
+   }
+
+   // Call the method
+   (*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid );
+}
 /*************************************************************************************************
  * FreeMapNativeTimerManager_DisposeRefs()
  * Dispose the JNI object of the WazeMenuManager module

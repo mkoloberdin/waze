@@ -30,6 +30,10 @@
 #include "../ssd/ssd_widget.h"
 #include "../roadmap_alerter.h"
 
+// Defines if police alerts can be shown and reported
+// Uncomment it whenever no-police version is necessary ( like for Verizon android market )
+//#define RT_ALERT_POLICE_FORBIDDEN
+
 // Alerts types
 #define RT_ALERT_TYPE_CHIT_CHAT			   0
 #define RT_ALERT_TYPE_POLICE				   1
@@ -41,7 +45,46 @@
 #define RT_ALERT_TYPE_CONSTRUCTION        7
 #define RT_ALERT_TYPE_PARKING             8
 #define RT_ALERT_TYPE_DYNAMIC             9
-#define RT_ALERTS_LAST_KNOWN_STATE			9
+#define RT_ALERTS_LAST_KNOWN_TYPE			9
+
+#define POLICE_TYPE_VISIBLE 0
+#define POLICE_TYPE_HIDING  1
+
+#define ACCIDENT_TYPE_MINOR  0
+#define ACCIDENT_TYPE_MAJOR  1
+
+#define HAZARD_TYPE_ON_ROAD      0
+#define HAZARD_TYPE_ON_SHOULDER  1
+#define HAZARD_TYPE_WEATHER      2
+
+#define HAZARD_TYPE_ON_ROAD                  0
+#define HAZARD_TYPE_ON_SHOULDER              1
+#define HAZARD_TYPE_WEATHER                  2
+#define HAZARD_TYPE_ON_ROAD_OBJECT           3
+#define HAZARD_TYPE_ON_ROAD_POT_HOLE         4
+#define HAZARD_TYPE_ON_ROAD_ROAD_KILL        5
+#define HAZARD_TYPE_ON_SHOULDER_CAR_STOPPED  6
+#define HAZARD_TYPE_ON_SHOULDER_ANIMALS      7
+#define HAZARD_TYPE_ON_SHOULDER_MISSING_SIGN 8
+#define HAZARD_TYPE_WEATHER_FOG              9
+#define HAZARD_TYPE_WEATHER_HAIL             10
+#define HAZARD_TYPE_WEATHER_HEAVY_RAIN       11
+#define HAZARD_TYPE_WEATHER_HEAVY_SNOW       12
+#define HAZARD_TYPE_WEATHER_FLOOD            13
+#define HAZARD_TYPE_WEATHER_MONSOON          14
+#define HAZARD_TYPE_WEATHER_TORNADO          15
+#define HAZARD_TYPE_WEATHER_HEAT_WAVE        16
+#define HAZARD_TYPE_WEATHER_HURRICANE        17
+#define HAZARD_TYPE_WEATHER_FREEZING_RAIN    18
+#define HARARD_TYPE_ON_ROAD_LANE_CLOSED      19
+#define HAZARD_TYPE_ON_ROAD_OIL              20
+#define HAZARD_TYPE_ON_ROAD_ICE              21
+#define HAZRAD_TYPE_ON_ROAD_CONSTRUCTION     22
+
+#define JAM_TYPE_MODERATE_TRAFFIC            0
+#define JAM_TYPE_HEAVY_TRAFFIC               1
+#define JAM_TYPE_STAND_STILL_TRAFFIC         2
+#define JAM_TYPE_LIGHT_TRAFFIC               3
 
 //Alerts direction
 #define RT_ALERT_BOTH_DIRECTIONS 			0
@@ -52,9 +95,10 @@
 #define RT_ALERT_LOCATION_MAX_SIZE        150
 #define RT_ALERT_DESCRIPTION_MAXSIZE      400
 #define RT_ALERT_IMAGEID_MAXSIZE		      100
+#define RT_ALERT_VOICEID_MAXSIZE		      100
 #define RT_ALERT_USERNM_MAXSIZE 			   100
 #define RT_ALERT_FACEBOOK_USERNM_MAXSIZE  100
-#define RT_ALERT_GROUP_MAXSIZE            100
+#define RT_ALERT_GROUP_MAXSIZE            200
 #define RT_ALERT_GROUP_ICON_MAXSIZE       100
 
 #define RT_ALERTS_MAX_ALERT_TYPE           64
@@ -64,6 +108,8 @@
 
 #define RT_ALERT_RES_TITLE_MAX_SIZE       64
 #define RT_ALERT_RES_TEXT_MAX_SIZE        512
+
+#define RT_THUMBS_UP_QUEUE_MAXSIZE        50
 
 #define RT_ALERTS_PROGRESS_DLG_NAME		"Alert progress dialog"
 
@@ -81,7 +127,6 @@
 #define STATE_OLD          1
 #define STATE_NEW          2
 #define STATE_NEW_COMMENT  3
-#define STATE_SCROLLING    4
 #define NEW_LINE "\n"
 
 
@@ -90,7 +135,8 @@
 typedef enum alert_sort_method
 {
    sort_proximity,
-   sort_recency
+   sort_recency,
+   sort_priority
 }  alert_sort_method;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,6 +164,29 @@ typedef struct
     char sFacebookName[RT_ALERT_FACEBOOK_USERNM_MAXSIZE]; //Facebook name
     BOOL bShowFacebookPicture; // Show facebook Picture
 } RTAlertComment;
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// Thumbs Up
+typedef struct
+{
+    int iID; // ID
+    char sUserID [RT_ALERT_USERNM_MAXSIZE+1];// User ID
+    char sNickName[RT_ALERT_USERNM_MAXSIZE+1]; // User NickName
+    char sFacebookName[RT_ALERT_FACEBOOK_USERNM_MAXSIZE]; //Facebook name
+    BOOL bShowFacebookPicture; // Show facebook Picture
+    int  iIndex;
+    BOOL bDisplayed;
+} ThumbsUp;
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+// ThubsUp Table
+typedef struct
+{
+   ThumbsUp *thumbsUp[RT_THUMBS_UP_QUEUE_MAXSIZE];
+   int iCount;
+} RTThumbsUpTable;
+
 
 
 #define MAP_PROBLEM_INCORRECT_TURN               "Incorrect turn"
@@ -163,6 +232,7 @@ typedef struct
     char sDescription [RT_ALERT_DESCRIPTION_MAXSIZE+1]; // Alert's description
     char sLocationStr[RT_ALERT_LOCATION_MAX_SIZE+1]; //alert location
     char sImageIdStr[RT_ALERT_IMAGEID_MAXSIZE+1];
+    char sVoiceIdStr[RT_ALERT_VOICEID_MAXSIZE+1];
     char sNearStr[RT_ALERT_LOCATION_MAX_SIZE+1];
     char sStreetStr[RT_ALERT_LOCATION_MAX_SIZE+1];
     char sCityStr[RT_ALERT_LOCATION_MAX_SIZE+1];
@@ -189,7 +259,14 @@ typedef struct
     int  iGroupRelevance;
     int  iReportedElapsedTime;
     int  iDisplayTimeStamp;
-    BOOL bArchive; 
+    BOOL bArchive;
+    int  iPopUpPriority;
+    BOOL bPopedUp;
+    int  iNumThumbsUp;
+    BOOL bThumbsUpByMe;
+    BOOL bIsAlertable;
+    BOOL bAlertHandled;
+    int  iNumViewed;
 } RTAlert;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -236,19 +313,24 @@ char * RTAlerts_Get_LocationStrByID(int Id);
 unsigned int RTAlerts_Get_Speed(int record);
 int RTAlerts_Get_Distance(int record);
 const char * RTAlerts_Get_Map_Icon(int alert);
+const char * RTAlerts_Get_Map_Icon_By_Type(int iType);
 const char * RTAlerts_Get_Icon(int alertId);
 const char * RTAlerts_Get_Alert_Icon(int alertId);
 const char * RTAlerts_Get_Warn_Icon(int alertId);
 const char * RTAlerts_Get_String(int alertId);
+const char * RTAlerts_Get_Additional_String(int alertId);
 RoadMapSoundList RTAlerts_Get_Sound(int alertId);
 int RTAlerts_Is_Alertable(int record);
+BOOL RTAlerts_ShowDisrance(int AlertId);
+BOOL RTAlerts_Is_On_Route(int AlertId);
 void RTAlerts_Sort_List(alert_sort_method sort_method);
 BOOL RTAlerts_Get_City_Street(RoadMapPosition AlertPosition,
         const char **city_name, const char **street_name,  int *square, int*line_id,
         int direction);
 void RTAlerts_Popup_By_Id(int alertId, BOOL saveContext);
+void RTAlerts_Popup_By_Id_Timed(int iID, BOOL saveContext, int timeOut);
 void RTAlerts_Popup_By_Id_No_Center(int iID);
-void RTAlerts_Scroll_All(void);
+BOOL RTAlerts_Scroll_All(void);
 void RTAlerts_Stop_Scrolling(void);
 void RTAlerts_Scroll_Next(void);
 void RTAlerts_Scroll_Prev(void);
@@ -260,6 +342,7 @@ int RTAlerts_Penalty(int line_id, int against_dir);
 void RTAlerts_Delete_All_Comments(RTAlert *alert);
 const char* RTAlerts_Get_Image_Id( int iAlertId );
 BOOL RTAlerts_Has_Image( int iAlertId );
+BOOL RTAlerts_Has_Voice( int iAlertId );
 
 void RTAlerts_Comment_Init(RTAlertComment *comment);
 BOOL RTAlerts_Comment_Add(RTAlertComment *comment);
@@ -298,6 +381,8 @@ int RTAlerts_Is_Cancelable(int alertId);
 int Rtalerts_Delete(int alertId);
 int RTAlerts_Check_Same_Street(int record);
 int RTAlerts_HandleAlert(int alertId);
+int RTAlertsOnAlerterStop(int alertId);
+int RTAlertsOnAlerterStart(int alertId);
 int RTAlerts_is_reply_popup_on(void);
 int RTAlerts_CurrentAlert_Has_Comments(void);
 void RTAlerts_CurrentComments(void);
@@ -306,17 +391,23 @@ int RTAlerts_Get_TypeByIconName(const char *icon_name);
 const char *RTAlerts_get_title(RTAlert *pAlert,int iAlertType, int iAlertSubType);
 int  RTAlerts_Get_Minimize_State(void);
 void RTAlerts_Minimized_Alert_Dialog(void);
-void RTAlerts_Resert_Minimized(void);
+void RTAlerts_Reset_Minimized(void);
 void RTAlerts_report_map_problem(void);
 void RTAlerts_ShowProgressDlg(void);
 void RTAlerts_CloseProgressDlg(void);
 void RTAlerts_Download_Image( int alertId );
+void RTAlerts_Download_Voice( int alertId );
 void RTAlerts_add_comment_stars(SsdWidget container,  RTAlertComment *pAlertComment);
 const char * RTAlerts_Get_Stars_Icon(int starNum);
 void RTAlerts_update_stars(SsdWidget container,  RTAlert *Alert);
 void RTAlerts_Set_Ignore_Max_Distance(BOOL ignore);
 void RTAlerts_show_space_before_desc( SsdWidget containter, RTAlert *pAlert );
 int RTAlertsGetMapProblems (int **outMapProblems, char **outMapProblemsOption[]);
+BOOL RTAlerts_Can_Send_Thumbs_up(int alertId);
+int  Rtalerts_Thumbs_Up(int alertId);
+void RTAlerts_Update(int iID, int iNumThumbsUp, BOOL bIsOnRoute, BOOL bIsArchive, int iNumViewed);
+void RTAlerts_ThumbsUpRecordInit(ThumbsUp *thumbsUp);
+BOOL RTAlerts_ThumbsUpReceived(ThumbsUp *thumbsUp);
 
 BOOL RTAlerts_isByMe(int iId);
 BOOL RTAlerts_isAlertOnRoute(int iId);
@@ -332,5 +423,23 @@ char *RtAlerts_get_addional_keyboard_text(RTAlert *pAlert);
 void RTAlerts_get_reported_by_string( RTAlert *pAlert, char* buf, int buf_len );
 void RTAlerts_get_report_info_str( RTAlert *pAlert, char* buf, int buf_len );
 void RTAlerts_clear_group_counter(void);
-int RAlerts_get_group_state(void);
+int  RTAlerts_get_group_state(void);
+
+void RTAlerts_start_glow(RTAlert *pAlert, int seconds);
+void RTAlerts_stop_glow();
+
+BOOL RTAlerts_ThumbsUpByMe(int iId);
+
+int         RTAlerts_get_number_of_sub_types(int iAlertType);
+const char* RTAlerts_get_subtype_label(int iAlertType, int iAlertSubType);
+int         RTAlerts_get_default_subtype(int iAlertType);
+char*       RTAlerts_get_subtype_icon(int iAlertType, int iAlertSubType);
+int         RTAlerts_get_num_categories(int iAlertType, int iAlertSubType);
+int         RTAlerts_get_categories_subtype(int iAlertType, int iAlertSubType, int index);
+
+void RTAlerts_update_location_str(RTAlert *pAlert);
+
+const RoadMapGpsPosition *RTAlerts_alerts_location(BOOL showMsgBox);
+
+int RTALerts_OnRouteCount(void);
 #endif	//	__REALTIME_ALERT_H__

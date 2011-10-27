@@ -167,5 +167,12 @@ void CloseJNIObjects()
 	FreeMapNativeTimerManager_DisposeRefs();
 	WazeMenuManager_DisposeRefs();
 	WazeMsgBox_DisposeRefs();
+	WazeSpeechttManager_DisposeRefs();
+	WazeSoundRecorder_DisposeRefs();
+	WazeResManager_DisposeRefs();
+	WazeTtsManager_DisposeRefs();
+#ifdef ANDROID_WIDGET
+	WazeAppWidgetManager_DisposeRefs();
+#endif
 }
 

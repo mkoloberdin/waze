@@ -75,6 +75,7 @@
 #include "navigate/navigate_instr.h"
 #include "Realtime/RealtimeDefs.h"
 #include "editor_track_main.h"
+#include "roadmap_tile_manager.h"
 
 #define GPS_POINTS_DISTANCE "10m"
 #define MAX_POINTS_IN_SEGMENT 10000
@@ -106,6 +107,7 @@ static int points_start = 0;
 static int cur_active_line = 0;
 static RoadMapGpsPosition TrackLastPosition;
 static time_t LastGpsUpdate = 0;
+static RoadMapTileCallback 		TileCbNext = NULL;
 
 static RoadMapTracking  TrackConfirmedStreet = ROADMAP_TRACKING_NULL;
 static RoadMapNeighbour TrackPreviousLine = ROADMAP_NEIGHBOUR_NULL;
@@ -1013,10 +1015,10 @@ static void track_rec_locate(time_t gps_time,
 
    const RoadMapGpsPosition *filtered_gps_point;
    RoadMapPosition context_save_pos;
-   int context_save_zoom;
+   zoom_t context_save_zoom;
    int point_id;
    int res;
-   int zoom = 20;
+   zoom_t zoom = 20;
 
    LastGpsUpdate = gps_time;
 
@@ -1025,8 +1027,12 @@ static void track_rec_locate(time_t gps_time,
    roadmap_math_get_context (&context_save_pos, &context_save_zoom);
 
    if ( roadmap_screen_is_hd_screen() )
+#ifndef IPHONE_NATIVE
       zoom *= 2;
-
+#else
+      zoom = 33; //TODO: check this logic
+#endif //IPHONE_NATIVE
+   
    roadmap_math_set_context ((RoadMapPosition *)gps_position, zoom );
 
    editor_track_util_set_focus ((RoadMapPosition *)gps_position);
@@ -1115,6 +1121,23 @@ editor_gps_update (time_t gps_time,
    }
 }
 
+static void on_tile_update( int tile_id )
+{
+	if (TrackConfirmedStreet.valid &&
+       TrackConfirmedLine.line.square == tile_id) {
+      roadmap_log(ROADMAP_WARNING, "on_tile_update() - confirmed line is in updated tile (%d), invalidating...", tile_id);
+      
+      editor_track_reset();
+      editor_track_known_reset_resolve ();
+   }
+   
+   
+	/* Next callback in chain */
+	if ( TileCbNext )
+	{
+		TileCbNext( tile_id );
+	}
+}
 
 
 void editor_track_initialize (void) {
@@ -1153,7 +1176,7 @@ void editor_track_initialize (void) {
    		editor_bar_show();
    }
 
-
+   TileCbNext = roadmap_tile_register_callback(on_tile_update);
 }
 
 

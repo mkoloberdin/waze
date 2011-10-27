@@ -30,6 +30,7 @@
 #include "JNI/FreeMapJNI.h"
 #include "JNI/WazeEditBox_JNI.h"
 #include "roadmap_screen.h"
+#include "roadmap_keyboard.h"
 #include "ssd/ssd_widget.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_dialog.h"
@@ -38,6 +39,7 @@
 
 static int roadmap_editbox_action( int flag );
 static void roadmap_editbox_dlg_show( const char* title );
+static void roadmap_edit_box_typing_confirm_cb( int exit_code, void *data );
 
 #define SSD_EDITBOX_DIALOG_NAME   "EditBox Dialog"
 #define SSD_EDITBOX_DIALOG_CNT_NAME   "EditBox Dialog.Container"
@@ -65,6 +67,9 @@ void ShowEditbox(const char* aTitleUtf8, const char* aTextUtf8, SsdKeyboardCallb
    {
       flags |= com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_PASSWORD;
    }
+
+   // For all androids try speech to text
+   flags |= com_waze_WazeEditBox_WAZE_EDITBOX_FLAG_SPEECHTT;
 
    EditBoxContextType *pCtx = malloc( sizeof( EditBoxContextType ) );
    pCtx->callback = callback;
@@ -139,3 +144,44 @@ void roadmap_editbox_dlg_hide( void )
 {
    ssd_dialog_hide( SSD_EDITBOX_DIALOG_NAME, dec_ok );
 }
+
+
+void roadmap_editbox_confirm_warning_hide( void )
+{
+   if ( !strcmp( ssd_dialog_currently_active_name(), "confirm_dialog" ) )
+   {
+      ssd_dialog_hide_current( dec_cancel );
+   }
+}
+
+/***********************************************************
+ *  Name       : roadmap_edit_box_typing_confirm_cb
+ *  Purpose    : Callback for the typing locked confirm dialog
+ *  Params      : exit_code - code of the button pressed in the dialog
+ *
+ */
+static void roadmap_editbox_typing_confirm_cb( int exit_code, void *data )
+{
+   if ( exit_code == dec_no )
+   {
+      roadmap_keyboard_set_typing_lock_enable( FALSE );
+      FreeMapNativeManager_EditBoxCheckTypingLockCb( 0 );
+   }
+   else
+   {
+      FreeMapNativeManager_EditBoxCheckTypingLockCb( 1 );
+   }
+}
+
+/***********************************************************
+ *  Name       : roadmap_androideditbox_init
+ *  Purpose    : Initialization of the editbox related environment
+ *  Params     : void
+ *
+ */
+void roadmap_androideditbox_init( void )
+{
+   roadmap_keyboard_register_typing_lock_confirm_cb( roadmap_editbox_typing_confirm_cb );
+}
+
+

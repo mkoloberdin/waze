@@ -41,6 +41,8 @@ import android.location.LocationListener;
 import android.location.LocationManager;
 import android.location.LocationProvider;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 
 
@@ -61,6 +63,7 @@ public final class FreeMapNativeLocListener implements LocationListener
         int mAltitude;
         int mSpeed;
         int mSteering;
+        int mAccuracy;
     }
 
     public FreeMapNativeLocListener(LocationManager aManager)
@@ -69,6 +72,11 @@ public final class FreeMapNativeLocListener implements LocationListener
         mLocationManager.addGpsStatusListener( new GpsStatusListener() );
     }
 
+    public void start()
+    {
+    	mListenerThread = new ListenerThread();
+    	mListenerThread.start();
+    }
     /*************************************************************************************************
      * 
      * 
@@ -76,17 +84,18 @@ public final class FreeMapNativeLocListener implements LocationListener
     public void onLocationChanged( final Location location )
     {
     	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+    	final byte status = mStatus;
     	if ( mgr != null && mgr.IsAppStarted()  )
     	{
     		if ( mgr.IsNativeThread() )
     		{
-    			UpdateNativeLayer( mStatusAvailable, location );
+    			UpdateNativeLayer( status, location );
     		}
     		else
     		{
     			Runnable msg = new Runnable() {
 					public void run() {
-		    			UpdateNativeLayer( mStatusAvailable, location );
+		    			UpdateNativeLayer( status, location );
 					}
 				};
     			mgr.PostRunnable( msg );
@@ -130,14 +139,14 @@ public final class FreeMapNativeLocListener implements LocationListener
      */
     public void onStatusChanged( String provider, int status, Bundle extras )
     {
-        byte lStatus;        
-        if (status == LocationProvider.AVAILABLE)
+        
+        if ( status == LocationProvider.AVAILABLE)
         {
-            lStatus = mStatusAvailable;
+            mStatus = STATUS_AVAILABLE;
         }
         else
         {
-            lStatus = mStatusNotAvailable;
+        	mStatus = STATUS_UNVAILABLE;
         }
 
         // Adjustment of the parameters for the native layer
@@ -149,20 +158,19 @@ public final class FreeMapNativeLocListener implements LocationListener
         	{
         		if ( mgr.IsNativeThread() )
         		{
-        			UpdateNativeLayer( mStatusAvailable, lastLoc );
+        			UpdateNativeLayer( mStatus, lastLoc );
         		}
         		else
         		{
         			Runnable msg = new Runnable() {
     					public void run() {
-    		    			UpdateNativeLayer( mStatusAvailable, lastLoc );
+    		    			UpdateNativeLayer( mStatus, lastLoc );
     					}
     				};
         			mgr.PostRunnable( msg );
         		}
         	}
 
-            UpdateNativeLayer( lStatus, lastLoc );
         }
     }
 
@@ -196,10 +204,12 @@ public final class FreeMapNativeLocListener implements LocationListener
 
         lNativeLoc.mSteering = (int) aLocation.getBearing();
 
+        lNativeLoc.mAccuracy = (int) aLocation.getAccuracy();
+        
         return lNativeLoc;
     }
 
-    private void UpdateNativeLayer( byte aStatus, Location aLoc )
+    private void UpdateNativeLayer( final byte aStatus, final Location aLoc )
     {
         // Log the update
         int isCellData = 0;
@@ -250,8 +260,8 @@ public final class FreeMapNativeLocListener implements LocationListener
         }
 
         // Update the native layer with location information
-        LocListenerCallbackNTV( mStatusAvailable, loc.mGpsTime, loc.mLatitude,
-                loc.mLongtitude, loc.mAltitude, loc.mSpeed, loc.mSteering, isCellData );
+        LocListenerCallbackNTV( aStatus, loc.mGpsTime, loc.mLatitude,
+                loc.mLongtitude, loc.mAltitude, loc.mSpeed, loc.mSteering, loc.mAccuracy, isCellData );
 
     }
 
@@ -276,7 +286,7 @@ public final class FreeMapNativeLocListener implements LocationListener
     	            // Update the native layer
     	            final int satelliteNumberFinal = satelliteNumber;
     	            FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
-	            	if ( mgr != null && mgr.IsAppStarted()  )
+	            	if ( mgr != null && mgr.IsAppStarted() )
 	            	{
 	            		if ( mgr.IsNativeThread() )
 	            		{
@@ -301,6 +311,20 @@ public final class FreeMapNativeLocListener implements LocationListener
     	}
     }
     
+    private class ListenerThread extends HandlerThread
+    {
+    	public ListenerThread()
+    	{
+    		super( "Location listener" );
+    	}
+    	@Override protected void onLooperPrepared()
+    	{
+            // Request updates anyway
+            mLocationManager.requestLocationUpdates( LocationManager.NETWORK_PROVIDER, 0, 0, FreeMapNativeLocListener.this );
+            mLocationManager.requestLocationUpdates( LocationManager.GPS_PROVIDER, 0, 0, FreeMapNativeLocListener.this );        
+    	}
+    }
+    
     /*************************************************************************************************
      *================================= Native methods section ================================= 
      * These methods are implemented in the
@@ -308,7 +332,7 @@ public final class FreeMapNativeLocListener implements LocationListener
      */
     private native void LocListenerCallbackNTV( byte aStatus, int aGpsTime,
             int aLatitude, int aLongtitude, int aAltitude, int aSpeed,
-            int aSteering, int aIsCellData );
+            int aSteering, int aAccuracy, int aIsCellData );
     private native void SatteliteListenerCallbackNTV( int aSatteliteNumber );
     private native void DilutionListenerCallbackNTV( int aDim, double aPdop, double aHdop, double aVdop );
 
@@ -317,10 +341,12 @@ public final class FreeMapNativeLocListener implements LocationListener
      * 
      */
     private LocationManager mLocationManager;
+    private ListenerThread mListenerThread;
 
     // ===== Constants ====
     private final int       mFixedPointFactor   = 1000000;
-    private final byte      mStatusAvailable    = 'A';
-    private final byte      mStatusNotAvailable = 'V';
+    private final byte      STATUS_AVAILABLE    = 'A';
+    private final byte      STATUS_UNVAILABLE 	= 'V';
+    private byte      	    mStatus    			= STATUS_AVAILABLE;
     private int mSatelliteNumber = 0;
 }

@@ -45,12 +45,21 @@ void navigate_zoom_update (int distance,
    /* We might still be close to the previous junction. Let's make
     * sure that we don't zoom out too fast
     */
+   
+   static int last_distance_to_prev = -1;
 
    if ((distance_to_prev < distance) && (distance > 200) && (distance_to_prev < 200)) {
-
-      distance = (distance_to_prev * (200 - distance_to_prev) + distance * distance_to_prev) / 200;
-
+      if (distance > 1000)
+         distance = 1000;
+      
+      if (distance_to_prev > last_distance_to_prev)
+         last_distance_to_prev = distance_to_prev;
+      
+      distance = (last_distance_to_prev * (200 - last_distance_to_prev) + distance * last_distance_to_prev) / 200;
+   } else {
+      last_distance_to_prev = -1;
    }
+
 
    if ((distance_to_next <= 150) && (distance < distance_to_next)) {
       distance = distance_to_next;
@@ -78,9 +87,10 @@ void navigate_zoom_update (int distance,
       if (distance <= 250 || current_road_type == ROADMAP_ROAD_RAMP) {
           NavigateZoomScale = 250;
        } else if (distance <= 500) {
-          NavigateZoomScale = distance;
+          NavigateZoomScale = 350;
        } else if (distance <= 1000) {
-          NavigateZoomScale = ((distance - 500) * 2000 + (1000 - distance) * 1500) / 1000;
+         // NavigateZoomScale = ((distance - 500) * 2000 + (1000 - distance) * 1500) / 1000;
+          NavigateZoomScale = 750;
        } else {
 #ifdef VIEW_MODE_3D_OGL
           NavigateZoomScale = 2000;
@@ -104,8 +114,6 @@ void navigate_zoom_update (int distance,
             NavigateZoomScale = distance * 2;
       }
    }
-
-
 }
 
 int navigate_zoom_get_scale (void) {

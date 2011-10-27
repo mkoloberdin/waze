@@ -394,11 +394,11 @@ static void delayed_short_click (void) {
    RoadMapCallback callback = (RoadMapCallback) delayed_widget->context;
 
    roadmap_main_remove_periodic (delayed_short_click);
-   
+
    if (callback) {
       (*callback) ();
    }
-   
+
    delayed_widget->in_focus = FALSE;
 
    if (delayed_widget->parent->parent->flags & SSD_DIALOG_FLOAT)
@@ -440,9 +440,14 @@ static BOOL on_key_pressed(SsdWidget widget, const char* utf8char, uint32_t flag
    return FALSE;
 }
 
+SsdWidget g_widget;
 static void delayed_cancel(void){
    roadmap_main_remove_periodic (delayed_cancel);
    ssd_dialog_hide_current(dec_cancel);
+   if (g_widget)
+      ssd_widget_loose_focus(g_widget);
+   g_widget = NULL;
+
    roadmap_screen_redraw ();
 }
 
@@ -450,7 +455,7 @@ static int on_cancel (SsdWidget widget, const RoadMapGuiPoint *point){
    ssd_dialog_set_focus(widget);
 
    roadmap_screen_redraw ();
-
+   g_widget = widget;
    roadmap_main_set_periodic (100, delayed_cancel);
 
    return 1;
@@ -473,6 +478,121 @@ static int long_click (SsdWidget widget, const RoadMapGuiPoint *point) {
    return short_click(widget, point);
 }
 
+SsdWidget ssd_menu_new_grid (const char           *name,
+                               SsdWidget          addition_conatiner,
+                               const char           *items_file,
+                               const char           *items[],
+                               const RoadMapAction  *actions,
+                               int                   flags) {
+
+    SsdWidget container;
+    SsdWidget space;
+    int i;
+    int next_item_flags = 0;
+    int row_height = ssd_container_get_row_height();
+
+    const char **menu_items =
+       roadmap_factory_user_config (items_file, "menu", actions);
+
+    SsdWidget dialog = ssd_dialog_new (name, roadmap_lang_get (name), NULL,
+                       flags|SSD_ALIGN_CENTER|SSD_DIALOG_GUI_TAB_ORDER);
+
+    int width  = ssd_container_get_width();
+    container = ssd_container_new (name, NULL, SSD_MAX_SIZE, SSD_MIN_SIZE,
+                                   SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+    //ssd_widget_set_color (dialog, NULL, NULL);
+    ssd_widget_set_color (container, NULL, NULL);
+   //add additional container
+      if (addition_conatiner != NULL){
+         space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE|SSD_END_ROW);
+         ssd_widget_set_color (space, NULL,NULL);
+         if (flags & SSD_DIALOG_ADDITION_BELOW) {
+            ssd_widget_add(dialog, space);
+            ssd_widget_add(dialog, container);
+            ssd_widget_add(dialog, addition_conatiner);
+         } else {
+            ssd_widget_add(dialog, space);
+            ssd_widget_add(dialog, addition_conatiner);
+            ssd_widget_add(dialog, container);
+         }
+      }
+      else{
+       space = ssd_container_new ("spacer", NULL, SSD_MAX_SIZE, 5, SSD_WIDGET_SPACE|SSD_END_ROW);
+       ssd_widget_set_color (space, NULL,NULL);
+       ssd_widget_add(dialog, space);
+       ssd_widget_add(dialog, container);
+      }
+
+
+    /* Override long click */
+    //container->long_click = long_click;
+
+    if (!menu_items) menu_items = items;
+
+    for (i = 0; menu_items[i] != NULL; ++i) {
+
+       const char *item = menu_items[i];
+
+       if (!strcmp(item,RoadMapFactorySeparator)) {
+          next_item_flags = SSD_START_NEW_ROW;
+
+       } else {
+
+          SsdWidget text_box,button_container,button;
+          const RoadMapAction *this_action = find_action (actions, item);
+          const char *button_icon[2];
+          SsdWidget text;
+          SsdWidget w;
+         // int height = 60;
+
+          //if ( roadmap_screen_is_hd_screen() )
+          //{
+           //height = 90;
+         // }
+
+          w = ssd_container_new (item, NULL,
+                            100, 100,
+                            SSD_WS_TABSTOP|SSD_ALIGN_CENTER|next_item_flags);
+          ssd_widget_set_color(w, "#00ff00", "#00ff00");
+
+          w->long_click = long_click;
+          w->key_pressed = on_key_pressed;
+          w->short_click = short_click;
+          w->pointer_down = on_pointer_down;
+          ssd_widget_set_pointer_force_click(w);
+          w->key_pressed = on_key_pressed;
+          ssd_widget_set_color (w, NULL, NULL);
+
+          button_container = ssd_bitmap_new("button_container", "button_bg",
+                                          SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+          ssd_dialog_add_vspace(button_container, 10, 0);
+          ssd_widget_set_color(button_container, "#ff0000", "#ff0000");
+          button_icon[0] = item;
+          button_icon[1] = NULL;
+          button = ssd_button_new
+                               (item, item, button_icon, 1, SSD_ALIGN_CENTER|SSD_END_ROW,
+                                NULL);
+          ssd_widget_set_context (w, this_action->callback);
+          ssd_widget_add(button_container, button);
+
+
+          text = ssd_text_new ("label_long",
+                              roadmap_lang_get (this_action->label_long),
+                              SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_CENTER);
+          ssd_widget_add (button_container, text);
+          ssd_widget_add(w, button_container);
+          ssd_widget_add (container, w);
+
+          next_item_flags = 0;
+          }
+
+
+
+    }
+
+    return dialog;
+}
+
 SsdWidget ssd_menu_new (const char           *name,
                                SsdWidget          addition_conatiner,
                                const char           *items_file,
@@ -491,6 +611,8 @@ SsdWidget ssd_menu_new_cb (const char           *name,
                                int                   flags,
                                PFN_ON_DIALOG_CLOSED on_dialog_closed) {
 
+   const char *edit_button_r[] = {"edit_right", "edit_right"};
+   const char *edit_button_l[] = {"edit_left", "edit_left"};
    SsdWidget container;
    int i;
    int next_item_flags = 0;
@@ -510,11 +632,12 @@ SsdWidget ssd_menu_new_cb (const char           *name,
 #ifndef IPHONE_NATIVE
          width = height;
 #else
-         width = 320;
+         width = ADJ_SCALE(320);
 #endif
 #endif
 
-      width -= 40;
+      width -= ADJ_SCALE(40);
+
       if (!roadmap_screen_is_hd_screen()){
         if (width > 240)
           width = 240;
@@ -540,7 +663,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
    	SsdWidget space;
       int width  = ssd_container_get_width();
       container = ssd_container_new (name, NULL, width, SSD_MIN_SIZE,
-                                  SSD_ROUNDED_WHITE|SSD_ROUNDED_CORNERS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
+                                     SSD_CONTAINER_FLAGS|SSD_CONTAINER_BORDER|SSD_ALIGN_CENTER);
       //ssd_widget_set_color (dialog, NULL, NULL);
       ssd_widget_set_color (container, NULL, NULL);
 	  //add additional container
@@ -599,7 +722,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
 	         ssd_widget_set_color (w, NULL, NULL);
 
 	         button_cont = ssd_container_new ("Button_con", NULL,
-                           60, row_height,
+                           ADJ_SCALE(60), row_height,
                            0);
 	         ssd_widget_set_color(button_cont, NULL, NULL);
 	         button = ssd_button_new
@@ -618,44 +741,45 @@ SsdWidget ssd_menu_new_cb (const char           *name,
 	         ssd_widget_set_context (w, this_action->callback);
 	         ssd_widget_add (w, button_cont);
 
-	         if (!(flags & SSD_BUTTON_NO_TEXT)){
-	           text_box = ssd_container_new ("text_box", NULL,
-	                                         SSD_MIN_SIZE,
-	                                         SSD_MIN_SIZE,
-	                                         SSD_ALIGN_VCENTER|SSD_END_ROW);
+            text_box = ssd_container_new ("text_box", NULL,
+                                         SSD_MIN_SIZE,
+                                         SSD_MIN_SIZE,
+                                         SSD_ALIGN_VCENTER|SSD_END_ROW);
 
-	           ssd_widget_set_color (text_box, "#000000", NULL);
+            ssd_widget_set_color (text_box, NULL, NULL);
 
-	           text = ssd_text_new ("label_long",
-	                                roadmap_lang_get (this_action->label_long),
-	                                SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER|SSD_END_ROW);
-	           ssd_text_set_color(text, "#ffffff");
-	           if ( roadmap_screen_is_hd_screen() )
-	              item_offset_y *= hd_factor;
-	           ssd_widget_set_offset( text, 0, item_offset_y );
-	           ssd_widget_add (text_box, text);
-	           ssd_widget_add (w, text_box);
-	         }
+            text = ssd_text_new ("label_long",
+                                roadmap_lang_get (this_action->label_long),
+                                SSD_MAIN_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_END_ROW);
+            ssd_widget_set_color(text, "#ffffff","#000000");
+            if ( roadmap_screen_is_hd_screen() )
+               item_offset_y *= hd_factor;
+            ssd_widget_set_offset( text, 0, item_offset_y );
+            ssd_widget_add (text_box, text);
+            ssd_widget_add (w, text_box);
 
 	         ssd_widget_add (container, w);
-	         ssd_widget_add(container, ssd_separator_new("Separator",0));
+            if (menu_items[i+1] != NULL)
+               ssd_widget_add(container, ssd_separator_new("Separator",0));
 
+#ifndef ANDROID
             if (menu_items[i+1] == NULL){
                SsdWidget w = ssd_container_new ("cancel", NULL,
                                  SSD_MAX_SIZE, row_height,
                                  SSD_WS_TABSTOP|next_item_flags);
+               ssd_widget_add(container, ssd_separator_new("Separator",0));
                ssd_widget_set_color (w, NULL, NULL);
                w->short_click = on_cancel;
                w->pointer_down = on_pointer_down;
                w->key_pressed = on_key_pressed_cancel;
                ssd_widget_set_pointer_force_click(w);
-               text = ssd_text_new("cancel", roadmap_lang_get("Cancel"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
-               ssd_text_set_color(text, "#ffffff");
-			      ssd_widget_set_pointer_force_click(w);
+               text = ssd_text_new("cancel", roadmap_lang_get("Cancel"), SSD_MAIN_TEXT_SIZE, SSD_ALIGN_VCENTER|SSD_ALIGN_CENTER);
+               ssd_widget_set_color(text, "#ffffff","#ffffff");
+               ssd_widget_set_pointer_force_click(w);
                ssd_widget_add(w, text);
                ssd_widget_add (container, w);
             }
-
+#endif
       	 }
       	 else{
          SsdWidget text_box,button_container,button;
@@ -683,7 +807,7 @@ SsdWidget ssd_menu_new_cb (const char           *name,
          ssd_widget_set_color (w, "#000000", NULL);
 
          button_container = ssd_container_new ("button_container", NULL,
-                                         80,
+                                         ADJ_SCALE(80),
                                          SSD_MIN_SIZE,
                                          SSD_ALIGN_VCENTER);
          ssd_widget_set_color(button_container, NULL, NULL);
@@ -697,28 +821,39 @@ SsdWidget ssd_menu_new_cb (const char           *name,
          ssd_widget_add(w, button_container);
 
 
-         if (!(flags & SSD_BUTTON_NO_TEXT)){
            text_box = ssd_container_new ("text_box", NULL,
                                          SSD_MIN_SIZE,
                                          SSD_MIN_SIZE,
                                          SSD_ALIGN_VCENTER);
-           ssd_widget_set_color (text_box, "#000000", NULL);
+           ssd_widget_set_color (text_box, NULL, NULL);
 
            text = ssd_text_new ("label_long",
                                 roadmap_lang_get (this_action->label_long),
                                 SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT);
+           ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
            ssd_widget_add (text_box, text);
            text = ssd_text_new ("right_text",
                           "",
-                          SSD_SECONDARY_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_ALIGN_RIGHT|SSD_ALIGN_VCENTER);
+                          SSD_SECONDARY_TEXT_SIZE, SSD_ALIGN_RIGHT|SSD_ALIGN_VCENTER);
            if (ssd_widget_rtl(NULL))
               ssd_widget_set_offset(text, 15,0);
            else
               ssd_widget_set_offset(text, -15,0);
-           ssd_text_set_color(text, "#4c4c4c");
+           ssd_widget_set_color(text, "#206892","#ffffff");
            ssd_widget_add (w, text);
            ssd_widget_add (w, text_box);
-         }
+           if (!ssd_widget_rtl(NULL))
+              button = ssd_button_new ("edit_button", "", &edit_button_r[0], 2,
+                       SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL);
+           else
+              button = ssd_button_new ("edit_button", "", &edit_button_l[0], 2,
+                       SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT, NULL);
+           if (!ssd_widget_rtl(NULL))
+              ssd_widget_set_offset(button, -10, 0);
+           else
+              ssd_widget_set_offset(button, 11, 0);
+           ssd_widget_add(w, button);
+
          ssd_widget_add (container, w);
          if (menu_items[i+1] != NULL){
             ssd_widget_add(container, ssd_separator_new("Separator",SSD_END_ROW));
@@ -774,7 +909,6 @@ static SsdWidget  ssd_menu_list_new(const char           *name,
    const char **menu_items = NULL;
    const char *button_icon[3];
    int rtl_flag;
-   int btn_offset = 0;
 
 #ifdef TOUCH_SCREEN
    SsdWidget scroll_up, scroll_down;
@@ -953,7 +1087,8 @@ void ssd_menu_activate (const char           *name,
                         SsdWidget 			 addition_conatiner,
                         PFN_ON_DIALOG_CLOSED on_dialog_closed,
                         const RoadMapAction  *actions,
-                        int                   flags) {
+                        int                   flags,
+                        int                   animation) {
    SsdWidget dialog = ssd_dialog_activate (name, NULL);
 
 
@@ -966,6 +1101,32 @@ void ssd_menu_activate (const char           *name,
    }
 
    dialog = ssd_menu_new (name, addition_conatiner, items_file, items, actions, flags);
+   ssd_dialog_set_animation(name, animation);
+   ssd_dialog_activate (name, NULL);
+   ssd_dialog_set_callback (on_dialog_closed);
+   ssd_dialog_draw ();
+}
+
+
+void ssd_grid_menu_activate (const char           *name,
+                        const char           *items_file,
+                        const char           *items[],
+                        SsdWidget          addition_conatiner,
+                        PFN_ON_DIALOG_CLOSED on_dialog_closed,
+                        const RoadMapAction  *actions,
+                        int                   flags) {
+   SsdWidget dialog = ssd_dialog_activate (name, NULL);
+
+
+
+   if (dialog) {
+      ssd_dialog_set_callback (on_dialog_closed);
+      ssd_widget_set_flags (dialog, flags);
+      ssd_dialog_draw ();
+      return;
+   }
+
+   dialog = ssd_menu_new_grid (name, addition_conatiner, items_file, items, actions, flags);
 
    ssd_dialog_activate (name, NULL);
    ssd_dialog_set_callback (on_dialog_closed);

@@ -95,10 +95,11 @@ struct roadmap_canvas_image {
    RMOglImageRestoreCb	restore_cb;		// The image restoration callback. Allows restore the texture if deleted
    long			 update_time;		/* AGA DEBUG */
    RoadMapGuiPoint   offset;
+   int               is_pattern;
 } roadmap_canvas_image;
 
 
-#if defined(ROADMAP_CANVAS_C) || defined(ROADMAP_CANVAS_FONT_C) || defined(ROADMAP_CANVAS_OGL_C)
+#if defined(ROADMAP_CANVAS_C) || defined(ROADMAP_CANVAS_FONT_C) || defined(ROADMAP_CANVAS_OGL_C) || defined(ROADMAP_CANVAS_TILE_C)
 #ifndef INLINE_DEC
 #define INLINE_DEC static
 #endif //INLINE_DEC

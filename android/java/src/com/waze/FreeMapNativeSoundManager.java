@@ -32,11 +32,15 @@
 
 package com.waze;
 
+import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.util.ArrayList;
 
 import android.media.MediaPlayer;
 import android.media.MediaPlayer.OnCompletionListener;
+import android.media.MediaPlayer.OnErrorListener;
 import android.util.Log;
 /**
  * TODO: Manage failures in terms of media player release
@@ -82,10 +86,36 @@ public final class FreeMapNativeSoundManager
     public void PlayFile( byte aFileName[] )
     {
         String fileName = new String( aFileName, 0, aFileName.length );
+        File file = new File( fileName );
     	mPendingPlayersList.add( fileName );
+
     	PlayNext();
     }
 
+    /*************************************************************************************************
+     * Add file to the list and try to play
+     * 
+     * @param aFileName
+     *            - the full path to the file
+     */
+    public void PlayBuffer( byte aData[] )
+    {
+    	try 
+    	{
+	    	File file = File.createTempFile( "sound", null, new File( WazeResManager.mAppDir + WazeResManager.mSoundDir ) );
+	    	FileOutputStream fos = new FileOutputStream( file );
+	    	fos.write( aData );
+	    	fos.close();
+	    	
+	    	mPendingPlayersList.add( file.getAbsolutePath() );
+	    	PlayNext();
+    	}
+    	catch( Exception ex )
+    	{
+    		WazeLog.ee( "Error playing sound buffer", ex );
+    		ex.printStackTrace();
+    	}
+    }
     /*************************************************************************************************
      * Playing the sound file for the SDK supported formats. The overloaded
      * function for the more convenient call from the native layer
@@ -242,39 +272,39 @@ public final class FreeMapNativeSoundManager
             }
             catch( Exception ex )
             {
-            	WazeLog.e( "Audio Player. Error playing the file " + mFileName, ex );
+            	WazeLog.ee( "Audio Player. Error playing the file " + mFileName, ex );
+            	ex.printStackTrace();
+            	if ( mMP != null )
+            	{
+            		finalizePlay( mMP );
+            	}
             }
     	}
     	public String getFileName()
     	{
     		return mFileName;
     	}
-    	private void BufferInternal()
+    	private void BufferInternal() throws IOException
     	{
-            try
-            {
-	    		mMP = new MediaPlayer();
-	    		mMP.setOnCompletionListener( new CompletionListener() );
-	            // Load the file
-	            final FileInputStream fileInStream = new FileInputStream( mFileName );
-	            // Prepare the media player
-	            mMP.setDataSource( fileInStream.getFD() );
-	            // Set the volume to the maximum. Adjustment is performed through
-	            // the general media volume setting
-	            mMP.setVolume(1, 1);                     
-	            /*
-	             * Prepare the data file
-	             */
-	            mMP.prepare();
-	            
-	            mBuffered = true;
-            }
-            catch( Exception ex )
-            {
-            	Log.e( "WAZE", "Exception occurred: " + ex.getMessage() );
-            }
-
+    		
+    		mMP = new MediaPlayer();
+    		mMP.setOnCompletionListener( new CompletionListener() );
+    		mMP.setOnErrorListener( new ErrorListener() );
+            // Load the file
+            final FileInputStream fileInStream = new FileInputStream( mFileName );
+            // Prepare the media player
+            mMP.setDataSource( fileInStream.getFD() );
+            // Set the volume to the maximum. Adjustment is performed through
+            // the general media volume setting
+            mMP.setVolume(1, 1);                     
+            /*
+             * Prepare the data file
+             */
+            mMP.prepare();
+            
+            mBuffered = true;	            
     	}
+    	
     	/*
     	 * Completion  listener - indicate the next file can be played. Post request for the next file playing 
     	 */
@@ -282,16 +312,29 @@ public final class FreeMapNativeSoundManager
     	{
             public void onCompletion( MediaPlayer aMP )
             {            	
-            	aMP.release();            	
-            	mPlaying = false;
-            	
-            	Runnable playNext = new Runnable() {
-					public void run() {
-						PlayNext();
-					}
-				};
-				mNativeManager.PostRunnable( playNext );
+            	finalizePlay( aMP );
             }            
+    	}
+    	private final class ErrorListener implements OnErrorListener
+    	{
+    		public boolean onError( MediaPlayer aMP, int what, int extra )
+    		{
+    			finalizePlay( aMP );
+    			return true;
+    		}
+    	}
+    	
+    	private void finalizePlay( MediaPlayer aMP )
+    	{
+    		aMP.release();            	
+        	mPlaying = false;
+        	
+        	Runnable playNext = new Runnable() {
+				public void run() {
+					PlayNext();
+				}
+			};
+			mNativeManager.PostRunnable( playNext );
     	}
     	private String mFileName;
     	private boolean mBuffered = false;			// Indicates whether the prepare is finished

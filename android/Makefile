@@ -97,6 +97,7 @@ RMLIBSRCS=roadmap_main.c \
           roadmap_androidmenu.c \
           roadmap_androidmsgbox.c \
           roadmap_androidrecommend.c \
+          roadmap_androidspeechtt.c \
           JNI/FreeMapNativeTimerTask_JNI.c \
           JNI/FreeMapNativeTimerManager_JNI.c \
           JNI/FreeMapNativeManager_JNI.c \
@@ -106,6 +107,8 @@ RMLIBSRCS=roadmap_main.c \
           JNI/WazeLog_JNI.c \
           JNI/WazeMenuManager_JNI.c \
           JNI/WazeMsgBox_JNI.c \
+          JNI/WazeSoundRecorder_JNI.c \
+          JNI/WazeSpeechttManager_JNI.c \
           JNI/FreeMapJNI.c	                             
 
 

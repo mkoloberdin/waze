@@ -28,10 +28,13 @@
 
 #include "../roadmap.h"
 #include "RealtimeExternalPoi.h"
+#include "RealtimeExternalPoiNotifier.h"
 #include "Realtime.h"
+#include "../roadmap_analytics.h"
+
 
 typedef struct {
-   int entitiesID[RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT];
+   RTExternalDispledEnrity entitiesID[RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT];
    int iCount;
 } RTExternalPoiDisplayedList;
 
@@ -45,8 +48,8 @@ int RealtimeExternalPoiNotifier_DisplayedList_Count() {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-int RealtimeExternalPoi_DisplayedList_get_ID(int index) {
-   return gExternalPoisDisplayedList.entitiesID[index];
+RTExternalDispledEnrity *RealtimeExternalPoi_DisplayedList_get_ID(int index) {
+   return &gExternalPoisDisplayedList.entitiesID[index];
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
@@ -65,10 +68,11 @@ void RealtimeExternalPoiNotifier_DisplayedList_Init(){
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-void RealtimeExternalPoiNotifier_DisplayedList_add_ID(int ID) {
-   if (gExternalPoisDisplayedList.iCount < RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT)
-      gExternalPoisDisplayedList.entitiesID[gExternalPoisDisplayedList.iCount++] = ID;
-   else{
+void RealtimeExternalPoiNotifier_DisplayedList_add_ID(int ID, int iPromotionID) {
+   if (gExternalPoisDisplayedList.iCount < RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT){
+      gExternalPoisDisplayedList.entitiesID[gExternalPoisDisplayedList.iCount].iID = ID;
+      gExternalPoisDisplayedList.entitiesID[gExternalPoisDisplayedList.iCount++].iPromotionID = iPromotionID;
+   }else{
       // Table is Full. Send List to the server.
       roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier_DisplayedList_add_ID  Display list is full ");
       SendMessage_ExternalPoiDisplayed(NULL);
@@ -76,13 +80,29 @@ void RealtimeExternalPoiNotifier_DisplayedList_add_ID(int ID) {
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
-void RealtimeExternalPoiNotifier_NotifyOnPopUp(int iID){
-   roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier NotifyOnPopUp - external POI DB id =%d",iID);
-   Realtime_ExternalPoiNotifyOnPopUp(iID);
+void RealtimeExternalPoiNotifier_NotifyOnPopUp(int iID,  int iPromotionID){
+   roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier NotifyOnPopUp - external POI DB id =%d, promotion ID=%d",iID, iPromotionID);
+   Realtime_ExternalPoiNotifyOnPopUp(iID, iPromotionID);
+}
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeExternalPoiNotifier_NotifyOnPromotionPopUp(int iID, int iPromotionID){
+   roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier NotifyOnPromotionPopUp - external POI DB id =%d, PromotionID=%d",iID, iPromotionID);
+
+   Realtime_ExternalPoiNotifyOnPromotionPopUp(iID, iPromotionID);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+void RealtimeExternalPoiNotifier_NotifyOnInfoPressed(int iID, int iPromotionID){
+   roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier_NotifyOnInfoPressed NotifyOnPromotionPopUp - external POI DB id =%d, PromotionID=%d",iID, iPromotionID);
+   Realtime_ExternalPoiNotifyOnInfoPressed(iID, iPromotionID);
+
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 void RealtimeExternalPoiNotifier_NotifyOnNavigate(int iID){
    roadmap_log(ROADMAP_DEBUG, "RealtimeExternalPoiNotifier NotifyOnNavigate - external POI DB =id =%d",iID);
+   roadmap_analytics_log_event(ANALYTICS_EVENT_NAVIGATE, ANALYTICS_EVENT_INFO_SOURCE, "POI");
    Realtime_ExternalPoiNotifyOnNavigate(iID);
 }

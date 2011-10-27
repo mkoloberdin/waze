@@ -62,7 +62,11 @@ typedef int       (*roadmap_alerts_check_same_street)(int alert) ;
 typedef int       (*roadmap_alerts_handle_event)(int alertId) ;
 typedef int       (*roadmap_alerts_get_priority)  (void);
 typedef roadmap_alerter_location_info * (*roadmap_alerts_get_location_info)(int alertId);
-typedef BOOL        (*roadmap_alerts_distance_check)(RoadMapPosition gps_pos);
+typedef BOOL      (*roadmap_alerts_distance_check)(RoadMapPosition gps_pos);
+typedef BOOL      (*roadmap_alerts_can_send_thumbs_up)(int alert);
+typedef int       (*roadmap_alerts_thumbs_up)(int alert) ;
+typedef BOOL      (*roadmap_alerts_show_distance)(int alert);
+typedef BOOL      (*roadmap_alerts_is_on_route)(int alert);
 typedef struct {
    char *name;
    roadmap_alerts_count    					count;
@@ -77,13 +81,21 @@ typedef struct {
    roadmap_alerts_is_alertable				is_alertable;
    roadmap_alerts_get_string				   get_string;
    roadmap_alerts_is_cancelable			   is_cancelable;
-   roadmap_alerts_cancel					   cancel;   
+   roadmap_alerts_cancel					   cancel;
    roadmap_alerts_check_same_street       check_same_street;
-   roadmap_alerts_handle_event            handle_event;
+   roadmap_alerts_handle_event            handle_distance_event;
    roadmap_alerts_is_square_dependent     is_square_dependent;
    roadmap_alerts_get_location_info       get_location_info;
    roadmap_alerts_distance_check          distance_check;
-   roadmap_alerts_get_priority           get_priority; 
+   roadmap_alerts_get_priority            get_priority;
+   roadmap_alerts_get_string              get_additional_string;
+   roadmap_alerts_can_send_thumbs_up      can_send_thumbs_up;
+   roadmap_alerts_thumbs_up               thumbs_up;
+   roadmap_alerts_show_distance           show_distance;
+   roadmap_alerts_handle_event            handle_event;
+   roadmap_alerts_is_on_route             is_on_route;
+   roadmap_alerts_handle_event            on_alerter_start;
+   roadmap_alerts_handle_event            on_alerter_stop;
 } roadmap_alert_provider;
 
 typedef struct {
@@ -97,6 +109,6 @@ int 		roadmap_alerter_get_active_alert_id();
 void 		roadmap_alerter_register(roadmap_alert_provider *provider);
 void 		roadmap_alerter_check(const RoadMapGpsPosition *gps_position, const PluginLine *line);
 void 		roadmap_alerter_display();
-int      roadmap_alerter_get_priority();       
+int      roadmap_alerter_get_priority();
 
 #endif //_ROADMAP_ALERTS__H_

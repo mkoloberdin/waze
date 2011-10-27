@@ -42,6 +42,8 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
+import android.net.ConnectivityManager;
 import android.net.Uri;
 import android.os.Handler;
 import android.os.IBinder;
@@ -64,10 +66,6 @@ final public class FreeMapAppService extends Service
         // Initialize the service instance
         mInstance = this;
         
-        // Draw splash background ( ApplicationContext should be available. Can be run from onCreate of Activity however
-        // in this case another functions (IsHd) should be aware of the ApplicationContext somehow )
-        getMainView().DrawSplashBackground();
-        
         if ( WAZE_LOGCAT_MONITOR_ENABLED )
         {
 	        // Create the logcat thread
@@ -76,13 +74,24 @@ final public class FreeMapAppService extends Service
 	        mLogCatMonitor.start();
         }
         // Reduce the possibility to be killed 
-        setForeground( true );
+        // setForeground( true ); // @deprecated
         
+        if ( mResumeEvent != null )
+        {
+        	mResumeEvent.run();
+        }
 //        registerReceiver( mScreenManager, new IntentFilter( Intent.ACTION_SCREEN_OFF ) );
 //        registerReceiver( mScreenManager, new IntentFilter( Intent.ACTION_SCREEN_ON ) );
 
-        
+        mConnEventReceiver = new ConnEventReceiver();
+    	// Register on the intent providing the battery level inspection
+    	getAppContext().registerReceiver( mConnEventReceiver, new IntentFilter( ConnectivityManager.CONNECTIVITY_ACTION ) );
+    	
         Log.w( LOG_TAG, "Service started. Instance: " + mInstance );
+        
+        mIsStarting = false;
+        
+        mStartContext = null; // Allow disposing the startup  context upon service creation
     }
 
     @Override
@@ -97,31 +106,64 @@ final public class FreeMapAppService extends Service
     }
 
     /*************************************************************************************************
-     * Initializes the managers and starts the application
-     * 
+     * Initializes the managers and starts the application - default form
      * @param aContext
      *            - reference to the Activity context
      */
-    public static void StartApp( FreeMapAppActivity aContext )
+
+    public static void StartApp( Context aContext, Runnable aResumeEvent )
     {
-        mMainContext = aContext;
-        
+    	StartApp( aContext, aResumeEvent, APP_MODE_NORMAL );
+    }
+    /*************************************************************************************************
+     * Initializes the managers and starts the application
+     * @param aContext
+     *            - reference to the Activity context
+     */
+    public static void StartApp( Context aContext, Runnable aResumeEvent, int aAppMode )
+    {
         try
         {
-	        // Power manager
-	        mPowerManager = new FreeMapPowerManager();
-
+        	mIsStarting = true;
+        	
+        	mStartContext = aContext;
+        	
+        	mAppMode = aAppMode;
+        	
+        	// Screen manager
+	        mScreenManager = new WazeScreenManager( );
+	        
 	        // Start the native manager
 	        mNativeManager = FreeMapNativeManager.Start();
-
+	        mScreenManager.setNativeManager( mNativeManager );
+	        
 	        // Standby manager
 	        mStandbyManager = new WazeStandbyManager( mNativeManager );
-
-	        // Screen manager
-	        mScreenManager = new WazeScreenManager( mNativeManager );
+	        // Power manager
+	        mPowerManager = new FreeMapPowerManager();
 	        
-	        // Set notification
-	        SetNotification( WAZE_NOTIFICATION_RUNNING );
+	        
+	        if ( aAppMode == APP_MODE_NORMAL )
+	        {
+		        // Set notification
+		        SetNotification( WAZE_NOTIFICATION_RUNNING );
+	        }
+	        
+	        mResumeEvent = aResumeEvent;
+	        
+	        // Draw splash background ( ApplicationContext should be available. Can be run from onCreate of Activity however
+	        // in this case another functions (IsHd) should be aware of the ApplicationContext somehow )
+	        if ( !FreeMapAppService.IsInitialized() )
+            {
+            	Intent intent = new Intent( mStartContext, FreeMapAppService.class );
+            	/*
+            	 * Pay attention that onStart event of the service comes later than 
+            	 * onResume of activity. In the future the start flow should be in the onStart
+            	 * of the service 
+            	 */
+            	aContext.startService( intent );
+            }
+	        
         }
         catch( Exception ex )
         {
@@ -180,8 +222,32 @@ final public class FreeMapAppService extends Service
      */
     public static FreeMapAppActivity getMainActivity()
     {
-        return mMainContext;
+        return mAppActivity;
     }
+
+    /*************************************************************************************************
+     * If the application is in foreground
+     * 
+     * @param void
+     *            
+     */
+    public static boolean IsAppForeground()
+    {
+    	boolean res = ( ( mAppActivity != null ) && mAppActivity.IsRunning() );
+        return res;
+    }
+    /*************************************************************************************************
+     * If the main view is ready - surface created 
+     * 
+     * @param void
+     *            
+     */
+    public static boolean IsMainViewReady()
+    {
+    	boolean res = ( ( getMainView() != null ) && getMainView().IsReady() );
+        return res;
+    }
+    
     /*************************************************************************************************
      * Returns the application vew reference
      * 
@@ -191,19 +257,28 @@ final public class FreeMapAppService extends Service
     public static WazeMainView getMainView()
     {
     	WazeMainView mainView = null;
-    	if ( mMainContext != null )
-    		mainView = mMainContext.getMainView();
+    	if ( mAppActivity != null )
+    		mainView = mAppActivity.getMainView();
     	return mainView;    	
     }
     /*************************************************************************************************
      * Returns the application context reference
      * 
      * @param void
-     *            
+     * @return Context object of the process           
      */
     public static Context getAppContext()
     {
-        return mInstance.getApplicationContext();
+    	if ( mInstance != null )
+    		return mInstance.getApplicationContext();
+    	
+    	if ( mAppActivity != null )
+    		return mAppActivity.getApplicationContext();
+    	
+    	if ( mStartContext != null )
+    		return mStartContext.getApplicationContext();
+    	
+		return null;
     }
     
     /*************************************************************************************************
@@ -228,6 +303,14 @@ final public class FreeMapAppService extends Service
     }
     
     /*************************************************************************************************
+     * Returns the application mode
+     * @param int
+     */
+    public static int getAppMode()
+    {
+        return mAppMode;
+    }
+    /*************************************************************************************************
      * Shows the main activity window with the delay of aDelay msec-s
      * 
      * @param aDelay
@@ -251,16 +334,38 @@ final public class FreeMapAppService extends Service
     
     /*************************************************************************************************
      * 
-     * 
-     * @param aDelay
-     *            - delay in showing the main activity window
      */
     public static void OpenBrowserForUpgrade()
     {
         // Send message to show the Dialer
         mServiceMsgDispatcher.sendEmptyMessage( MSG_OPEN_BROWSER_FOR_UPGRADE );
     }
-
+    /*************************************************************************************************
+     * 
+     */
+    public static void OpenBrowser( final String aUrl )
+    {
+    	final Runnable browserEvent = new Runnable() {
+			public void run() {
+		    	Intent browserIntent = new Intent( Intent.ACTION_VIEW );
+		        Uri uri = Uri.parse( aUrl );
+		        browserIntent.setFlags( Intent.FLAG_ACTIVITY_NEW_TASK );
+		        browserIntent.setData( uri );
+		        mInstance.startActivity( browserIntent );
+			}
+		};
+		Post( browserEvent );
+    }
+ 
+    /*************************************************************************************************
+     * 
+     * @param aEvent - runnable event to be called on the main thread
+     *            
+     */
+    public static void Post( Runnable aEvent )
+    {
+    	mServiceMsgDispatcher.post( aEvent );
+    }
 
     /*************************************************************************************************
      * Shows the home window. Waits aDelay msec-s before return to the main
@@ -405,7 +510,7 @@ final public class FreeMapAppService extends Service
      */
     private static void RestartApplicationHandler()
     {
-    	WazeIntentManager.RequestRestart( mMainContext );
+    	WazeIntentManager.RequestRestart( getAppContext() );
     	mNativeManager.ShutDown();
     }
 
@@ -471,12 +576,12 @@ final public class FreeMapAppService extends Service
     	
     	CharSequence tickerText = "waze";              // ticker-text
     	long when = System.currentTimeMillis();         // notification time
-    	Context context = (Context) mMainContext;
+    	Context context = getAppContext();
     	CharSequence contentTitle = "waze";  // expanded message title
     	CharSequence contentText = "return to waze";      // expanded message text
 
-    	Intent notificationIntent = new Intent( mMainContext, FreeMapAppActivity.class );
-    	PendingIntent contentIntent = PendingIntent.getActivity( mMainContext, 0, notificationIntent, 0 );
+    	Intent notificationIntent = new Intent( context, FreeMapAppActivity.class );
+    	PendingIntent contentIntent = PendingIntent.getActivity( context, 0, notificationIntent, 0 );
 
     	Notification notification = new Notification ( icon, tickerText, when );
     	notification.setLatestEventInfo( context, contentTitle, contentText, contentIntent );
@@ -495,7 +600,7 @@ final public class FreeMapAppService extends Service
     private static void ClearNotification()
     {
     	String ns = Context.NOTIFICATION_SERVICE;
-    	NotificationManager mNotificationManager = (NotificationManager) mMainContext.getSystemService(ns);
+    	NotificationManager mNotificationManager = (NotificationManager) getAppContext().getSystemService(ns);
     	mNotificationManager.cancel( mCurrentNotification );
     }
     /*************************************************************************************************
@@ -507,18 +612,25 @@ final public class FreeMapAppService extends Service
         if (mInstance == null)
             return;
         Intent cameraIntent = new Intent(mInstance, FreeMapCameraActivity.class);
-        cameraIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        cameraIntent.setFlags( Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_MULTIPLE_TASK );
         mInstance.startActivity(cameraIntent);
     }
 
     /*************************************************************************************************
      * The activity being used as a main activity
      */
-    public static void setMainContext( FreeMapAppActivity aContext )
+    public static void setAppActivity( FreeMapAppActivity aAppActivity )
     {
-        mMainContext = aContext;
+        mAppActivity = aAppActivity;
     }
 
+    /*************************************************************************************************
+     * Service initialized indicator
+     */
+    public static boolean IsStarting()
+    {
+        return mIsStarting;
+    }
     /*************************************************************************************************
      * Service initialized indicator
      */
@@ -550,17 +662,22 @@ final public class FreeMapAppService extends Service
      */
     public static void ShutDown()
     {
+    	Context ctx = getAppContext();
+    	
+    	if ( ctx != null )
+    		ctx.unregisterReceiver( mConnEventReceiver );
+    	
         if (mInstance == null)
             return;
         if ( mLogCatMonitor != null ) 
             mLogCatMonitor.Destroy();
-        mInstance.stopSelf();
         
         ClearNotification();
         
+        mInstance.stopSelf();
     }
     
-	public final static int MSG_SHOW_MAIN_ACTIVITY = 0; // This message will
+    public final static int MSG_SHOW_MAIN_ACTIVITY = 0; // This message will
 														// cause the main
 														// application window to
 														// be shown
@@ -584,6 +701,9 @@ final public class FreeMapAppService extends Service
    public final static int MSG_SHOW_CONTACTS = 6; // This message will
    														// cause the application to be restarted
 
+   public final static int APP_MODE_NORMAL = 0;		// Normal application execution
+   
+   public final static int APP_MODE_WIDGET = 1;		// Widget mode. Only background requests
    
    public final static String WAZE_UPGRADE_URL = "m.waze.com"; 
    
@@ -593,8 +713,10 @@ final public class FreeMapAppService extends Service
 																							// service
 																							// message
 																							// dispatcher	
-	private static FreeMapAppActivity mMainContext; // Main context created the
+	private static FreeMapAppActivity mAppActivity; // Main context created the
 												    // service
+	
+	private static Context mStartContext;			// Context passed to the service during startup 
 
     private static FreeMapPowerManager mPowerManager;
     
@@ -602,8 +724,12 @@ final public class FreeMapAppService extends Service
     
     private static WazeScreenManager mScreenManager;
     
+    private static Runnable mResumeEvent = null;
+    
     private static FreeMapNativeManager mNativeManager = null; // Native manager reference
 
+    private static ConnEventReceiver mConnEventReceiver = null;
+    
     private static String 	mUrl = null;		// Start Up URL parameters
 
 	
@@ -616,6 +742,10 @@ final public class FreeMapAppService extends Service
     private static final boolean WAZE_LOGCAT_MONITOR_ENABLED	 = 	false;
     
     private static int 			mCurrentNotification;
+    
+    private static int 			mAppMode = APP_MODE_NORMAL;
+    
+    private static boolean		mIsStarting = false;
     
     static public LogCatMonitor mLogCatMonitor = null;          // Log cat monitor thread   
 }

@@ -33,7 +33,8 @@ enum { VIEW_MODE_2D = 0,
 };
 
 enum { ORIENTATION_DYNAMIC = 0,
-       ORIENTATION_FIXED
+       ORIENTATION_FIXED,
+       ORIENTATION_MAGNETIC
 };
 
 
@@ -42,6 +43,7 @@ enum { ORIENTATION_DYNAMIC = 0,
 /* The base width for which all the absolute values for width values are adjusted */
 #define RM_SCREEN_BASE_WIDTH 	320
 
+#define RM_SCREEN_CAR_ANIMATION 1000
 
 void roadmap_screen_initialize (void);
 void roadmap_screen_shutdown   (void);
@@ -122,7 +124,8 @@ int roadmap_screen_draw_one_tex_line (RoadMapPosition *from,
                                       RoadMapGuiPoint *middle,
                                       int *angle,
                                       RoadMapImage image,
-                                      BOOL oposite);
+                                      BOOL oposite,
+                                      int offset);
 
 void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          RoadMapPosition *to,
@@ -132,7 +135,8 @@ void roadmap_screen_draw_line_direction (RoadMapPosition *from,
                                          RoadMapShapeItr shape_itr,
                                          int width,
                                          int direction,
-                                         const char *color);
+                                         const char *color,
+                                         int offset);
 
 int roadmap_screen_fast_refresh (void);
 
@@ -202,11 +206,20 @@ void roadmap_screen_shade_bg(void);
 void roadmap_screen_flush_lines_and_points(void);
 
 void roadmap_screen_set_animating( BOOL value );
+void roadmap_screen_set_scale (long scale, int use_map_units);
+void roadmap_screen_update_center_animated (const RoadMapPosition *pos, int duration, BOOL linear);
 void roadmap_screen_set_cording_rotation_enabled( BOOL value );
-
 #define isViewModeAny3D()	\
 ((RoadMapScreenViewMode == VIEW_MODE_3D) || (RoadMapScreenOGLViewMode == VIEW_MODE_3D))
 
+void roadmap_screen_update_center_animated (const RoadMapPosition *pos, int duration, BOOL linear);
+void roadmap_screen_start_glow (RoadMapPosition *position, int max_duraiton, RoadMapGuiPoint *offset);
+void roadmap_screen_stop_glow (void);
+
 #define ADJ_SCALE(_size) ( _size * roadmap_screen_get_screen_scale()/100 )
+BOOL roadmap_screen_is_any_dlg_active();
+
+void roadmap_screen_override_view_mode (int override_mode);
+void roadmap_screen_reset_view_mode (void);
 
 #endif // INCLUDE__ROADMAP_SCREEN__H

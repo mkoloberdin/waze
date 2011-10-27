@@ -1,5 +1,5 @@
 /**  
- * FreeMapResources.java
+ * WazeResManager.java
  * This class is responsible for the resources extraction and management
  * The context ha to be initialized before use
  *   
@@ -34,13 +34,11 @@ package com.waze;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Enumeration;
@@ -48,27 +46,25 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 import android.app.Activity;
-import android.app.AlertDialog;
-import android.app.Application;
-import android.app.ProgressDialog;
 import android.content.Context;
-import android.content.DialogInterface;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.Message;
+import android.content.res.AssetManager;
+import android.graphics.Typeface;
 import android.util.Log;
 import android.view.Display;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
-
-import com.waze.FreeMapNativeManager.FreeMapUIEvent;
+import android.widget.Toast;
 import com.waze.WazeUtils.ExceptionEntry;
 
-public final class FreeMapResources
+public final class WazeResManager
 {
     /*************************************************************************************************
-     *================================= Public interface section
-     * =================================
+     *================================= Public interface section =================================
      * 
      */
     public enum ZipEntryType
@@ -76,39 +72,44 @@ public final class FreeMapResources
         ZIP_ENTRY_FILE, ZIP_ENTRY_DIRECTORY
     }
 
+    static public WazeResManager Create()
+    {
+    	mInstance = new WazeResManager();
+    	return mInstance;
+    }
+
     /*************************************************************************************************
      * Extraction of the native library and other resources from the APK package
      * 
      */
-    public static boolean ExtractResources()
+    public static void Prepare()
     {
         // Check if we have context to run in
     	final Context context = FreeMapAppService.getAppContext();
-    	boolean isExtracted = false;
         if ( context == null )
         {
             Log.e("FreeMapResources", "The context is not initialized");
-            return isExtracted;
+            return;
         }
-
         try
         {
             String resDir = mAppDir;
-            String libFile = mPkgDir + mLibFile;
             PackageInfo pi = context.getPackageManager().getPackageInfo(
             		context.getPackageName(), 0 );
             File appDirFile = new File( mAppDir );
             int currentVerCode = GetVersionFromFile();
             int verCode = pi.versionCode;
             ExceptionEntry[] extractExceptions = null;
+            ExceptionEntry[] skinsExtractExceptions = null;
             ExceptionEntry userException[] = null;
             // Log.d("Waze installation", "Current version: " + verCode + ". Previous version: " + GetVersionFromFile() );
             if ( currentVerCode < verCode || !appDirFile.exists() )
             {
-            	View curView = FreeMapAppService.getMainView();
-            	UIProgressDlgRunner showRunner = new UIProgressDlgRunner( null, UIProgressDlgRunner.ACTION_CREATE_PROGRESS|UIProgressDlgRunner.ACTION_SHOW );            	
-            	curView.postDelayed( showRunner, PROGRESS_DLG_SHOW_TIMEOUT ); 
-            	isExtracted = true;
+            	final FreeMapAppActivity activity = FreeMapAppService.getMainActivity();
+            	if ( activity != null )
+            		activity.setSplashProgressVisible();
+            	
+            	skinsExtractExceptions = BuildSkinsExceptionList();
             	
             	mUpgradeRun = 1;
                 // Remove the log files
@@ -124,7 +125,7 @@ public final class FreeMapResources
                     ExceptionEntry[] list = BuildCleanUpPkgDirExceptions( false );                    
                     WazeUtils.DeleteDir( mPkgDir, true, list );
                     WazeUtils.DeleteDir( resDir, true, null ); 
-                    extractExceptions = BuildCleanInstallExceptionList();
+                    extractExceptions = BuildCleanInstallExceptionList();                     
                 }
                 else                            /* Upgrade            */
                 {
@@ -143,58 +144,78 @@ public final class FreeMapResources
                     }                    
                     /* Delete the contents of the resource dir, except the ... */
                     WazeUtils.DeleteDir( resDir, true, extractExceptions );
+                    /* Delete the editor db files */
+                    String files[] = ( new File( mAppDir + mMapsDir ) ).list();
+                    for ( int i = 0; i < files.length; ++i )
+                    {
+                    	if ( files != null && files[i] != null )
+                    	{
+                    		if ( files[i].endsWith( mEditorDbExt ) )
+                    			WazeUtils.DeleteDir(  mAppDir + mMapsDir + files[i] );
+                    	}
+                    }            
                     /* Delete the contents of the package dir, except the ... */
                     WazeUtils.DeleteDir( mPkgDir, true, list );
+                }                
+                	
+                // Extract the library - obsolete. Was before NDK
+                if ( EXTRACT_LIBRARY )
+                {
+                    String libFile = mPkgDir + mLibFile;
+	                ExtractFromZip("assets/libandroidroadmap.so", libFile,
+	                        ZipEntryType.ZIP_ENTRY_FILE, null );
                 }
-                // Extract the library
-                ExtractFromZip("assets/libandroidroadmap.so", libFile,
-                        ZipEntryType.ZIP_ENTRY_FILE, null );
                 // Extract the resources directory
                 ExtractFromZip("assets/freemap", resDir,
                         ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
+
+                ExtractFromZip("assets/freemap/skins", resDir + "skins/",
+                        ZipEntryType.ZIP_ENTRY_DIRECTORY, skinsExtractExceptions );
                 
                 // Extract the HD resources if necessary
                 if ( IsHD() )
                 {
                     ExtractFromZip("assets/freemapHD", resDir,
                             ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
+                    ExtractFromZip("assets/freemapHD/skins", resDir + "skins/",
+                            ZipEntryType.ZIP_ENTRY_DIRECTORY, skinsExtractExceptions );
+
                 }
                 // Extract the LD resources if necessary
                 if ( IsLD() )
                 {
                     ExtractFromZip("assets/freemapLD", resDir,
                             ZipEntryType.ZIP_ENTRY_DIRECTORY, extractExceptions );
+                    ExtractFromZip("assets/freemapLD/skins", resDir + "skins/",
+                            ZipEntryType.ZIP_ENTRY_DIRECTORY, skinsExtractExceptions );
+
                 }
 
                 // Extract the user
                 ExtractFromZip("assets/freemap/user", mPkgDir + mUserFile,
                         ZipEntryType.ZIP_ENTRY_FILE, userException );
                                 
-                // Extract the maps directory
-//                ExtractFromZip("assets/freemap/maps", mAppDir + mMapsDir,
-//                        ZipEntryType.ZIP_ENTRY_DIRECTORY, null );                
                 SetVersionToFile(verCode);
-                /* Close the progress dialog */
-                showRunner.setAction( UIProgressDlgRunner.ACTION_CANCEL );
-                curView.post( showRunner );
+                // Create no media file
+                File file = new File( mSDCardResDir + "/.nomedia" );
+                if ( !file.exists() )
+                	file.createNewFile();
+
             }
             else
             {
                 Log.d("Freemap installation",
                         "Resources extraction unnecessary");
-                // AGA TEMP
-                // Extract the library
-//                ExtractFromZip("assets/libandroidroadmap.so", libFile,
-//                        ZipEntryType.ZIP_ENTRY_FILE, null );
-
             }
         }
         catch ( NameNotFoundException ex )
         {
-            Log.e("FreeMapNativeActivity", "ExtractResources() failed."
-                    + ex.getMessage() + ex.getStackTrace());
+            WazeLog.e( "Prepare failure", ex );
         }
-        return isExtracted;
+        catch ( IOException ex )
+        {
+        	WazeLog.e( "Prepare failure", ex );
+        }
     }
 
     static public boolean IsHD()
@@ -233,6 +254,30 @@ public final class FreeMapResources
     	
     	return splashPath;
     }
+    static public String GetSplashName( boolean wide )
+    {
+    	return mSplashName;
+    }
+
+    static public String GetSkinsPathCommon()
+    {
+    	String path = mBaseDirSD;
+   		path += mSkinsPath;    
+    	return path;
+    }
+    static public String GetSkinsPathCustom()
+    {
+    	String path = null;
+    	if ( IsHD() )
+    		path = mBaseDirHD;
+    	if ( IsLD() )
+    		path = mBaseDirLD;
+    	if ( path != null )
+    		path += mSkinsPath;
+    	
+    	return path;
+    }
+
     static public String GetSkinsPath()
     {
     	String path = mSDCardResDir;
@@ -241,90 +286,273 @@ public final class FreeMapResources
     }
     
     /*************************************************************************************************
+     * LoadResStream - General resource read function. Loads the requested resource from the disk ( high priority ) or 
+     *                  package and returns input stream object
+     * @param aResName - resource name
+     * @param aFilePath - resource path on the file system 
+     * @param aAssetPathList - array of paths in the assets to look for resource in 
+     * @return Input stream object
+     */
+    public static InputStream LoadResStream( final String aResName, String aFilePath, String[] aAssetPathList )
+    {    	
+    	AssetManager assetMgr = FreeMapAppService.getAppContext().getAssets();
+    	InputStream stream = null;    	
+    	try
+    	{
+    		File file = new File( aFilePath + "/" + aResName );
+    		// Trying to load from the sdcard
+    		if ( file.exists() )
+    		{
+    			stream = new FileInputStream( file );
+    		}
+    		else
+    		{
+    			for ( int i = 0; i < aAssetPathList.length; ++i )
+    			{
+    				final String path = aAssetPathList[i] + aResName;
+    				stream  = LoadAssetEntry( assetMgr, path );
+    				if ( stream != null )
+    					break;
+    			}
+    		}
+    	}
+		catch( Exception ex )
+    	{
+    		WazeLog.e( "Error loading image from package", ex );
+    	}
+		return stream;
+	}
+    /*************************************************************************************************
+     * LoadSkin - Skin resource read function. Loads the requested resource from the disk ( high priority ) or 
+     *                  package 
+     * @param aResName - resource name
+     * @return Data object of the resource (ResData instance)
+     */
+    public ResData LoadSkin( String aResName )
+    {    	
+    	String filePath = WazeResManager.GetSkinsPath();
+    	ResData result = null;
+    	final String[] assetPathList = 
+    		{ 
+    			WazeResManager.GetSkinsPathCustom(),
+    			WazeResManager.GetSkinsPathCommon()    		  
+    		};   
+    	
+    	result = LoadResData( aResName, filePath, assetPathList );
+    	
+    	return result;
+    }
+
+    /*************************************************************************************************
+     * LoadResData - General resource read function. Loads the requested resource from the disk ( high priority ) or 
+     *                  package 
+     * @param aResName - resource name
+     * @param aFilePath - resource path on the file system 
+     * @param aAssetPathList - array of paths in the assets to look for resource in 
+     * @return Data object of the resource (ResData instance)
+     */
+    public ResData LoadResData( String aResName, String aFilePath, String[] aAssetPathList )
+    {    	
+    	InputStream stream = null;
+    	int size = 0;
+    	byte[] array = null;
+    	ResData data = null;
+    	
+    	try
+    	{
+    		stream = LoadResStream( aResName, aFilePath, aAssetPathList );
+    		if ( stream != null )
+    		{
+    			array = WazeUtils.ReadStream( stream );
+    			data = new ResData( array, size );
+    			stream.close();
+    		}
+    	}
+    	catch( Exception ex )
+    	{
+    		WazeLog.e( "Error loading image from package", ex );
+    	}
+    	return data;
+    }
+
+    
+    /*************************************************************************************************
+     * class ResData - Represents resources data object  
+     *  
+     */
+    public static class ResData
+    {
+    	public ResData() {}
+    	public ResData( byte[] aBuf, int aSize ) 
+    	{
+    		buf = aBuf;
+    		size = aSize;
+    	}
+    	
+    	public byte[] buf;
+    	public int size;
+    }
+    
+    /*************************************************************************************************
+     * LoadSkinStream - Loads the requested skin resource and returns data stream  
+     * @param aResName - skin resource name
+     * @return stream of resource data 
+     */
+    public static InputStream LoadSkinStream( String aResName )
+    {    	    	
+    	String filePath = WazeResManager.GetSkinsPath();
+    	InputStream stream = null;
+    	final String[] assetPathList = 
+    		{ 
+    			WazeResManager.GetSkinsPathCustom(),
+    			WazeResManager.GetSkinsPathCommon()    		  
+    		};   
+        stream = WazeResManager.LoadResStream( aResName, filePath, assetPathList );
+		return stream;
+	}
+    
+    /*************************************************************************************************
+     * LoadResList - Returns the list of the resources under the specified path 
+     * @param aPath - path in the resources directories 
+     * @return array of the resources names 
+     */
+    public String[] LoadResList( String aPath )
+    {    	
+    	String[] resListArray = null;
+    	AssetManager assetMgr = FreeMapAppService.getAppContext().getAssets();
+    	if ( assetMgr == null )
+    	{
+    		WazeLog.ee( "Error loading resources list. Can't access asset manager" );
+    		return null;
+    	}
+    	ArrayList<String> resList = new ArrayList<String>();
+    	
+    	try
+    	{
+    		// Get the list of the resources under the path. 
+    		// AssetManager.list does not accept "double" splash as "single" splash
+    		String pathCustom = GetBaseDir() + aPath;
+    		pathCustom = pathCustom.replace( "//", "/" );
+    		String[] entries = assetMgr.list( pathCustom );
+	    	
+	    	resList.addAll( Arrays.asList( entries ) );
+	    	
+	    	String pathCommon = mBaseDirSD + aPath;
+	    	pathCommon = pathCommon.replace( "//", "/" );
+	    	entries = assetMgr.list( pathCommon );
+	    	
+	    	// Add only non existing entries from the common
+	    	for ( int i = 0; i < entries.length; ++i )
+	    	{
+	    		if ( !resList.contains( entries[i] ) )
+	    		{
+	    			resList.add( entries[i] );
+	    		}
+	    	}
+	    	
+	    	resListArray = new String[resList.size()];
+	    	resListArray = resList.toArray( resListArray );
+    	}
+    	catch( Exception ex )
+    	{
+    		WazeLog.e( "Exception while loading list of resources. Path: " + aPath, ex );
+    	}
+    	return resListArray;
+	}
+    
+    
+    /*************************************************************************************************
+     * getFaceVagReg - Returns the regular VAG font
+     * @param aContext - application context to access the resources 
+     * @return Typeface of the font 
+     */
+    public static Typeface getFaceVagReg( Context aContext )
+    {
+    	if ( mFaceVagReg == null )
+    		mFaceVagReg = Typeface.createFromAsset( aContext.getAssets(), mFontVagRegPath );
+    	
+    	return mFaceVagReg;
+    }
+    
+    /*************************************************************************************************
+     * getFaceVagBlck - Returns the black type of the VAG font
+     * @param aContext - application context to access the resources 
+     * @return Typeface of the font 
+     */
+    public static Typeface getFaceVagBlck( Context aContext )
+    {
+    	if ( mFaceVagBlck == null )
+    		mFaceVagBlck = Typeface.createFromAsset( aContext.getAssets(), mFontVagBlckPath );
+    	
+    	return mFaceVagBlck;
+    }
+
+    /*************************************************************************************************
+     * getFaceVagBold - Returns the bold type of the VAG font
+     * @param aContext - application context to access the resources 
+     * @return Typeface of the font 
+     */
+    public static Typeface getFaceVagBold( Context aContext )
+    {
+    	if ( mFaceVagBold == null )
+    		mFaceVagBold = Typeface.createFromAsset( aContext.getAssets(), mFontVagBoldPath );
+    	
+    	return mFaceVagBold;
+    }
+
+    
+    /*************************************************************************************************
+     *================================= Native methods section ================================= 
+     * These methods are implemented in the native side and should be called after!!! the shared library is loaded
+     */
+	private native void InitResManagerNTV();
+	
+    /*************************************************************************************************
      *================================= Private interface section =================================
      * 
      */
-    private static class UIProgressDlgRunner implements Runnable
-    {
-    	UIProgressDlgRunner( AlertDialog aDlg2Run, int aAction )
-    	{
-    		mDlg = aDlg2Run;
-    		mAction = aAction;
-    	}
-    	public void run()
-    	{
-    		if ( ( mAction & ACTION_CREATE_PROGRESS ) > 0)
-    		{
-    			mDlg = null;
-    			if ( FreeMapAppService.getMainActivity() != null )
-    			{
-	            	mDlg = new ProgressDialog( FreeMapAppService.getMainActivity(), ProgressDialog.STYLE_SPINNER );
-	            	mDlg.setTitle( new String( "Please wait" ) );
-	            	mDlg.setMessage( new String( "waze is preparing to run for the first time. It may take a minute or two" ) );
-    			}
-    		}
-    		if ( ( mAction & ACTION_CREATE_MESSAGE_OK ) > 0)
-    		{
-    			mDlg = null;
-    			if ( FreeMapAppService.getMainActivity() != null )
-    			{
-	        		AlertDialog.Builder dlgBuilder = new AlertDialog.Builder( FreeMapAppService.getMainActivity() );
-	        		FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
-	        		
-	        		mDlg = dlgBuilder.create();
-	        		
-	        		final String btnLabel = new String( "Ok" );
-	        		final String title = new String( "Error" );
-	        		final String msgText = new String( "Waze can't access your SD card. Make sure it isn't mounted." );
-	        		Message msg = mgr.GetUIMessage( FreeMapUIEvent.UI_EVENT_STARTUP_NOSDCARD );
-	    			
-	    			mDlg.setTitle( title );
-	    			mDlg.setButton( DialogInterface.BUTTON_POSITIVE, btnLabel, msg );
-	            	mDlg.setMessage( msgText );
-	            	mDlg.setIcon( android.R.drawable.ic_dialog_alert );
-    			}
-    		}
-			if ( ( mAction & ACTION_SHOW ) > 0 )
-    		{
-				if ( mDlg != null )
-					mDlg.show();	    			
-    		}
-    		if ( ( mAction & ACTION_CANCEL ) > 0 )
-    		{
-    			if ( mDlg != null )
-    				mDlg.dismiss();
-    		}
-    	}
-    	public void setAction( int aAction )
-    	{
-    		mAction = aAction;
-    	}
-
-    	public static final int ACTION_CREATE_PROGRESS = 0x1;
-    	public static final int ACTION_CREATE_MESSAGE_OK = 0x2;
-    	public static final int ACTION_SHOW = 0x100;
-    	public static final int ACTION_CANCEL = 0x200;
-    	private AlertDialog mDlg = null;
-    	private int mAction = ACTION_SHOW;
+    private WazeResManager()
+    {    	
+    	InitResManagerNTV();
     }
-  
+    
+    /*************************************************************************************************
+     * Tries to load the image from the assets
+     * Returns null if fails
+     */
+    private static InputStream LoadAssetEntry( final AssetManager aAssetMgr, final String aPath )
+    {
+    	InputStream stream = null;
+    	try 
+    	{
+    		stream = aAssetMgr.open( aPath );
+    	}
+    	catch( Exception ex )
+    	{
+    		stream = null; 
+    	}
+    	
+    	return stream;
+    }
+
     /*************************************************************************************************
      * Extraction of the resources from the APK package
      * for the upgrade process
      */
     static private ExceptionEntry[] BuildUpgradeExceptionList()
     {
-        final int EXCEPTION_LIST_SIZE = 6;
-
-        ExceptionEntry[] list = new ExceptionEntry[EXCEPTION_LIST_SIZE];
-        
-        list[0] = new ExceptionEntry( mHistoryFile, ExceptionEntry.EXCLUDE_IF_EXIST );
-        list[1] = new ExceptionEntry( mSessionFile, ExceptionEntry.EXCLUDE_IF_EXIST );
-        list[2] = new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS );
-        String maps = mMapsDir.replaceAll( "/", "" ); 
-        list[3] = new ExceptionEntry( maps, ExceptionEntry.EXCLUDE_IF_EXIST, ExceptionEntry.COMPARE_START_OF );
-        list[4] = new ExceptionEntry( mLangPrefix, ExceptionEntry.EXCLUDE_IF_EXIST, ExceptionEntry.COMPARE_START_OF );
-        list[5] = new ExceptionEntry( mPromptsConf, ExceptionEntry.EXCLUDE_IF_EXIST );
+    	String maps = mMapsDir.replaceAll( "/", "" );
+    	String tts = mTtsDir.replaceAll( "/", "" );
+        final ExceptionEntry[] list = {   
+        						new ExceptionEntry( mHistoryFile, ExceptionEntry.EXCLUDE_IF_EXIST ),
+    							new ExceptionEntry( mSessionFile, ExceptionEntry.EXCLUDE_IF_EXIST ),
+								new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS ),
+						        new ExceptionEntry( maps, ExceptionEntry.EXCLUDE_IF_EXIST, ExceptionEntry.COMPARE_START_OF ),
+						        new ExceptionEntry( mLangPrefix, ExceptionEntry.EXCLUDE_IF_EXIST, ExceptionEntry.COMPARE_START_OF ),
+					        	new ExceptionEntry( mPromptsConf, ExceptionEntry.EXCLUDE_IF_EXIST ),	
+				        		new ExceptionEntry( mSkinsPath, ExceptionEntry.EXCLUDE_ALWAYS, ExceptionEntry.COMPARE_START_OF ), 
+        						new ExceptionEntry( tts, ExceptionEntry.EXCLUDE_IF_EXIST, ExceptionEntry.COMPARE_START_OF )
+        						};
         return list;
     }
 
@@ -344,7 +572,7 @@ public final class FreeMapResources
     	{
     		list.add( new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS ) );
     	}
-    	ExceptionEntry[] array= new ExceptionEntry[list.size()]; 
+    	ExceptionEntry[] array = new ExceptionEntry[list.size()]; 
     	list.toArray( array );
     	list.clear();
     	return array;
@@ -356,14 +584,29 @@ public final class FreeMapResources
      */
     static private ExceptionEntry[] BuildCleanInstallExceptionList()
     {
-        final int EXCEPTION_LIST_SIZE = 1;
-
-        ExceptionEntry[] list = new ExceptionEntry[EXCEPTION_LIST_SIZE];
+        final ExceptionEntry[] list = 
+                { 
+        		  new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS ),
+    			  new ExceptionEntry( mSkinsPath, ExceptionEntry.EXCLUDE_ALWAYS, ExceptionEntry.COMPARE_START_OF ) 
+                };
         
-        list[0] = new ExceptionEntry( mUserFile, ExceptionEntry.EXCLUDE_ALWAYS );
         return list;
     }
 
+    /*************************************************************************************************
+     * Extraction of the skins resources from the APK package exceptions
+     * 
+     */
+    static private ExceptionEntry[] BuildSkinsExceptionList()
+    {
+        final ExceptionEntry[] list = 
+        	{
+        		new ExceptionEntry( ".bin", ExceptionEntry.EXCLUDE_ALWAYS, ExceptionEntry.COMPARE_END_OF )
+        	};
+        return list;
+    }
+
+    
     /*************************************************************************************************
      * Extracts files and folders from the zip archive
      * 
@@ -563,60 +806,10 @@ public final class FreeMapResources
             fw.write(String.valueOf(aVersion));
             fw.close();
         }
-        /*************************************************************************************************
-         * Setting the version from the version file stored in the resource
-         * directory
-         * 
-         * @param Version
-         *            to be stored
-         * 
-         */
         catch (Exception ex)
         {
-            Log
-                    .e("FreeMapNativeActivity",
-                            "Error! Failed to update version file"
+            Log.e("FreeMapResources", "Error! Failed to update version file"
                                     + ex.getStackTrace());
-        }
-    }
-
-    /*************************************************************************************************
-     * Copy log file to the sdcard
-     * 
-     * 
-     */
-    public static void CopyLogToSD()
-    {
-        FileChannel srcChannel = null;
-        FileChannel dstChannel = null;
-        try
-        {
-            // Open files
-            srcChannel = (new FileInputStream(mAppDir + mLogFile))
-                    .getChannel();
-            dstChannel = (new FileOutputStream(mSDCardDir + mLogFileCopy))
-                    .getChannel();
-            // Transfer the data
-            dstChannel.transferFrom(srcChannel, 0, srcChannel.size());
-            // Close the files
-            if (srcChannel != null)
-            {
-                srcChannel.close();
-            }
-            if (dstChannel != null)
-            {
-                dstChannel.close();
-            }
-        }
-        catch (FileNotFoundException ex)
-        {
-            Log.i("CopyLogToSD", "File not found " + ex.getMessage()
-                    + ex.getStackTrace());
-        }
-        catch (IOException ex)
-        {
-            Log.i("CopyLogToSD", "Transfer data error " + ex.getMessage()
-                    + ex.getStackTrace());
         }
     }
 
@@ -624,10 +817,12 @@ public final class FreeMapResources
      *================================= Data members section =================================
      * 
      */
-
-	public static byte mUpgradeRun = 0;
-	private static UIProgressDlgRunner mMsgSDDialogRunner = null;
-	
+    public static byte mUpgradeRun = 0;
+    private static WazeResManager mInstance = null; 
+	private static Typeface mFaceVagReg = null;
+	private static Typeface mFaceVagBold = null;
+	private static Typeface mFaceVagBlck = null;
+    
     // Constants
     public static final String mAppDir          = "/sdcard/waze/";
     public static final String mPkgDir          = "/data/data/com.waze/";
@@ -641,6 +836,7 @@ public final class FreeMapResources
     public static final String mSDCardDir       = "/sdcard/";
     public static final String mSDCardResDir    = "/sdcard/waze/";
     public static final String mMapTilesDir     = "77001";
+    public static final String mEditorDbExt		= ".dat";
     public static final String mHistoryFile     = "history";
     public static final String mLangPrefix      = "lang.";
     public static final String mPromptsConf     = "prompts.conf";
@@ -653,12 +849,20 @@ public final class FreeMapResources
     public static final String mBaseDirHD        = "freemapHD/";
     public static final String mBaseDirLD        = "freemapLD/";
     public static final String mSkinsPath        = "skins/default/";    
+    public static final String mTtsDir        	 = "tts/";
     public static final String mSplashPath       = "skins/default/welcome.bin";    
     public static final String mSplashWidePath   = "skins/default/welcome_wide.bin";
+    public static final String mSplashName       = "welcome.bin";
+    public static final String mFontVagRegPath   = "fonts/VAGRLigh.TTF";
+    public static final String mFontVagBoldPath   = "fonts/VAGRBol.TTF";
+    public static final String mFontVagBlckPath   = "fonts/VAGRBLck.TTF";
+    
 	public static final int mVersionCodeSize = 7; // Version code size in bytes
 	private static final int PROGRESS_DLG_SHOW_TIMEOUT = 1000; // Milliseconds
 	private static final int SCREEN_HD_DIM_PIX	= 640;	// The minimimum dimension size to define the screen as HD (in pixels)
 	private static final int SCREEN_LD_DIM_PIX	= 240;	// The minimimum dimension size to define the screen as HD (in pixels)
+	private static final boolean EXTRACT_SKINS_BIN_FILES = false;
+	private static final boolean EXTRACT_LIBRARY = false;
+	
+	
 }
-
-

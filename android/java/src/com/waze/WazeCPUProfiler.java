@@ -63,11 +63,10 @@ public final class WazeCPUProfiler extends TimerTask {
 		}
 	}
 	
-    public static void Start()
+    public static void Start( Timer aTimer )
     {
     	mInstance = new WazeCPUProfiler();
-    	Timer timer = FreeMapAppService.getNativeManager().getTimer();
-    	timer.scheduleAtFixedRate( mInstance, 0, SAMPLE_PERIOD );
+    	aTimer.scheduleAtFixedRate( mInstance, 0, SAMPLE_PERIOD );
     }
 	
 	
@@ -190,9 +189,9 @@ public final class WazeCPUProfiler extends TimerTask {
 	/*************************************************************************************************
      *================================= Constants section =================================
      */
-	private final static long SAMPLE_PERIOD = 5000L; // In milli seconds
+	private final static long SAMPLE_PERIOD = 60*1000L; // In milli seconds
 	
-	private final static float USAGE_THRESHOLD = 75; // Threshold if print the usage (percents)
+	private final static float USAGE_THRESHOLD = 80; // Threshold if print the usage (percents)
 	
 	private final boolean SHOW_LOGCAT = false;
 	

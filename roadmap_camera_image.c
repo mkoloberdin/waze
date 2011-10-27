@@ -40,6 +40,7 @@
 #include "roadmap_camera.h"
 #include "roadmap_lang.h"
 #include "roadmap_path.h"
+#include "Realtime/Realtime.h"
 #include "ssd/ssd_dialog.h"
 #include "ssd/ssd_text.h"
 #include "ssd/ssd_container.h"
@@ -59,6 +60,12 @@ typedef struct
 	void* context_cb;
 } DownloadContext;
 
+typedef struct
+{
+   CameraImageAlertCallback cb;
+   CameraImageAlertContext* context;
+} AlertCaptureData;
+
 //======== Defines ========
 #define IMG_UPLOAD_RESPONSE_PREFIX      "image_id="
 #define IMG_UPLOAD_SSD_DLG_NAME         "Image upload process"
@@ -70,7 +77,7 @@ typedef struct
 
 #define IMG_DOWNLOAD_CACHE_SIZE			50
 
-
+#define IMG_UPLOAD_URL_SIZE            512
 
 
 //======== Globals ========
@@ -107,20 +114,20 @@ static RoadMapConfigDescriptor RMCfgCameraImageUrlPrefix =
 static int  download_size_callback( void *context_cb, size_t size );
 static void download_progress_callback( void *context_cb, char *data, size_t size );
 static void download_error_callback( void *context_cb, int connection_failure, const char *format, ... );
-static void download_done_callback( void *context_cb,char *last_modified );
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  );
 
 
-static BOOL roadmap_camera_image_uploader( RoadMapDownloadCallbacks *callbacks, const char *image_folder, const char *image_file, char* image_id,CameraImageUploadCallback cb, void * context);
+static BOOL roadmap_camera_image_uploader( const char *image_folder, const char *image_file, char* image_id,CameraImageUploadCallback cb, void * context);
 static char* get_download_url( const char* image_id );
 
 static void download_cache_add( const char* file_path );
 static void download_cache_clear( void );
 
 
-static int upload_file_size_callback( void *context, int aSize );
-static void upload_progress_callback( void *context, int aLoaded );
-static void upload_error_callback( void *context );
-static void upload_done( void *context, const char *format, ...);
+static int upload_file_size_callback( void *context, size_t aSize );
+static void upload_progress_callback( void *context, char *data, size_t size);
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...);
+static void upload_done( void *context, char *last_modified, const char *format, ... );
 
 typedef struct tag_upload_context {
 	CameraImageUploadCallback cb;
@@ -129,20 +136,10 @@ typedef struct tag_upload_context {
 	char * image_id;  // buffer from RTAlerts, will be filled according to the response from server.
 } upload_context;
 
-#if 0
-static EditorUploadCallbacks gUploadCallbackFunctionsSSD =
-{
-	upload_file_size_callback_ssd,
-	upload_progress_callback_ssd,
-	upload_error_callback_ssd,
-	upload_done_ssd
-};
-#endif
-
 /*
  * These functions will handle the async Image upload.
  */
-static EditorUploadCallbacks gUploadCallbackFunctions =
+static RoadMapHttpAsyncCallbacks gUploadCallbackFunctions =
 {
 	upload_file_size_callback,
 	upload_progress_callback,
@@ -310,7 +307,7 @@ static void download_error_callback( void *context_cb, int connection_failure, c
  *  Purpose     : Download callback: Done
  *
  */
-static void download_done_callback( void *context_cb, char *last_modified )
+static void download_done_callback( void *context_cb, char *last_modified, const char *format, ...  )
 {
 	DownloadContext* context = (DownloadContext*) context_cb;
 	const char* path = context->image_path;
@@ -423,6 +420,93 @@ BOOL roadmap_camera_image_alert( char** image_path,  RoadMapImage *image_thumbna
     return res;
 }
 
+int image_alert_async_callback( CameraImageCaptureContext* context, int res )
+{
+   CameraImageFile* image_file = &context->image_file;
+   CameraImageBuf* image_buf_thumbnail = &context->image_thumbnail;
+   const AlertCaptureData* data = ( const AlertCaptureData* ) context->callback_data;
+   if ( res )
+   {
+        CameraImageAlertContext* alert_ctx = data->context;
+        // Make the path
+        if ( image_file->file )
+        {
+           *alert_ctx->image_path = roadmap_path_join( image_file->folder, image_file->file );
+        }
+        // Set the thumbnail
+        if ( image_buf_thumbnail->buf )
+        {
+            int image_buf_BPP =  roadmap_camera_image_bytes_pp( image_buf_thumbnail->pixfmt );
+            int stride = image_buf_BPP*image_buf_thumbnail->width;
+            *alert_ctx->image_thumbnail = roadmap_canvas_image_from_buf( image_buf_thumbnail->buf, image_buf_thumbnail->width,
+                                             image_buf_thumbnail->height, stride );
+        }
+    }
+    else
+    {
+      roadmap_log( ROADMAP_WARNING, "Camera image was not captured!" );
+    }
+
+   /*
+    * Call the supplied callback
+    */
+    data->cb( data->context, res );
+
+    // Deallocate if necessary
+    if ( image_file->folder )
+      free( image_file->folder );
+    if ( image_file->file )
+      free( image_file->file );
+
+    free( data );
+    free( context );
+}
+
+#ifndef IPHONE_NATIVE
+//BOOL roadmap_camera_image_alert( char** image_path,  RoadMapImage *image_thumbnail )
+BOOL roadmap_camera_image_alert_async( CameraImageAlertCallback callback, CameraImageAlertContext* context )
+{
+    BOOL res = FALSE;
+    CameraImageCaptureContext* capture_context = malloc( sizeof( CameraImageCaptureContext ) );
+    CameraImageFile* image_file = &capture_context->image_file;
+    CameraImageBuf* image_buf_thumbnail = &capture_context->image_thumbnail;
+    AlertCaptureData* data = malloc( sizeof( AlertCaptureData ) );
+
+    static BOOL capture_config_initialized = FALSE;
+
+    // Initialize the configuration
+    if ( !capture_config_initialized )
+    {
+        capture_config_initialized = TRUE;
+    }
+
+    if ( !context->image_path )
+    {
+      roadmap_log( ROADMAP_WARNING, "Image path parameter is corrupted!!" );
+      return FALSE;
+    }
+    if ( !context->image_thumbnail )
+   {
+      roadmap_log( ROADMAP_WARNING, "Image thumbnail parameter is corrupted!!" );
+      return FALSE;
+   }
+
+    data->cb = callback;
+    data->context = context;
+    capture_context->callback_data = data;
+
+    CAMERA_IMG_BUF_INIT( *image_buf_thumbnail, CFG_CAMERA_THMB_WIDTH_DEFAULT, CFG_CAMERA_THMB_HEIGHT_DEFAULT,
+                     pixel_fmt_bgra_8888, NULL );
+
+    // Init the file attributes
+    CAMERA_IMG_FILE_INIT( *image_file, gCameraImageWidth, gCameraImageHeight, gCameraImageQuality,
+                                file_fmt_JPEG, NULL, NULL );
+
+    roadmap_camera_take_picture_async( image_alert_async_callback, capture_context );
+
+    return TRUE;
+}
+#endif //IPHONE_NATIVE
 
 /***********************************************************/
 /*  Name        : roadmap_camera_image_capture()
@@ -466,8 +550,7 @@ BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_fi
 {
 	BOOL res;
 
-	res = roadmap_camera_image_uploader( &gUploadCallbackFunctions,
-											image_folder, image_file, image_id,cb,context  );
+	res = roadmap_camera_image_uploader( image_folder, image_file, image_id,cb,context  );
 
 	return res;
 }
@@ -485,50 +568,56 @@ BOOL roadmap_camera_image_upload( const char *image_folder, const char *image_fi
  *						the input buffer must be of size ROADMAP_IMAGE_ID_BUF_LEN
  *              : (out) message - parsed response from the server
  */
-static BOOL roadmap_camera_image_uploader( RoadMapDownloadCallbacks *callbacks,
-		const char *image_folder, const char *image_file, char* image_id, CameraImageUploadCallback cb, void * context)
+static BOOL roadmap_camera_image_uploader( const char *image_folder, const char *image_file, 
+                                          char* image_id, CameraImageUploadCallback cb, void * context)
 {
-    BOOL res = FALSE;
-    char* full_path;
-    const char* target_url;
-    upload_context *  ctx;
+   BOOL res = FALSE;
+   char* full_path;
+   upload_context *  ctx;
+   int size;
+   const char *header;
+   char target_url[IMG_UPLOAD_URL_SIZE];
+   
+   if( !image_id )
+   {
+      roadmap_log( ROADMAP_ERROR, "File upload error: image id buffer is not available!!" );
+      return FALSE;
+   }
+   
+   // Get the full path to the file
+   full_path = roadmap_path_join( image_folder, image_file );
+   
+   snprintf( target_url, sizeof( target_url ), "%s?sessionid=%d&cookie=%s",
+             roadmap_config_get ( &RMCfgCameraImageServer ),
+             Realtime_GetServerId(),
+             Realtime_GetServerCookie() );
 
-    if( !image_id )
-    {
-        roadmap_log( ROADMAP_ERROR, "File upload error: image id buffer is not available!!" );
-        return FALSE;
-    }
-
-    // Get the full path to the file
-    full_path = roadmap_path_join( image_folder, image_file );
-
-    // Set the target to upload to
-    target_url = roadmap_config_get ( &RMCfgCameraImageServer );
-
-    roadmap_log( ROADMAP_DEBUG, "Uploading file: %s. ", full_path );
-
-    ctx = malloc(sizeof(upload_context));
-	 ctx->context = context;
-	 ctx->cb = cb;
-	 ctx->full_path = full_path;
-	 ctx->image_id = image_id;
-
-    // Upload and get the response
-    if ( !editor_upload_auto( full_path, &gUploadCallbackFunctions, target_url, IMG_UPLOAD_CONTENT_TYPE, ctx ) )
-    {
-		  //change to debug and comment.
-        roadmap_log( ROADMAP_DEBUG, "Started Async connection for file : %s", full_path );
-        res = TRUE;
-    }
-    else
-    {
-    	roadmap_log( ROADMAP_WARNING, "File upload error on socket connect %s", full_path );
-    	roadmap_path_free( full_path );
-    	free( ctx );
-    	res = FALSE;
-    }
-
-    return res;
+   roadmap_log( ROADMAP_DEBUG, "Uploading file: %s. ", full_path );
+   
+   ctx = malloc(sizeof(upload_context));
+   ctx->context = context;
+   ctx->cb = cb;
+   ctx->full_path = full_path;
+   ctx->image_id = image_id;
+   
+   // Upload and get the response
+   size = roadmap_file_length (NULL, full_path);
+   header = roadmap_http_async_get_upload_header( IMG_UPLOAD_CONTENT_TYPE, full_path, size, NULL, NULL );
+   if (roadmap_http_async_post_file(&gUploadCallbackFunctions, (void *)ctx, target_url, header, full_path, size))
+   {
+      //change to debug and comment.
+      roadmap_log( ROADMAP_DEBUG, "Started Async connection for file : %s", full_path );
+      res = TRUE;
+   }
+   else
+   {
+      roadmap_log( ROADMAP_WARNING, "File upload error on socket connect %s", full_path );
+      roadmap_path_free( full_path );
+      free( ctx );
+      res = FALSE;
+   }
+   
+   return res;
 }
 
 
@@ -631,17 +720,17 @@ static void download_cache_clear( void )
 
 }
 
-
-static int upload_file_size_callback( void *context, int aSize ){
+///////////////////////////////////////////////////////
+static int upload_file_size_callback( void *context, size_t aSize ){
 	return 1; // no image is too big for sending.
 }
 
-static void upload_progress_callback( void *context, int aLoaded ){
-	//upload_context * ctx = (upload_context *)context;
-	//roadmap_log(ROADMAP_ERROR,"sent %d bytes of file %s",aLoaded,ctx->full_path);
+///////////////////////////////////////////////////////
+static void upload_progress_callback(void *context, char *data, size_t size) {
 }
 
-static void upload_error_callback( void *context ){
+///////////////////////////////////////////////////////
+static void upload_error_callback( void *context, int connection_failure, const char *format, ...) {
 	upload_context *  ctx = (upload_context *)context;
 	roadmap_log(ROADMAP_ERROR,"error in uploading image : %s",ctx->full_path);
 	(*ctx->cb ) (ctx->context);
@@ -649,7 +738,8 @@ static void upload_error_callback( void *context ){
    free(ctx);
 }
 
-static void upload_done( void *context, const char *format, ...){
+///////////////////////////////////////////////////////
+static void upload_done( void *context, char *last_modified, const char *format, ... ) {
 	upload_context * ctx = (upload_context *)context;
 
 	char response_message[500];
@@ -658,7 +748,7 @@ static void upload_done( void *context, const char *format, ...){
 		va_start(ap, format);
 		vsnprintf(response_message,sizeof(response_message),format,ap);
 		va_end(ap);
-		roadmap_log(ROADMAP_DEBUG,"done uploading log file : %s. Received response : %s",ctx->full_path,response_message);
+		roadmap_log(ROADMAP_DEBUG,"done uploading image file : %s. Received response : %s",ctx->full_path,response_message);
 	}
 
 	// Parse the answer
@@ -817,8 +907,7 @@ BOOL roadmap_camera_image_upload_ssd( const char *image_folder, const char *imag
 {
 	BOOL res;
 
-	res = roadmap_camera_image_uploader( &gUploadCallbackFunctionsSSD,
-											image_folder, image_file, image_id, message );
+	res = roadmap_camera_image_uploader( image_folder, image_file, image_id, message );
 
 	return res;
 }

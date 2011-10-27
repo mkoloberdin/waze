@@ -32,6 +32,7 @@
 #include "../roadmap_screen.h"
 #include "../roadmap_config.h"
 #include "../roadmap_messagebox.h"
+#include "../roadmap_social.h"
 
 #include "Realtime.h"
 #include "RealtimeDefs.h"
@@ -215,7 +216,7 @@ static void on_close_dialog (int exit_code, void* context) {
 }
 static void create_dialog (void) {
    SsdWidget dialog;
-   SsdWidget box, driving, report, space;
+   SsdWidget box, driving, space, text;
    char *icon[2];
    int i = 0;
    BOOL checked = FALSE;
@@ -240,9 +241,11 @@ static void create_dialog (void) {
    box = ssd_container_new ("Privacy Heading group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
-   ssd_widget_add (box, ssd_text_new ("privacy_heading_label",
-            roadmap_lang_get ("Display my location on waze mobile and web maps as follows:"), SSD_HEADER_TEXT_SIZE,
-            SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   text = ssd_text_new ("privacy_heading_label",
+         roadmap_lang_get ("Display my location on waze mobile and web maps as follows:"), SSD_HEADER_TEXT_SIZE,
+         SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box, text);
    ssd_widget_set_color (box, NULL, NULL);
 
 
@@ -252,16 +255,17 @@ static void create_dialog (void) {
    // * Driving
    //////////////////////////////////////////////////
    driving = ssd_container_new ("Report privacy", NULL, ssd_container_get_width(),
-            SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_ROUNDED_CORNERS
-                     | SSD_ROUNDED_WHITE | SSD_POINTER_NONE
+            SSD_MIN_SIZE, SSD_WIDGET_SPACE | SSD_CONTAINER_FLAGS | SSD_POINTER_NONE
                      | SSD_CONTAINER_BORDER | SSD_ALIGN_CENTER);
    ssd_widget_add (driving, box);
    box = ssd_container_new ("Driving Heading group", NULL, SSD_MIN_SIZE, SSD_MIN_SIZE,
             SSD_WIDGET_SPACE | SSD_END_ROW);
 
-   ssd_widget_add (box, ssd_text_new ("driving_heading_label",
-            roadmap_lang_get ("When driving"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL
-                     | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW));
+   text = ssd_text_new ("driving_heading_label",
+         roadmap_lang_get ("When driving"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_TEXT_LABEL
+                  | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE | SSD_END_ROW);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box, text);
 
    ssd_widget_add (box, ssd_separator_new ("separator", SSD_ALIGN_BOTTOM));
    ssd_widget_set_color (box, NULL, NULL);
@@ -291,8 +295,10 @@ static void create_dialog (void) {
             (const char **) &icon[0], 1, SSD_ALIGN_VCENTER, NULL));
    ssd_widget_set_color (box, NULL, NULL);
 
-   ssd_widget_add (box, ssd_text_new ("Nickname", roadmap_lang_get (
-            "Nickname"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   text = ssd_text_new ("Nickname", roadmap_lang_get (
+         "Nickname"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box, text);
 
    ssd_widget_add (box, ssd_bitmap_new ("On_map_nickname", "On_map_nickname",
             SSD_ALIGN_VCENTER));
@@ -323,8 +329,10 @@ static void create_dialog (void) {
             "privacy_anonymous", (const char **) &icon[0], 1,
             SSD_ALIGN_VCENTER, NULL));
 
-   ssd_widget_add (box, ssd_text_new ("Anonymous text", roadmap_lang_get (
-            "Anonymous"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE));
+   text = ssd_text_new ("Anonymous text", roadmap_lang_get (
+         "Anonymous"), SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_ALIGN_VCENTER | SSD_WIDGET_SPACE);
+   ssd_text_set_color(text, SSD_CONTAINER_TEXT_COLOR);
+   ssd_widget_add (box, text);
    ssd_widget_add (box, ssd_bitmap_new ("On_map_anonymous", "On_map_anonymous",
             SSD_ALIGN_VCENTER));
 

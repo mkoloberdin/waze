@@ -31,9 +31,7 @@
 
 package com.waze;
 
-import com.waze.WazeScreenManager.WazeScreenManagerCallback;
-
-import dalvik.system.VMRuntime;
+//import dalvik.system.VMRuntime;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
@@ -41,14 +39,21 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
 import android.content.res.Configuration;
+import android.graphics.Bitmap;
 import android.media.AudioManager;
 import android.os.Bundle;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.widget.ImageView; 
+import android.widget.Toast;
 import android.widget.ViewAnimator;
+import com.google.android.apps.analytics.GoogleAnalyticsTracker;
 
 public final class FreeMapAppActivity extends Activity
 {
@@ -62,7 +67,7 @@ public final class FreeMapAppActivity extends Activity
         // Create the waze log singleton
         WazeLog.create();      
     	// Eliminate extra GCs during startup by setting the initial heap size to 4MB.
-    	VMRuntime.getRuntime().setMinimumHeapSize( FreeMapAppActivity.INITIAL_HEAP_SIZE );
+//    	VMRuntime.getRuntime().setMinimumHeapSize( FreeMapAppActivity.INITIAL_HEAP_SIZE );
     }
 
 
@@ -72,7 +77,7 @@ public final class FreeMapAppActivity extends Activity
     {
         /** Called when the activity is first created. */
         super.onCreate(savedInstanceState);
-//         Log.w( "WAZE DEBUG", "ON CREATE" );
+        // Log.w( "WAZE DEBUG", "ON CREATE" );
         // Window without the title and status bar
         requestWindowFeature(Window.FEATURE_NO_TITLE);
         // Sets the volume context to be media ( ringer is the default ) 
@@ -82,34 +87,15 @@ public final class FreeMapAppActivity extends Activity
 
         // Set the current configuration
         mOrientation = getResources().getConfiguration().orientation;
-        
         // Every time activity creation - new manager should be created
     	mLayoutMgr = new WazeLayoutManager( this );
         setContentView( mLayoutMgr.getMainLayout() );
         
-        if ( !FreeMapAppService.IsAppRunning() )
-        {
-	            // Starting the service
-                WazeIntentManager.HandleUri( getIntent().getData(), this );
-                if ( !FreeMapAppService.IsInitialized() )
-                {
-                	Intent intent = new Intent( this, FreeMapAppService.class );
-                	/*
-                	 * Pay attention that onStart event of the service comes later than 
-                	 * onResume of activity. In the future the start flow should be in the onStart
-                	 * of the service 
-                	 */
-	            	startService( intent );
-                }
-	            FreeMapAppService.StartApp( this );
-        }
-        else
-        {
-            FreeMapAppService.setMainContext( this );
-        }
-
-        mNativeManager = FreeMapAppService.getNativeManager();        
+//        mGoogleAnalyticsTracker = GoogleAnalyticsTracker.getInstance();;
+     // Start the tracker in manual dispatch mode...
+//        mGoogleAnalyticsTracker.startNewSession( "UA-24084788-1", this );        
     }
+    
     
     /*************************************************************************************************
      * Resume event override
@@ -118,41 +104,87 @@ public final class FreeMapAppActivity extends Activity
     @Override
     public void onResume()
     {
+    	ProgressToast progressToast = null;    	
+    	// Log.w( "WAZE DEBUG", "ON RESUME" );
     	super.onResume();
-    	
-//    	 Log.w( "WAZE DEBUG", "ON RESUME" );
     	/*
          * Allows the system to destroy the activity 
          */
-        FreeMapAppService.setMainContext( this );
-        
-        mIsRunning = true;
-        
-        /*
-         * NOT WORKING!!! The application doesn't receive the intents
-         * More investigation is necessary
-         *
-         RegisterMediaBCReceivers();
-         */
-        
-        // Register on the intent providing the battery level inspection
-        registerReceiver( FreeMapAppService.getPowerManager(), new IntentFilter(
-                Intent.ACTION_BATTERY_CHANGED));  
-
-        // Set the screen timeout
-        if ( mNativeManager.getInitializedStatus() )
-        {
-        	mNativeManager.SaveSystemSettings();
-            mNativeManager.RestoreAppSettings();
-            OnResumeScreen();
-        }
-        /*
-         * Check if the intent contains the url query
-         */
-    	final Intent intent = getIntent();
-        WazeIntentManager.HandleUri( intent.getData(), this );    		
+    	if ( !mIsRunning )
+    	{
+	        FreeMapAppService.setAppActivity( this );
+	        
+	        mIsRunning = true;
+	
+	        /*
+	         * Show error message box if sdcard is not accessible
+	         */
+	        if ( !FreeMapNativeManager.CheckSDCardAvailable() )
+	        	return;
+	        
+	        // Show splash or progress toast
+	        if ( mIsSplashShown )
+	        {
+		        if ( mResumeProgressShow )
+		        {	
+		        	( progressToast = new ProgressToast() ).start();	        	
+		        }
+		    	// Just context switch to allow the progress thread to start
+	        	android.os.SystemClock.sleep( 20L );
+	        }
+	        else
+	        {
+	        	( mSplashToast = new SplashToast() ).start();
+	        	mIsSplashShown = true;
+	        	 
+	        	// Just context switch to allow splash to show
+		        android.os.SystemClock.sleep( SPLASH_DISPLAY_TIMEOUT );
+	        }
+	        
+	        if ( FreeMapAppService.IsAppRunning() )
+	        {
+	        	OnResumeHandler();				        
+	    	}
+	        else 
+	        {
+	        	if ( !FreeMapAppService.IsStarting() )
+	        	{
+		            // Starting the service
+		            WazeIntentManager.HandleUri( getIntent().getData(), this );
+		            final Runnable resumeEvent = new Runnable() {				
+						public void run() {
+							OnResumeHandler();					
+						}
+					};
+		            FreeMapAppService.StartApp( this, resumeEvent );
+	        	}
+	        }
+	        
+	        final WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+	        if ( screenMgr != null )
+	        	screenMgr.onResume();
+	
+	        
+	        // Register on the intent providing the battery level inspection
+	        registerReceiver( FreeMapAppService.getPowerManager(), 
+	        					new IntentFilter( Intent.ACTION_BATTERY_CHANGED ) );  
+	    	
+	        /*
+	         * NOT WORKING!!! The application doesn't receive the intents
+	         * More investigation is necessary
+	         *
+	         RegisterMediaBCReceivers();
+	         */
+	        // Stop progress view thread
+	        if ( mResumeProgressShow && progressToast != null )
+	        {
+	        	progressToast.stopToast();
+	        }
+    	} // mIsRunning
     }
 
+    
+    
     /*************************************************************************************************
      * Pause event override
      * 
@@ -161,21 +193,33 @@ public final class FreeMapAppActivity extends Activity
     public void onPause()
     {
         super.onPause();
-        // Log.w( "WAZE DEBUG", "ON PAUSE" );
+         // Log.w( "WAZE DEBUG", "ON PAUSE" );         
         /*
          * Allows the system to destroy the activity 
          */
-        FreeMapAppService.setMainContext( null );
-        
-        mIsRunning = false;
-        if ( mNativeManager.getInitializedStatus() )
+        if ( mIsRunning )
         {
-            WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
-            screenMgr.onPause();
-        	unregisterReceiver( FreeMapAppService.getPowerManager() );               	
-            // Restore the system settings        
-            mNativeManager.RestoreSystemSettings();  
-        }
+	        FreeMapAppService.setAppActivity( null );
+	        
+	        mIsRunning = false;
+	        
+	        FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+	        
+	        if ( !nativeManager.IsAppStarted() )
+	        {
+	            // Special case. Notify the manager that the application pause - don't wait for view to be ready
+	        	FreeMapNativeManager.Notify( 0 );
+	        	CancelSplash();
+	        }
+	        else
+	        {
+	        	unregisterReceiver( FreeMapAppService.getPowerManager() );               	
+	            // Restore the system settings        
+	        	nativeManager.RestoreSystemSettings();  
+	        }
+	        WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+	        screenMgr.onPause();
+        } // mIsRunning
     }
 
     protected void onNewIntent ( Intent aIntent )
@@ -196,6 +240,15 @@ public final class FreeMapAppActivity extends Activity
     {
     	super.onStop();
     }
+    /*************************************************************************************************
+     */
+    @Override
+    public void onDestroy() {
+      super.onDestroy();
+      // Stop the tracker when it is no longer needed.
+//      mGoogleAnalyticsTracker.stopSession();
+    }
+
     /*************************************************************************************************
      * This event override allows control over the keyboard sliding
      *  
@@ -227,9 +280,11 @@ public final class FreeMapAppActivity extends Activity
     public boolean onOptionsItemSelected( MenuItem item ) 
     { 
     	boolean res = true;
-    	if ( mNativeManager.getInitializedStatus() )
+    	FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+    	
+    	if ( nativeManager.getInitializedStatus() )
     	{
-    		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
+    		WazeMenuManager menuMgr = nativeManager.getMenuManager();
     		res = menuMgr.OnMenuButtonPressed( item.getItemId() );
     	}
         return res;
@@ -242,14 +297,21 @@ public final class FreeMapAppActivity extends Activity
     @Override
     public boolean onPrepareOptionsMenu( Menu aMenu )
     {    	
+    	boolean res = false;
+    	FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+    	
+    	if ( nativeManager != null && nativeManager.getInitializedStatus() )
+    	{
+    		WazeMenuManager menuMgr = nativeManager.getMenuManager();
+    		res = menuMgr.getInitialized();
+    	}
+    	
     	if ( mIsMenuRebuild )
     	{    		
-    		// Rebuild the menu
-    		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
-    		menuMgr.BuildOptionsMenu( aMenu, mOrientation == Configuration.ORIENTATION_PORTRAIT );
-    		mIsMenuRebuild = false;
+    		if ( rebuildOptionsMenu( aMenu ) )
+    			mIsMenuRebuild = false;
     	}    	
-    	return true;
+    	return res;
     }
 
     
@@ -259,29 +321,59 @@ public final class FreeMapAppActivity extends Activity
      */
     public boolean  onCreateOptionsMenu ( Menu aMenu )
     {
-    	boolean res = false;
     	mOptMenu = aMenu;		// Save the reference 
-    	if ( mNativeManager.getInitializedStatus() )
-    	{
-    		WazeMenuManager menuMgr = mNativeManager.getMenuManager();
-    		menuMgr.BuildOptionsMenu( aMenu, mOrientation == Configuration.ORIENTATION_PORTRAIT );
-    		res = true;
-    	}
+    	
+    	boolean res = rebuildOptionsMenu( aMenu );
+    	
     	return res;
     }
+    @Override
+    protected void onActivityResult( int requestCode, int resultCode, Intent data )
+    {
+    	FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+    	
+    	if ( requestCode == SPEECHTT_EXTERNAL_REQUEST_CODE ) {
+        	final WazeSpeechttManagerBase speechttManager = nativeManager.getSpeechttManager();
+        	speechttManager.OnResultsExternal( resultCode, data );	        	
+        }
+
+    	if ( requestCode == TTS_DATA_CHECK_CODE ) {
+        	final IWazeTtsManager ttsManager = nativeManager.getTtsManager();
+        	if ( ttsManager != null )
+        		ttsManager.onDataCheckResult( resultCode, data );	        	
+        }
+
+    	if ( requestCode == TTS_DATA_INSTALL_CODE ) {
+        	final IWazeTtsManager ttsManager = nativeManager.getTtsManager();
+        	if ( ttsManager != null )
+        		ttsManager.onDataInstallResult( resultCode, data );	        	
+        }
+    	
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+    
+    
+    
+    
     /*************************************************************************************************
      * Is the activity is running
-     * 
      */
     public boolean IsRunning()
     {
         return mIsRunning;
     }
     /*************************************************************************************************
+     * Is the activity is running
+     */
+    public void setResumeProgressShow( boolean aValue )
+    {
+    	mResumeProgressShow = aValue;        
+    }
+    /*************************************************************************************************
      * Returns the Main view
      * 
      */
-    WazeMainView getMainView()
+    public WazeMainView getMainView()
     {
         return mLayoutMgr.getAppView();
     }
@@ -299,7 +391,7 @@ public final class FreeMapAppActivity extends Activity
      * Returns the Layout manager
      * 
      */
-    WazeLayoutManager getLayoutMgr()
+    public WazeLayoutManager getLayoutMgr()
     {
         return mLayoutMgr;
     }
@@ -307,59 +399,59 @@ public final class FreeMapAppActivity extends Activity
      * Returns the current view reference
      * 
      */
-    View getCurrentView()
+    public View getCurrentView()
     {
     	return mAppView;
+    }
+    /*************************************************************************************************
+     * CancelSplash - stops displaying splash view
+     * 
+     */
+    public void CancelSplash()
+    {
+    	if ( mSplashToast != null )
+    	{
+    		mSplashToast.stopToast(); 
+    	}
+    	
     }
     /*************************************************************************************************
      *================================= Private interface section =================================
      * 
      */
     
-    private void OnResumeScreen()
+    private boolean rebuildOptionsMenu( Menu aMenu )
     {
-        final WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
-        
-        /*
-         * Progress hide event 
-         */
-        final Runnable hideProgressEvent = new Runnable() {				
-			public void run() {
-				mLayoutMgr.HideProgressView();
-			}
-		};
-    	/*
-    	 * Build callback to hide the progress bar
-    	 */
-//    	final WazeScreenManagerCallback progressViewCb = new WazeScreenManagerCallback() {    			
-//			public void Callback() {
-//				runOnUiThread( hideProgressEvent );
-//				
-//			}
-//		};
-
-		final Runnable showProgressEvent = new Runnable() {				
-			public void run() {
-				//Log.w( "WAZE DEBUG", " Running showProgressEvent" );
-		        // Show progress view 		         
-		        mLayoutMgr.ShowProgressView();
-			}
-        };
-
-        final Runnable scrMgrResumeEvent = new Runnable() {				
-			public void run() {
-				//Log.w( "WAZE DEBUG", " Running scrMgrResumeEvent" );
-		        // Screen manager event
-				screenMgr.onResume( null );				
-			}
-		};
-		
-		// Place the event on the UI event queue ( Delayed to make sure execution in the different stack )
-		getMainView().postDelayed( showProgressEvent, 10 );
-
-		// Place the event on the UI event queue ( Delayed to make sure execution in the different stack and after progress is shown )
-		getMainView().postDelayed( scrMgrResumeEvent, 20 );
+    	boolean res = false;
+    	FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+    	
+    	if ( nativeManager != null && nativeManager.getInitializedStatus() )
+    	{
+    		WazeMenuManager menuMgr = nativeManager.getMenuManager();
+    		if ( menuMgr.BuildOptionsMenu( aMenu, mOrientation == Configuration.ORIENTATION_PORTRAIT ) )
+    			res = true;
+    	}
+    	
+    	return res;
     }
+    
+    private void OnResumeHandler()
+    {
+    	FreeMapNativeManager nativeManager = FreeMapAppService.getNativeManager();
+    	
+        // Set the screen timeout
+        if ( nativeManager.getInitializedStatus() )
+        {
+        	nativeManager.SaveSystemSettings();
+        	nativeManager.RestoreAppSettings();            
+        }
+        /*
+         * Check if the intent contains the url query
+         */
+    	final Intent intent = getIntent();
+        WazeIntentManager.HandleUri( intent.getData(), this );  
+    }
+    
     
     private void RegisterMediaBCReceivers()
     {
@@ -418,7 +510,104 @@ public final class FreeMapAppActivity extends Activity
         }  
     	return bRes;
     }
-    
+	public void setSplashProgressVisible()
+	{
+		mSplashToast.setProgressVisible();
+	}
+    /*************************************************************************************************
+     * Thread running the Toast showing the progress spin 
+     * Auxiliary   
+     */
+    private final class ProgressToast extends WazeToastThread
+    {
+    	public ProgressToast()
+    	{ 
+    		super( "Progress Toast" );
+    	}
+    	
+    	/*************************************************************************************************
+         * Shows the progress toast
+         */
+        @Override public Toast show()
+        {
+        	Activity activity = FreeMapAppActivity.this;
+        	LayoutInflater inflater = activity.getLayoutInflater();
+        	View layout = inflater.inflate( R.layout.progress_bar,
+        	                               ( ViewGroup ) activity.findViewById( R.id.progress_layout_root ) );
+
+        	Toast toast = new Toast( activity ); 
+        	toast.setGravity( Gravity.CENTER_VERTICAL, 0, 0 );
+        	toast.setDuration( Toast.LENGTH_LONG );
+        	toast.setView( layout );
+        	toast.show();
+        	return toast;
+        }    	
+    }
+    /*************************************************************************************************
+     * Thread running the Toast showing the splash 
+     * Auxiliary   
+     */
+    private final class SplashToast extends WazeToastThread
+    {
+    	public SplashToast()
+    	{ 
+    		super( "Splash Toast" );
+    	}
+    	
+    	/*************************************************************************************************
+         * Shows the progress toast
+         */
+    	@Override public Toast show()
+        {
+        	Activity activity = FreeMapAppActivity.this;
+        	LayoutInflater inflater = activity.getLayoutInflater();
+        	View layout = inflater.inflate( R.layout.splash_view,
+        	                               ( ViewGroup ) activity.findViewById( R.id.splash_layout_root ) );
+        	ImageView image = (ImageView) layout.findViewById( R.id.splash_image );
+        	mSplashBitmap = FreeMapNativeCanvas.GetSplashBmp( image );
+        	image.setImageBitmap( mSplashBitmap );
+        	
+        	Toast toast = new Toast( activity ); 
+        	toast.setGravity( Gravity.CENTER_VERTICAL, 0, 0 );
+        	toast.setDuration( Toast.LENGTH_LONG );
+        	setCustomDuration( 15000L );
+        	toast.setView( layout );        	 
+        	toast.show();        	
+        	return toast;
+        }
+    	public void setProgressVisible()
+    	{
+    		final Runnable event = new Runnable() {				
+				public void run() {
+					if ( mToast != null )
+					{
+						final View layout = mToast.getView();
+			    		final View progressBar = layout.findViewById( R.id.splash_progress_large );
+			    		progressBar.setVisibility( View.VISIBLE );
+					}
+				}
+			};
+			if ( mHandler != null )
+				mHandler.post( event );
+    	}
+    	@Override protected void cancel()
+        {
+    		ImageView image = (ImageView) mToast.getView().findViewById( R.id.splash_image );
+    		image.setImageBitmap( null );
+        	
+        	super.cancel();
+        	
+    		if ( mSplashBitmap != null )
+    		{
+	    		mSplashBitmap.recycle();
+				mSplashBitmap = null;
+    		}
+    		
+			final Activity activity = FreeMapAppActivity.this;
+			activity.setRequestedOrientation( ActivityInfo.SCREEN_ORIENTATION_USER );
+        }
+    	private Bitmap mSplashBitmap;
+    }
     /*************************************************************************************************
      * This event override allows control over the keyboard sliding
      * 
@@ -430,22 +619,31 @@ public final class FreeMapAppActivity extends Activity
      */
 
     private WazeLayoutManager	 mLayoutMgr = null;		   // Main layout manager
-    private WazeMainView       mAppView = null;          // Application view
-    private FreeMapNativeManager mNativeManager = null;    // Native manager    
-
+    private WazeMainView       mAppView = null;          // Application view   
+    private SplashToast 		mSplashToast = null;		// Splash viewer
     private int 				 mOrientation;			   // Screen orientation in that the application works now   
     private boolean				 mIsMenuRebuild = false;   // Indicates that the menu rebuild is necessary on prepare
     private Menu				 mOptMenu = null;		   // Reference to the options menu of the application			 
     
     
 	private volatile boolean 	mIsRunning = false;		  // Indicates if the activity is running.
-
+	private volatile boolean 	mResumeProgressShow = true;	  // Indicates if the resume activity progress should be shown
+	
     private ViewAnimator mViewAnimator = null;
     
+//    private GoogleAnalyticsTracker mGoogleAnalyticsTracker = null;
+    public static volatile boolean mIsSplashShown = false;							// Indicates if the splash was already shown
+
 	/*************************************************************************************************
      *================================= Constants section =================================
      */
     public static final long INITIAL_HEAP_SIZE = 4096L;
     public static final boolean TEST_PNG = false; 
-    
+    public static final long SPLASH_DISPLAY_TIMEOUT = 1500L;		// In milliseconds
+
+    public static final int SPEECHTT_EXTERNAL_REQUEST_CODE               =    0x00001000;
+	public static final int TTS_DATA_CHECK_CODE               			 =    0x00002000;
+	public static final int TTS_DATA_INSTALL_CODE               	     =    0x00004000;
 }
+
+

@@ -31,10 +31,13 @@
 
 package com.waze;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.net.Uri;
 import android.util.AttributeSet;
 import android.view.KeyEvent;
 import android.webkit.WebSettings;
@@ -125,6 +128,18 @@ public final class WazeWebView extends WebView
     private final class WazeWebViewClient extends WebViewClient {
         @Override
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
+
+        	// Opens the dialer for the "tel:*" links
+        	if ( url.startsWith( "tel:" ) ) { 
+                final Intent intent = new Intent( Intent.ACTION_DIAL, Uri.parse( url ) ); 
+                final Activity activity = FreeMapAppService.getMainActivity();
+                activity.runOnUiThread( new Runnable() {
+					public void run() {
+						activity.startActivity( intent );
+					} } );                
+                return true;
+        	}
+        	
         	FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
         	// First try to handle internally
         	if ( !mgr.UrlHandler( url ) )

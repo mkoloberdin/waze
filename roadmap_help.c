@@ -233,7 +233,7 @@ int roadmap_help_next_topic (const char **label,
       RoadMapHelpTopicsCursor = NULL;
       return 0;
    }
-   
+
    RoadMapHelpTopicsCursor += 1;
    return roadmap_help_get_topic(label, callback);
 }
@@ -243,7 +243,7 @@ void roadmap_help_menu(void){
 
    int                  count = 0;
    const char           *help_menu[10];
-   
+
    if (roadmap_introduction_is_available()){
       help_menu[count++] = "nutshell";
       help_menu[count++] = "guided_tour";
@@ -252,13 +252,13 @@ void roadmap_help_menu(void){
       }
       //help_menu[count++] = "geoinfo";
    }
-   
+
    help_menu[count++] = "submit_logs";
    help_menu[count++] = "about";
    help_menu[count++] = NULL;
-   
-	roadmap_list_menu_simple ("Help menu", 
-                             NULL, 
+
+	roadmap_list_menu_simple ("Help menu",
+                             NULL,
                              help_menu,
                              NULL,
                              NULL,
@@ -308,7 +308,7 @@ static const char *nutshell_int_images[] = {
 
 void roadmap_help_nutshell () {
    int count;
-   
+
    if (strcmp(roadmap_config_get(&RoadMapConfigHelpRollerNutshell), "yes")) {
        for (count = 0; nutshell_images[count] != NULL; ++count) {}
        roadmap_image_viewer_show(nutshell_images, count);
@@ -316,55 +316,65 @@ void roadmap_help_nutshell () {
       for (count = 0; nutshell_int_images[count] != NULL; ++count) {}
       roadmap_image_viewer_show(nutshell_int_images, count);
    }
-       
-   
+
+
 }
 #endif //IPHONE
 
 static int about_callbak (SsdWidget widget, const char *new_value) {
    ssd_dialog_hide ("about", dec_ok);
-   
+
    return 0;
 }
 
 static void about_dialog(char *about){
-   
+
    SsdWidget dialog;
    SsdWidget text;
    SsdWidget bitmap;
-   
+   const char* map_credit = roadmap_start_get_map_credit();
+
    if ( !ssd_dialog_exists( "about" ) )
    {
 	   dialog = ssd_dialog_new ( "about", "", NULL,
                                SSD_CONTAINER_BORDER|SSD_DIALOG_FLOAT|
                                SSD_ALIGN_CENTER|SSD_ALIGN_VCENTER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_BLACK);
-      
+
 	   ssd_widget_set_color (dialog, "#000000", "#ff0000000");
 	   ssd_widget_add (dialog,
                       ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
-      
+
 	   bitmap = ssd_bitmap_new("waze_log", "waze_logo", SSD_ALIGN_CENTER|SSD_END_ROW);
 	   ssd_widget_add (dialog,bitmap);
-      
+
 	   ssd_widget_add (dialog,
                       ssd_container_new ("spacer1", NULL, 0, 10, SSD_END_ROW));
-      
+
 	   text =  ssd_text_new ("text", about, 13, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
 	   ssd_text_set_color(text,"#ffffff");
 	   ssd_widget_add (dialog,text);
-      
+
 	   /* Spacer */
 	   ssd_widget_add (dialog,
-                      ssd_container_new ("spacer2", NULL, 0, 20, SSD_END_ROW));
-      
+                      ssd_container_new ("spacer2", NULL, 0, 10, SSD_END_ROW));
+
+	   if (map_credit && *map_credit){
+	      text =  ssd_text_new ("text", map_credit, 10, SSD_END_ROW|SSD_WIDGET_SPACE|SSD_ALIGN_CENTER);
+	      ssd_text_set_color(text,"#ffffff");
+	      ssd_widget_add (dialog,text);
+	   }
+
+      ssd_widget_add (dialog,
+                      ssd_container_new ("spacer2", NULL, 0, 10, SSD_END_ROW));
+
       ssd_widget_add (dialog,
                       ssd_button_label ("confirm", roadmap_lang_get ("Ok"),
                                         SSD_ALIGN_CENTER|SSD_START_NEW_ROW|SSD_WS_DEFWIDGET|
                                         SSD_WS_TABSTOP,
                                         about_callbak));
-      
+
    }
-   
+
    ssd_dialog_activate("about", NULL);
    roadmap_screen_redraw();
 }
@@ -372,9 +382,9 @@ static void about_dialog(char *about){
 void roadmap_help_about (void) {
 #ifdef IPHONE_NATIVE
 	roadmap_main_show_root(0);
-#endif //IPHONE_NATIVE   
+#endif //IPHONE_NATIVE
    char about[500];
-   
+
    sprintf (about, "Release %s\n%s\n%s\n%s",
             roadmap_start_version(),
             "(c)waze inc.",
@@ -396,7 +406,7 @@ void roadmap_help_initialize (void) {
 
    roadmap_config_declare
       ("preferences", &RoadMapConfigBrowser, ROADMAP_BROWSER, NULL);
-   
+
    roadmap_config_declare
       ("preferences", &RoadMapConfigHelpGuidedTour, CFG_HELP_GUIDED_TOUR_URL_DEFAULT, NULL);
 
@@ -406,8 +416,8 @@ void roadmap_help_initialize (void) {
    roadmap_config_declare_enumeration
       ("preferences", &RoadMapConfigHelpShowWhatToExpect, NULL, "no", "yes", NULL);
 
-   
-   roadmap_config_declare_enumeration 
+
+   roadmap_config_declare_enumeration
       ("preferences", &RoadMapConfigHelpRollerNutshell, NULL, "no", "yes", NULL);
 }
 

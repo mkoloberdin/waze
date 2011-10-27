@@ -29,6 +29,7 @@
 #include "roadmap.h"
 
 #define NET_COMPRESS 0x00000001
+#define NET_RESOLVED 0x00000002
 #define TEST_NET_COMPRESS( flags ) ( roadmap_net_get_compress_enabled() ? (flags & NET_COMPRESS) : 0 )
 
 #if defined (_WIN32) && !defined (__SYMBIAN32__)
@@ -54,24 +55,26 @@ typedef void* RoadMapSocket;
 struct roadmap_socket_t;
 typedef struct roadmap_socket_t *RoadMapSocket;
 #define ROADMAP_INVALID_SOCKET ((RoadMapSocket) NULL)
-int roadmap_net_get_fd(RoadMapSocket s);
+//int roadmap_net_get_fd(RoadMapSocket s);
 
 #endif /* _WIN32 */
 
 #define ROADMAP_NET_IS_VALID(s) (s != ROADMAP_INVALID_SOCKET)
 
 typedef void (*RoadMapNetConnectCallback) (RoadMapSocket socket, void *context, roadmap_result res);
+typedef void (*RoadMapNetSslConnectCallback) (RoadMapSocket s, void *data, void *context, roadmap_result res);
 
 RoadMapSocket roadmap_net_connect(  const char*       protocol,
-                                    const char*       name, 
-                                    time_t            update_time, 
+                                    const char*       name,
+                                    time_t            update_time,
                                     int               default_port,
                                     int               flags,
                                     roadmap_result*   res); // Optional, can be NULL
 
 // A-syncronious receive:
-int roadmap_net_connect_async (const char *protocol,
+void *roadmap_net_connect_async (const char *protocol,
                                 const char *name, 
+                               const char *resolved_name,
                                 time_t update_time,
                                 int default_port,
                                 int flags,
@@ -84,6 +87,7 @@ int roadmap_net_connect_async (const char *protocol,
 int roadmap_net_receive (RoadMapSocket s, void *data, int size);
 int roadmap_net_send    (RoadMapSocket s, const void *data, int length,
                          int wait);
+int roadmap_net_send_async (RoadMapSocket s, const void *data, int length);
 
 RoadMapSocket roadmap_net_listen(int port);
 RoadMapSocket roadmap_net_accept(RoadMapSocket server_socket);
@@ -98,5 +102,6 @@ void roadmap_net_initialize( void );
 
 void roadmap_net_set_compress_enabled( BOOL value );
 BOOL roadmap_net_get_compress_enabled( void );
+int roadmap_net_get_fd(RoadMapSocket s);
 #endif // _ROADMAP_NET__H_
 

@@ -25,14 +25,22 @@
 #ifndef REALTIMEEXTERNALPOINOTIFIER_H_
 #define REALTIMEEXTERNALPOINOTIFIER_H_
 
-void RealtimeExternalPoiNotifier_NotifyOnPopUp(int iID);
+typedef struct {
+   int iID;
+   int iPromotionID;
+}RTExternalDispledEnrity;
+
+void RealtimeExternalPoiNotifier_NotifyOnPopUp(int iID,  int iPromotionID);
+void RealtimeExternalPoiNotifier_NotifyOnPromotionPopUp(int iID, int iPromotionID);
+void RealtimeExternalPoiNotifier_NotifyOnInfoPressed(int iID, int iPromotionID);
+
 void RealtimeExternalPoiNotifier_NotifyOnNavigate(int iID);
 
 void RealtimeExternalPoiNotifier_DisplayedList_clear(void);
 void RealtimeExternalPoiNotifier_DisplayedList_Init(void);
-void RealtimeExternalPoiNotifier_DisplayedList_add_ID(int ID);
+void RealtimeExternalPoiNotifier_DisplayedList_add_ID(int ID, int iPromotionID);
 BOOL RealtimeExternalPoiNotifier_DisplayedList_IsEmpty();
 int  RealtimeExternalPoiNotifier_DisplayedList_Count();
-int  RealtimeExternalPoi_DisplayedList_get_ID(int index);
+RTExternalDispledEnrity  *RealtimeExternalPoi_DisplayedList_get_ID(int index);
 
 #endif /* REALTIMEEXTERNALPOINOTIFIER_H_ */

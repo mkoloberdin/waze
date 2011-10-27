@@ -30,7 +30,7 @@ void roadmap_lang_initialize (void);
 const char* roadmap_lang_get (const char *name);
 int roadmap_lang_rtl (void);
 const char *roadmap_lang_get_system_lang();
-void roadmap_lang_set_system_lang(const char *lang);
+void roadmap_lang_set_system_lang(const char *lang, BOOL download);
 const void *roadmap_lang_get_lang_value(const char *value);
 void roadmap_lang_reload(void);
 void roadmap_lang_set_update_time(const char *update_time);

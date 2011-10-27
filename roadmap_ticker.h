@@ -48,6 +48,7 @@ typedef enum
 	road_munching_event,
 	comment_event,
 	user_contribution_event,
+	thumbs_up_event,
 	bonus_points
 } lastPointsUpdateEvent;
 void roadmap_ticker_set_last_event(int event); // set the last event the updated the points

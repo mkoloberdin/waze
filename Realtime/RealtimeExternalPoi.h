@@ -31,11 +31,15 @@
 
 #define  RT_MAXIMUM_EXTERNAL_POI_MAP_DISPLAY_COUNT    500
 #define  RT_MAXIMUM_EXTERNAL_POI_TYPES                100
+#define  RT_MAXIMUM_POI_POPED_UP                       20
+#define  RT_MAXIMUM_PRELOADED_LIST                     50
 
 #define EXTERNAL_POI_SIZE_SMALL  1
 #define EXTERNAL_POI_SIZE_MEDIUM 2
 #define EXTERNAL_POI_SIZE_LARGE  3
 
+#define SHOW_NEAR_BY_AS_AD          0x1
+#define SHOW_NEAR_BY_AS_PROMOTION   0x2
 
 typedef struct
 {
@@ -44,12 +48,16 @@ typedef struct
     int  iExternalPoiProviderID; // Provider ID
     char cBigIcon[MAX_ICON_LENGHT];
     char cSmallIcon[MAX_ICON_LENGHT];
+    char cBigPromotionIcon[MAX_ICON_LENGHT];
+    char cSmallPromotionIcon[MAX_ICON_LENGHT];
     char cOnClickUrl[MAX_URL_LENGTH];
     int  iSize;
     int  iMaxDisplayZoomBigIcon;
     int  iMaxDisplayZoomSmallIcon;
     int  iPromotionType;
     int  iIsNavigable;
+    int  iPromotionID;
+    int  iPromotionRadius;
 } RTExternalPoiType;
 
 typedef struct
@@ -67,9 +75,15 @@ typedef struct
     int  iPromotionType;
     int  iIsPromotioned;
     char cResourceUrlParams[MAX_URL_LENGTH];
+    int  iPromotionID;
+    int  iPromotionRadius;
     BOOL isDiplayed;
+    BOOL bPopedUp;
+    BOOL bShowPromo;
+    int  iShowNearByFlags;
 } RTExternalPoi;
 
+BOOL RealtimeExternalPoi_PopupEnabled (void) ;
 
 void RealtimeExternalPoi_Init(void);
 void RealtimeExternalPoi_Term(void);
@@ -100,4 +114,18 @@ int  RealtimeExternalPoi_DisplayList__get_ID(int index);
 
 const char *RealtimeExternalPoi_GetUrl(void);
 
+
+BOOL RealtimeExternalPoi_ShowPromotions(void);
+BOOL RealtimeExternalPoi_IsPromotionsScrolling(void);
+void RealtimeExternalPoi_StopPromotionScrolling(void);
+void RealtimeExternalPoi_SetScrolling(BOOL is_scrolling);
+
+BOOL RealtimeExternalPoi_Is_Promotion(RTExternalPoi *pEntity);
+BOOL ShowPromotions(BOOL new_session);
+
+BOOL RealtimeExternalPoi_MyCouponsEnabled(void);
+void RealtimeExternalPoi_MyCouponsDlg(void);
+void RealtimeExternalPoi_NearbyCouponsAndGamesDlg(void);
+
+void RealtimeExternalPoi_OnShowPoiNearByPressed(void);
 #endif /* REALTIMEEXTERNALPOI_H_ */

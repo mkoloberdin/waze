@@ -142,6 +142,8 @@ int roadmap_path_is_directory (const char *name);
 const char *roadmap_path_gps( void );
 
 const char *roadmap_path_images( void );
+const char *roadmap_path_voices( void );
+const char *roadmap_path_tts( void );
 
 const char *roadmap_path_downloads( void );
 

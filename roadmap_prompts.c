@@ -72,6 +72,7 @@ static RoadMapConfigDescriptor RoadMapConfigPromptQueuedLang = ROADMAP_CONFIG_IT
 
 static RoadMapConfigDescriptor RoadMapConfigPromptUpdateTime = ROADMAP_CONFIG_ITEM("Prompts", "Update time");
 
+static RoadMapConfigDescriptor RoadMapConfigPromptUpdatedNew = ROADMAP_CONFIG_ITEM("Prompts", "Updated new");
 
 //////////////////////////////////////////////////////////////////
 static void roadmap_prompts_init_params (void) {
@@ -83,7 +84,27 @@ static void roadmap_prompts_init_params (void) {
 
    roadmap_config_declare ("session", &RoadMapConfigPromptQueuedLang, "", NULL);
 
+   roadmap_config_declare ("preferences", &RoadMapConfigPromptUpdatedNew, "no", NULL);
+
    initialized = TRUE;
+}
+
+static BOOL new_prompts_updated (void) {
+   if (0 == strcmp (roadmap_config_get (&RoadMapConfigPromptUpdatedNew), "yes")){
+      return TRUE;
+   }
+
+   return FALSE;
+}
+
+//////////////////////////////////////////////////////////////////
+static void set_new_prompts_updated(void){
+   roadmap_config_set (&RoadMapConfigPromptUpdatedNew, "yes");
+}
+
+//////////////////////////////////////////////////////////////////
+static void set_new_prompts_not_updated(void){
+   roadmap_config_set (&RoadMapConfigPromptUpdatedNew, "no");
 }
 
 //////////////////////////////////////////////////////////////////
@@ -99,6 +120,7 @@ void roadmap_prompts_set_name (const char *name) {
    if (!initialized)
       roadmap_prompts_init_params ();
 
+   set_new_prompts_not_updated();
    roadmap_config_set (&RoadMapConfigPromptName, name);
 }
 
@@ -359,6 +381,7 @@ static BOOL prompt_set_exist(const char *value){
     return FALSE;
 }
 
+
 //////////////////////////////////////////////////////////////////
 static void on_download_lang_confirm(int exit_code, void *context){
    if (exit_code == dec_yes){
@@ -469,6 +492,28 @@ const char *roadmap_prompts_get_label (const char *value) {
 }
 
 //////////////////////////////////////////////////////////////////
+static void check_for_new_prompts(){
+   int i = 0;
+   BOOL all_update = TRUE;
+   char *new_prompts[] = {"StartDrive", "ApproachAccident", "ApproachHazard", "ApproachTraffic", "AndThen", "ExitLeft", "ExitRight" ,"400", "400meters", "1500","1500meters", "1000", "1000meters", NULL};
+
+   if (new_prompts_updated())
+      return;
+
+   while (new_prompts[i] != NULL){
+      if (!roadmap_prompts_file_exist(new_prompts[i])){
+         all_update = FALSE;
+         roadmap_log (ROADMAP_WARNING,"Downloading prompt file %s", new_prompts[i] );
+         roadmap_res_download (RES_DOWNLOAD_SOUND, new_prompts[i], NULL, roadmap_prompts_get_name(), FALSE, 0,  NULL, NULL);
+      }
+      i++;
+   }
+
+   if (all_update)
+      set_new_prompts_updated();
+}
+
+//////////////////////////////////////////////////////////////////
 void roadmap_prompts_login_cb(void){
    const char *last_download;
 
@@ -481,6 +526,9 @@ void roadmap_prompts_login_cb(void){
       roadmap_prompts_set_downloading_lang_name("");
       roadmap_prompts_download(name);
 
+   }
+   else{
+      check_for_new_prompts();
    }
 
    if (PromptsNextLoginCb) {
@@ -518,4 +566,38 @@ BOOL roadmap_prompts_exist (const char *name) {
    exist = roadmap_file_exists (path, "click.mp3");
 #endif
    return exist;
+}
+
+BOOL roadmap_prompts_file_exist(const char *prompt_name){
+   char path[256];
+   char file_name[256];
+   roadmap_path_format (path, sizeof (path), roadmap_path_downloads (), "sound");
+   roadmap_path_format (path, sizeof (path), path, roadmap_prompts_get_name());
+
+#ifdef ANDROID
+   snprintf( file_name, sizeof(file_name), "%s.bin", prompt_name);
+#else
+   snprintf( file_name, sizeof(file_name), "%s.mp3", prompt_name);
+#endif
+   return roadmap_file_exists (path, file_name);
+
+}
+
+BOOL roadmap_prompts_file_exist_and_not_empty(const char *prompt_name){
+   char path[256];
+   char file_name[256];
+
+   if (!roadmap_prompts_file_exist (prompt_name))
+      return FALSE;
+
+   roadmap_path_format (path, sizeof (path), roadmap_path_downloads (), "sound");
+   roadmap_path_format (path, sizeof (path), path, roadmap_prompts_get_name());
+
+#ifdef ANDROID
+   snprintf( file_name, sizeof(file_name), "%s.bin", prompt_name);
+#else
+   snprintf( file_name, sizeof(file_name), "%s.mp3", prompt_name);
+#endif
+
+   return (roadmap_file_length(path,file_name) != 0);
 }

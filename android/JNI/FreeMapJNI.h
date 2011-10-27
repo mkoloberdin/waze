@@ -132,7 +132,7 @@ void FreeMapNativeManager_PostNativeMessage( int aMsg );
 
 void FreeMapNativeCanvas_RefreshScreen();
 
-void FreeMapNativeSoundManager_PlayFile( char* aFileName );
+void FreeMapNativeSoundManager_PlayFile( const char* aFileName );
 
 void FreeMapNativeManager_SetBackLightOn( int aAlwaysOn );
 
@@ -152,6 +152,10 @@ void FreeMapNativeManager_ShowSoftKeyboard( int aAction, int aCloseOnAction );
 
 int FreeMapNativeManager_TakePicture( int aImageWidth, int aImageHeight, int aImageQuality,
                                                             char* aImageFolder, char* aImageFile );
+
+int FreeMapNativeManager_TakePictureAsync( int aImageWidth, int aImageHeight, int aImageQuality,
+        char* aImageFolder, char* aImageFile );
+
 
 int FreeMapNativeManager_GetThumbnail( int aThumbWidth, int aThumbHeight, int bytePP, int* aBuf );
 
@@ -176,6 +180,8 @@ void FreeMapNativeManager_ShowWebView( const char* aUrl, int aMinX, int aMinY, i
 
 void FreeMapNativeManager_ShowEditBox( int aAction, int aStayOnAction, const char* aText, void* aContext, int aTopMargin, int aFlags );
 
+void FreeMapNativeManager_ResizeWebView( int aMinX, int aMinY, int aMaxX, int aMaxY );
+
 void FreeMapNativeManager_HideEditBox( void );
 
 void FreeMapNativeManager_LoadUrl( const char* aUrl );
@@ -186,6 +192,46 @@ void FreeMapNativeManager_MarketRate( void );
 
 void WazeMsgBox_Show( const char* aTitle, const char* aMessage, const char* aLabelOk, const char* aLabelCancel, void* aCbContext );
 
+void WazeSpeechttManager_StartNative( void* aContext, int aTimeout, const char* aLang, const char* aExtraPrompt, int aFlags );
+
+void WazeSpeechttManager_Stop( void );
+
+int WazeSpeechttManager_IsAvailable( void );
+
+char* WazeResManager_LoadSkin( const char* aName, int* size );
+
+void FreeMapNativeManager_EditBoxCheckTypingLockCb( int aRes );
+
+int WazeSoundRecorder_Start( const char* aPath, int aTimeout );
+
+void WazeSoundRecorder_Stop( void );
+
+void FreeMapNativeManager_OpenExternalBrowser( const char* aUrl );
+
+char** WazeResManager_LoadResList( const char* aPath );
+
+void WazeAppWidgetManager_RouteRequestCallback(  int aStatus, const char* aErrDesc, const char* aDestDescription, int aTimeToDest );
+
+void WazeAppWidgetManager_RequestRefresh( void );
+
+void WazeMenuManager_ResetOptionsMenu( void );
+
+void WazeMenuManager_SubmitOptionsMenu( void );
+
+void WazeTtsManager_Commit( const char* aText, const char* aFullPath, void* aContext );
+void WazeTtsManager_Prepare( void );
+
+void FreeMapNativeManager_DisposeRefs( void );
+void FreeMapNativeCanvas_DisposeRefs( void );
+void FreeMapNativeSoundManager_DisposeRefs( void );
+void FreeMapNativeTimerManager_DisposeRefs( void );
+void WazeMenuManager_DisposeRefs( void );
+void WazeMsgBox_DisposeRefs( void );
+void WazeSpeechttManager_DisposeRefs( void );
+void WazeSoundRecorder_DisposeRefs( void );
+void WazeResManager_DisposeRefs( void );
+void WazeTtsManager_DisposeRefs( void );
+void WazeAppWidgetManager_DisposeRefs( void );
 void CloseJNIObjects();
 
 

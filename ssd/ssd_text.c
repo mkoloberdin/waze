@@ -41,6 +41,7 @@
 #define  AUTO_HEIGHT_FACTOR      (0.5F)
 #define  HEIGHT_FACTOR           (1.2F)
 
+
 static int           cursor_width = 0;
 static int           cursor_height = 0;
 static int           initialized;
@@ -57,7 +58,7 @@ typedef struct tag_text_ctx
    BOOL                 auto_trim;
    int                  lines_space_padding; 	/* Additional padding for the inter-lines space */
    int                  value_max_size;
-
+   BOOL                 use_height_factor;
 }  text_ctx, *text_ctx_ptr;
 
 void text_ctx_init( text_ctx_ptr this)
@@ -65,6 +66,7 @@ void text_ctx_init( text_ctx_ptr this)
    memset( this, 0, sizeof(text_ctx));
    this->input_type     = inputtype_binary;
    this->value_max_size = SSD_TEXT_MAXIMUM_TEXT_LENGTH;
+   this->use_height_factor = TRUE;
 }
 
 void ssd_text_set_auto_size( SsdWidget this)
@@ -99,6 +101,9 @@ void ssd_text_set_input_type( SsdWidget this, roadmap_input_type input_type)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
 
+   if (!ctx)
+      return;
+
    ctx->input_type   = input_type;
    this->flags       &= ~SSD_TEXT_READONLY;
 }
@@ -106,6 +111,9 @@ void ssd_text_set_input_type( SsdWidget this, roadmap_input_type input_type)
 void ssd_text_set_text_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
+
+   if (!ctx)
+      return;
 
    ctx->value_max_size = size;
 
@@ -118,6 +126,9 @@ void ssd_text_set_text_size( SsdWidget this, int size)
 void ssd_text_set_font_size( SsdWidget this, int size)
 {
    text_ctx_ptr ctx = (text_ctx_ptr)this->data;
+   if (!ctx)
+      return;
+
    ctx->size = size;
 }
 
@@ -179,6 +190,9 @@ static int format_text (SsdWidget widget, int draw,
       p.y = rect->miny;
    }
 
+   if (!ctx)
+      return 0;
+
    if (( widget->flags & SSD_TEXT_PASSWORD) && (widget->value[0] != 0))
       	text = "*****";
    else
@@ -218,12 +232,12 @@ static int format_text (SsdWidget widget, int draw,
             len = strlen(text);
          }
 
-         if (len > (sizeof(line) - strlen(line) - 1)) {
-            len = sizeof(line) - strlen(line) - 1;
-         }
-
          if (*line) {
             strcat (line ," ");
+         }
+         
+         if (len > (sizeof(line) - strlen(line) - 1)) {
+            len = sizeof(line) - strlen(line) - 1;
          }
 
          new_len = strlen(line) + len;
@@ -267,19 +281,37 @@ static int format_text (SsdWidget widget, int draw,
                 * Make it shorter ...
                 */
                 new_len--;
-               
+
                 if ( is_text_input )
                 {
                    display_offset++; // Truncate from left
                 }
                 else
                 {
-                   // Truncate from right
-                   line[new_len] = '\0';
-                   if ( new_len>2 )
-                   {
-                     line[new_len-1] = '.';
-                     line[new_len-2] = '.';
+                   int utf8Len = utf8_strlen(line);
+                   int iLen = strlen(line);
+                   if (utf8Len != iLen){
+                         while (utf8Len > new_len/2){
+                               utf8_remove_last_char(line);
+                               utf8Len--;
+                         }
+
+                         if ( (new_len/2)>2 )
+                         {
+                           utf8_remove_last_char(line);
+                           utf8_remove_last_char(line);
+                           strcat(line,"..");
+                         }
+
+                   }
+                   else{
+                      //Truncate from right
+                      line[new_len] = '\0';
+                      if ( new_len>2 )
+                      {
+                        line[new_len-1] = '.';
+                        line[new_len-2] = '.';
+                      }
                    }
                 }
 
@@ -295,7 +327,10 @@ static int format_text (SsdWidget widget, int draw,
             }
          }
 
-         h = (text_ascent + text_descent + ctx->lines_space_padding) * HEIGHT_FACTOR;
+         if (ctx->use_height_factor)
+            h = (text_ascent + text_descent + ctx->lines_space_padding) * HEIGHT_FACTOR;
+         else
+            h = (text_ascent + text_descent + ctx->lines_space_padding);
 
          /*
           * This code can add a points at the end of the last line in case of text cut
@@ -633,4 +668,10 @@ void ssd_text_set_lines_space_padding( SsdWidget this, int space )
    ctx->lines_space_padding = space;
 }
 
+
+void ssd_text_set_use_height_factor( SsdWidget this, BOOL use_height_factor )
+{
+   text_ctx_ptr ctx = (text_ctx_ptr) this->data;
+   ctx->use_height_factor = use_height_factor;
+}
 

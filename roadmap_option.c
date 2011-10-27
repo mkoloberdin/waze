@@ -72,7 +72,7 @@ static int roadmap_option_synchronous = 0;
 static char *roadmap_option_debug = "";
 static char *roadmap_option_gps = NULL;
 
-static float roadmap_option_fast_forward_factor = 1.0F;
+static float roadmap_option_fast_forward_factor = 2.0F;
 
 static RoadMapUsage RoadMapOptionUsage = NULL;
 

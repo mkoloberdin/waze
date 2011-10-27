@@ -31,549 +31,525 @@
  */
 package com.waze;
 
-import android.os.SystemClock;
+import java.util.ArrayList;
 import android.util.Log;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 
 
 final public class WazeScreenManager 
 {
-
 	/*************************************************************************************************
      *================================= Public interface section =================================
      */
+	public WazeScreenManager()
+	{	
+		mCanvasReadyEvents = new ArrayList<Runnable>();
+	}
 	
 	public WazeScreenManager( FreeMapNativeManager aNativeMgr )
 	{	
 		mNativeManager = aNativeMgr;
+		mCanvasReadyEvents = new ArrayList<Runnable>();
+	}
+	
+	public void setNativeManager( FreeMapNativeManager aMgr )
+	{
+		mNativeManager = aMgr;
 	}
 	
     /*************************************************************************************************
      * Activity onResume event notification 
      */
-    public void onResume( WazeScreenManagerCallback aFgCallback )
+    public void onResume()
     {    	
-    	ForegroundRequest( aFgCallback );
+    	DebugLog( "onResume: Starting." );
+    	
+    	if ( mRunning )
+    		return;
+
+    	synchronized( this )
+    	{
+    		notifyAll();
+
+    		if ( mNativeManager.IsNativeThread() )
+        	{
+    			onResumeHandler();
+        	}
+        	else
+        	{
+    	    	final Runnable request = new Runnable() {			
+    				public void run() {
+    					onResumeHandler();				
+    				}
+    	    	};
+    			mNativeManager.PostRunnable( request );
+    		}    	
+    		
+    		try
+    		{
+    			while ( !mRunning )
+    			{
+    				this.wait();
+    			}
+    		}
+    		catch( Exception ex )
+	        {
+	        	Log.e( "WAZE", "onResume: Error while waiting for the onResume request completion" );
+	        	WazeLog.e( "onResume: Error while waiting for the onResume request completion", ex );
+	        	// AGA TODO :: Check this
+	        	Thread.currentThread().interrupt();
+	        }
+	        DebugLog( "onResume: Finilizing. " );
+    	}
+
+    }
+    
+    /*************************************************************************************************
+     * Activity onResume event handler 
+     */
+    public void onResumeHandler()
+    {
+    	synchronized( this )
+    	{
+    		DebugLog( "onResumeHandler: Starting." );
+    		mRunning = true;
+    		if ( mHasSurface )
+    		{
+    			FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+				
+    			// Create the canvas surface
+				canvas.CreateCanvas( FreeMapAppService.getMainView(), mSurfaceWidth, mSurfaceHeight );
+				
+				// AGA TODO:: Check success creation
+				mNativeManager.BackgroundRun( false );
+				
+				// Fire Events
+				CallOnCanvasReadyEvents();
+				
+				canvas.RedrawCanvas();
+	    		// Second time
+	    		canvas.RedrawCanvas( 500L );
+
+			}
+    		this.notifyAll();
+    	}
     }
     /*************************************************************************************************
      * Activity onPause event notification 
      */
     public void onPause()
-    {
-    	BackgroundRequest();
+    {    	
+    	DebugLog( "onPause: Starting." );
+    	
+    	boolean pauseBeforeInitialization = ( ( mSurfaceWidth == -1 ) && ( mSurfaceHeight == -1 ) );
+    	
+    	if ( !mRunning || mShuttingDown )
+    		return;
+
+    	synchronized( this )
+    	{
+    		notifyAll();
+
+    		if ( pauseBeforeInitialization )
+    		{
+    			DebugLog( "onPause: pauseBeforeInitialization." );
+    			mRunning = false;
+    			return;
+    		}
+    		
+    		if ( mNativeManager.IsNativeThread() )
+        	{
+    			onPauseHandler();
+        	}
+        	else
+        	{
+    	    	final Runnable request = new Runnable() {			
+    				public void run() {
+    					onPauseHandler();				
+    				}
+    	    	};
+    			mNativeManager.PostRunnable( request );
+    		}    	
+    		
+    		try
+    		{
+    			while ( mRunning )
+    			{
+    				this.wait();
+    			}
+    		}
+    		catch( Exception ex )
+	        {
+	        	Log.e( "WAZE", "onPause: Error while waiting for the onPause request completion" );
+	        	WazeLog.e( "onPause: Error while waiting for the onPause request completion", ex );
+	        	// AGA TODO :: Check this
+	        	Thread.currentThread().interrupt();
+	        }
+	        DebugLog( "onPause: Finilizing." );
+    	}
     }
+    
     /*************************************************************************************************
-     * View onSurfaceChanged event notification 
+     * Activity onResume event handler 
      */
-    public void onSurfaceChanged()
+    public void onPauseHandler()
     {
-    	/*
-    	 * If currently in foreground - post resize request
-    	 * otherwise notify the native thread if blocked while waiting
-    	 * for the surface view
-    	 */
-		ResizeRequest();
+    	synchronized( this )
+    	{
+    		mRunning = false;
+    		mNativeManager.BackgroundRun( true );	
+    		FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+    		canvas.DestroyCanvas();
+    		this.notifyAll();
+    	}
     }
+
     /*************************************************************************************************
-     * View onSurfaceDestroyed event notification 
+     * onSurfaceCreated event notification 
+     */
+    public void onSurfaceCreated( final SurfaceView aView )
+    {
+    	DebugLog( "onSurfaceCreated: Starting." );
+    	
+//    	if ( !mRunning )
+//    		return;
+    	
+		mHasSurface = true;
+    	
+    	synchronized( this )
+    	{
+    		notifyAll();
+
+    		if ( mNativeManager.IsNativeThread() )
+        	{
+    			onSurfaceCreatedHandler( aView );
+        	}
+        	else
+        	{
+    	    	final Runnable request = new Runnable() {			
+    				public void run() {
+    					onSurfaceCreatedHandler( aView );				
+    				}
+    	    	};
+    			mNativeManager.PostRunnable( request );
+    		}    	
+    		
+    		try
+    		{
+    			while ( mSurfaceWait )
+    			{
+    				this.wait();
+    			}
+    		}
+    		catch( Exception ex )
+	        {
+	        	Log.e( "WAZE", "onSurfaceCreated: Error while waiting for the onSurfaceCreated request completion" );
+	        	WazeLog.e( "onSurfaceCreated: Error while waiting for the onSurfaceCreated request completion", ex );
+	        	// AGA TODO :: Check this
+	        	Thread.currentThread().interrupt();
+	        }
+	        DebugLog( "onSurfaceCreated: Finilizing." );
+    	}
+    }	
+    /*************************************************************************************************
+     * onSurfaceCreated event notification handler  
+     */
+    public void onSurfaceCreatedHandler( final SurfaceView aView )
+    {
+    	synchronized( this )
+    	{
+			FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+			
+			// AGA TODO:: Check success creation
+			if ( mRunning )
+			{
+				if ( mSurfaceWidth > 0 && mSurfaceHeight > 0 )
+				{
+					canvas.CreateCanvas( aView, mSurfaceWidth, mSurfaceHeight );
+					mNativeManager.BackgroundRun( false );
+				}
+				
+				// Fire Events
+				CallOnCanvasReadyEvents();
+	
+	    		canvas.RedrawCanvas();
+	    		// Second time
+	    		canvas.RedrawCanvas( 500L );
+	
+			}
+			else
+			{
+				canvas.PrepareCanvas( aView );
+			}
+			
+			mSurfaceWait = false;    		
+    		this.notifyAll();
+    	}    	
+    }	
+    /*************************************************************************************************
+     * onSurfaceChanged event notification 
+     */
+    public void onSurfaceChanged( final SurfaceView aView, int aWidth, int aHeight )
+    {
+    	DebugLog( "onSurfaceChanged: Starting." );
+    	
+//    	if ( !mRunning )
+//    		return;
+    	
+    	mSurfaceChanged = ( ( mSurfaceWidth != aWidth ) || ( mSurfaceHeight != aHeight ) );
+    	
+    	if ( mSurfaceChanged )
+    	{
+    		mSurfaceWidth = aWidth;
+    		mSurfaceHeight = aHeight;
+    	}
+    	else
+    	{    		
+    		return;
+    	}
+    	
+    	synchronized( this )
+    	{
+    		notifyAll();
+    		
+    		if ( mNativeManager.IsNativeThread() )
+        	{
+    			onSurfaceChangedHandler( aView );
+        	}
+        	else
+        	{
+    	    	final Runnable request = new Runnable() {			
+    				public void run() {
+    					onSurfaceChangedHandler( aView );				
+    				}
+    	    	};
+    			mNativeManager.PostRunnable( request );
+    		}    	
+    		
+    		try
+    		{
+    			while ( mSurfaceChanged )
+    			{
+    				this.wait();
+    			}
+    		}
+    		catch( Exception ex )
+	        {
+	        	Log.e( "WAZE", "onSurfaceChanged: Error while waiting for the onSurfaceChanged request completion" );
+	        	WazeLog.e( "onSurfaceChanged: Error while waiting for the onSurfaceChanged request completion", ex );
+	        	// AGA TODO :: Check this
+	        	Thread.currentThread().interrupt();
+	        }
+	        DebugLog( "onSurfaceChanged: Finilizing." );
+    	}
+    }
+    
+    
+    /*************************************************************************************************
+     * onSurfaceChanged event notification handler 
+     */
+    public void onSurfaceChangedHandler( final SurfaceView aView )
+    {
+    	synchronized( this )
+    	{
+    		if ( mHasSurface )
+    		{
+    			FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+    			if ( mRunning )
+    			{
+	    	        // Destroy the surface - not necessary for the newer systems. Done to be on
+	    	        // the safe side with all the devices
+					canvas.DestroyCanvasSurface();
+					
+					// Create the canvas
+					canvas.ResizeCanvas( aView, mSurfaceWidth, mSurfaceHeight );
+	
+					if ( mNativeManager.getIsBackgroundRun() )
+					{
+						mNativeManager.BackgroundRun( false );
+					}
+					
+					// Fire Events
+					CallOnCanvasReadyEvents();
+		    		
+		    		canvas.RedrawCanvas();
+		    		
+		    		// Second time
+		    		canvas.RedrawCanvas( 500L );
+    			}
+    			else
+    			{
+    				canvas.PrepareCanvas( aView );
+    			}
+    		}
+    		
+    		mSurfaceChanged = false;	
+    		this.notifyAll();
+    		
+    	}    	
+    }
+    
+    /*************************************************************************************************
+     * onSurfaceDestroyed event notification 
      */
     public void onSurfaceDestroyed()
     {
-    	BackgroundRequest();
+    	DebugLog( "onSurfaceDestroyed: Starting." );
+    	
+    	if ( !mHasSurface || mShuttingDown )
+    		return;
+    	
+    	mHasSurface = false;
+    	
+    	synchronized( this )
+    	{
+    		notifyAll();
+    		
+    		if ( mNativeManager.IsNativeThread() )
+        	{
+    			onSurfaceDestroyedHandler();
+        	}
+        	else
+        	{
+    	    	final Runnable request = new Runnable() {			
+    				public void run() {
+    					onSurfaceDestroyedHandler();				
+    				}
+    	    	};
+    			mNativeManager.PostRunnable( request );
+    		}    	
+    		
+    		try
+    		{
+    			while ( !mSurfaceWait )
+    			{
+    				this.wait();
+    			}
+    		}
+    		catch( Exception ex )
+	        {
+	        	Log.e( "WAZE", "onSurfaceDestroyed: Error while waiting for the onSurfaceDestroyed request completion" );
+	        	WazeLog.e( "onSurfaceDestroyed: Error while waiting for the onSurfaceDestroyed request completion", ex );
+	        	// AGA TODO :: Check this
+	        	Thread.currentThread().interrupt();
+	        }
+	        DebugLog( "onSurfaceDestroyed: Finilizing." );
+    	}
+    }
+
+    /*************************************************************************************************
+     * onSurfaceDestroyed event notification handler 
+     */
+    public void onSurfaceDestroyedHandler()
+    {
+    	synchronized( this )
+    	{
+    		
+    		mNativeManager.BackgroundRun( true );
+    		
+			FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+			
+			// Destroying EGL surface only
+			canvas.DestroyCanvasSurface();
+
+			mSurfaceWait = true;
+		    
+			this.notifyAll();
+    	}    	
+    }
+    
+    /*************************************************************************************************
+     * Screen ready indicator
+     */
+    public boolean IsReady()
+    {
+    	boolean res;
+    	res = mHasSurface && mRunning && ( mSurfaceWidth > 0 ) && ( mSurfaceHeight > 0 ) ;
+    	return res;
+    }
+
+    /*************************************************************************************************
+     * Screen running indicator
+     */
+    public boolean IsRunning()
+    {
+    	return mRunning;
     }
     /*************************************************************************************************
-     * View onSurfaceDestroyed event notification 
+     * Screen surface ready indicator
      */
-    public void onSurfaceCreated()
+    public boolean IsSurfaceReady()
     {
-    	ForegroundRequest();
-    }	
+    	boolean res;
+    	res = mHasSurface && ( mSurfaceWidth > 0 ) && ( mSurfaceHeight > 0 );
+    	return res;
+    }
+
     /*************************************************************************************************
      * Application is shutting down 
      */
     public void onShutDown()
     {
-    	SetState( SCREENMGR_STATE_APP_SHUTDOWN );
-    }
-
-    /*************************************************************************************************
-     * class WazeEditBoxCallback - Provides an interface for the callback to be called upon action/enter event arrival 
-     * Called on the native thread
-     */
-    public static interface WazeScreenManagerCallback 
-    {   
-    	public void Callback();
-    }
-
-    
-    public void ForegroundRequest()
-    {
-    	ForegroundRequest( null );
-    }
-    /*************************************************************************************************
-     * ForegroundRequest - checks state and posts the foreground request to be accomplished on the native thread
-     * @param aFgCallback - Callback to be called upon foreground request full completion  
-     */
-    public void ForegroundRequest( final WazeScreenManagerCallback aFgCallback )
-    {
-    	DebugLog( "ForegroundRequest: State - " + curStateStr() );
-    	/*
-    	 * If already in foreground or in foreground request handling - nothing to do
-    	 */
-    	if ( mState == SCREENMGR_STATE_FOREGROUND ||
-    			mState == SCREENMGR_STATE_FOREGROUND_REQUEST || 
-    			mState == SCREENMGR_STATE_APP_SHUTDOWN )
-    	{
-    		return;
-    	}
-    	
-    	if ( !mNativeManager.getInitializedStatus() )
-    	{
-    		SetState( SCREENMGR_STATE_FOREGROUND );
-    		return;
-    	}
-    	
-    	SetState( SCREENMGR_STATE_FOREGROUND_REQUEST );
-    	
-    	if ( mNativeManager.IsNativeThread() )
-    	{
-    		ForegroundRequestHandler( false, aFgCallback );
-    	}
-    	else
-    	{
-	    	/*
-	    	 * Post the request
-	    	 */
-	    	Runnable request = new Runnable() {			
-				public void run() {
-					ForegroundRequestHandler( true, aFgCallback );				
-				}
-	    	};
-			mNativeManager.PostRunnable( request );
-		}    	
+    	mShuttingDown = true;
+    	FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+    	if ( canvas != null )
+    		canvas.DestroyCanvas();
     }
     
     /*************************************************************************************************
-     * BackgroundRequest - checks state and posts the background request to be accomplished on the native thread  
+     * Registration of the canvas ready events
      */
-    public void BackgroundRequest()
+    public void registerOnCanvasReadyEvent( Runnable aEvent )
     {
-    	int prevState = mState;
-    	
-		DebugLog( "BackgroundRequest: State - " + curStateStr() );
-    	
-    	/*
-    	 * If already in background or in background request handling or shutting down - nothing to do
-    	 */
-    	if ( mState == SCREENMGR_STATE_BACKGROUND ||
-    			mState == SCREENMGR_STATE_BACKGROUND_REQUEST ||     			
-    			mState == SCREENMGR_STATE_APP_SHUTDOWN )
-    		return;
-    	
-    	
-    	if ( !mNativeManager.getInitializedStatus() )
-    	{
-    		SetState(  SCREENMGR_STATE_BACKGROUND );
-    		return;
-    	}
-    	
-        try 
-        {
-        	SetState( SCREENMGR_STATE_BACKGROUND_REQUEST );
-        	synchronized( this ) {
-	    		/*
-	    		 * Notify the native thread to stop waiting for surface
-	    		 * because the new background event is arrived
-	    		 */
-	    		this.notify();
-		    	if ( prevState == SCREENMGR_STATE_FOREGROUND_REQUEST ||
-		    			prevState == SCREENMGR_STATE_RESIZE_REQUEST )
-		    	{
-		    		DebugLog( "BackgroundRequest: Waiting ..." );
-	    			this.wait();
-		    	}
-	    	}
-        	/*
-        	 * Reassign state if was changed by handler
-        	 */
-        	SetState( SCREENMGR_STATE_BACKGROUND_REQUEST );
-        }
-        catch( Exception ex )
-        {
-        	Log.e( "WAZE", "BackgroundRequest: Error while waiting for the foreground state" );
-        	WazeLog.e( "BackgroundRequest: Error while waiting for the foreground state", ex );
-        }
-    	
-    	if ( mNativeManager.IsNativeThread() )
-    	{
-    		BackgroundRequestHandler( false );
-    	}
-    	else // UI Thread
-    	{
-	    	/*
-	    	 * Post the request
-	    	 */
-	    	Runnable request = new Runnable() {			
-				public void run() {
-					BackgroundRequestHandler( true );				
-				}
-			};
-			mNativeManager.PostRunnable( request );
-	
-	    	/*
-	    	 * Wait for the background request to complete
-	    	 */
-	    	synchronized( this )
-	    	{
-		        try 
-		        {
-		        	long wait_start_time = SystemClock.currentThreadTimeMillis();
-		        	while( mState != SCREENMGR_STATE_BACKGROUND )
-		        	{	        		
-		        		wait( SCREENMGR_WAIT_TIMEOUT);
-		        	}
-		        	if ( SystemClock.currentThreadTimeMillis() - wait_start_time >= SCREENMGR_WAIT_TIMEOUT )
-		        	{
-		        		WazeLog.w( "Too long time waiting in BackgroundRequest" );
-		        	}
-		        }
-		        catch( Exception ex )
-		        {
-		        	Log.e( "WAZE", "Error while waiting for the background request to complete" );
-		        	WazeLog.e( "Error while waiting for the background request to complete", ex );
-		        }
-	    	}
-    	}
-    	DebugLog( "BackgroundRequest: Completed. State - " + curStateStr() );
+    	mCanvasReadyEvents.add( aEvent );
     }
     
-    /*************************************************************************************************
-     * ResizeRequest - checks state and posts the resize request to be accomplished on the native thread  
-     */
-    public void ResizeRequest()
-    {
-    	int prevState = mState;
-    	DebugLog( "ResizeRequest: State - " + curStateStr() );
-    	
-		if ( mState != SCREENMGR_STATE_FOREGROUND && mState != SCREENMGR_STATE_FOREGROUND_REQUEST )
-		{
-			WazeLog.e( "WAZE ResizeRequest. Invalid state: " + curStateStr() );
-			return;
-		}
-		
-		
-		if ( !mNativeManager.getInitializedStatus() )
-    	{
-    		return;
-    	}
-		
-		try 
-        {
-        	synchronized( this ) {
-	    		/*
-	    		 * Notify the native thread to stop waiting for surface
-	    		 * because the new surface should be obtained
-	    		 */
-        		// AGA TODO:: Check this flow
-	    		this.notify();
-
-	    		if ( prevState == SCREENMGR_STATE_FOREGROUND_REQUEST ||
-	    				prevState == SCREENMGR_STATE_RESIZE_REQUEST )
-		    	{
-		    		DebugLog( "ResizeRequest: Waiting ..." );
-		    		// Wait for the previous request processing completion
-	    			this.wait();
-		    	}
-		    	// Foreground event 
-		    	if ( prevState == SCREENMGR_STATE_FOREGROUND_REQUEST )
-		    		return;
-	    	}
-        	/*
-        	 * Reassign state if was changed by handler
-        	 */
-        	SetState( SCREENMGR_STATE_RESIZE_REQUEST );
-        }
-        catch( Exception ex )
-        {
-        	Log.e( "WAZE", "ResizeRequest: Error while waiting for the foreground state" );
-        	WazeLog.e( "ResizeRequest: Error while waiting for the foreground state", ex );
-        }
-	        
-    	if ( mNativeManager.IsNativeThread() )
-    	{
-    		ResizeRequestHandler( false );
-    	}
-    	else
-    	{
-			/*
-	    	 * Post the request
-	    	 */
-	    	Runnable request = new Runnable() {			
-				public void run() {
-					ResizeRequestHandler( true );				
-				}
-			};
-			mNativeManager.PostRunnable( request );
-			/*
-	    	 * Wait for the resize request to complete
-	    	 */
-	    	synchronized( this )
-	    	{
-		        try 
-		        {
-		        	long wait_start_time = SystemClock.currentThreadTimeMillis();
-		        	while( mState != SCREENMGR_STATE_FOREGROUND )
-		        	{	        		
-		        		wait( SCREENMGR_WAIT_TIMEOUT );
-		        	}
-		        	if ( SystemClock.currentThreadTimeMillis() - wait_start_time >= SCREENMGR_WAIT_TIMEOUT )
-		        	{
-		        		WazeLog.w( "Too long time waiting in ResizeRequest" );
-		        	}
-		        }
-		        catch( Exception ex )
-		        {
-		        	Log.e( "WAZE", "Error while waiting for the resize request to complete" );
-		        	WazeLog.e( "Error while waiting for the resize request to complete", ex );
-		        }
-	    	}
-			
-    	}
-		    	
-    }    
 	/*************************************************************************************************
      *================================= Private interface section =================================
      */
-
-    /*************************************************************************************************
-     * ForegroundRequestHandler - if surface is ready creates egl context and informs the native layer on 
-     * foreground run  
-     */
-    private void ForegroundRequestHandler( boolean aIsNotify, final WazeScreenManagerCallback aFgCallback )
-    {
-//    	Log.w( "WAZE", "ForegroundRequestHandler" );
-    	// AGA NOTE:: Should be reduced when stable
-		WazeLog.w( "WAZE ForegroundRequestHandler" );
-		DebugLog( "ForegroundRequestHandler: State - " + curStateStr() );
-		
-		if ( mState != SCREENMGR_STATE_FOREGROUND_REQUEST )
-		{
-			WazeLog.e( "WAZE ForegroundRequestHandler. Invalid state " + mState );
-			return;
-		}
-		
-		/*
-		 * Block the native thread until the surface is ready
-		 */
-    	synchronized( this )
-    	{
-	        try 
-	        {
-	        	long wait_start_time = SystemClock.currentThreadTimeMillis();
-	        	WazeMainView appView = FreeMapAppService.getMainView();
-	        	DebugLog( "ForegroundRequestHandler. Start waiting. State - " + curStateStr() + ". App ready: " + appView.IsReady() );
-	        	while( !appView.IsReady() && ( mState == SCREENMGR_STATE_FOREGROUND_REQUEST ) )
-	        	{
-//	        		Log.w( "WAZE", "ForegroundRequestHandler: Waiting for the surface to be ready" );
-	        		wait( SCREENMGR_WAIT_TIMEOUT );
-	        	}
-	        	DebugLog( "ForegroundRequestHandler. End waiting. State - " + curStateStr() + ". App ready: " + appView.IsReady() );
-	        	
-	        	if ( SystemClock.currentThreadTimeMillis() - wait_start_time >= SCREENMGR_WAIT_TIMEOUT )
-	        	{
-	        		WazeLog.w( "Too long time waiting in ForegroundRequestHandler" );
-	        	}
-
-	        }
-	        catch( Exception ex )
-	        {
-	        	WazeLog.e( "Error while waiting for the view to be ready", ex );
-	        }
-    	}
-    	if ( mState == SCREENMGR_STATE_FOREGROUND_REQUEST )
-    	{
-    		long endTime, startTime = android.os.SystemClock.elapsedRealtime();
-	    	// Create the canvas
-			if ( mNativeManager.getNativeCanvas().CreateCanvas() )
-			{
-				// Get it back
-				mNativeManager.BackgroundRun( false );
-				
-				SetState( SCREENMGR_STATE_FOREGROUND );
-		    	
-			}
-			else
-			{
-				// AGA NOTE:: Check this
-				SetState( SCREENMGR_STATE_BACKGROUND );
-			}
-	    	// AGA NOTE:: Should be reduced when stable		
-	    	WazeLog.w( "ForegroundRequestHandler completed" );
-	    	
-	    	endTime = android.os.SystemClock.elapsedRealtime();
-
-			DebugLog( "ForegroundRequestHandler time: " + ( endTime - startTime ) );
-    	}
-    	else
-    	{
-	    	// AGA NOTE:: Should be reduced when stable		
-	    	WazeLog.w( "ForegroundRequestHandler: State was changed to: " + mState );
-    	}
-    	DebugLog( "ForegroundRequestHandler finilizing: State - " + curStateStr() );
-    	if ( aIsNotify )
-    	{
-	    	/*
-	    	 * Notify UI thread of completion
-	    	 */
-	    	synchronized( this ) {
-		        	this.notify();
-	    	}	    	
-    	}
-    	if ( aFgCallback != null )
-    	{
-    		aFgCallback.Callback();
-    	}
-    }
-    /*************************************************************************************************
-     * BackgroundRequestHandler - Destroys egl context and informs the native layer on 
-     * background run  
-     * @param aIsNotify: Is thread notification is necessary
-     */
-    private void BackgroundRequestHandler( boolean aIsNotify )
-    {    	
-    	// AGA NOTE:: Should be reduced when stable    	
-		WazeLog.w( "WAZE BackgroundRequestHandler" );
-		
-		DebugLog( "BackgroundRequestHandler: State - " + curStateStr() );
-		
-		if ( mState != SCREENMGR_STATE_BACKGROUND_REQUEST )
-		{
-			WazeLog.e( "WAZE BackgroundRequestHandler. Invalid state " + mState );
-			return;
-		}
-		
-		mNativeManager.BackgroundRun( true );	
-		FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
-		canvas.DestroyCanvas();
-
-		SetState( SCREENMGR_STATE_BACKGROUND );
-    	
-    	if ( aIsNotify )
-    	{
-	    	/*
-	    	 * Notify the UI thread of request handling completion
-	    	 */
-	    	synchronized( this ) {
-	    		// Log.w( "WAZE", "Notifying background request completion" );
-	    		this.notify();
-	    	}
-    	}
-    	// AGA NOTE:: Should be reduced when stable    	
-    	WazeLog.w( "WAZE BackgroundRequestHandler completed" );
-    }
-    /*************************************************************************************************
-     * ResizeRequestHandler - 
-     * 1. Recreates the EGL surface
-     * 2. Informs the native layer on canvas change
-     */
-    private void ResizeRequestHandler( boolean aIsNotify )
-    {
-//    	Log.w( "WAZE", "ResizeRequestHandler" );
-    	// AGA NOTE:: Should be reduced when stable    	
-		WazeLog.w( "WAZE ResizeRequestHandler" );
-		
-		if ( mState == SCREENMGR_STATE_RESIZE_REQUEST )
-		{
-		
-			FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
-			
-			// Create the canvas
-			canvas.ResizeCanvas();
-			// Update with orientation change if needed
-			canvas.CanvasOrientationUpdate();
-			
-			SetState(  SCREENMGR_STATE_FOREGROUND );
-		}
-		else
-		{
-			WazeLog.e( "WAZE ResizeRequestHandler. State: " + curStateStr() );
-		}
-		
-		if ( aIsNotify )
-    	{
-	    	/*
-	    	 * Notify the UI thread of request handling completion
-	    	 */
-	    	synchronized( this ) {
-	    		// Log.w( "WAZE", "Notifying resize request completion" );
-	    		this.notify();
-	    	}
-    	}
-		
-    	// AGA NOTE:: Should be reduced when stable		
-		WazeLog.w( "WAZE ResizeRequestHandler completed" );
-    }
     
-    private void SetState( final int aState )
+    private void CallOnCanvasReadyEvents()
     {
-    	DebugLog( "SetState. New state: " + getStateDescription( aState ) + ". Old: " + curStateStr() );
-    	if ( mStateLocked )
+    	FreeMapNativeCanvas canvas = mNativeManager.getNativeCanvas();
+    	
+    	if ( !mRunning ||
+    		 !mHasSurface || 
+			 canvas == null || 
+			 !canvas.getCanvasReady() ||
+			 mNativeManager.getIsBackgroundRun() ||
+			 mSurfaceWidth < 0 || mSurfaceHeight < 0 )
+    	{
     		return;
+    	}
     	
-    	mState = aState;
+    	while ( mCanvasReadyEvents.size() > 0 )
+    	{
+    		Runnable event = mCanvasReadyEvents.remove( 0 );
+    		FreeMapNativeManager.Post( event );
+    	}    	
     }
-    
-//    private void StateLock()
-//    {
-//    	mStateLocked = true;
-//    }
-//    private void StateUnLock()
-//    {
-//    	mStateLocked = false;
-//    }
 
     /*************************************************************************************************
      * String description of the state 
      * 
      * 
      */
-    private String getStateDescription( int aState )
-    {
-    	String res = "Unknown state";
-    	switch( aState )
-    	{
-    		case SCREENMGR_STATE_APP_START:
-    			res = "APP_START";
-    			break;
-    		case SCREENMGR_STATE_FOREGROUND_REQUEST: 
-    			res = "FOREGROUND_REQUEST";
-    			break;
-    		case SCREENMGR_STATE_FOREGROUND: 
-    			res = "FOREGROUND";
-    			break;
-    		case SCREENMGR_STATE_BACKGROUND_REQUEST: 
-    			res = "BACKGROUND_REQUEST";
-    			break;
-    		case SCREENMGR_STATE_BACKGROUND: 
-    			res = "BACKGROUND";
-    			break;
-    		case SCREENMGR_STATE_RESIZE_REQUEST: 
-    			res = "RESIZE_REQUEST";
-    			break;
-    		case SCREENMGR_STATE_APP_SHUTDOWN: 
-    			res = "APP_SHUTDOWN";
-    			break;
-    	}
-    	return res;
-    }
-    private String curStateStr()
-    {
-    	return  getStateDescription( mState );
-    }
     
     private void DebugLog( String aStr )
     {
+    	final String strLog = aStr + ". Running: " + mRunning + ". Surface changed " + mSurfaceChanged + 
+		". Surface wait: " + mSurfaceChanged + ". Has Surface: " + mHasSurface +		
+		". Dims: (" + mSurfaceWidth + ", " + mSurfaceHeight + ")";
+    	
     	if ( SCREENMGR_DEBUG_LOG_ENABLED )
-    		Log.w( SCREENMGR_DEBUG_TAG, aStr );
+    	{
+    		if ( mNativeManager != null && mNativeManager.getInitializedStatus() )
+    			WazeLog.ww( SCREENMGR_DEBUG_TAG + " " + strLog );
+    		else
+    			Log.w( SCREENMGR_DEBUG_TAG, strLog );
+    	}
+    		
     }
     /*************************************************************************************************
      *================================= Native methods section ================================= 
@@ -584,20 +560,22 @@ final public class WazeScreenManager
      *================================= Data members section =================================
      * 
      */	
-    private final int SCREENMGR_STATE_APP_START = 0;
-	private final int SCREENMGR_STATE_FOREGROUND_REQUEST = 1;
-	private final int SCREENMGR_STATE_FOREGROUND = 2;
-	private final int SCREENMGR_STATE_BACKGROUND_REQUEST = 3;
-	private final int SCREENMGR_STATE_BACKGROUND = 4;
-	private final int SCREENMGR_STATE_RESIZE_REQUEST = 5;
-	private final int SCREENMGR_STATE_APP_SHUTDOWN = 6;
-	
-	private final long SCREENMGR_WAIT_TIMEOUT = 5000L;	// 5 seconds is a huge timeout
-	
+    
+    private volatile boolean mShuttingDown = false;
+    private volatile boolean mRunning = true;
+    private volatile boolean mSurfaceChanged = false;
+    private volatile boolean mSurfaceWait = false;
+    private volatile boolean mHasSurface = false;
+    
+    private volatile int mSurfaceWidth = -1;
+    private volatile int mSurfaceHeight = -1;
+    
+    private ArrayList<Runnable> mCanvasReadyEvents = null;
+    
 	FreeMapNativeManager mNativeManager = null;
-	private volatile int mState = SCREENMGR_STATE_FOREGROUND;		// Thread  safe
-	private volatile boolean mStateLocked = false;					// Indicates if state can be changed
+
 	// DEBUG VARS
 	private final static boolean SCREENMGR_DEBUG_LOG_ENABLED = false;
 	private final static String SCREENMGR_DEBUG_TAG = "WAZE DEBUG SCRMGR";
 }
+

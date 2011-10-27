@@ -1,5 +1,4 @@
-
-/* roadmap_keyboard.h
+/* roadmap_keyboard.c
  *
  * LICENSE:
  *
@@ -36,12 +35,14 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 
+static void on_driving_lock_confirm( int exit_code, void *data );
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 #define  RMKB_MAXIMUM_REGISTERED_CALLBACKS         (20)
 static   CB_OnKeyPressed   gs_cbOnKeyPressed[RMKB_MAXIMUM_REGISTERED_CALLBACKS];
 static   int               gs_cbOnKeyPressed_count = 0;
 static   BOOL gs_TypingLockCheckEnabled = FALSE;
-
+static   ConfirmTypingLockCallback gs_cbTypingLockConfirm = on_driving_lock_confirm;
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 
@@ -171,19 +172,17 @@ const char* roadmap_keyboard_virtual_key_name( EVirtualKey vk)
 
 //
 
-static void on_disabling_driving_lock(int exit_code, void *data){
+static void on_driving_lock_confirm(int exit_code, void *data){
 	if (exit_code==dec_no)
 		roadmap_keyboard_set_typing_lock_enable(FALSE);
 }
 
-#ifdef IPHONE
-void on_ok_disabling_driving_lock(int exit_code ){
-   roadmap_keyboard_set_typing_lock_enable(FALSE);
-}
-#endif //IPHONE
-
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+void roadmap_keyboard_register_typing_lock_confirm_cb( ConfirmTypingLockCallback cb )
+{
+   gs_cbTypingLockConfirm = cb;
+}
 /*************************************************************************************************
  * BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
  * Checks whether the typing is locked due to speed threshold
@@ -195,58 +194,41 @@ BOOL roadmap_keyboard_typing_locked( BOOL show_msg )
 	static BOOL sInitialized = FALSE;
 	static RoadMapConfigDescriptor RoadMapConfigTypingLockThreshod =
 	                        ROADMAP_CONFIG_ITEM( "Keyboard", "Typing lock threshold" );
+   static RoadMapConfigDescriptor RoadMapConfigTypingLockEnabled =
+                           ROADMAP_CONFIG_ITEM( "Keyboard", "Typing Lock Enabled" );
+
 	static int sTypingLockSpeedThr = CFG_KB_TYPING_LOCK_THR;
 
 	RoadMapGpsPosition position;
 	BOOL res = FALSE;
 	char msg_text[KB_TYPING_LOCK_MSG_MAX_LEN];
 
-
-
-	/* In israel - always permitted 	*/
-	if ( !gs_TypingLockCheckEnabled /*&& ssd_widget_rtl( NULL )*/ )
-	{
-		return FALSE;
-	}
-
 	/* Load the configuration */
 	if ( !sInitialized )
 	{
 		roadmap_config_declare( "preferences", &RoadMapConfigTypingLockThreshod, OBJ2STR( CFG_KB_TYPING_LOCK_THR ), NULL );
+		roadmap_config_declare( "preferences", &RoadMapConfigTypingLockEnabled, "yes", NULL );
 		sTypingLockSpeedThr = roadmap_config_get_integer( &RoadMapConfigTypingLockThreshod );
+		gs_TypingLockCheckEnabled = roadmap_config_match( &RoadMapConfigTypingLockEnabled, "yes" );
 		sInitialized = TRUE;
 	}
+
+   if ( !gs_TypingLockCheckEnabled /*&& ssd_widget_rtl( NULL )*/ )
+   {
+      return FALSE;
+   }
 
 	/* Check the speed and show message if requested */
 	roadmap_navigate_get_current( &position, NULL, NULL );
 	res = ( position.speed > sTypingLockSpeedThr );
 	if ( res && show_msg )
 	{
-
-#ifdef IPHONE_NATIVE
-      strncpy_safe(msg_text,
-                   roadmap_lang_get( "Typing is disabled when driving. Press OK to allow typing for passengers" ),
-                   KB_TYPING_LOCK_MSG_MAX_LEN);
-      roadmap_messagebox_cb ("", msg_text, on_ok_disabling_driving_lock);
-#else
-      int cur_len = 0;
-
-      strncpy_safe(msg_text,
-                   roadmap_lang_get( "Typing is disabled when driving." ),
-                   KB_TYPING_LOCK_MSG_MAX_LEN);
-
-#ifdef TOUCH_SCREEN
-		cur_len = strlen( msg_text );
-		snprintf( &msg_text[cur_len], KB_TYPING_LOCK_MSG_MAX_LEN-cur_len, "\n%s", roadmap_lang_get( "You can minimize the 'Report' screen and type later." ) );
-#endif //TOUCH_SCREEN
-
 		ssd_confirm_dialog_custom_timeout( "",
-                        msg_text,
-                        FALSE,
-                        on_disabling_driving_lock,
-                        NULL, roadmap_lang_get( "Understood!" ),
-                        roadmap_lang_get( "I'm not the driver" ), KB_TYPING_LOCK_MSG_TIMEOUT );
-#endif //IPHONE_NATIVE
+                        roadmap_lang_get( "Typing is disabled while driving. Please try again when stopped." ),
+                        TRUE,
+                        ( ConfirmDialogCallback ) gs_cbTypingLockConfirm,
+                        NULL, roadmap_lang_get( "Ok" ),
+                        roadmap_lang_get( "Passenger" ), KB_TYPING_LOCK_MSG_TIMEOUT );
 
 	}
 	return res;

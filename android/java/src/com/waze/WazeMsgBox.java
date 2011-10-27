@@ -33,7 +33,9 @@ package com.waze;
 
 import android.app.AlertDialog;
 import android.content.DialogInterface;
+import android.text.util.Linkify;
 import android.util.Log;
+import android.widget.TextView;
 
 public final class WazeMsgBox 
 {
@@ -86,9 +88,13 @@ public final class WazeMsgBox
 	{
 		final FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
 		final FreeMapAppActivity activity = FreeMapAppService.getMainActivity();
+		
+		if ( activity == null || mgr == null )
+			return;
+
 		if ( mgr.IsNativeThread() )
 		{
-			Runnable runMsgBox = new Runnable() {
+			final Runnable runMsgBox = new Runnable() {
 				public void run() {					
 					ShowRun( aTitle, aMessage, aLabelOk, aLabelCancel, aCbContext );
 				}
@@ -132,11 +138,14 @@ public final class WazeMsgBox
 		final FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
 		final FreeMapAppActivity activity = FreeMapAppService.getMainActivity();
 		
-		if ( mgr.IsNativeThread() )
+		if ( activity == null )
+			return;
+		
+		if ( mgr != null && mgr.IsNativeThread() )
 		{
-			Runnable runMsgBox = new Runnable() {
+			final Runnable runMsgBox = new Runnable() {
 				public void run() {					
-					ShowRun( aTitle, aMessage, aLabelOk, aLabelCancel, aOkCb, aCancelCb );
+					ShowRun( aTitle, aMessage, aLabelOk, aLabelCancel, aOkCb, aCancelCb );					
 				}
 			};
 			activity.runOnUiThread( runMsgBox );
@@ -179,6 +188,15 @@ public final class WazeMsgBox
 				WazeLog.w( "Error notifying the message box: " + ex.getMessage() );
 			}
 	 }
+	 
+	 /*************************************************************************************************
+     * ShowOk - Shows native message box with Ok button only. Static wrapper   
+     * 
+     */
+	public static void ShowOk( final String aTitle, final String aMessage, final String aLabelOk, final DialogInterface.OnClickListener aOkCb )
+	{
+		mInstance.Show( aTitle, aMessage, aLabelOk, null, aOkCb, null );
+	}
 
 	 /*************************************************************************************************
      * ShowRun - Shows native message box   
@@ -203,6 +221,13 @@ public final class WazeMsgBox
         dlg.setMessage( aMessage );
         
         dlg.show();
+        
+        // Makes http links clickable
+        TextView msgView = (TextView) dlg.findViewById(android.R.id.message);
+        if ( msgView != null )
+        {
+        	Linkify.addLinks( msgView, Linkify.WEB_URLS );
+        }
 	}
 	
     /*************************************************************************************************
@@ -227,6 +252,13 @@ public final class WazeMsgBox
         dlg.setMessage( new String( aMessage ) );
         
         dlg.show();
+        
+        // Makes http links clickable       
+        TextView msgView = (TextView) dlg.findViewById(android.R.id.message);
+        if ( msgView != null )
+        {
+        	Linkify.addLinks( msgView, Linkify.WEB_URLS );
+        }
 	}
 	
     /*************************************************************************************************

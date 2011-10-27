@@ -24,6 +24,8 @@
 #ifndef INCLUDE__ROADMAP_WCHAR__H
 #define INCLUDE__ROADMAP_WCHAR__H
 
+#include <wchar.h>
+
 #define WCHAR_SIZE 4		/* Actual wide char size in opposite to sizeof ( wchar_t ) that can be just 1 byte */
 
 typedef wchar_t RM_WCHAR_T; 	// To prevent compatibility problems of wchar_t of different sizes

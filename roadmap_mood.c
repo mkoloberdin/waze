@@ -43,8 +43,10 @@
 #include "roadmap_path.h"
 #include "roadmap_navigate.h"
 #include "roadmap_mood.h"
+#include "roadmap_analytics.h"
 #include "ssd/ssd_keyboard_dialog.h"
 #include "ssd/ssd_list.h"
+#include "ssd/ssd_container.h"
 #include "ssd/ssd_text.h"
 #include "Realtime/Realtime.h"
 
@@ -259,6 +261,9 @@ const char *roadmap_mood_get_name(){
 void roadmap_mood_set(const char *value){
    roadmap_config_declare
         ("user", &MoodCfg, "happy", NULL);
+
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MOOD, ANALYTICS_EVENT_INFO_CHANGED_TO, value);
+
    roadmap_config_set (&MoodCfg, value);
    roadmap_config_save(1);
    gState = roadmap_mood_from_string(value);
@@ -318,6 +323,7 @@ static int roadmap_exclusive_mood_call_back (SsdWidget widget, const char *new_v
 
       return 0;
    }
+   roadmap_analytics_log_event(ANALYTICS_EVENT_MOOD, ANALYTICS_EVENT_INFO_CHANGED_TO, value);
 
    roadmap_mood_set(value);
    ssd_dialog_hide ( "MoodDlg", dec_close );
@@ -373,10 +379,8 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
     static void *baby_icons[1];
 
 
-#ifdef OPENGL
-    flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_ROUNDED_CORNERS|SSD_ROUNDED_WHITE;
+    flags |= SSD_ALIGN_CENTER|SSD_CONTAINER_BORDER|SSD_CONTAINER_FLAGS;
     width = ssd_container_get_width();
-#endif
 
 
     moodDlg   = ssd_dialog_new ( "MoodDlg", roadmap_lang_get ("Select your mood"), NULL, SSD_CONTAINER_TITLE);
@@ -424,12 +428,14 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
        ssd_widget_add (moodDlg, baby_list);
 
     }
+    ssd_dialog_add_vspace(moodDlg, ADJ_SCALE(5),0);
     ssd_dialog_add_hspace(moodDlg, 20, 0);
     text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Exclusive moods"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
     ssd_widget_add(moodDlg, text);
     ssd_dialog_add_hspace(moodDlg, 20, 0);
     text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available only to top weekly scoring wazers)"), SSD_FOOTER_TEXT_SIZE, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
     ssd_widget_add(moodDlg, text);
+    ssd_dialog_add_vspace(moodDlg, ADJ_SCALE(3),0);
     ssd_widget_add (moodDlg, exclusive_list);
 
     for (i = 0; i < (3 - roadmap_mood_get_exclusive_moods()); i++){
@@ -445,12 +451,14 @@ void roadmap_mood_dialog (RoadMapCallback callback) {
 
     list = ssd_list_new ("list", width, SSD_MAX_SIZE, inputtype_none, flags, NULL);
     exclusive_list->key_pressed = NULL;
+    ssd_dialog_add_vspace(moodDlg, ADJ_SCALE(10), 0);
     ssd_dialog_add_hspace(moodDlg, 20, 0);
     text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("Everyday moods"), SSD_HEADER_TEXT_SIZE, SSD_TEXT_NORMAL_FONT | SSD_END_ROW);
     ssd_widget_add(moodDlg, text);
     ssd_dialog_add_hspace(moodDlg, 20, 0);
     text = ssd_text_new ("Gold Mood Txt", roadmap_lang_get("(Available to all)"), SSD_FOOTER_TEXT_SIZE, SSD_END_ROW|SSD_TEXT_NORMAL_FONT);
     ssd_widget_add(moodDlg, text);
+    ssd_dialog_add_vspace(moodDlg, ADJ_SCALE(3),0);
     ssd_widget_add (moodDlg, list);
     ssd_list_resize ( list, row_height );
 

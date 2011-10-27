@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+	*	Styles definitions
+	*	Copyright 2011, Waze Ltd      Alex Agranovich (AGA)
+	*		
+ -->
+<resources>
+<!-- 
+	*
+	*	Transparent activity style
+	*		
+ -->
+ <style name="Theme.Transparent" parent="android:Theme">
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowContentOverlay">@null</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowIsFloating">true</item>
+    <item name="android:backgroundDimEnabled">false</item>
+</style>
+
+ <style name="Theme.TransparentWithDim" parent="android:Theme">
+    <item name="android:windowIsTranslucent">true</item>
+    <item name="android:windowBackground">@android:color/transparent</item>
+    <item name="android:windowContentOverlay">@null</item>
+    <item name="android:windowNoTitle">true</item>
+    <item name="android:windowIsFloating">true</item>
+    <item name="android:backgroundDimEnabled">true</item>
+</style>
+
+ <style name="TextAppearance_TimeValue">
+    <item name="android:textColor">@color/solid_white</item>
+    <item name="android:textSize">39sp</item>
+    <item name="android:textStyle">bold</item>
+</style>
+
+<style name="TextAppearance_TimeUnit">
+    <item name="android:textColor">@color/solid_white</item>
+    <item name="android:textSize">12sp</item>
+    <item name="android:textStyle">normal</item>
+</style>
+
+<style name="TextAppearance_NoDataAccentedWords">
+    <item name="android:textSize">16sp</item>
+    <item name="android:textStyle">bold</item>
+</style>
+
+</resources>

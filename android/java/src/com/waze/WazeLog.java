@@ -70,8 +70,8 @@ public class WazeLog
      */
      public static void d( String aStr )
      {   
-         if ( mLogAndroidEnabled )
-             Log.d( "Waze Logger", aStr );
+         if ( mLogAndroidDebug )
+             Log.d( TAG, aStr );
          if ( mLogFileEnabled )
              LogData( DEBUG_LVL, aStr );
      }
@@ -85,8 +85,15 @@ public class WazeLog
     */
     public static void i( String aStr )
     {
+        if ( mLogAndroidDebug )
+            Log.i( TAG, aStr );
+        if ( mLogFileEnabled )
+            LogData( INFO_LVL, aStr );
+    }
+    public static void ii( String aStr )
+    {
         if ( mLogAndroidEnabled )
-            Log.i( "Waze Logger", aStr );
+            Log.i( TAG, aStr );
         if ( mLogFileEnabled )
             LogData( INFO_LVL, aStr );
     }
@@ -94,14 +101,28 @@ public class WazeLog
     {
         WazeLog.i( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
     }
+    public static void ii( String aStr,  Throwable aThrowable )
+    {
+        WazeLog.ii( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
+    }
 
     /*************************************************************************************************
      * Warning level log
      */
     public static void w( String aStr )
     {
+        if ( mLogAndroidDebug )
+            Log.w( TAG, aStr );
+        if ( mLogFileEnabled )
+            LogData( WARNING_LVL, aStr );
+    }
+    /*************************************************************************************************
+     * Warning level log - put (intentionally) to the android log and file log
+     */
+    public static void ww( String aStr )
+    {
         if ( mLogAndroidEnabled )
-            Log.w( "Waze Logger", aStr );
+            Log.w( TAG, aStr );
         if ( mLogFileEnabled )
             LogData( WARNING_LVL, aStr );
     }
@@ -109,14 +130,17 @@ public class WazeLog
     {
         WazeLog.w( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
     }
-
+    public static void ww( String aStr,  Throwable aThrowable )
+    {
+        WazeLog.ww( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
+    }
     /*************************************************************************************************
      * Error level log
      */
     public static void e( String aStr )
     {
-        if ( mLogAndroidEnabled )
-            Log.e( "Waze Logger", aStr );
+        if ( mLogAndroidDebug )
+            Log.e( TAG, aStr );
         if ( mLogFileEnabled )
             LogData( ERROR_LVL, aStr );
     }
@@ -124,7 +148,22 @@ public class WazeLog
     {
         WazeLog.e( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
     }
+    public static void ee( String aStr,  Throwable aThrowable  )
+    {
+        WazeLog.ee( aStr + " " + aThrowable.getMessage() + " " + getStackStr( aThrowable ) );
+    }
 
+    /*************************************************************************************************
+     * Error level log - put (intentionally) to the android log and file log
+     */
+    public static void ee( String aStr )
+    {
+        if ( mLogAndroidEnabled )
+            Log.e( TAG, aStr );
+        if ( mLogFileEnabled )
+            LogData( ERROR_LVL, aStr );
+    }
+    
     /*************************************************************************************************
      * Fatal level log
      */
@@ -133,6 +172,13 @@ public class WazeLog
         LogData( FATAL_LVL, aStr );
     }
     
+    /*************************************************************************************************
+     * TAG constructor with sybsystem name
+     */
+    public static String TAG( String aSubSystem )
+    {
+        return new String( WazeLog.TAG + " [ " + aSubSystem + " ]" );
+    }
      
     /*************************************************************************************************
      *================================= Private interface section =================================
@@ -177,7 +223,7 @@ public class WazeLog
                      // Reinit the output stream in case of the output file removal
                      if ( !mOutFileValid )
                      {
-                         writer = new FileOutputStream( FreeMapResources.mAppDir + FreeMapResources.mLogCatFile, true /*Append*/ );
+                         writer = new FileOutputStream( WazeResManager.mAppDir + WazeResManager.mLogCatFile, true /*Append*/ );
                          mOutFileValid = true;
                      }
                      
@@ -243,16 +289,29 @@ public class WazeLog
      private WazeLog()
      {}
     
-     private static void LogData( int aLevel, String aStr )
+     private static void LogData( final int aLevel, final String aStr )
      {
          if ( mInstance == null )
              return;
          
          try
          {
-	         synchronized ( mInstance )
+        	 synchronized ( mInstance )
 	         {
-	             mInstance.WazeLogNTV( aLevel, LOG_PREFIX + aStr );            
+        		 FreeMapNativeManager mgr = FreeMapAppService.getNativeManager();
+        		 if ( mgr != null && !mgr.IsNativeThread() )
+        		 {
+        			final Runnable logEvent = new Runnable() {
+						public void run() {
+							mInstance.WazeLogNTV( aLevel, LOG_PREFIX + aStr );
+						}
+					}; 
+					mgr.PostRunnable( logEvent );
+        		 }
+        		 else
+        		 {
+        			 mInstance.WazeLogNTV( aLevel, LOG_PREFIX + aStr );            
+        		 }
 	         }
          }
          catch( Exception ex )
@@ -277,8 +336,10 @@ public class WazeLog
      static private final int ERROR_LVL = 4;
      static private final int FATAL_LVL = 5;   
       
-     static public boolean mLogAndroidEnabled = false;
+     static public boolean mLogAndroidDebug = false;			// Put all messages to the android log
+     static public boolean mLogAndroidEnabled = true;		
      static public boolean mLogFileEnabled = true;
+     static public final String TAG = "WAZE";
      
      static private final String LOG_PREFIX = "Java Layer: ";
 }

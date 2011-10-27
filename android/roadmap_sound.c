@@ -33,6 +33,7 @@
 #include "roadmap_path.h"
 #include "roadmap_file.h"
 #include "roadmap_sound.h"
+#include "roadmap_prompts.h"
 #include "roadmap_lang.h"
 
 static RoadMapConfigDescriptor RoadMapConfigVolControl =
@@ -46,15 +47,15 @@ const int SND_VOLUME_LVLS[] = {0, 1, 2, 3};
 const char* SND_VOLUME_LVLS_LABELS[__SND_VOLUME_LVLS_COUNT__];
 const char* SND_DEFAULT_VOLUME_LVL = "2";
 
-#define MAX_SOUND_NAME_ANDROID  256
 static BOOL 			sgInitialized = FALSE;
 
+static const char* get_full_name( const char* name );
 
 void roadmap_sound_initialize ()
 {
 
    int curLvl;
-   char sound_dir[MAX_SOUND_NAME_ANDROID];
+   char sound_dir[MAX_SOUND_NAME];
 
    // Initialize the volume labels for GUI
    SND_VOLUME_LVLS_LABELS[0] = roadmap_lang_get( "Silent" );
@@ -93,9 +94,18 @@ RoadMapSoundList roadmap_sound_list_create ( int flags )
   return list;
 }
 
-int roadmap_sound_list_add (RoadMapSoundList list, const char *name)
+int roadmap_sound_list_add ( RoadMapSoundList list, const char *name )
 {
-  if (list->count == MAX_SOUND_LIST) return -1;
+  const char* full_name;
+  if ( list->count == MAX_SOUND_LIST ) return SND_LIST_ERR_LIST_FULL;
+
+  full_name = get_full_name( name );
+
+  if ( !roadmap_file_exists( full_name, NULL ) )
+  {
+     roadmap_log( ROADMAP_ERROR, "File %s doesn't exist! Cannot add to the list.", full_name );
+     return SND_LIST_ERR_NO_FILE;
+  }
 
   strncpy (list->list[list->count], name, sizeof(list->list[0]));
   list->list[list->count][sizeof(list->list[0])-1] = '\0';
@@ -103,6 +113,41 @@ int roadmap_sound_list_add (RoadMapSoundList list, const char *name)
 
   return list->count - 1;
 }
+
+int roadmap_sound_list_add_buf (RoadMapSoundList list, void* buf, size_t size )
+{
+   char path[512];
+   int file_num = list->count;
+   RoadMapFile file;
+
+   if (list->count == MAX_SOUND_LIST) return SND_LIST_ERR_LIST_FULL;
+
+   list->buf_list[list->count] = buf;
+   list->buf_list_sizes[list->count] = size;
+
+
+   /*
+    * Temporary solution - write the buffer to the file for further playing
+    * AGA
+    */
+   sprintf( path, "%s/tmp/%d", roadmap_path_tts(), file_num );
+   if ( file_num == 0 )
+   {
+      roadmap_path_create( roadmap_path_parent( path, NULL ) );
+   }
+
+   file = roadmap_file_open( path, "w" );
+   roadmap_file_write( file, buf, size );
+   roadmap_file_close( file );
+
+   strncpy_safe( list->list[list->count], path, 512 );
+
+
+   list->count++;
+
+   return list->count - 1;
+}
+
 
 /*************************************************************************************************
  * roadmap_sound_play_list()
@@ -114,8 +159,8 @@ int roadmap_sound_play_list( const RoadMapSoundList list )
 	if ( sgInitialized )
 	{
 		int listSize = roadmap_sound_list_count( list );
+		const char *full_name;
 		int i;
-		const char *suffix = "";
 
 		for( i = 0; i < roadmap_sound_list_count(list); i++ )
 		{
@@ -125,17 +170,23 @@ int roadmap_sound_play_list( const RoadMapSoundList list )
 
 			// AGA NOTE :: TODO :: Temporary solution. All the resources are extracted now.
 			// The unnecessary sounds should be cleared/not extracted (?)
-			char sound_filename[MAX_SOUND_NAME_ANDROID];
-			if ( !strchr( name, '.' ) )
-			{
-				suffix = ".bin";
-			}
-
-			snprintf( sound_filename, sizeof( sound_filename ), "%s//%s//%s//%s%s",
-					roadmap_path_downloads(), "sound", roadmap_prompts_get_name(), name, suffix );
-			// Calling the JNI layer
-			FreeMapNativeSoundManager_PlayFile( sound_filename );
-		}
+             if ( (list->flags & SOUND_LIST_BUFFERS) == 0 )
+             {
+                 full_name = get_full_name( name );
+                 // Calling the JNI layer
+                 FreeMapNativeSoundManager_PlayFile( full_name );
+             }
+             else
+             {
+                /*
+                 * Temporary solution - write the buffer to the file for further playing
+                 * AGA
+                 */
+    //            FreeMapNativeSoundManager_PlayFile( roadmap_sound_list_get ( list, i ) );
+             //			   FreeMapNativeSoundManager_PlayBuffer( list->buf_list[i], list->buf_list_sizes[i] );
+    //            free( list->buf_list[i] );
+             }
+	}
 	}
 	// Deallocation
 	if ( (list->flags & SOUND_LIST_NO_FREE) == 0x0 )
@@ -145,13 +196,16 @@ int roadmap_sound_play_list( const RoadMapSoundList list )
 	return 0;
 }
 
+
+
+
 RoadMapSound roadmap_sound_load (const char *path, const char *file, int *mem)
 {
 
    char *full_name = roadmap_path_join (path, file);
    const char *seq;
    RoadMapFileContext sound;
-   char sound_filename[MAX_SOUND_NAME_ANDROID];
+   char sound_filename[MAX_SOUND_NAME];
 
    return NULL;
 
@@ -201,8 +255,12 @@ int roadmap_sound_play_file (const char *file_name) {
    return -1;
 }
 
-int roadmap_sound_record (const char *file_name, int seconds) {
-   return -1;
+int roadmap_sound_record (const char *file_name, int seconds) {   
+   return WazeSoundRecorder_Start( file_name, seconds*1000 );
+}
+
+void roadmap_sound_stop_recording (void){
+   WazeSoundRecorder_Stop();
 }
 
 /***********************************************************
@@ -221,4 +279,27 @@ void roadmap_sound_set_volume ( int volLvl )
 	// Log the operation
 	roadmap_log( ROADMAP_DEBUG, "Current volume is set to level : %d.", volLvl );
 
+}
+
+
+static const char* get_full_name( const char* name )
+{
+   static char full_name[256];
+   const char *suffix = "";
+
+   if ( !strchr( name, '.' ) )
+   {
+      suffix = ".bin";
+   }
+
+   if ( roadmap_path_is_full_path( name ) )
+   {
+      strncpy_safe( full_name, name, sizeof( full_name ) );
+   }
+   else
+   {
+      snprintf( full_name, sizeof( full_name ), "%s//%s//%s//%s%s",
+            roadmap_path_downloads(), "sound", roadmap_prompts_get_name(), name, suffix );
+   }
+   return full_name;
 }

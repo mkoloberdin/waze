@@ -23,7 +23,7 @@
 
 #include "roadmap_androidmsgbox.h"
 #include "JNI/FreeMapJNI.h"
-
+#include "roadmap_screen.h"
 /***********************************************************/
 /*  Name        : void roadmap_androidmsgbox_show()
  *  Purpose     : Shows android native message box
@@ -38,6 +38,9 @@
 void roadmap_androidmsgbox_show( const char* title, const char* message, const char* label_ok,
       const char* label_cancel, void* context, MsgBoxOnCloseCallback callback )
 {
+   if ( roadmap_screen_get_background_run() )
+      return;
+
    AndrMsgBoxCbContext* msg_box_ctx = malloc( sizeof( AndrMsgBoxCbContext ) );
 
    msg_box_ctx->callback = callback;

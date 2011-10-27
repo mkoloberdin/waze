@@ -87,11 +87,16 @@ BOOL   WSA_ExtractParams(
    Copy[i] = '\0';
    
    //   Search for 'http://':
-   if( 0 != strncasecmp( (const char*)Copy, WSA_PREFIX, WSA_PREFIX_SIZE))
+   if( 0 == strncasecmp( (const char*)Copy, WSA_PREFIX, WSA_PREFIX_SIZE)) {
+      //   Server URL:
+      pSrvURL = (Copy + WSA_PREFIX_SIZE);
+   } else if (0 == strncasecmp( (const char*)Copy, WSA_SSL_PREFIX, WSA_SSL_PREFIX_SIZE)) {//   Search for 'https://':
+      //   Server URL:
+      pSrvURL = (Copy + WSA_SSL_PREFIX_SIZE);
+   } else {
       return FALSE;
+   }
 
-   //   Server URL:
-   pSrvURL = (Copy + WSA_PREFIX_SIZE);
    
    //   Do we have a port number?
    pTmp = strchr( pSrvURL, WSA_SERVER_PORT_DELIMITER);

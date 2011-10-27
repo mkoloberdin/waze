@@ -55,6 +55,12 @@ typedef enum tagEDialogExitCode {
 
 }  EDialogExitCode;
 
+#define DIALOG_ANIMATION_NONE            0
+#define DIALOG_ANIMATION_FROM_TOP        1
+#define DIALOG_ANIMATION_FROM_BOTTOM     2
+#define DIALOG_ANIMATION_FROM_RIGHT      3
+#define DIALOG_ANIMATION_POP_IN          4
+
 typedef void(*PFN_ON_DIALOG_FREE)       ( void* context );
 
 typedef void(*PFN_ON_DIALOG_CLOSED)       (int exit_code, void* context);
@@ -79,6 +85,7 @@ SsdWidget ssd_dialog_new_button (const char *name, const char *value,
                                  const char **bitmaps, int num_bitmaps,
                                  int flags, SsdCallback callback);
 void *ssd_dialog_get_current_data(void);
+int ssd_dialog_get_current_scale(void);
 const char* ssd_dialog_get_value (const char *name);
 const void* ssd_dialog_get_data  (const char *name);
 int         ssd_dialog_set_value (const char *name, const char *value);
@@ -103,6 +110,7 @@ int ssd_dialog_drag_start (RoadMapGuiPoint *point) ;
 int ssd_dialog_drag_end (RoadMapGuiPoint *point) ;
 int ssd_dialog_drag_motion (RoadMapGuiPoint *point);
 void ssd_dialog_change_button(const char *name, const char **bitmaps, int num_bitmaps);
+void ssd_dialog_change_bitmap(const char *name, const char *bitmap_name);
 void ssd_dialog_set_current_scroll_flag(BOOL scroll);
 
 void ssd_dialog_change_text(const char *name, const char *value);
@@ -125,6 +133,8 @@ void ssd_dialog_free( const char* dlg_name, BOOL force );
 void ssd_dialog_draw_now ( void );
 void ssd_dialog_recalculate ( const char* dlg_name );
 SsdWidget ssd_dialog_get_currently_active(void);
+void ssd_dialog_set_close_on_any_click(void);
+void ssd_dialog_set_animation(const char *name, int type);
 
 #endif // __SSD_DIALOG_H_
 

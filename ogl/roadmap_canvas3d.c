@@ -56,12 +56,21 @@ static GLdouble max_model_coord= 150000;
 
 static void orientMe(float ang) {
 
+#ifdef _WIN32
 	ly = -sin(ang);
 	lz = cos(ang);
 	roadmap_glmatrix_identity();
 	gluLookAt(x, y, z,
 		      x + lx,y + ly,z + lz,
 			  0.0f,-1.0f,-1.0f);
+#else
+	ly = -sinf(ang);
+	lz = cosf(ang);
+	roadmap_glmatrix_identity();
+	gluLookAt(x, y, z,
+		      x + lx,y + ly,z + lz,
+			  0.0f,-1.0f,-1.0f);
+#endif
 }
 
 /*
@@ -206,8 +215,13 @@ static double setCameraAndOrient(float ang,int w, int h, int isUpdated) {
 	}
 	cameraDist= z_v0/cos(ang_0);
 	y_c= y_v0-z_v0*tan(ang_0);
-	y= (y_c+cameraDist*sin(angle))*h;
+#ifdef _WIN32
+    y= (y_c+cameraDist*sin(angle))*h;
 	z= -cameraDist*cos(angle)*h;
+#else
+	y= (y_c+cameraDist*sinf(angle))*h;
+	z= -cameraDist*cosf(angle)*h;
+#endif
 	x= w/2;
 	orientMe(ang);
 	readMatsProject(x,h,z_level,&wx,&wy,&wz);
@@ -325,7 +339,7 @@ double roadmap_canvas_ogl_rotateMe(float ang_diff) {
 	return distH;
 }
 
-void roadmap_canvas3_ogl_updateScale(int zoom) {
+void roadmap_canvas3_ogl_updateScale(zoom_t zoom) {
 	float angRad;
 	//static float maxAngle= 67.3;
    static float maxAngle= 62;
@@ -338,9 +352,7 @@ void roadmap_canvas3_ogl_updateScale(int zoom) {
    if ( !is_canvas_ready() )
       return;
 
-   if ( roadmap_screen_is_hd_screen() ) {
-	   zoom /= 2;
-   }
+   zoom = zoom * 100 / roadmap_screen_get_screen_scale();
 
 	while (angZoom > zoom) {
 		angZoom/= 1.1;
@@ -353,7 +365,7 @@ void roadmap_canvas3_ogl_updateScale(int zoom) {
 		double distH;
 		angle= angRad;
 		distH= roadmap_canvas_ogl_rotateMe(0);
-		roadmap_log(ROADMAP_DEBUG,"zoom= %d angle= %lf y dist= %lg\n",zoom,ang,distH);
+		roadmap_log(ROADMAP_DEBUG,"zoom= %d angle= %lf y dist= %lg\n",(int)zoom,ang,distH);
 	}
 }
 
@@ -410,8 +422,8 @@ void roadmap_canvas3_unproject(RoadMapGuiPoint *point) {
 	GLfloat ox, oy, oz;
 #endif// GTK2_OGL
    
-   if (point->y < -viewport3D[3] ||
-       point->y >= viewport3D[3])
+   if (point->y < 0 ||
+       point->y > viewport3D[3])
       return;
 
     x= point->x;

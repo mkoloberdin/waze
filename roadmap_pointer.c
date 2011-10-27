@@ -55,7 +55,12 @@
 
 #define LONG_CLICK_TIMEOUT          600
 #define DOUBLE_CLICK_TIMEOUT        300
+
+#ifdef OGL_TILE
+#define DRAG_FLOW_CONTROL_TIMEOUT   5
+#else
 #define DRAG_FLOW_CONTROL_TIMEOUT   30
+#endif
 
 
 static int is_button_down = 0;

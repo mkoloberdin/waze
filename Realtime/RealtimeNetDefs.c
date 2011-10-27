@@ -41,6 +41,7 @@ void RTConnectionInfo_Init(LPRTConnectionInfo   this,
    this->iMyRanking 	= -1;
    this->iMyPreviousRanking	= -1;
    this->iMyRating	= -1;
+   this->iInboxCount = 0;
    RTUsers_Init( &(this->Users), pfnOnAddUser, pfnOnMoveUser, pfnOnRemoveUser);
 }
 

@@ -236,8 +236,10 @@ void roadmap_plugin_get_line_points (const PluginLine *line,
                                      int              *last_shape,
                                      RoadMapShapeItr  *shape_itr) {
 
+   roadmap_log_push("roadmap_plugin_get_line_points");
    roadmap_plugin_line_from (line, from_pos);
    roadmap_plugin_line_to (line, to_pos);
+   roadmap_log_pop();
 
    if (line->plugin_id == ROADMAP_PLUGIN_ID) {
 
@@ -488,6 +490,8 @@ void roadmap_plugin_get_street_properties (const PluginLine *line,
       if (type == PLUGIN_STREET_ONLY) {
          roadmap_street_get_street (line->line_id, &rm_properties);
          props->street = roadmap_street_get_street_name (&rm_properties);
+         props->shield_text = roadmap_street_get_street_shield_text (&rm_properties);
+         props->shield_type = roadmap_street_get_street_shield_type (&rm_properties);
          props->plugin_street.plugin_id = ROADMAP_PLUGIN_ID;
          props->plugin_street.street_id = rm_properties.street;
          return;
@@ -499,6 +503,8 @@ void roadmap_plugin_get_street_properties (const PluginLine *line,
       props->street = roadmap_street_get_street_name (&rm_properties);
       props->street_t2s = roadmap_street_get_street_t2s (&rm_properties);
       props->city = roadmap_street_get_city_name (&rm_properties);
+      props->shield_text = roadmap_street_get_street_shield_text (&rm_properties);
+      props->shield_type = roadmap_street_get_street_shield_type (&rm_properties);
       props->plugin_street.plugin_id = ROADMAP_PLUGIN_ID;
       props->plugin_street.street_id = rm_properties.street;
       return;
@@ -510,6 +516,8 @@ void roadmap_plugin_get_street_properties (const PluginLine *line,
       props->street = "";
       props->street_t2s = "";
       props->city = "";
+      props->shield_text = "";
+      props->shield_type = "";
 
       if (hooks == NULL) {
          roadmap_log (ROADMAP_ERROR, "plugin id:%d is missing.",

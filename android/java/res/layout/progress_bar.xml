@@ -1,4 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/progress_layout_root"
+              android:orientation="horizontal"
+              android:layout_width="fill_parent"
+              android:layout_height="fill_parent"  
+              android:padding="20dp"          
+              >
  <ProgressBar xmlns:android="http://schemas.android.com/apk/res/android"
   	android:id="@+android:id/progress_large"
       style="?android:attr/progressBarStyleLarge"
@@ -7,3 +14,5 @@
       android:orientation="vertical"      
       android:layout_gravity="center"   
 />
+
+</LinearLayout>

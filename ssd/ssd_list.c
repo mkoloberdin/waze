@@ -152,7 +152,7 @@ static void setup_list_rows(ssd_list_data_ptr list)
            if (next_icon_container)
                ssd_widget_hide(next_icon_container);
 
-           ssd_widget_set_offset( label, 10, 0 );
+           ssd_widget_set_offset( label, ADJ_SCALE(10), 0 );
      }
      else
      {
@@ -653,27 +653,30 @@ static void update_list_rows (SsdWidget list_container, SsdSize *size,
                row_height,
                SSD_WS_TABSTOP|SSD_END_ROW|pointer_type);
         ssd_widget_set_pointer_force_click( row );
-        ssd_widget_set_color(row, "#000000","#ffffff");
-        label = ssd_text_new ("label", "", SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_VCENTER);
-        if (data->labels_w != NULL)
-           ssd_widget_set_color(label, "#ffffff", "#b0d504");
-
+        ssd_widget_set_color(row, NULL, NULL);
+        if (data->labels_w != NULL){
+           label = ssd_text_new ("label", "", 1, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_VCENTER);
+           ssd_widget_set_color(label, "#ffffff00", "#ffffff00");
+        }else{
+              label = ssd_text_new ("label", "", SSD_MAIN_TEXT_SIZE, SSD_TEXT_NORMAL_FONT|SSD_END_ROW|SSD_ALIGN_VCENTER);
+              ssd_text_set_color(label, SSD_CONTAINER_TEXT_COLOR);
+        }
         ssd_widget_set_callback (row, label_callback);
         image_con = ssd_container_new ("icon_container", NULL, icon_container_width,
-               row_height-10,  SSD_ALIGN_VCENTER);
+               row_height,  SSD_ALIGN_VCENTER);
 
          ssd_widget_set_color (image_con, NULL, NULL);
 
          if (data->labels_w != NULL){
-            widget_con = ssd_container_new ("widget_container", NULL,roadmap_canvas_width() - icon_container_width-next_container_width-10,
-                  row_height-10,  0);
+            widget_con = ssd_container_new ("widget_container", NULL,roadmap_canvas_width() - icon_container_width - next_container_width-ADJ_SCALE(10),
+                  row_height,  SSD_ALIGN_VCENTER);
 
             ssd_widget_set_color (widget_con, NULL, NULL);
          }
 
 #ifdef TOUCH_SCREEN
          image_con2 = ssd_container_new ("next_icon_container", NULL,next_container_width ,
-                                 row_height-10,  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
+                        row_height,  SSD_TAB_CONTROL|SSD_ALIGN_VCENTER|SSD_ALIGN_RIGHT);
 
          ssd_widget_add(row, image_con2);
 
@@ -803,12 +806,20 @@ const void* ssd_list_selected_value( SsdWidget list)
    return data->data[absolute_index];
 }
 
+const void* ssd_list_row_value( SsdWidget list, int index)
+{
+   ssd_list_data_ptr data = (ssd_list_data_ptr)list->data;
+
+   assert( (0 <= index) && (index < data->num_values));
+
+   return data->data[index];
+}
 void ssd_list_resize (SsdWidget list, int min_height)
 {
    ssd_list_data_ptr data = (ssd_list_data_ptr) list->data;
 
-   if (min_height > 0) data->min_row_height = min_height;
-   else data->min_row_height = ADJ_SCALE(MIN_ROW_HEIGHT);
+   data->min_row_height = min_height;
+   //else data->min_row_height = ADJ_SCALE(MIN_ROW_HEIGHT);
 
    data->list_size.width = -1;
    data->list_size.height = -1;
@@ -834,9 +845,9 @@ SsdWidget ssd_list_new( const char*             name,
    SsdWidget list;
    ssd_list_data_ptr data =
       (ssd_list_data_ptr) calloc (1, sizeof(*data));
-
+   data->min_row_height = ADJ_SCALE(MIN_ROW_HEIGHT);
    SsdWidget list_container = ssd_container_new (name, NULL, width, SSD_MIN_SIZE, flags);
-   ssd_widget_set_color(list_container, "#ffffff", "#ffffff");
+   ssd_widget_set_color(list_container, NULL, NULL);
    /* Override list container draw */
    data->list_container_draw = list_container->draw;
    list_container->draw = ssd_list_draw;
@@ -932,3 +943,4 @@ void ssd_list_taborder__set_widget_after_list( SsdWidget list, SsdWidget w)
    assert(data);
    data->widget_after_list = w;
 }
+

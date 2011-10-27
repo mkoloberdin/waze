@@ -63,8 +63,9 @@ typedef struct {
 
    struct {
       int                        num_retries;
-      const char                 *protocol;
-      const char                 *name;
+      char                       *protocol;
+      char                       *name;
+      char                       *resolved_name;
       time_t                     update_time;
       int                        default_port;
       int                        flags;
@@ -77,6 +78,7 @@ typedef struct {
 
 int   roadmap_io_read  (RoadMapIO *io, void *data, int size);
 int   roadmap_io_write (RoadMapIO *io, const void *data, int length, int wait);
+int   roadmap_io_write_async (RoadMapIO *io, const void *data, int length);
 void  roadmap_io_close (RoadMapIO *io);
 void  roadmap_io_invalidate (RoadMapIO *io);
 int roadmap_io_same (RoadMapIO *io1, RoadMapIO *io2);

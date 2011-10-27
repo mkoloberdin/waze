@@ -8,7 +8,7 @@
 extern "C" {
 #endif
 #undef com_waze_FreeMapNativeTimerManager_FREMAP_MAX_TASK_COUNT
-#define com_waze_FreeMapNativeTimerManager_FREMAP_MAX_TASK_COUNT 24L
+#define com_waze_FreeMapNativeTimerManager_FREMAP_MAX_TASK_COUNT 32L
 /*
  * Class:     com_waze_FreeMapNativeTimerManager
  * Method:    InitTimerManagerNTV

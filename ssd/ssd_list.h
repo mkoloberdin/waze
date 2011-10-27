@@ -54,6 +54,7 @@ void        ssd_list_taborder__set_widget_after_list   (SsdWidget list, SsdWidge
 SsdWidget   ssd_list_item_has_focus  ( SsdWidget list);
 const char* ssd_list_selected_string ( SsdWidget list);
 const void* ssd_list_selected_value  ( SsdWidget list);
+const void* ssd_list_row_value( SsdWidget list, int index);
 BOOL        ssd_list_move_focus      ( SsdWidget list, BOOL up /* or down */);
 BOOL        ssd_list_set_focus       ( SsdWidget list, BOOL first_item /* or last */);
 

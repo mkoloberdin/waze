@@ -42,5 +42,6 @@ void navigate_bar_set_next_instruction (enum NavigateInstr instr);
 void navigate_bar_set_next_exit (int exit);
 void navigate_bar_set_next_distance (int distance);
 int navigate_bar_get_height( void );
+const char *navigate_image(int inst);
 #endif // INCLUDE__NAVIGATE_BAR__H
 

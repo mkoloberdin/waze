@@ -73,7 +73,11 @@ BOOL wstq_enqueue( wst_queue_ptr this, wstq_item_ptr item)
 
    if( TRANSACTION_QUEUE_SIZE == this->size)
    {
+      int i;
       roadmap_log( ROADMAP_ERROR, "wstq_enqueue() - queue is full");
+      for (i = 0; i < this->size; i++) {
+         roadmap_log( ROADMAP_DEBUG, "wstq_enqueue() - item %d, action '%s'", i, this->queue[i].action);
+      }
       return FALSE;  // queue is full
    }
    
@@ -113,4 +117,39 @@ BOOL wstq_dequeue( wst_queue_ptr this, wstq_item_ptr item)
    }
    
    return TRUE;
+}
+
+void wstq_remove_type( wst_queue_ptr this, int type)
+{
+   int i;
+   
+   if(!this || type < 0)
+   {
+      roadmap_log( ROADMAP_ERROR, "wstq_remove_type() - Invalid argument");
+      return;  // Invalid argument
+   }
+   
+   if( !this->size)
+   {
+      roadmap_log( ROADMAP_DEBUG, "wstq_enqueue() - queue is empty");
+      return;
+   }
+   
+   for (i = 0; i < this->size; i++) {
+      if (this->queue[i].type == type) {
+         //TODO: change log level to debug once stable
+         roadmap_log( ROADMAP_WARNING, "wstq_remove_type() - removing old item type %d at pos: %d", type, i);
+         
+         wstq_item_release( this->queue + i);
+         this->size--;
+         
+         if (i < this->size) {
+            void* dest     = &(this->queue[i]);
+            void* src      = &(this->queue[i+1]);
+            int   count    =((this->size - i) * sizeof(wstq_item));
+            memmove( dest, src, count);
+            wstq_item_init( this->queue + this->size);
+         }
+      }
+   }
 }

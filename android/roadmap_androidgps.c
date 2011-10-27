@@ -50,14 +50,14 @@ void roadmap_gpsandroid_subscribe_to_dilution   (RoadMapGpsdDilution dilution)
 }
 
 void roadmap_gpsandroid_set_position( AndroidPositionMode mode, char status, int gps_time, int latitude, int longitude,
-					int altitude, int speed, int steering )
+					int altitude, int speed, int steering, int accuracy )
 {
 	if ( mode == _andr_pos_gps )
 	{
 		if ( GpsdNavigationCallback )
 		{
 			(*GpsdNavigationCallback)( status, gps_time, latitude,
-											longitude, altitude, speed, steering );
+											longitude, altitude, speed, steering, accuracy );
 		}
 		else
 		{
@@ -67,7 +67,7 @@ void roadmap_gpsandroid_set_position( AndroidPositionMode mode, char status, int
 	}
 	if ( mode == _andr_pos_cell )
 	{
-		roadmap_gps_coarse_fix( latitude, longitude );
+		roadmap_gps_coarse_fix( latitude, longitude, accuracy, gps_time );
 	}
 }
 

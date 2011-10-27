@@ -32,17 +32,19 @@
 
 package com.waze;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 
 import javax.microedition.khronos.opengles.GL10;
 
 import com.waze.FreeMapNativeManager.FreeMapUIEvent;
+
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -52,6 +54,8 @@ import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
 import android.view.MotionEvent;
+import android.view.SurfaceHolder;
+import android.view.SurfaceView;
 import android.view.View;
 import android.view.WindowManager;
 
@@ -69,52 +73,47 @@ public final class FreeMapNativeCanvas
         // The library should be loaded
         InitCanvasNTV();        
     }
-
-    public boolean CreateCanvas()
-    {
-    	return CreateCanvasInternal( false );
-    }
+    
     
     /*************************************************************************************************
      * 
      * 
      */
-    private boolean CreateCanvasInternal( boolean aSurfaceOnly )
+    public boolean PrepareCanvas( final SurfaceView aView )
     {
     	boolean res = true;
+    	SurfaceView surfaceView = aView;
+    	
     	if ( !mCanvasReady ) 
     	{
-    		WazeMainView lView = FreeMapAppService.getMainView();
-	        
-    		if ( lView != null )
-    		{
-	    		WazeLog.i( "Initializing native canvas with " + lView.getMeasuredWidth() + 
-		        		", " + lView.getMeasuredHeight() );
-    		}
-    		else
-    		{
-    			WazeLog.e( "Cannot initialize canvas - main view is not available" );
-    			return false;
-    		}
-	        
-	        // Prepare the context - the view surface has to be ready here 
-	        if ( aSurfaceOnly )
+    		// Prepare the context - the view surface has to be ready here 
+	        if ( mEglManager == null )
 	        {
-	        	res = mEglManager.CreateEglSurface();
+	        	WazeMainView lView = FreeMapAppService.getMainView();
+	        	if ( surfaceView == null )
+	        	{
+	        		if ( lView == null )
+	        		{
+		        		WazeLog.ee( "Cannot initialize canvas - main view is not available" );
+	     			    return false;
+	        		}
+	        		else
+	        		{
+	        			surfaceView = lView;
+	        		}
+	        	}
+	        	
+	        	mEglManager = new WazeEglManager( surfaceView );
+	        	res = mEglManager.InitEgl();
 	        }
 	        else
 	        {
-	        	mEglManager = new WazeEglManager( lView );
-	        	res = mEglManager.InitEgl();
+	        	// Reset the surface
+	        	res = mEglManager.CreateEglSurface();
 	        }
 	        
 	        if ( res )
-	        {
-	        	// Initialize the canvas
-	        	ConfigureNativeCanvas( lView.getMeasuredWidth(), lView.getMeasuredHeight() );
-	        
-	        	// Create new canvas on the native layer side
-	        	CreateCanvasNTV();
+	        {	        	
 	        	mCanvasReady = true;
 	        }
 	        else
@@ -127,7 +126,8 @@ public final class FreeMapNativeCanvas
     	}
     	return res;
     }
-
+    
+    
     /*************************************************************************************************
      * Wrapper for the EGL manager getGL
      * 
@@ -142,40 +142,35 @@ public final class FreeMapNativeCanvas
      */
     public void SwapBuffersEgl()
     {
-    	if ( mEglManager == null )
+    	
+    	WazeScreenManager screenMgr = FreeMapAppService.getScreenManager();
+    	if ( mEglManager == null || screenMgr == null || !screenMgr.IsReady() || !mCanvasReady )
+    	{
+    		WazeLog.e( "Canvas is not ready for rendering!" );
     		return;
+    	}
     	
     	if ( mFirstSwapBuffers )
     	{
     		mFirstSwapBuffers = false;
-    		if ( WazeMainView.mIsSplashShown )
+    		if ( FreeMapAppActivity.mIsSplashShown )
     		{
 	    		final FreeMapAppActivity appActivity = FreeMapAppService.getMainActivity();
 	    		if ( appActivity != null )
 	    		{
-	    			final WazeMainView appView = FreeMapAppService.getMainView();	
-		    		appView.PostRemoveSplash();
-		    		appActivity.setRequestedOrientation( ActivityInfo.SCREEN_ORIENTATION_USER );
+	    			appActivity.runOnUiThread( new Runnable() {
+						public void run() {
+			    			appActivity.CancelSplash();				    		
+						}
+					} );
 	    		}
     		}
     		mNativeManager.FirstSwapEvent();    		
     	}
-    	
     	mEglManager.SwapBuffersEgl();
     }
     
-    /*************************************************************************************************
-     * Returns the splash buffer in bitmap or null if failure
-     */
-    public Bitmap GetSplashBmp()
-    {        
-        FreeMapAppActivity lAppActivity = mNativeManager.getAppActivity();
-        View lView = lAppActivity.getCurrentView();
-        Bitmap bmScaled = GetSplashBmp( lAppActivity, lView );        
-
-        return bmScaled;
-    }
-    /*************************************************************************************************
+     /*************************************************************************************************
      * ConfigureNativeCanvas - Configures the native canvas with the parameters
      * obtained from the device
      * 
@@ -195,9 +190,6 @@ public final class FreeMapNativeCanvas
         {
         	pixFmt = windowMgr.getDefaultDisplay().getPixelFormat();
         }
-        
-        mNativeManager.getAppActivity().getWindowManager()
-                .getDefaultDisplay();
         
         if ( mCanvasWidth != -1 )
         {
@@ -225,25 +217,66 @@ public final class FreeMapNativeCanvas
 		mEglManager = null;
     	mCanvasReady = false;
     	mFirstSwapBuffers = true;
-    }   
+    }
+    
+    public void DestroyCanvasSurface()
+    {
+    	if ( mCanvasReady && mEglManager != null )
+    	{
+	    	mEglManager.DestroyEglSurface();
+	    	mCanvasReady = false;
+    	}
+    }
+
     /*************************************************************************************************
      * Resize the OGL canvas
      * 
      */
-    public void ResizeCanvas()
+    public void ResizeCanvas( SurfaceView aSurfaceView, int aWidth, int aHeight )
     {
-    	ResetCanvas();
-	}   
+    	CreateCanvas( aSurfaceView, aWidth, aHeight );
+    	
+    	CanvasOrientationUpdate();
+    }
     /*************************************************************************************************
      * Resize the OGL canvas
      * 
      */
-    public void ResetCanvas()
+    public void CreateCanvas( SurfaceView aSurfaceView, int aWidth, int aHeight )
     {
-    	mEglManager.DestroyEglSurface();
-    	mCanvasReady = false;
-    	CreateCanvasInternal( true );
-    }   
+		PrepareCanvas( aSurfaceView );
+    	
+    	// Initialize the canvas
+    	ConfigureNativeCanvas( aWidth, aHeight );
+    
+    	// Create new canvas on the native layer side
+    	CreateCanvasNTV();
+    }
+    
+    /*************************************************************************************************
+     * Redraw the OGL canvas
+     * 
+     */
+    public void RedrawCanvas()
+    {
+    	CanvasRedrawNTV();
+    }
+    
+    /*************************************************************************************************
+     * Redraw the OGL canvas with delay
+     * 
+     */
+    public void RedrawCanvas( long aDelay )
+    {
+    	final Runnable redrawEvent = new Runnable() {
+			
+			public void run() {
+				CanvasRedrawNTV();		
+			}
+		};
+    	mNativeManager.PostRunnable( redrawEvent, aDelay );
+		
+    }
  
     public int getPixelFormat()
     {
@@ -381,9 +414,8 @@ public final class FreeMapNativeCanvas
     /*************************************************************************************************
      * Returns the splash buffer in bitmap or null if failure
      */
-    public static Bitmap GetSplashBmp( Context aContext, View aView )
+    public static Bitmap GetSplashBmp( View aView )
     {
-        AssetManager assetMgr = aContext.getAssets();        
         InputStream splashStream = null;
         Bitmap bmScaled = null;        
         // Select landscape or portrait
@@ -391,18 +423,8 @@ public final class FreeMapNativeCanvas
         {
         	/*
         	 * There is no wide mode on splash for now
-        	 */
-        	splashStream = assetMgr.open( FreeMapResources.GetSplashPath( false ) );
-
-//	        if ( lAppView.getMeasuredWidth() > lAppView.getMeasuredHeight() )
-//	        {
-//
-//	            splashStream = assetMgr.open( FreeMapResources.GetSplashPath( true ) );
-//	        }
-//	        else
-//	        {
-//	        	splashStream = assetMgr.open( FreeMapResources.GetSplashPath( false ) );
-//	        }
+        	 */        	
+        	splashStream = WazeResManager.LoadSkinStream( WazeResManager.GetSplashName( false ) );
         }
         catch( Exception ex )
         {
@@ -415,11 +437,7 @@ public final class FreeMapNativeCanvas
         	options.inPreferredConfig = Config.ARGB_8888;
 	        // Load the resource
 	        bmScaled = BitmapFactory.decodeStream( splashStream, null, options );
-//	        	bmScaled = Bitmap.createScaledBitmap(bm, lAppView
-//		                    .getMeasuredWidth(), lAppView.getMeasuredHeight(), false);
-//            bm.recycle();
         }
-                
         return bmScaled;
     }
     
@@ -453,10 +471,14 @@ public final class FreeMapNativeCanvas
 	}
 	
     /*************************************************************************************************
-     * Shows the alert message box for the GPU access error
-     * 
+     *================================= Private interface section     =================================
      */
-    public void ShowCreateSurfaceError()
+    
+    /*************************************************************************************************
+     * Shows the alert message box for the GPU access error
+     * Auxiliary
+     */
+    private void ShowCreateSurfaceError()
     {
 		final Activity context = FreeMapAppService.getMainActivity();
 		if ( context == null )
@@ -487,11 +509,6 @@ public final class FreeMapNativeCanvas
 
 		context.runOnUiThread( errDlg );
     }
-    
-    /*************************************************************************************************
-     *================================= Private interface section     =================================
-     */
-
     
     /*************************************************************************************************
      * CompatabilityWrapper the compatability wrapper class used to overcome dalvik delayed  
@@ -532,6 +549,8 @@ public final class FreeMapNativeCanvas
     public native void CanvasOrientationUpdateNTV();
     
     public native void CanvasContextNTV();
+    
+    public native void CanvasRedrawNTV();
     
     private native void KeyDownHandlerNTV( int aKeyCode,
             boolean isSpecalButton, byte utf8Bytes[] );

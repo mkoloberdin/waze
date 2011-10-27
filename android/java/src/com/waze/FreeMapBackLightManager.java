@@ -51,7 +51,7 @@ public final class FreeMapBackLightManager
         mNativeManager = aManager;
         mTimer = mNativeManager.getTimer();
         
-        Context context = mNativeManager.getAppActivity();
+        Context context = FreeMapAppService.getAppContext();
         
         final PowerManager pm = ( PowerManager ) context.getSystemService( Context.POWER_SERVICE );
         mWakeLock = pm.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK     // Causes stay in the same state 
@@ -102,7 +102,7 @@ public final class FreeMapBackLightManager
      * 
      */
     
-    public static final long WAKE_REFRESH_PERIOD_DEFAULT = 20000L;
+    public static final long WAKE_REFRESH_PERIOD_DEFAULT = 9999L;		// Assume the 10 sec is the minimal screen timeout
     
     private long mRefreshPeriod = WAKE_REFRESH_PERIOD_DEFAULT;
 

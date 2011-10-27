@@ -42,7 +42,11 @@
 #ifdef IPHONE
    #define  CONTEXT_MENU_FONT_SIZE              (18)
 #else
+#ifdef TOUCH_SCREEN
    #define  CONTEXT_MENU_FONT_SIZE              (20)
+#else
+   #define  CONTEXT_MENU_FONT_SIZE              (16)
+#endif
 #endif
 
 #define  CONTEXT_MENU_SIMPLE_LIST_FONT_SIZE     (18)
@@ -983,13 +987,12 @@ static void initialize_rows(  SsdWidget            menu_cnt,
       // AGA TODO:: Replace by the dynamic scaling factor
       const double hd_factor = 1.5;
       int width_margin = 4;
-      row_height = 45;
 
       if ( roadmap_screen_is_hd_screen() )
       {
-         row_height *= hd_factor;
          width_margin *= hd_factor;
       }
+      row_height = ssd_container_get_row_height();
 
       row_width = text_width + width_margin;
    }
@@ -1202,6 +1205,7 @@ void ssd_context_menu_show(int                  x,
                            BOOL 				close_on_selection)
 {
    int style;
+   SsdSize s;
 
 #ifdef TOUCH_SCREEN
    style = SSD_ROUNDED_BLACK;
@@ -1266,7 +1270,9 @@ void ssd_context_menu_show(int                  x,
    if( !s_dialog)
    {
       int   popup_flg = SSD_DIALOG_FLOAT|SSD_CONTAINER_BORDER|SSD_DIALOG_NO_SCROLL|SSD_PERSISTENT;
-
+#ifdef TOUCH_SCREEN
+      popup_flg |= SSD_SHADOW_BG;
+#endif
       if( !(SSD_CONTEXTMENU_SIMPLE_LIST & flags)){
          popup_flg |= (SSD_ROUNDED_CORNERS|style);
          if (!is_screen_wide())
@@ -1304,7 +1310,6 @@ void ssd_context_menu_show(int                  x,
    }
    close_all_popup_menus(menu); // when we show a menu, we never want to start showing it with popups - D.F.
 
-   SsdSize s;
    ssd_dialog_recalculate( s_dialog_name );
    ssd_widget_get_size( s_dialog, &s, NULL );
    roadmap_log( ROADMAP_WARNING, "Context menu size: (%d,%d)", s.width, s.height );

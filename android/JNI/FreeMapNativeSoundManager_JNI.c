@@ -37,6 +37,9 @@ static android_jni_obj_type gJniObj;
 #define JNI_CALL_FreeMapNativeSoundManager_PlayFile                 "PlayFile"
 #define JNI_CALL_FreeMapNativeSoundManager_PlayFile_Sig             "([B)V"
 
+#define JNI_CALL_FreeMapNativeSoundManager_PlayBuffer                 "PlayBuffer"
+#define JNI_CALL_FreeMapNativeSoundManager_PlayBuffer_Sig             "([B)V"
+
 #define JNI_CALL_FreeMapNativeSoundManager_LoadSoundData                 "LoadSoundData"
 #define JNI_CALL_FreeMapNativeSoundManager_LoadSoundData_Sig             "([B)V"
 
@@ -61,7 +64,7 @@ JNIEXPORT void JNICALL Java_com_waze_FreeMapNativeSoundManager_InitSoundManagerN
  * aFileName - the full path to the sound file
  *
  */
-void FreeMapNativeSoundManager_PlayFile( char* aFileName )
+void FreeMapNativeSoundManager_PlayFile( const char* aFileName )
 {
 	JNIEnv *env;
 	jmethodID mid;
@@ -82,6 +85,33 @@ void FreeMapNativeSoundManager_PlayFile( char* aFileName )
 	(*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid, byteArray );
 }
 
+
+/*************************************************************************************************
+ * FreeMapNativeSoundManager_PlayBuffer()
+ * Plays the sound buffer
+ * aFileName - the full path to the sound file
+ *
+ */
+void FreeMapNativeSoundManager_PlayBuffer( void* aBuf, int aSize )
+{
+   JNIEnv *env;
+   jmethodID mid;
+   jbyteArray byteArray;
+   android_method_context_type lMthdContext;
+   JNI_LOG( ROADMAP_INFO, "Trying to call method %s through JNI", JNI_CALL_FreeMapNativeSoundManager_PlayBuffer );
+   mid = InitJNIMethodContext( &gJniObj, &lMthdContext, JNI_CALL_FreeMapNativeSoundManager_PlayBuffer,
+                                                               JNI_CALL_FreeMapNativeSoundManager_PlayBuffer_Sig );
+   if ( !mid || !lMthdContext.env )
+   {
+      roadmap_log( ROADMAP_ERROR, "Failed to obtain method context!" );
+      return;
+   }
+
+   byteArray = (*lMthdContext.env)->NewByteArray( lMthdContext.env, aSize );
+   (*lMthdContext.env)->SetByteArrayRegion( lMthdContext.env, byteArray, 0, aSize, aBuf );
+   // Call the method
+   (*lMthdContext.env)->CallVoidMethod( lMthdContext.env, gJniObj.obj, lMthdContext.mid, byteArray );
+}
 
 /*************************************************************************************************
  * FreeMapNativeSoundManager_LoadSoundData()

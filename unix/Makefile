@@ -39,12 +39,15 @@ LDFLAGS=$(MODELDFLAGS)
 
 OSLIBSRCSCORE=roadmap_file.c \
               roadmap_library.c \
+              roadmap_ssl.c \
               roadmap_net.c \
               ../md5.c \
               roadmap_serial.c \
               roadmap_device_events.c \
               roadmap_input_type.c \
-              roadmap_time.c
+              roadmap_time.c \
+              roadmap_thread.c \
+              resolver.c
 	      
 
 ifneq ($(DESKTOP),ANDROID)
